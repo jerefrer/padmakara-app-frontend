@@ -1,0 +1,83 @@
+{
+  "common": {
+    "welcome": "Bem-vindo",
+    "login": "Entrar",
+    "logout": "Sair",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "retry": "Tentar Novamente",
+    "download": "Download",
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "next": "Próximo",
+    "previous": "Anterior",
+    "search": "Buscar",
+    "settings": "Configurações"
+  },
+  "auth": {
+    "welcomeBack": "Bem-vindo de Volta",
+    "signInToContinue": "Por favor, faça login para continuar",
+    "useBiometric": "Usar {{biometricType}}",
+    "biometricPrompt": "Use sua {{biometricType}} para acessar o conteúdo do retiro",
+    "biometricFallback": "Inserir Código"
+  },
+  "navigation": {
+    "home": "Início",
+    "retreats": "Retiros",
+    "downloads": "Downloads",
+    "profile": "Perfil"
+  },
+  "retreats": {
+    "myRetreats": "Meus Retiros",
+    "spring": "Primavera",
+    "fall": "Outono",
+    "sessions": "Sessões",
+    "tracks": "Faixas",
+    "morning": "Manhã",
+    "evening": "Noite",
+    "transcript": "Transcrição",
+    "audio": "Áudio"
+  },
+  "player": {
+    "nowPlaying": "Tocando Agora",
+    "playbackSpeed": "Velocidade de Reprodução",
+    "bookmark": "Marcador",
+    "bookmarks": "Marcadores",
+    "resume": "Continuar de {{time}}",
+    "completed": "Concluído"
+  },
+  "downloads": {
+    "myDownloads": "Meus Downloads",
+    "downloadComplete": "Download Concluído",
+    "downloadFailed": "Falha no Download",
+    "storage": "Armazenamento Usado",
+    "manageStorage": "Gerenciar Armazenamento"
+  },
+  "profile": {
+    "myProfile": "Meu Perfil",
+    "yourProgress": "Seu Progresso",
+    "completedTracks": "Faixas Concluídas",
+    "listeningTime": "Tempo de Audição",
+    "highlights": "Destaques",
+    "bookmarks": "Marcadores",
+    "languageSettings": "Configurações de Idioma",
+    "language": "Idioma do App",
+    "contentLanguage": "Idioma do Conteúdo",
+    "englishOnly": "Apenas Inglês",
+    "englishPortuguese": "Inglês + Português",
+    "security": "Segurança",
+    "biometricAuth": "Autenticação Biométrica",
+    "secureAccess": "Acesso seguro ao app",
+    "notAvailable": "Não disponível neste dispositivo",
+    "dataManagement": "Gerenciamento de Dados",
+    "syncProgress": "Sincronizar Progresso",
+    "backupProgress": "Fazer backup do seu progresso na nuvem",
+    "clearAllData": "Limpar Todos os Dados",
+    "removeAllProgress": "Remover todo progresso e downloads",
+    "about": "Sobre",
+    "version": "Versão",
+    "appDescription": "O App Padmakara oferece acesso aos ensinamentos de Jigme Khyentse Rinpoche sobre treinamento da mente e as 37 práticas dos bodhisattvas. Construído com amor para a comunidade budista tibetana.",
+    "copyright": "© 2024 Associação Padmakara Portugal",
+    "notifications": "Notificações"
+  }
+}

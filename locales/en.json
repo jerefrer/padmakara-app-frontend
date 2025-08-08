@@ -1,0 +1,83 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "login": "Login",
+    "logout": "Logout",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Try Again",
+    "download": "Download",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "settings": "Settings"
+  },
+  "auth": {
+    "welcomeBack": "Welcome Back",
+    "signInToContinue": "Please sign in to continue",
+    "useBiometric": "Use {{biometricType}}",
+    "biometricPrompt": "Use your {{biometricType}} to access your retreat content",
+    "biometricFallback": "Enter Passcode"
+  },
+  "navigation": {
+    "home": "Home",
+    "retreats": "Retreats",
+    "downloads": "Downloads",
+    "profile": "Profile"
+  },
+  "retreats": {
+    "myRetreats": "My Retreats",
+    "spring": "Spring",
+    "fall": "Fall",
+    "sessions": "Sessions",
+    "tracks": "Tracks",
+    "morning": "Morning",
+    "evening": "Evening",
+    "transcript": "Transcript",
+    "audio": "Audio"
+  },
+  "player": {
+    "nowPlaying": "Now Playing",
+    "playbackSpeed": "Playback Speed",
+    "bookmark": "Bookmark",
+    "bookmarks": "Bookmarks",
+    "resume": "Resume from {{time}}",
+    "completed": "Completed"
+  },
+  "downloads": {
+    "myDownloads": "My Downloads",
+    "downloadComplete": "Download Complete",
+    "downloadFailed": "Download Failed",
+    "storage": "Storage Used",
+    "manageStorage": "Manage Storage"
+  },
+  "profile": {
+    "myProfile": "My Profile",
+    "yourProgress": "Your Progress",
+    "completedTracks": "Completed Tracks",
+    "listeningTime": "Listening Time",
+    "highlights": "Highlights",
+    "bookmarks": "Bookmarks",
+    "languageSettings": "Language Settings",
+    "language": "App Language",
+    "contentLanguage": "Content Language",
+    "englishOnly": "English Only",
+    "englishPortuguese": "English + Portuguese",
+    "security": "Security",
+    "biometricAuth": "Biometric Authentication",
+    "secureAccess": "Secure app access",
+    "notAvailable": "Not available on this device",
+    "dataManagement": "Data Management",
+    "syncProgress": "Sync Progress",
+    "backupProgress": "Backup your progress to the cloud",
+    "clearAllData": "Clear All Data",
+    "removeAllProgress": "Remove all progress and downloads",
+    "about": "About",
+    "version": "Version",
+    "appDescription": "Padmakara App provides access to Jigme Khyentse Rinpoche's teachings on mind training and the 37 practices of bodhisattvas. Built with love for the Tibetan Buddhist community.",
+    "copyright": "© 2024 Associação Padmakara Portugal",
+    "notifications": "Notifications"
+  }
+}
