@@ -6,11 +6,13 @@ import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function TabLayout() {
   const { t } = useLanguage();
   return (
-    <Tabs
+    <AuthGuard>
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#b91c1c', // Burgundy red
         tabBarInactiveTintColor: '#6b7280',
@@ -30,31 +32,36 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('navigation.home'),
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="retreats"
-        options={{
-          title: t('navigation.retreats'),
+          title: 'Retreats',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="leaf.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="downloads"
-        options={{
-          title: t('navigation.downloads'),
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="arrow.down.circle.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: t('navigation.profile'),
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle.badge.checkmark" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="retreats"
+        options={{
+          href: null, // Hide this tab but keep the screen for navigation
+        }}
+      />
+      <Tabs.Screen
+        name="downloads"
+        options={{
+          href: null, // Hide this tab but keep the screen for navigation
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null, // Hide this tab but keep the screen for navigation
         }}
       />
     </Tabs>
+    </AuthGuard>
   );
 }

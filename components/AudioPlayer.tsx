@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Track, UserProgress } from '@/types';
 import { BookmarksManager } from './BookmarksManager';
+import retreatService from '@/services/retreatService';
 import i18n from '@/utils/i18n';
 
 const colors = {
@@ -113,18 +114,33 @@ export function AudioPlayer({
         soundRef.current = null;
       }
 
-      // For demo purposes, we'll use a working test audio file
-      // In production, this would be your S3 URL or the actual file path
       let audioSource;
       
-      try {
-        // Try to use a local asset first (you'd need to add this to assets folder)
-        audioSource = require('@/assets/audio/demo-track.mp3');
-      } catch {
-        // Fallback to a known working online audio file for demo
-        audioSource = { 
-          uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-        };
+      // Check if track is downloaded locally first
+      const isDownloaded = await retreatService.isTrackDownloaded(track.id);
+      
+      if (isDownloaded) {
+        const localPath = await retreatService.getDownloadedTrackPath(track.id);
+        if (localPath) {
+          console.log(`🎵 Playing offline audio: ${localPath}`);
+          audioSource = { uri: localPath };
+        }
+      }
+      
+      // If not available locally, stream from backend
+      if (!audioSource) {
+        console.log(`🔍 Fetching stream URL for track ${track.id}...`);
+        const urlResponse = await retreatService.getTrackStreamUrl(track.id);
+        
+        console.log(`🔍 URL Response:`, urlResponse);
+        
+        if (!urlResponse.success || !urlResponse.url) {
+          console.error(`❌ Failed to get URL:`, urlResponse);
+          throw new Error(urlResponse.error || 'Failed to get audio URL');
+        }
+        
+        console.log(`🌐 Streaming audio from backend: ${urlResponse.url}`);
+        audioSource = { uri: urlResponse.url };
       }
       
       const { sound: newSound } = await Audio.Sound.createAsync(
@@ -155,8 +171,8 @@ export function AudioPlayer({
     } catch (error) {
       console.error('Error loading audio:', error);
       Alert.alert(
-        'Audio Not Available', 
-        'This is a demo version. In the production app, this would play your actual retreat recordings from AWS S3.\n\nFor now, you can explore the interface and see how progress tracking works.'
+        'Audio Error', 
+        'Could not load audio file. Please check your connection and try again.'
       );
     } finally {
       setIsLoading(false);
@@ -186,13 +202,18 @@ export function AudioPlayer({
 
   const togglePlayPause = async () => {
     try {
+      console.log(`🎵 Toggle play/pause - Current state: ${isPlaying ? 'playing' : 'paused'}, Sound loaded: ${sound ? 'yes' : 'no'}`);
+      
       if (!sound) {
+        console.log(`🎵 No sound loaded, loading audio...`);
         await loadAudio();
         return;
       }
 
       // Check if sound is actually loaded before trying to play/pause
       const status = await sound.getStatusAsync();
+      console.log(`🎵 Sound status:`, status);
+      
       if (!status.isLoaded) {
         console.warn('Sound not loaded, attempting to reload...');
         await loadAudio();
@@ -200,9 +221,11 @@ export function AudioPlayer({
       }
 
       if (isPlaying) {
+        console.log(`⏸️ Pausing audio...`);
         await sound.pauseAsync();
         setIsPlaying(false);
       } else {
+        console.log(`▶️ Playing audio...`);
         await sound.playAsync();
         setIsPlaying(true);
       }
@@ -210,7 +233,7 @@ export function AudioPlayer({
       console.error('Error toggling playback:', error);
       Alert.alert(
         'Playback Error', 
-        'Could not play audio. This is normal in the demo version. The full app will play your actual retreat recordings.'
+        'Could not play audio. Please check your connection and try again.'
       );
     }
   };

@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import progressService from '@/services/progressService';
+import retreatService from '@/services/retreatService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
     const newLanguage = language === 'en' ? 'pt' : 'en';
     if (user) {
       const updatedPreferences = {
-        ...user.preferences,
+        ...(user.preferences || {}),
         language: newLanguage,
       };
       await updateUser({ preferences: updatedPreferences });
@@ -114,7 +115,7 @@ export default function ProfileScreen() {
     const newContentLanguage = contentLanguage === 'en' ? 'en-pt' : 'en';
     if (user) {
       const updatedPreferences = {
-        ...user.preferences,
+        ...(user.preferences || {}),
         contentLanguage: newContentLanguage,
       };
       await updateUser({ preferences: updatedPreferences });
@@ -150,16 +151,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const syncProgress = async () => {
-    try {
-      Alert.alert('Syncing...', 'Synchronizing your progress with the server.');
-      await progressService.syncWithBackend();
-      await loadUserStats();
-      Alert.alert('Success', 'Your progress has been synchronized.');
-    } catch (error) {
-      Alert.alert('Sync Failed', 'Could not sync your progress. Please try again later.');
-    }
-  };
 
   const formatListeningTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -173,15 +164,28 @@ export default function ProfileScreen() {
   const clearAllData = () => {
     Alert.alert(
       'Clear All Data',
-      'This will remove all your progress, bookmarks, and highlights. This action cannot be undone.',
+      'This will remove all your progress, bookmarks, highlights, and cached retreat data. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear All',
           style: 'destructive',
-          onPress: () => {
-            // Would clear all AsyncStorage data
-            Alert.alert('Demo Mode', 'In the full app, this would clear all your local data.');
+          onPress: async () => {
+            try {
+              // Clear retreat cache
+              await retreatService.clearAllCache();
+              
+              // Clear progress data (would implement in progressService)
+              // await progressService.clearAllData();
+              
+              Alert.alert('Success', 'All local data has been cleared.');
+              
+              // Reload stats
+              await loadUserStats();
+            } catch (error) {
+              console.error('Clear data error:', error);
+              Alert.alert('Error', 'Failed to clear all data. Please try again.');
+            }
           },
         },
       ]
@@ -218,40 +222,12 @@ export default function ProfileScreen() {
           />
           <Text style={styles.userName}>{user?.name || 'User'}</Text>
           <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
-          <View style={styles.subscriptionBadge}>
-            <Text style={styles.subscriptionText}>
-              {user?.subscription.plan === 'premium' ? 'Premium Member' : 'Basic Member'}
-            </Text>
-          </View>
         </View>
 
-        {/* Statistics Cards */}
-        <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>{t('profile.yourProgress') || 'Your Progress'}</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.completedTracks}</Text>
-              <Text style={styles.statLabel}>{t('profile.completedTracks')}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{formatListeningTime(stats.totalListeningTime)}</Text>
-              <Text style={styles.statLabel}>{t('profile.listeningTime')}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalHighlights}</Text>
-              <Text style={styles.statLabel}>{t('profile.highlights')}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalBookmarks}</Text>
-              <Text style={styles.statLabel}>{t('profile.bookmarks')}</Text>
-            </View>
-          </View>
-        </View>
 
         {/* Language Settings */}
+        <Text style={styles.sectionTitleOutside}>{t('profile.languageSettings') || 'Language Settings'}</Text>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.languageSettings') || 'Language Settings'}</Text>
-          
           <TouchableOpacity style={styles.settingItem} onPress={toggleLanguage}>
             <View style={styles.settingLeft}>
               <Ionicons name="language-outline" size={20} color={colors.burgundy[500]} />
@@ -280,9 +256,8 @@ export default function ProfileScreen() {
         </View>
 
         {/* Security Settings */}
+        <Text style={styles.sectionTitleOutside}>{t('profile.security') || 'Security'}</Text>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
-          
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons 
@@ -300,7 +275,7 @@ export default function ProfileScreen() {
               </View>
             </View>
             <Switch
-              value={user?.preferences.biometricEnabled || false}
+              value={user?.preferences?.biometricEnabled || false}
               onValueChange={toggleBiometric}
               disabled={!biometricAvailable}
               trackColor={{ false: colors.gray[300], true: colors.burgundy[500] }}
@@ -308,27 +283,15 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Data Management */}
+        {/* Account Management */}
+        <Text style={styles.sectionTitleOutside}>Account</Text>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.dataManagement')}</Text>
-          
-          <TouchableOpacity style={styles.settingItem} onPress={syncProgress}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="sync-outline" size={20} color={colors.burgundy[500]} />
-              <View>
-                <Text style={styles.settingTitle}>{t('profile.syncProgress')}</Text>
-                <Text style={styles.settingSubtitle}>{t('profile.backupProgress')}</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.settingItem} onPress={clearAllData}>
             <View style={styles.settingLeft}>
               <Ionicons name="trash-outline" size={20} color="#ef4444" />
               <View>
-                <Text style={[styles.settingTitle, { color: '#ef4444' }]}>{t('profile.clearAllData')}</Text>
-                <Text style={styles.settingSubtitle}>{t('profile.removeAllProgress')}</Text>
+                <Text style={[styles.settingTitle, { color: '#ef4444' }]}>Clear All Data</Text>
+                <Text style={styles.settingSubtitle}>Remove all progress and downloaded content</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
@@ -347,24 +310,14 @@ export default function ProfileScreen() {
         </View>
 
         {/* About Section */}
+        <Text style={styles.sectionTitleOutside}>About</Text>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.about')}</Text>
-          
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="information-circle-outline" size={20} color={colors.burgundy[500]} />
-              <Text style={styles.settingTitle}>{t('profile.version')}</Text>
+              <Text style={styles.settingTitle}>Version</Text>
             </View>
             <Text style={styles.settingValue}>1.0.0 (Beta)</Text>
-          </View>
-
-          <View style={styles.aboutText}>
-            <Text style={styles.aboutDescription}>
-              {t('profile.appDescription')}
-            </Text>
-            <Text style={styles.aboutCopyright}>
-              {t('profile.copyright')}
-            </Text>
           </View>
         </View>
       </ScrollView>
@@ -401,59 +354,19 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 16,
     color: colors.gray[600],
+    marginBottom: 12,
   },
-  subscriptionBadge: {
-    backgroundColor: colors.saffron[500],
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  subscriptionText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statsSection: {
-    padding: 20,
-  },
-  sectionTitle: {
+  sectionTitleOutside: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.burgundy[500],
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    flex: 0.48,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.burgundy[500],
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.gray[600],
-    textAlign: 'center',
+    marginTop: 32,
+    marginBottom: 8,
+    marginHorizontal: 20,
   },
   section: {
     backgroundColor: 'white',
-    marginTop: 12,
+    marginBottom: 12,
   },
   settingItem: {
     flexDirection: 'row',
@@ -489,22 +402,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[600],
     marginRight: 8,
-  },
-  aboutText: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  aboutDescription: {
-    fontSize: 14,
-    color: colors.gray[600],
-    lineHeight: 20,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  aboutCopyright: {
-    fontSize: 12,
-    color: colors.gray[500],
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
 });

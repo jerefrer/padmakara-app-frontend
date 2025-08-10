@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import i18n from '@/utils/i18n';
-import { mockRetreatGroups, mockUser } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import retreatService from '@/services/retreatService';
+import { RetreatGroup, Gathering } from '@/types';
 
 const colors = {
   cream: {
@@ -29,18 +31,27 @@ const colors = {
 };
 
 interface GatheringCardProps {
-  gathering: any;
+  gathering: Gathering;
   onPress: () => void;
 }
 
 function GatheringCard({ gathering, onPress }: GatheringCardProps) {
-  const totalTracks = gathering.sessions.reduce((sum: number, session: any) => sum + session.tracks.length, 0);
-  const totalDuration = gathering.sessions.reduce((sum: number, session: any) => 
-    sum + session.tracks.reduce((trackSum: number, track: any) => trackSum + track.duration, 0), 0
-  );
+  const totalTracks = gathering.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
+  const totalDuration = gathering.sessions?.reduce((sum: number, session) => 
+    sum + (session.tracks?.reduce((trackSum: number, track) => trackSum + track.duration, 0) || 0), 0
+  ) || 0;
   
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);
+
+  // Format dates
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.gatheringCard}>
@@ -57,12 +68,12 @@ function GatheringCard({ gathering, onPress }: GatheringCardProps) {
                 {totalTracks} tracks • {hours}h {minutes}m
               </Text>
               <Text style={styles.dateText}>
-                {gathering.startDate} to {gathering.endDate}
+                {formatDate(gathering.startDate)} to {formatDate(gathering.endDate)}
               </Text>
             </View>
             <View style={styles.sessionsBadge}>
               <Text style={styles.sessionsBadgeText}>
-                {gathering.sessions.length} {i18n.t('retreats.sessions').toLowerCase()}
+                {gathering.sessions?.length || 0} {i18n.t('retreats.sessions').toLowerCase()}
               </Text>
             </View>
           </View>
@@ -73,15 +84,91 @@ function GatheringCard({ gathering, onPress }: GatheringCardProps) {
 }
 
 export default function RetreatsScreen() {
-  const userGroups = mockRetreatGroups.filter(group => 
-    mockUser.retreatGroups.includes(group.id)
-  );
+  const { user } = useAuth();
+  const [retreatData, setRetreatData] = useState<{
+    retreat_groups: RetreatGroup[];
+    recent_gatherings: Gathering[];
+    total_stats: any;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadUserRetreats = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await retreatService.getUserRetreats();
+      
+      if (response.success && response.data) {
+        setRetreatData(response.data);
+      } else {
+        setError(response.error || 'Failed to load retreats');
+        Alert.alert('Error', response.error || 'Failed to load retreats');
+      }
+    } catch (err) {
+      console.error('Error loading retreats:', err);
+      setError('Failed to load retreats');
+      Alert.alert('Error', 'Failed to load retreats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadUserRetreats();
+    }
+  }, [user]);
 
   const handleGatheringPress = (groupId: string, gatheringId: string) => {
     router.push(`/gathering/${gatheringId}`);
   };
 
-  if (userGroups.length === 0) {
+  const handleRetryPress = () => {
+    loadUserRetreats();
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.burgundy[500]} />
+          <Text style={styles.loadingText}>Loading your retreats...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error || !retreatData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyState}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.emptyLogo}
+            contentFit="contain"
+          />
+          <Text style={styles.emptyTitle}>
+            {error ? 'Connection Error' : 'No Retreat Groups'}
+          </Text>
+          <Text style={styles.emptyText}>
+            {error || 'You haven\'t been assigned to any retreat groups yet. Please contact your administrator.'}
+          </Text>
+          {error && (
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetryPress}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Empty state
+  if (!retreatData.retreat_groups || retreatData.retreat_groups.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyState}>
@@ -100,6 +187,8 @@ export default function RetreatsScreen() {
       </SafeAreaView>
     );
   }
+
+  const { retreat_groups: userGroups, total_stats } = retreatData;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -121,7 +210,7 @@ export default function RetreatsScreen() {
               <Text style={styles.groupTitle}>{group.name}</Text>
               <Text style={styles.groupDescription}>{group.description}</Text>
               <Text style={styles.groupStats}>
-                {group.gatherings.length} gatherings • {group.members.length} members
+                {group.gatherings?.length || 0} gatherings • {group.members?.length || 0} members
               </Text>
             </View>
 
@@ -130,7 +219,7 @@ export default function RetreatsScreen() {
               Recent Gatherings
             </Text>
             {group.gatherings
-              .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+              ?.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
               .map(gathering => (
                 <GatheringCard
                   key={gathering.id}
@@ -148,22 +237,21 @@ export default function RetreatsScreen() {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={[styles.statNumber, { color: colors.burgundy[500] }]}>
-                {userGroups.reduce((sum, group) => sum + group.gatherings.length, 0)}
+                {total_stats?.total_gatherings || 0}
               </Text>
               <Text style={styles.statLabel}>Gatherings</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statNumber, { color: colors.saffron[500] }]}>
-                {userGroups.reduce((sum, group) => 
-                  sum + group.gatherings.reduce((gSum, gathering) => 
-                    gSum + gathering.sessions.reduce((sSum, session) => 
-                      sSum + session.tracks.length, 0), 0), 0)}
+                {total_stats?.total_tracks || 0}
               </Text>
               <Text style={styles.statLabel}>Total Tracks</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: colors.burgundy[500] }]}>2</Text>
-              <Text style={styles.statLabel}>In Progress</Text>
+              <Text style={[styles.statNumber, { color: colors.burgundy[500] }]}>
+                {total_stats?.completed_tracks || 0}
+              </Text>
+              <Text style={styles.statLabel}>Completed</Text>
             </View>
           </View>
         </View>
@@ -331,5 +419,29 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: colors.gray[600],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.gray[600],
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: colors.burgundy[500],
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

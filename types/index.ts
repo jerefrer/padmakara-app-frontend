@@ -3,7 +3,8 @@ export interface User {
   name: string;
   email: string;
   avatar?: string | null;
-  retreatGroups?: string[];
+  dharma_name?: string;
+  retreat_groups?: string[];
   preferences: {
     language: 'en' | 'pt';
     contentLanguage: 'en' | 'en-pt';
@@ -12,19 +13,21 @@ export interface User {
   };
   subscription: {
     status: 'active' | 'inactive' | 'expired';
-    plan: 'basic' | 'premium';
+    plan: 'basic' | 'premium' | 'lifetime';
     expiresAt: string;
   };
-  createdAt: string;
-  lastLogin: string;
+  created_at: string;
+  last_login: string;
 }
 
 export interface RetreatGroup {
   id: string;
   name: string;
   description: string;
-  gatherings: Gathering[];
-  members: string[];
+  gatherings?: Gathering[];
+  members?: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Gathering {
@@ -34,24 +37,33 @@ export interface Gathering {
   year: number;
   startDate: string;
   endDate: string;
-  sessions: Session[];
+  sessions?: Session[];
+  status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Session {
   id: string;
   name: string;
-  type: 'morning' | 'evening';
+  type: 'morning' | 'evening' | 'other';
   date: string;
-  tracks: Track[];
+  tracks?: Track[];
+  gathering_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Track {
   id: string;
   title: string;
   duration: number; // in seconds
-  audioUrl: string;
-  transcriptUrl: string;
+  audio_file?: string;
+  transcript_file?: string;
   order: number;
+  session_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface UserProgress {

@@ -1,5 +1,6 @@
 import { getLocales } from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Import translations
 import en from '../locales/en.json';
@@ -18,14 +19,24 @@ class I18n {
   private currentContentLanguage: ContentLanguage = 'en';
   
   constructor() {
-    this.initializeLanguage();
+    // Only initialize on native platforms, defer on web to avoid window error
+    if (Platform.OS !== 'web') {
+      this.initializeLanguage();
+    }
   }
 
   private async initializeLanguage() {
     try {
-      // Get stored language preference
-      const storedLanguage = await AsyncStorage.getItem('app_language');
-      const storedContentLanguage = await AsyncStorage.getItem('content_language');
+      // Get stored language preference - add safety check for web
+      let storedLanguage: string | null = null;
+      let storedContentLanguage: string | null = null;
+      
+      try {
+        storedLanguage = await AsyncStorage.getItem('app_language');
+        storedContentLanguage = await AsyncStorage.getItem('content_language');
+      } catch (asyncStorageError) {
+        console.warn('AsyncStorage not available, using defaults:', asyncStorageError);
+      }
       
       if (storedLanguage && (storedLanguage === 'en' || storedLanguage === 'pt')) {
         this.currentLanguage = storedLanguage as Language;
@@ -96,6 +107,20 @@ class I18n {
     }
 
     return value;
+  }
+  
+  // Method to manually initialize (for web platform)
+  async initialize(): Promise<void> {
+    await this.initializeLanguage();
+  }
+  
+  // Check if AsyncStorage is available
+  private isAsyncStorageAvailable(): boolean {
+    try {
+      return typeof AsyncStorage !== 'undefined' && Platform.OS !== 'web';
+    } catch {
+      return false;
+    }
   }
 }
 

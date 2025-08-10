@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayerDemo } from '@/components/AudioPlayerDemo';
-import { mockRetreatGroups } from '@/data/mockData';
+import retreatService from '@/services/retreatService';
 import { Track, Session, Gathering, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -35,13 +35,74 @@ export default function GatheringDetailScreen() {
   const { t } = useLanguage();
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [gathering, setGathering] = useState<Gathering | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [downloadedTracks, setDownloadedTracks] = useState<Set<string>>(new Set());
 
-  // Find the gathering
-  const gathering: Gathering | undefined = mockRetreatGroups
-    .flatMap(group => group.gatherings)
-    .find(g => g.id === id);
+  useEffect(() => {
+    loadGatheringDetails();
+    loadDownloadedTracks();
+  }, [id]);
 
-  if (!gathering) {
+  const loadGatheringDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await retreatService.getGatheringDetails(id);
+      if (response.success && response.data) {
+        setGathering(response.data);
+      } else {
+        setError(response.error || 'Failed to load gathering details');
+      }
+    } catch (err) {
+      setError('Failed to load gathering details');
+      console.error('Load gathering error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDownloadedTracks = async () => {
+    try {
+      // Check which tracks are downloaded
+      const response = await retreatService.getUserRetreats();
+      if (response.success && response.data) {
+        const downloaded = new Set<string>();
+        for (const group of response.data.retreat_groups) {
+          for (const g of group.gatherings || []) {
+            if (g.id === id) {
+              for (const session of g.sessions || []) {
+                for (const track of session.tracks || []) {
+                  const isDownloaded = await retreatService.isTrackDownloaded(track.id);
+                  if (isDownloaded) {
+                    downloaded.add(track.id);
+                  }
+                }
+              }
+            }
+          }
+        }
+        setDownloadedTracks(downloaded);
+      }
+    } catch (error) {
+      console.error('Load downloaded tracks error:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.burgundy[500]} />
+          <Text style={styles.loadingText}>Loading gathering...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !gathering) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -86,6 +147,65 @@ export default function GatheringDetailScreen() {
       setCurrentTrackIndex(currentTrackIndex + 1);
     } else {
       Alert.alert('Gathering Complete', 'You have finished all tracks in this gathering!');
+    }
+  };
+
+  const handleDownloadTrack = async (track: Track) => {
+    try {
+      Alert.alert(
+        'Download Track',
+        `Download "${track.title}" for offline playback?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Download',
+            onPress: async () => {
+              const result = await retreatService.downloadTrack(track.id);
+              if (result.success) {
+                setDownloadedTracks(prev => new Set(prev).add(track.id));
+                Alert.alert('Download Complete', 'Track has been downloaded for offline playback.');
+              } else {
+                Alert.alert('Download Failed', result.error || 'Failed to download track.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download track.');
+    }
+  };
+
+  const handleRemoveDownload = async (track: Track) => {
+    try {
+      Alert.alert(
+        'Remove Download',
+        `Remove downloaded file for "${track.title}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              const result = await retreatService.removeDownloadedTrack(track.id);
+              if (result.success) {
+                setDownloadedTracks(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(track.id);
+                  return newSet;
+                });
+                Alert.alert('Removed', 'Downloaded file has been removed.');
+              } else {
+                Alert.alert('Error', result.error || 'Failed to remove download.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Remove download error:', error);
+      Alert.alert('Error', 'Failed to remove download.');
     }
   };
 
@@ -197,13 +317,33 @@ export default function GatheringDetailScreen() {
                                   <Text style={styles.trackDuration}>
                                     {formatDuration(track.duration)}
                                   </Text>
-                                  <TouchableOpacity
-                                    onPress={() => router.push(`/transcript/${track.id}`)}
-                                    style={styles.transcriptButton}
-                                  >
-                                    <Ionicons name="document-text-outline" size={14} color={colors.burgundy[500]} />
-                                    <Text style={styles.transcriptButtonText}>Transcript</Text>
-                                  </TouchableOpacity>
+                                  <View style={styles.trackActions}>
+                                    <TouchableOpacity
+                                      onPress={() => router.push(`/transcript/${track.id}`)}
+                                      style={styles.transcriptButton}
+                                    >
+                                      <Ionicons name="document-text-outline" size={14} color={colors.burgundy[500]} />
+                                      <Text style={styles.transcriptButtonText}>Transcript</Text>
+                                    </TouchableOpacity>
+                                    
+                                    {downloadedTracks.has(track.id) ? (
+                                      <TouchableOpacity
+                                        onPress={() => handleRemoveDownload(track)}
+                                        style={styles.downloadedButton}
+                                      >
+                                        <Ionicons name="checkmark-circle" size={14} color={colors.saffron[500]} />
+                                        <Text style={styles.downloadedButtonText}>Downloaded</Text>
+                                      </TouchableOpacity>
+                                    ) : (
+                                      <TouchableOpacity
+                                        onPress={() => handleDownloadTrack(track)}
+                                        style={styles.downloadButton}
+                                      >
+                                        <Ionicons name="download-outline" size={14} color={colors.gray[600]} />
+                                        <Text style={styles.downloadButtonText}>Download</Text>
+                                      </TouchableOpacity>
+                                    )}
+                                  </View>
                                 </View>
                               </View>
                               {isCurrentTrack && (
@@ -376,6 +516,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  trackActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   transcriptButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -389,6 +533,46 @@ const styles = StyleSheet.create({
     color: colors.burgundy[500],
     marginLeft: 4,
     fontWeight: '600',
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  downloadButtonText: {
+    fontSize: 12,
+    color: colors.gray[600],
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  downloadedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.saffron[50],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  downloadedButtonText: {
+    fontSize: 12,
+    color: colors.saffron[500],
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.gray[600],
+    marginTop: 16,
+    textAlign: 'center',
   },
   trackNavigation: {
     backgroundColor: 'white',

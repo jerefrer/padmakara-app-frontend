@@ -8,6 +8,34 @@
     "scheme": "padmakaraappclaudecode",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "linking": {
+      "prefixes": [
+        "padmakaraappclaudecode://",
+        "https://padmakara.app",
+        "http://localhost:3000"
+      ],
+      "config": {
+        "screens": {
+          "(auth)": {
+            "screens": {
+              "activate": {
+                "screens": {
+                  "[token]": "activate/:token"
+                }
+              },
+              "magic-link": "magic-link",
+              "check-email": "check-email"
+            }
+          },
+          "(tabs)": {
+            "screens": {
+              "index": "",
+              "profile": "profile"
+            }
+          }
+        }
+      }
+    },
     "ios": {
       "supportsTablet": true
     },

@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Server Management
+- **DO NOT** start or stop servers yourself (Django backend, npm start, etc.)
+- User will manage all servers
+- If you need to check server logs or status, ASK the user first
+
 ## Project Overview
 
 This is a Padmakara Buddhist learning app built with React Native and Expo Router for the Tibetan Buddhist community. The app provides access to recordings and transcripts from Buddhist retreats across multiple platforms (web, iOS, Android, with future support for Windows, macOS, Linux).
