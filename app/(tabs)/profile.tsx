@@ -161,6 +161,36 @@ export default function ProfileScreen() {
     return `${minutes}m`;
   };
 
+  const clearDownloads = () => {
+    Alert.alert(
+      'Clear Downloads',
+      'This will remove all downloaded audio files. You can re-download them later.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Downloads',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await retreatService.clearAllDownloads();
+              
+              if (result.success) {
+                Alert.alert('Success', `Removed ${result.removedCount} downloaded files.`);
+                // Reload stats to reflect changes
+                await loadUserStats();
+              } else {
+                Alert.alert('Error', result.error || 'Failed to clear downloads.');
+              }
+            } catch (error) {
+              console.error('Clear downloads error:', error);
+              Alert.alert('Error', 'Failed to clear downloads. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const clearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -203,7 +233,7 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.replace('/(auth)/login');
+            router.replace('/(auth)/magic-link');
           },
         },
       ]
@@ -286,6 +316,17 @@ export default function ProfileScreen() {
         {/* Account Management */}
         <Text style={styles.sectionTitleOutside}>Account</Text>
         <View style={styles.section}>
+          <TouchableOpacity style={styles.settingItem} onPress={clearDownloads}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="cloud-download-outline" size={20} color={colors.saffron[500]} />
+              <View>
+                <Text style={styles.settingTitle}>Clear Downloads</Text>
+                <Text style={styles.settingSubtitle}>Remove all downloaded audio files</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.settingItem} onPress={clearAllData}>
             <View style={styles.settingLeft}>
               <Ionicons name="trash-outline" size={20} color="#ef4444" />

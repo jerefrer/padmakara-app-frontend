@@ -198,9 +198,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
               });
             }
           } else {
-            console.log('❌ Auth state invalid or missing');
-            setIsAuthenticated(false);
-            setUser(null);
+            console.log('❌ Auth state invalid or missing - device activated but auth tokens missing');
+            console.log('🔧 Attempting to resolve device/auth state mismatch...');
+            
+            // Device shows as activated but auth tokens are missing
+            // This can happen if AsyncStorage was cleared partially or tokens expired
+            // Try to resolve the state mismatch
+            
+            try {
+              // Check with magic link service for activation status
+              const activationStatus = await magicLinkService.checkActivationStatus();
+              console.log('🔍 Backend activation status:', activationStatus);
+              
+              if (activationStatus.success && activationStatus.data?.isActivated && activationStatus.data?.user) {
+                console.log('✅ Backend confirms device is activated with valid user');
+                setIsAuthenticated(true);
+                setUser(activationStatus.data.user);
+                setIsDeviceActivated(true);
+              } else {
+                console.log('❌ Backend shows device not activated, clearing local activation status');
+                // Clear inconsistent state
+                await magicLinkService.clearDeviceActivation();
+                setIsDeviceActivated(false);
+                setIsAuthenticated(false);
+                setUser(null);
+              }
+            } catch (backendError) {
+              console.error('Error checking backend activation status:', backendError);
+              
+              // Fallback: If we can't reach backend, clear the inconsistent state
+              console.log('🧹 Clearing inconsistent activation state due to backend error');
+              await magicLinkService.clearDeviceActivation();
+              setIsDeviceActivated(false);
+              setIsAuthenticated(false);
+              setUser(null);
+            }
           }
         } else {
           // Device not activated, user needs to go through magic link flow
@@ -360,8 +392,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const handleLogout = async () => {
     try {
       setIsLoading(true);
+      
+      // Deactivate device on backend BEFORE clearing auth tokens
+      // This needs to happen while we still have valid authentication
+      await magicLinkService.deactivateDeviceOnBackend();
+      
+      // Now clear local auth data
       await authService.logout();
       await magicLinkService.clearDeviceActivation();
+      
       setIsAuthenticated(false);
       setUser(null);
       setIsDeviceActivated(false);

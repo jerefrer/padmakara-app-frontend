@@ -18,7 +18,7 @@ export const API_ENDPOINTS = {
   REQUEST_MAGIC_LINK: '/auth/request-magic-link/',
   REQUEST_USER_APPROVAL: '/auth/request-approval/',
   ACTIVATE_DEVICE: '/auth/activate/<token>/',
-  CHECK_DEVICE_STATUS: '/auth/device/status/',
+  DISCOVER_DEVICE_ACTIVATION: '/auth/device/discover/',
   DEACTIVATE_DEVICE: '/auth/device/deactivate/',
   LIST_USER_DEVICES: '/auth/devices/',
   

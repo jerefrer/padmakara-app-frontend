@@ -462,12 +462,44 @@ class RetreatService {
     }
   }
 
-  // Check if track is downloaded
+  // Check if track is downloaded and valid
   async isTrackDownloaded(trackId: string): Promise<boolean> {
     try {
-      const downloadInfo = await this.getCachedData(`@download:${trackId}`);
-      return downloadInfo !== null;
-    } catch {
+      const downloadInfo = await this.getCachedData<{localPath: string, size: number}>(`@download:${trackId}`);
+      if (!downloadInfo) {
+        return false;
+      }
+      
+      // Check if the file actually exists and is not just an error response
+      const fileInfo = await FileSystem.getInfoAsync(downloadInfo.localPath);
+      if (!fileInfo.exists) {
+        console.log(`❌ Downloaded file doesn't exist: ${downloadInfo.localPath}`);
+        // Clean up invalid cache entry
+        await AsyncStorage.removeItem(`@download:${trackId}`);
+        return false;
+      }
+      
+      // Check if file is suspiciously small (likely an error response)
+      const fileSize = fileInfo.size || 0;
+      if (fileSize < 10000) { // Less than 10KB is suspicious for audio
+        console.log(`⚠️ Downloaded file is suspiciously small (${fileSize} bytes), checking content...`);
+        
+        try {
+          // Read first few bytes to check if it's XML error response
+          const fileContent = await FileSystem.readAsStringAsync(downloadInfo.localPath, { length: 200 });
+          if (fileContent.includes('<?xml') && fileContent.includes('<Error>')) {
+            console.log(`❌ Downloaded file is actually an XML error response, removing...`);
+            await this.removeDownloadedTrack(trackId);
+            return false;
+          }
+        } catch (readError) {
+          console.warn('Could not read file content for validation:', readError);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error checking if track is downloaded:', error);
       return false;
     }
   }
@@ -513,6 +545,34 @@ class RetreatService {
   // Clear all cached data
   async clearAllCache(): Promise<void> {
     await this.clearCache();
+  }
+
+  // Clear all downloads and clean up files
+  async clearAllDownloads(): Promise<{ success: boolean; removedCount: number; error?: string }> {
+    try {
+      console.log('🧹 Clearing all downloads...');
+      const keys = await AsyncStorage.getAllKeys();
+      const downloadKeys = keys.filter(key => key.startsWith('@download:'));
+      let removedCount = 0;
+      
+      for (const key of downloadKeys) {
+        try {
+          const trackId = key.replace('@download:', '');
+          const result = await this.removeDownloadedTrack(trackId);
+          if (result.success) {
+            removedCount++;
+          }
+        } catch (error) {
+          console.warn(`Failed to remove download for key ${key}:`, error);
+        }
+      }
+      
+      console.log(`✅ Cleared ${removedCount} downloads`);
+      return { success: true, removedCount };
+    } catch (error) {
+      console.error('Error clearing all downloads:', error);
+      return { success: false, removedCount: 0, error: 'Failed to clear downloads' };
+    }
   }
 
   // Force clear all retreat-related cache (for development)

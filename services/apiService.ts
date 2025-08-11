@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { API_CONFIG, ApiResponse, ApiError, getAuthHeaders } from './apiConfig';
+import { API_CONFIG, API_ENDPOINTS, ApiResponse, ApiError, getAuthHeaders } from './apiConfig';
 import { router } from 'expo-router';
 
 class ApiService {
@@ -100,12 +100,33 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      // Defensive check for undefined endpoint
+      if (!endpoint || endpoint === 'undefined') {
+        console.error('❌ API request with undefined endpoint:', { endpoint, options });
+        return {
+          success: false,
+          error: 'Invalid API endpoint',
+        };
+      }
+
+      // Defensive check for undefined baseURL
+      if (!API_CONFIG.baseURL) {
+        console.error('❌ API_CONFIG.baseURL is undefined:', API_CONFIG);
+        return {
+          success: false,
+          error: 'API configuration error',
+        };
+      }
+
       const token = await this.getAuthToken();
       const headers = token 
         ? getAuthHeaders(token)
         : API_CONFIG.headers;
 
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const fullUrl = `${API_CONFIG.baseURL}${endpoint}`;
+      console.log('🌐 Making API request to:', fullUrl);
+
+      const response = await fetch(fullUrl, {
         ...options,
         headers: {
           ...headers,
@@ -316,9 +337,9 @@ class ApiService {
         return true;
       }
       
-      // Make a simple authenticated request to validate token
+      // Make a simple authenticated request to validate token using existing endpoint
       console.log('🔍 Making token validation request to backend...');
-      const response = await this.get<{ user: any }>('/auth/user/');
+      const response = await this.get<{ devices: any[] }>(API_ENDPOINTS.LIST_USER_DEVICES);
       
       const isValid = response.success;
       console.log(isValid ? '✅ Token validation passed' : '❌ Token validation failed', {

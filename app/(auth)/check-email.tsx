@@ -96,16 +96,18 @@ export default function CheckEmailScreen() {
     }
   }, [resendCooldown]);
 
-  // Check if already authenticated (in case user came back to this screen)
+  // Check if already authenticated (including detection of token activation)
   useEffect(() => {
     if (isAuthenticated && isDeviceActivated) {
-      console.log('✅ User already authenticated, redirecting to main app');
+      console.log('✅ User authenticated via AuthContext state change, redirecting to main app');
       setActivationStatus('activated');
+      setIsPolling(false); // Stop polling when activation detected via AuthContext
       setTimeout(() => {
         router.replace('/(tabs)');
       }, 1000);
     }
   }, [isAuthenticated, isDeviceActivated]);
+
 
   // Polling mechanism to check activation status
   useEffect(() => {

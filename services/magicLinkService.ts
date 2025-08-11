@@ -210,21 +210,66 @@ class MagicLinkService {
         if (__DEV__) {
           console.log('🎭 Development mode: Simulating magic link sent for email:', email);
           
-          // Check if we already have development tokens
+          // Check if we already have development tokens that are valid
           const existingToken = await this.safeGetItem('auth_token');
-          if (existingToken && existingToken.startsWith('dev-token-')) {
-            console.log('🎭 Development tokens already exist, treating as already activated');
-            const userData = await this.safeGetItem('user_data');
-            if (userData) {
+          const existingUserData = await this.safeGetItem('user_data');
+          const deviceActivated = await this.safeGetItem('device_activated');
+          
+          console.log('🎭 Current token state analysis:', {
+            hasToken: !!existingToken,
+            tokenType: existingToken?.startsWith('dev-token-') ? 'development' : (existingToken?.startsWith('eyJ') ? 'JWT' : 'unknown'),
+            tokenPrefix: existingToken?.substring(0, 20) + '...',
+            hasUserData: !!existingUserData,
+            deviceActivated,
+            email: email
+          });
+          
+          // Only treat as already activated if ALL required components are valid
+          if (existingToken && existingToken.startsWith('dev-token-') && existingUserData && deviceActivated === 'true') {
+            console.log('🎭 Valid development tokens already exist, treating as already activated');
+            try {
+              const userData = JSON.parse(existingUserData);
               return {
                 success: true,
                 data: {
                   status: 'already_activated',
                   message: 'Device already activated (development mode)',
                   access_token: existingToken,
-                  user: JSON.parse(userData)
+                  user: userData
                 }
               };
+            } catch (parseError) {
+              console.warn('🎭 Corrupted development user data, clearing and proceeding with new activation');
+              await this.clearDeviceActivation();
+            }
+          }
+          
+          // Handle any inconsistent states by cleaning up
+          if ((existingToken && deviceActivated !== 'true') || (deviceActivated === 'true' && (!existingToken || !existingUserData))) {
+            console.log('🎭 Development mode: Inconsistent state detected, clearing all auth data');
+            console.log('🎭 State details:', {
+              hasToken: !!existingToken,
+              tokenType: existingToken?.startsWith('dev-token-') ? 'development' : (existingToken?.startsWith('eyJ') ? 'JWT' : 'unknown'),
+              hasUserData: !!existingUserData,
+              deviceActivated,
+              tokenPrefix: existingToken?.substring(0, 20) + '...'
+            });
+            
+            // Clear ALL auth-related data to ensure clean state
+            await this.clearDeviceActivation();
+            
+            // Also clear any remaining auth service data
+            try {
+              await AsyncStorage.multiRemove([
+                'auth_token',
+                'refresh_token', 
+                'user_data',
+                'device_activated',
+                'activation_date'
+              ]);
+              console.log('🧹 Cleared all authentication data for fresh start');
+            } catch (clearError) {
+              console.error('Error clearing auth data:', clearError);
             }
           }
           
@@ -243,12 +288,14 @@ class MagicLinkService {
         };
       }
 
-      // If device already activated, store tokens
+      // If device already activated, store tokens and activation flags
       if (response.data.status === 'already_activated' && response.data.access_token) {
         const storageResults = await Promise.all([
           this.safeSetItem('auth_token', response.data.access_token),
           this.safeSetItem('refresh_token', response.data.refresh_token || ''),
-          this.safeSetItem('user_data', JSON.stringify(response.data.user))
+          this.safeSetItem('user_data', JSON.stringify(response.data.user)),
+          this.safeSetItem('device_activated', 'true'),
+          this.safeSetItem('activation_date', new Date().toISOString())
         ]);
         
         if (!storageResults.every(result => result)) {
@@ -527,11 +574,42 @@ class MagicLinkService {
   }
 
   /**
+   * Deactivate device on backend (for logout)
+   */
+  async deactivateDeviceOnBackend(): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🌐 Deactivating device on backend...');
+      
+      const deviceInfo = await this.getDeviceInfo();
+      
+      // Call backend to deactivate this device
+      const response = await apiService.post<{ status: string; message: string }>(
+        API_ENDPOINTS.DEACTIVATE_DEVICE, 
+        {
+          device_fingerprint: deviceInfo.fingerprint
+        }
+      );
+      
+      if (response.success) {
+        console.log('✅ Device deactivated on backend:', response.data?.message);
+        return { success: true };
+      } else {
+        console.warn('⚠️ Backend device deactivation failed:', response.error);
+        return { success: false, error: response.error };
+      }
+    } catch (error) {
+      console.error('Error deactivating device on backend:', error);
+      return { success: false, error: 'Failed to contact backend for deactivation' };
+    }
+  }
+
+  /**
    * Clear device activation (for logout) with enhanced error handling
+   * Note: Backend deactivation should be called separately BEFORE this method
    */
   async clearDeviceActivation(): Promise<void> {
     try {
-      console.log('📱 Clearing device activation...');
+      console.log('📱 Clearing local device activation data...');
       
       const success = await this.safeMultiRemove([
         'device_activated',
@@ -574,13 +652,17 @@ class MagicLinkService {
         };
       }
 
-      // If not locally activated, check with backend
-      console.log('🌐 Checking backend for device activation...');
+      // Use device discovery endpoint to safely check activation status
+      // This endpoint doesn't require auth tokens and can detect backend activations
+      console.log('🔍 Using device discovery to check activation status...');
       const deviceInfo = await this.getDeviceInfo();
       
-      // Use the check device status endpoint with device fingerprint
       const response = await apiService.post<{
         status?: string;
+        message?: string;
+        access_token?: string;
+        refresh_token?: string;
+        user?: any;
         device?: {
           activated_at?: string;
           device_fingerprint?: string;
@@ -588,143 +670,71 @@ class MagicLinkService {
           user_name?: string;
           is_active?: boolean;
         };
-        access_token?: string;
-        refresh_token?: string;
-        user?: any;
-        message?: string;
-      }>(API_ENDPOINTS.CHECK_DEVICE_STATUS, {
+      }>(API_ENDPOINTS.DISCOVER_DEVICE_ACTIVATION, {
         device_fingerprint: deviceInfo.fingerprint
       });
 
       if (response.success && response.data) {
-        console.log('✅ Backend activation check successful:', response.data);
+        console.log('✅ Device discovery check successful:', response.data);
         
-        const isActivated = response.data.status === 'activated' && 
-                           response.data.device?.is_active === true;
+        const isActivated = response.data.status === 'activated';
         
-        if (isActivated) {
-          console.log('🎉 Device confirmed as activated on backend');
+        if (isActivated && response.data.access_token) {
+          console.log('🎉 Device discovered as activated on backend - storing tokens');
           
-          // Check if we have auth tokens in the response
-          if (response.data.access_token) {
-            console.log('💾 Storing activation tokens from backend...');
-            const storageResults = await Promise.all([
-              this.safeSetItem('auth_token', response.data.access_token),
-              this.safeSetItem('refresh_token', response.data.refresh_token || ''),
-              this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-              this.safeSetItem('device_activated', 'true'),
-              this.safeSetItem('activation_date', response.data.device?.activated_at || new Date().toISOString())
-            ]);
-            
-            if (storageResults.every(result => result)) {
-              console.log('✅ Activation tokens stored locally');
-              return {
-                success: true,
-                data: {
-                  isActivated: true,
-                  user: response.data.user
-                }
-              };
-            } else {
-              console.warn('⚠️ Some tokens failed to store locally');
-              return {
-                success: false,
-                error: 'Failed to store activation tokens'
-              };
-            }
-          } else {
-            console.log('⚠️ Device is activated but no auth tokens provided in response');
-            console.log('🔍 Attempting to retrieve auth tokens via user profile endpoint...');
-            
-            // Try to make an authenticated request to get user info and auth tokens
-            // The magic link activation should have created a session, so we might be able to get tokens
-            try {
-              const userResponse = await apiService.get<{
-                user: any;
-                access_token?: string;
-                refresh_token?: string;
-              }>('/auth/user/');
-              
-              if (userResponse.success && userResponse.data) {
-                console.log('✅ Retrieved user data from authenticated endpoint');
-                
-                const userData = userResponse.data.user;
-                const token = userResponse.data.access_token || `session-${Date.now()}`;
-                
-                const storageResults = await Promise.all([
-                  this.safeSetItem('auth_token', token),
-                  this.safeSetItem('refresh_token', userResponse.data.refresh_token || ''),
-                  this.safeSetItem('user_data', JSON.stringify(userData)),
-                  this.safeSetItem('device_activated', 'true'),
-                  this.safeSetItem('activation_date', response.data.device?.activated_at || new Date().toISOString())
-                ]);
-                
-                if (storageResults.every(result => result)) {
-                  console.log('✅ User profile and tokens stored locally');
-                  return {
-                    success: true,
-                    data: {
-                      isActivated: true,
-                      user: userData
-                    }
-                  };
-                }
+          const storageResults = await Promise.all([
+            this.safeSetItem('auth_token', response.data.access_token),
+            this.safeSetItem('refresh_token', response.data.refresh_token || ''),
+            this.safeSetItem('user_data', JSON.stringify(response.data.user)),
+            this.safeSetItem('device_activated', 'true'),
+            this.safeSetItem('activation_date', response.data.device?.activated_at || new Date().toISOString())
+          ]);
+          
+          if (storageResults.every(result => result)) {
+            console.log('✅ Discovered activation tokens stored locally');
+            return {
+              success: true,
+              data: {
+                isActivated: true,
+                user: response.data.user
               }
-            } catch (profileError) {
-              console.warn('⚠️ Could not retrieve user profile:', profileError);
-            }
-            
-            // Fallback: store basic activation info without tokens
-            const userData = {
-              name: response.data.device?.user_name || 'User',
-              email: 'user@example.com', // We don't have email in the response
             };
-            
-            const storageResults = await Promise.all([
-              this.safeSetItem('device_activated', 'true'),
-              this.safeSetItem('activation_date', response.data.device?.activated_at || new Date().toISOString()),
-              this.safeSetItem('user_data', JSON.stringify(userData))
-            ]);
-            
-            if (storageResults.every(result => result)) {
-              console.log('✅ Device activation status stored locally (without tokens)');
-              return {
-                success: true,
-                data: {
-                  isActivated: true,
-                  user: userData
-                }
-              };
-            } else {
-              return {
-                success: false,
-                error: 'Failed to store activation status'
-              };
-            }
+          } else {
+            console.warn('⚠️ Some tokens failed to store locally');
+            return {
+              success: false,
+              error: 'Failed to store activation tokens'
+            };
           }
-        } else {
-          console.log('❌ Device not yet activated on backend');
-          // Not activated yet
+        } else if (response.data.status === 'not_activated') {
+          console.log('🔍 Device not yet activated on backend');
           return {
             success: true,
             data: {
-              isActivated: false,
-              user: null
+              isActivated: false
+            }
+          };
+        } else {
+          console.warn('⚠️ Unexpected discovery response status:', response.data.status);
+          return {
+            success: true,
+            data: {
+              isActivated: false
             }
           };
         }
       } else {
-        console.warn('❌ Backend activation check failed:', response.error);
+        console.warn('❌ Device discovery check failed:', response.error);
         
         // Fallback to local check in case of backend issues
+        const isLocallyActivated = await this.isDeviceActivated();
         const userData = await this.safeGetItem('user_data');
-        const token = await this.safeGetItem('auth_token');
         const user = userData ? JSON.parse(userData) : null;
         
         return {
           success: true,
           data: {
-            isActivated: !!(token && user),
+            isActivated: isLocallyActivated,
             user: user
           }
         };

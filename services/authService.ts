@@ -289,17 +289,9 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
-      // Call Django backend logout endpoint (if token exists)
-      const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        try {
-          await apiService.post(API_ENDPOINTS.LOGOUT);
-        } catch (error) {
-          // Continue with local logout even if backend call fails
-          console.warn('Backend logout failed:', error);
-        }
-      }
-
+      // Note: No backend logout call needed for magic link auth
+      // Device deactivation is handled separately in the logout flow
+      
       // Clear local storage with error handling
       await this.safeMultiRemove([
         'auth_token',
