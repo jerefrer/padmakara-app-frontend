@@ -198,29 +198,10 @@ export function AudioPlayer({
           throw new Error(urlResponse.error || 'Failed to get audio URL');
         }
         
-        // Test if the URL is actually accessible
-        console.log(`🌐 Testing stream URL accessibility: ${urlResponse.url}`);
-        try {
-          const testResponse = await fetch(urlResponse.url, { method: 'HEAD' });
-          console.log(`🔍 Stream URL test response:`, {
-            status: testResponse.status,
-            statusText: testResponse.statusText,
-            headers: Object.fromEntries(testResponse.headers.entries())
-          });
-          
-          if (!testResponse.ok) {
-            if (testResponse.status === 403) {
-              throw new Error('Access denied to audio file. Please check your permissions.');
-            } else {
-              throw new Error(`Audio file not accessible (${testResponse.status}): ${testResponse.statusText}`);
-            }
-          }
-        } catch (testError) {
-          console.error(`❌ Stream URL test failed:`, testError);
-          throw new Error(`Cannot access audio file: ${testError.message}`);
-        }
-        
-        console.log(`✅ Stream URL is accessible, using: ${urlResponse.url}`);
+        // URL received from backend - presigned URLs are pre-validated
+        console.log(`✅ Using presigned stream URL: ${urlResponse.url.substring(0, 80)}...`);
+        console.log(`🔍 [AUDIO DEBUG] Presigned URL contains signature: ${urlResponse.url.includes('Signature=')}`);
+        console.log(`🔍 [AUDIO DEBUG] Presigned URL contains expiration: ${urlResponse.url.includes('Expires=')}`);
         source = urlResponse.url;
       }
       

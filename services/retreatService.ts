@@ -293,22 +293,33 @@ class RetreatService {
     error?: string 
   }> {
     try {
-      console.log(`Getting presigned URL for track: ${trackId}`);
+      console.log(`🔍 [FRONTEND DEBUG] Getting presigned URL for track: ${trackId}`);
+      console.log(`🔍 [FRONTEND DEBUG] API endpoint: ${API_ENDPOINTS.PRESIGNED_URL(trackId)}`);
       
       const response = await apiService.get<{ presigned_url: string }>(
         API_ENDPOINTS.PRESIGNED_URL(trackId)
       );
 
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to get audio URL' 
-        };
+      console.log(`🔍 [FRONTEND DEBUG] Backend response success: ${response.success}`);
+      if (response.success && response.data) {
+        const url = response.data.presigned_url;
+        console.log(`🔍 [FRONTEND DEBUG] Received presigned URL: ${url.substring(0, 100)}...`);
+        console.log(`🔍 [FRONTEND DEBUG] URL contains signature: ${url.includes('Signature=')}`);
+        console.log(`🔍 [FRONTEND DEBUG] URL contains expiration: ${url.includes('Expires=')}`);
+        
+        // Presigned URLs are validated by backend - ready for audio streaming
+        console.log(`🔍 [FRONTEND DEBUG] Presigned URL ready for audio streaming`);
+        
+        return { success: true, url };
       }
 
-      return { success: true, url: response.data.presigned_url };
+      console.error(`🔍 [FRONTEND DEBUG] Backend response failed:`, response.error);
+      return { 
+        success: false, 
+        error: response.error || 'Failed to get audio URL' 
+      };
     } catch (error) {
-      console.error('Get presigned URL error:', error);
+      console.error('❌ [FRONTEND DEBUG] Get presigned URL error:', error);
       return { success: false, error: 'Failed to get audio URL' };
     }
   }
@@ -377,22 +388,30 @@ class RetreatService {
     error?: string 
   }> {
     try {
-      console.log(`Getting stream URL for track: ${trackId}`);
+      console.log(`🔍 [FRONTEND DEBUG] Getting stream URL for track: ${trackId}`);
+      console.log(`🔍 [FRONTEND DEBUG] Stream endpoint: /retreats/presigned-url/${trackId}/`);
       
       // Try to get presigned URL from backend
       const response = await apiService.get<{ presigned_url: string }>(
         `/retreats/presigned-url/${trackId}/`
       );
 
+      console.log(`🔍 [FRONTEND DEBUG] Stream response success: ${response.success}`);
       if (response.success && response.data?.presigned_url) {
-        console.log(`✅ Got stream URL from backend for track: ${trackId}`);
-        return { success: true, url: response.data.presigned_url };
+        const url = response.data.presigned_url;
+        console.log(`✅ [FRONTEND DEBUG] Got stream URL from backend for track: ${trackId}`);
+        console.log(`🔍 [FRONTEND DEBUG] Stream URL: ${url.substring(0, 100)}...`);
+        
+        // Stream URL ready - backend provides validated presigned URLs
+        console.log(`🔍 [FRONTEND DEBUG] Stream URL ready for audio playback`);
+        
+        return { success: true, url };
       } else {
-        console.log('❌ Backend failed to provide stream URL');
+        console.log('❌ [FRONTEND DEBUG] Backend failed to provide stream URL:', response.error);
         return { success: false, error: 'Stream URL not available. Please check your connection.' };
       }
     } catch (error) {
-      console.error('Get stream URL error:', error);
+      console.error('❌ [FRONTEND DEBUG] Get stream URL error:', error);
       return { success: false, error: 'Failed to get stream URL. Please check your connection.' };
     }
   }

@@ -1,1 +1,0 @@
-- After the folders have been created, if we change the name of the retreat, or the teachers or whatever and upload new tracks, will they be created in a new folder structure ? This shouldn't be the case. Are there unique IDs for folders that we can use so that we can change the names of the folders later and not lose things? Are the files paths enough?
