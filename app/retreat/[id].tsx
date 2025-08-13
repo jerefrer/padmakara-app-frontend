@@ -58,6 +58,10 @@ export default function RetreatDetailScreen() {
   const [retreatDownloadProgress, setRetreatDownloadProgress] = useState({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
   const buttonOpacity = useRef(new Animated.Value(1)).current;
   const [downloadStateLoaded, setDownloadStateLoaded] = useState(false);
+  
+  // Confirmation states for double-click removal
+  const [retreatRemovalConfirmation, setRetreatRemovalConfirmation] = useState(false);
+  const removalTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     loadRetreatDetails();
@@ -94,6 +98,15 @@ export default function RetreatDetailScreen() {
       }).start();
     });
   }, [downloadedTracks.size, isDownloadingRetreat]);
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (removalTimeoutRef.current) {
+        clearTimeout(removalTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadRetreatDetails = async () => {
     try {
@@ -147,6 +160,14 @@ export default function RetreatDetailScreen() {
     } catch (error) {
       console.error('Load downloaded tracks error:', error);
       setDownloadStateLoaded(true); // Set loaded even on error to prevent infinite loading
+    }
+  };
+
+  // Helper function for confirmation system
+  const resetRetreatRemovalConfirmation = () => {
+    setRetreatRemovalConfirmation(false);
+    if (removalTimeoutRef.current) {
+      clearTimeout(removalTimeoutRef.current);
     }
   };
 
@@ -210,23 +231,34 @@ export default function RetreatDetailScreen() {
       const tracksToRemove = allTracks.filter(track => downloadedTracks.has(track.id));
       
       if (tracksToDownload.length === 0 && tracksToRemove.length > 0) {
-        // All tracks are downloaded, so remove them
-        console.log(`🗑️ Removing all downloads for retreat: ${retreat.name}`);
-        
-        for (const track of tracksToRemove) {
-          const result = await retreatService.removeDownloadedTrack(track.id);
-          if (result.success) {
-            setDownloadedTracks(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(track.id);
-              return newSet;
-            });
-            console.log(`✅ Removed download: ${track.title}`);
+        // All tracks are downloaded - handle removal with double-click confirmation
+        if (retreatRemovalConfirmation) {
+          // Second click - execute removal
+          console.log(`🗑️ Removing all downloads for retreat: ${retreat.name}`);
+          resetRetreatRemovalConfirmation();
+          
+          for (const track of tracksToRemove) {
+            const result = await retreatService.removeDownloadedTrack(track.id);
+            if (result.success) {
+              setDownloadedTracks(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(track.id);
+                return newSet;
+              });
+              console.log(`✅ Removed download: ${track.title}`);
+            }
           }
+          
+          console.log(`🎉 All retreat downloads removed`);
+          return;
+        } else {
+          // First click - enter confirmation state
+          setRetreatRemovalConfirmation(true);
+          removalTimeoutRef.current = setTimeout(() => {
+            setRetreatRemovalConfirmation(false);
+          }, 4000);
+          return;
         }
-        
-        console.log(`🎉 All retreat downloads removed`);
-        return;
       }
       
       if (tracksToDownload.length === 0) {
@@ -364,6 +396,8 @@ export default function RetreatDetailScreen() {
                   
                   if (isDownloadingRetreat) {
                     return styles.downloadAllButtonActive;
+                  } else if (allDownloaded && retreatRemovalConfirmation) {
+                    return styles.confirmRemovalButton;
                   } else if (allDownloaded) {
                     return styles.removeAllButton;
                   } else {
@@ -404,6 +438,18 @@ export default function RetreatDetailScreen() {
                 total + (track.file_size || estimateAudioFileSize(track.duration)), 0));
               const totalSizeDownloaded = formatBytes(tracksDownloaded.reduce((total, track) => 
                 total + (track.file_size || estimateAudioFileSize(track.duration)), 0));
+              
+              // Handle confirmation state for removal
+              if (allDownloaded && retreatRemovalConfirmation) {
+                return (
+                  <>
+                    <Ionicons name="warning" size={20} color={colors.saffron[500]} />
+                    <Text style={styles.confirmRemovalButtonText}>
+                      Tap again to confirm removal
+                    </Text>
+                  </>
+                );
+              }
               
               return (
                 <>
@@ -578,6 +624,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
+  },
+  confirmRemovalButton: {
+    backgroundColor: colors.saffron[500],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.saffron[500],
+  },
+  confirmRemovalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   sessionsTitle: {
     fontSize: 18,

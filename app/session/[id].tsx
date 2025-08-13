@@ -66,6 +66,12 @@ export default function SessionDetailScreen() {
   const sessionDownloadCancelRef = useRef(false);
   const buttonOpacity = useRef(new Animated.Value(1)).current;
   const [downloadStateLoaded, setDownloadStateLoaded] = useState(false);
+  
+  // Confirmation states for double-click removal
+  const [sessionRemovalConfirmation, setSessionRemovalConfirmation] = useState(false);
+  const [trackRemovalConfirmation, setTrackRemovalConfirmation] = useState<Set<string>>(new Set());
+  const removalTimeoutRef = useRef<NodeJS.Timeout>();
+  const trackRemovalTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     loadSessionDetails();
@@ -102,6 +108,16 @@ export default function SessionDetailScreen() {
       }).start();
     });
   }, [downloadedTracks.size, isDownloadingSession]);
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (removalTimeoutRef.current) {
+        clearTimeout(removalTimeoutRef.current);
+      }
+      trackRemovalTimeoutRef.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
 
   // Simple progress update handler
   const handleProgressUpdate = (progress: UserProgress) => {
@@ -266,21 +282,54 @@ export default function SessionDetailScreen() {
 
   const handleRemoveDownload = async (track: Track) => {
     try {
-      console.log(`🗑️ Removing download for track: ${track.id} - ${track.title}`);
-      
-      const result = await retreatService.removeDownloadedTrack(track.id);
-      if (result.success) {
-        setDownloadedTracks(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(track.id);
-          return newSet;
-        });
-        console.log(`✅ Download removed: ${track.title}`);
+      // Double-click confirmation for individual track removal
+      if (trackRemovalConfirmation.has(track.id)) {
+        // Second click - execute removal
+        console.log(`🗑️ Removing download for track: ${track.id} - ${track.title}`);
+        resetTrackRemovalConfirmation(track.id);
+        
+        const result = await retreatService.removeDownloadedTrack(track.id);
+        if (result.success) {
+          setDownloadedTracks(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(track.id);
+            return newSet;
+          });
+          console.log(`✅ Download removed: ${track.title}`);
+        } else {
+          console.error(`❌ Failed to remove download: ${result.error}`);
+        }
       } else {
-        console.error(`❌ Failed to remove download: ${result.error}`);
+        // First click - enter confirmation state
+        setTrackRemovalConfirmation(prev => new Set(prev).add(track.id));
+        const timeout = setTimeout(() => {
+          resetTrackRemovalConfirmation(track.id);
+        }, 4000);
+        trackRemovalTimeoutRef.current.set(track.id, timeout);
       }
     } catch (error) {
       console.error('Remove download error:', error);
+    }
+  };
+
+  // Helper functions for confirmation system
+  const resetSessionRemovalConfirmation = () => {
+    setSessionRemovalConfirmation(false);
+    if (removalTimeoutRef.current) {
+      clearTimeout(removalTimeoutRef.current);
+    }
+  };
+
+  const resetTrackRemovalConfirmation = (trackId: string) => {
+    setTrackRemovalConfirmation(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(trackId);
+      return newSet;
+    });
+    const timeout = trackRemovalTimeoutRef.current.get(trackId);
+    if (timeout) {
+      clearTimeout(timeout);
+      trackRemovalTimeoutRef.current.delete(trackId);
     }
   };
 
@@ -304,28 +353,39 @@ export default function SessionDetailScreen() {
         return;
       }
 
-      // Check if all tracks are downloaded - if so, remove them
+      // Check if all tracks are downloaded - if so, handle removal with confirmation
       const tracksToDownload = allTracks.filter(track => !downloadedTracks.has(track.id));
       const tracksToRemove = allTracks.filter(track => downloadedTracks.has(track.id));
       
       if (tracksToDownload.length === 0 && tracksToRemove.length > 0) {
-        // All tracks are downloaded, so remove them
-        console.log(`🗑️ Removing all downloads for session: ${session.name}`);
-        
-        for (const track of tracksToRemove) {
-          const result = await retreatService.removeDownloadedTrack(track.id);
-          if (result.success) {
-            setDownloadedTracks(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(track.id);
-              return newSet;
-            });
-            console.log(`✅ Removed download: ${track.title}`);
+        // All tracks are downloaded - handle removal with double-click confirmation
+        if (sessionRemovalConfirmation) {
+          // Second click - execute removal
+          console.log(`🗑️ Removing all downloads for session: ${session.name}`);
+          resetSessionRemovalConfirmation();
+          
+          for (const track of tracksToRemove) {
+            const result = await retreatService.removeDownloadedTrack(track.id);
+            if (result.success) {
+              setDownloadedTracks(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(track.id);
+                return newSet;
+              });
+              console.log(`✅ Removed download: ${track.title}`);
+            }
           }
+          
+          console.log(`🎉 All session downloads removed`);
+          return;
+        } else {
+          // First click - enter confirmation state
+          setSessionRemovalConfirmation(true);
+          removalTimeoutRef.current = setTimeout(() => {
+            setSessionRemovalConfirmation(false);
+          }, 4000);
+          return;
         }
-        
-        console.log(`🎉 All session downloads removed`);
-        return;
       }
       
       if (tracksToDownload.length === 0) {
@@ -479,6 +539,8 @@ export default function SessionDetailScreen() {
                   
                   if (isDownloadingSession) {
                     return styles.downloadAllButtonActive;
+                  } else if (allDownloaded && sessionRemovalConfirmation) {
+                    return styles.confirmRemovalButton;
                   } else if (allDownloaded) {
                     return styles.removeAllButton;
                   } else {
@@ -511,6 +573,18 @@ export default function SessionDetailScreen() {
               
               const totalSizeToDownload = formatBytes(calculateTotalSize(tracksToDownload));
               const totalSizeDownloaded = formatBytes(calculateTotalSize(tracksDownloaded));
+              
+              // Handle confirmation state for removal
+              if (allDownloaded && sessionRemovalConfirmation) {
+                return (
+                  <>
+                    <Ionicons name="warning" size={20} color={colors.saffron[500]} />
+                    <Text style={styles.confirmRemovalButtonText}>
+                      Tap again to confirm removal
+                    </Text>
+                  </>
+                );
+              }
               
               return (
                 <>
@@ -580,9 +654,16 @@ export default function SessionDetailScreen() {
                   {downloadedTracks.has(track.id) ? (
                     <TouchableOpacity
                       onPress={() => handleRemoveDownload(track)}
-                      style={styles.downloadedIconButton}
+                      style={[
+                        styles.downloadedIconButton,
+                        trackRemovalConfirmation.has(track.id) && styles.confirmRemovalIconButton
+                      ]}
                     >
-                      <Ionicons name="checkmark-circle" size={24} color={colors.saffron[500]} />
+                      <Ionicons 
+                        name={trackRemovalConfirmation.has(track.id) ? "warning" : "checkmark-circle"} 
+                        size={24} 
+                        color={trackRemovalConfirmation.has(track.id) ? colors.saffron[500] : colors.saffron[500]} 
+                      />
                     </TouchableOpacity>
                   ) : downloadingTracks.has(track.id) ? (
                     <TouchableOpacity
@@ -738,6 +819,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
+  },
+  confirmRemovalButton: {
+    backgroundColor: colors.saffron[500],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.saffron[500],
+  },
+  confirmRemovalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmRemovalIconButton: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderWidth: 1,
+    borderColor: colors.saffron[500],
   },
   tracksTitle: {
     fontSize: 18,
