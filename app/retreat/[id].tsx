@@ -57,6 +57,7 @@ export default function RetreatDetailScreen() {
   const [isDownloadingRetreat, setIsDownloadingRetreat] = useState(false);
   const [retreatDownloadProgress, setRetreatDownloadProgress] = useState({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
   const buttonOpacity = useRef(new Animated.Value(1)).current;
+  const [downloadStateLoaded, setDownloadStateLoaded] = useState(false);
 
   useEffect(() => {
     loadRetreatDetails();
@@ -68,12 +69,14 @@ export default function RetreatDetailScreen() {
     }
   }, [retreat]);
 
-  // Refresh download state when screen comes into focus
+  // Refresh download state when screen comes into focus (but not on initial load)
+  const hasMountedRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (retreat) {
+      if (retreat && hasMountedRef.current) {
         loadDownloadedTracks();
       }
+      hasMountedRef.current = true;
     }, [retreat])
   );
 
@@ -116,23 +119,34 @@ export default function RetreatDetailScreen() {
       if (retreat?.sessions) {
         const downloadedTrackIds = new Set<string>();
         
-        // Check each track across all sessions to see if it's downloaded
-        for (const session of retreat.sessions) {
+        // Collect all tracks from all sessions
+        const allTracks: any[] = [];
+        retreat.sessions.forEach(session => {
           if (session.tracks) {
-            for (const track of session.tracks) {
-              const isDownloaded = await retreatService.isTrackDownloaded(track.id);
-              if (isDownloaded) {
-                downloadedTrackIds.add(track.id);
-              }
-            }
+            allTracks.push(...session.tracks);
           }
-        }
+        });
+        
+        // Check all tracks simultaneously for faster loading
+        const downloadPromises = allTracks.map(async (track) => {
+          const isDownloaded = await retreatService.isTrackDownloaded(track.id);
+          return { trackId: track.id, isDownloaded };
+        });
+        
+        const results = await Promise.all(downloadPromises);
+        results.forEach(({ trackId, isDownloaded }) => {
+          if (isDownloaded) {
+            downloadedTrackIds.add(trackId);
+          }
+        });
         
         setDownloadedTracks(downloadedTrackIds);
+        setDownloadStateLoaded(true);
         console.log(`📥 Found ${downloadedTrackIds.size} downloaded tracks in retreat`);
       }
     } catch (error) {
       console.error('Load downloaded tracks error:', error);
+      setDownloadStateLoaded(true); // Set loaded even on error to prevent infinite loading
     }
   };
 
@@ -288,12 +302,14 @@ export default function RetreatDetailScreen() {
     }
   };
 
-  if (loading) {
+  if (loading || !downloadStateLoaded) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.loadingText}>Loading retreat...</Text>
+          <Text style={styles.loadingText}>
+            {loading ? 'Loading retreat...' : 'Loading download status...'}
+          </Text>
         </View>
       </View>
     );

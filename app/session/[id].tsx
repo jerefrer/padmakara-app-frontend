@@ -65,6 +65,7 @@ export default function SessionDetailScreen() {
   const [sessionDownloadProgress, setSessionDownloadProgress] = useState({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
   const sessionDownloadCancelRef = useRef(false);
   const buttonOpacity = useRef(new Animated.Value(1)).current;
+  const [downloadStateLoaded, setDownloadStateLoaded] = useState(false);
 
   useEffect(() => {
     loadSessionDetails();
@@ -76,12 +77,14 @@ export default function SessionDetailScreen() {
     }
   }, [session]);
 
-  // Refresh download state when screen comes into focus
+  // Refresh download state when screen comes into focus (but not on initial load)
+  const hasMountedRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (session) {
+      if (session && hasMountedRef.current) {
         loadDownloadedTracks();
       }
+      hasMountedRef.current = true;
     }, [session])
   );
 
@@ -131,27 +134,37 @@ export default function SessionDetailScreen() {
         const downloadedTrackIds = new Set<string>();
         
         // Check each track to see if it's downloaded
-        for (const track of session.tracks) {
+        // Use Promise.all to check all tracks simultaneously for faster loading
+        const downloadPromises = session.tracks.map(async (track) => {
           const isDownloaded = await retreatService.isTrackDownloaded(track.id);
+          return { trackId: track.id, isDownloaded };
+        });
+        
+        const results = await Promise.all(downloadPromises);
+        results.forEach(({ trackId, isDownloaded }) => {
           if (isDownloaded) {
-            downloadedTrackIds.add(track.id);
+            downloadedTrackIds.add(trackId);
           }
-        }
+        });
         
         setDownloadedTracks(downloadedTrackIds);
+        setDownloadStateLoaded(true);
         console.log(`📥 Found ${downloadedTrackIds.size} downloaded tracks`);
       }
     } catch (error) {
       console.error('Load downloaded tracks error:', error);
+      setDownloadStateLoaded(true); // Set loaded even on error to prevent infinite loading
     }
   };
 
-  if (loading) {
+  if (loading || !downloadStateLoaded) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.loadingText}>Loading session...</Text>
+          <Text style={styles.loadingText}>
+            {loading ? 'Loading session...' : 'Loading download status...'}
+          </Text>
         </View>
       </View>
     );
