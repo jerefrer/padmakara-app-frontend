@@ -143,45 +143,46 @@ export default function RetreatDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
           <Text style={styles.loadingText}>Loading retreat...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error || !retreat) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Retreat not found</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>{retreat.name}</Text>
-          <Text style={styles.headerSubtitle}>
-            {t(`retreats.${retreat.season}`)} {retreat.year}
-          </Text>
+    <View style={styles.container}>
+      {/* Fixed Header Section - unmovable */}
+      <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
+        {/* Navigation Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
+          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{retreat.name}</Text>
+            <Text style={styles.headerSubtitle}>
+              {t(`retreats.${retreat.season}`)} {retreat.year}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.content}>
-        {/* Retreat Actions */}
+        {/* Download Retreat Button */}
         <View style={styles.retreatActions}>
           <TouchableOpacity
             onPress={handleDownloadAllRetreat}
@@ -194,15 +195,19 @@ export default function RetreatDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Sessions List */}
-        <View style={styles.sessionsList}>
+        {/* Sessions Header */}
+        <View style={styles.sessionsHeaderSection}>
           <Text style={styles.sessionsTitle}>
             {t('retreats.sessions')} ({retreat.sessions.length})
           </Text>
-          
-          {retreat.sessions
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            .map((session) => {
+        </View>
+      </SafeAreaView>
+
+      {/* Scrollable Sessions List */}
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        {retreat.sessions
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .map((session) => {
               return (
                 <TouchableOpacity
                   key={session.id}
@@ -227,9 +232,8 @@ export default function RetreatDetailScreen() {
                 </TouchableOpacity>
               );
             })}
-        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -238,13 +242,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.cream[100],
   },
+  fixedHeaderContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    paddingVertical: 12,
     backgroundColor: 'white',
   },
   backButton: {
@@ -271,10 +278,21 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: colors.cream[100],
+  },
+  scrollContent: {
+    padding: 16,
   },
   retreatActions: {
     padding: 16,
-    paddingTop: 8,
+    backgroundColor: 'white',
+  },
+  sessionsHeaderSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   downloadAllButton: {
     backgroundColor: colors.burgundy[500],
@@ -291,14 +309,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  sessionsList: {
-    padding: 16,
-  },
   sessionsTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.burgundy[500],
-    marginBottom: 16,
   },
   sessionCard: {
     backgroundColor: 'white',

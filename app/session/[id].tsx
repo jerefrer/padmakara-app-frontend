@@ -122,25 +122,25 @@ export default function SessionDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
           <Text style={styles.loadingText}>Loading session...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error || !session) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Session not found</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -370,22 +370,23 @@ export default function SessionDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>{session.name}</Text>
-          <Text style={styles.headerSubtitle}>
-            {session.gathering.name} • {new Date(session.date).toLocaleDateString()}
-          </Text>
+    <View style={styles.container}>
+      {/* Fixed Header Section - unmovable */}
+      <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
+        {/* Navigation Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
+          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{session.name}</Text>
+            <Text style={styles.headerSubtitle}>
+              {session.gathering.name} • {new Date(session.date).toLocaleDateString()}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {/* Session Actions */}
+        {/* Download Session Button */}
         <View style={styles.sessionActions}>
           <TouchableOpacity
             onPress={handleDownloadAllSession}
@@ -415,13 +416,17 @@ export default function SessionDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Tracks List */}
-        <View style={styles.tracksList}>
+        {/* Tracks Header */}
+        <View style={styles.tracksHeaderSection}>
           <Text style={styles.tracksTitle}>
             Tracks ({allTracks.length})
           </Text>
-          
-          {allTracks.map((track, trackIndex) => {
+        </View>
+      </SafeAreaView>
+
+      {/* Scrollable Tracks List */}
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        {allTracks.map((track, trackIndex) => {
             const isCurrentTrack = currentTrack?.id === track.id;
             
             return (
@@ -490,7 +495,6 @@ export default function SessionDetailScreen() {
               </TouchableOpacity>
             );
           })}
-        </View>
       </ScrollView>
       
       {/* Bottom-sticky Audio Player */}
@@ -502,7 +506,7 @@ export default function SessionDetailScreen() {
         onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
         onPlayingStateChange={setIsTrackPlaying}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -511,13 +515,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.cream[100],
   },
+  fixedHeaderContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    paddingVertical: 12,
     backgroundColor: 'white',
   },
   backButton: {
@@ -544,13 +551,22 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: colors.cream[100],
   },
   scrollContent: {
+    padding: 16,
     paddingBottom: 80, // Space for bottom player
   },
   sessionActions: {
     padding: 16,
-    paddingTop: 24,
+    backgroundColor: 'white',
+  },
+  tracksHeaderSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
   },
   downloadAllButton: {
     backgroundColor: colors.burgundy[500],
@@ -571,14 +587,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[600],
     opacity: 0.9,
   },
-  tracksList: {
-    padding: 16,
-  },
   tracksTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.burgundy[500],
-    marginBottom: 16,
   },
   trackItem: {
     flexDirection: 'row',

@@ -21,6 +21,10 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="session/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="retreat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="gathering/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="transcript/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="dark" backgroundColor="#e8d8b7" />
