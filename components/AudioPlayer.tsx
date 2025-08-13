@@ -1,6 +1,8 @@
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
+import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
@@ -827,11 +829,10 @@ export function AudioPlayer({
               style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
               disabled={isPlayButtonDisabled}
             >
-              <FontAwesome 
-                name="rotate-left" 
+              <RotateLeftThinIcon 
                 size={32} 
                 color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-                style={styles.skipIcon}
+                strokeWidth={1.5}
               />
               <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
             </TouchableOpacity>
@@ -855,11 +856,10 @@ export function AudioPlayer({
               style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
               disabled={isPlayButtonDisabled}
             >
-              <FontAwesome 
-                name="rotate-right" 
+              <RotateRightThinIcon 
                 size={32} 
                 color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-                style={styles.skipIcon}
+                strokeWidth={1.5}
               />
               <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
             </TouchableOpacity>
