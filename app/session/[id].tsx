@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -33,6 +33,7 @@ const colors = {
     600: '#4b5563',
     700: '#374151',
   },
+  white: '#ffffff',
 };
 
 interface SessionDetails {
@@ -61,6 +62,7 @@ export default function SessionDetailScreen() {
   const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
   const [isDownloadingSession, setIsDownloadingSession] = useState(false);
   const [sessionDownloadProgress, setSessionDownloadProgress] = useState({ completed: 0, total: 0 });
+  const sessionDownloadCancelRef = useRef(false);
 
   useEffect(() => {
     loadSessionDetails();
@@ -201,7 +203,9 @@ export default function SessionDetailScreen() {
       if (result.success) {
         setDownloadedTracks(prev => new Set(prev).add(track.id));
         console.log(`✅ Track download completed: ${track.title}`);
-      } else if (!result.cancelled) {
+      } else if (result.cancelled) {
+        console.log(`⏸️ Track download cancelled: ${track.title}`);
+      } else {
         console.error(`❌ Download failed: ${result.error}`);
       }
     } catch (error) {
@@ -253,6 +257,7 @@ export default function SessionDetailScreen() {
         }
         
         // Reset state
+        sessionDownloadCancelRef.current = true;
         setIsDownloadingSession(false);
         setSessionDownloadProgress({ completed: 0, total: 0 });
         setDownloadingTracks(new Set());
@@ -270,6 +275,7 @@ export default function SessionDetailScreen() {
         return;
       }
       
+      sessionDownloadCancelRef.current = false;
       setIsDownloadingSession(true);
       setSessionDownloadProgress({ completed: 0, total: tracksToDownload.length });
       
@@ -279,6 +285,12 @@ export default function SessionDetailScreen() {
       for (let i = 0; i < tracksToDownload.length; i++) {
         const track = tracksToDownload[i];
         console.log(`📊 Downloading track ${i + 1}/${tracksToDownload.length}: ${track.title}`);
+        
+        // Check if session download was cancelled before starting next track
+        if (sessionDownloadCancelRef.current) {
+          console.log('🚫 Session download cancelled, stopping');
+          break;
+        }
         
         // Mark track as downloading
         setDownloadingTracks(prev => new Set(prev).add(track.id));
@@ -302,19 +314,17 @@ export default function SessionDetailScreen() {
         if (result.success && !result.cancelled) {
           successCount++;
           setDownloadedTracks(prev => new Set(prev).add(track.id));
-          console.log(`✅ Track downloaded: ${track.title}`);
-        } else if (!result.cancelled) {
+          console.log(`✅ Track downloaded: ${track.title} (${successCount}/${tracksToDownload.length})`);
+        } else if (result.cancelled) {
+          console.log(`⏸️ Track download cancelled: ${track.title}`);
+          break; // Exit the loop if download was cancelled
+        } else {
           failCount++;
           console.error(`❌ Failed to download track ${track.title}:`, result.error);
         }
         
         // Update session progress
         setSessionDownloadProgress({ completed: i + 1, total: tracksToDownload.length });
-        
-        // Check if session download was cancelled
-        if (!isDownloadingSession) {
-          break;
-        }
       }
       
       setIsDownloadingSession(false);
@@ -430,41 +440,53 @@ export default function SessionDetailScreen() {
                   ]}>
                     {track.title}
                   </Text>
-                  <View style={styles.trackMeta}>
-                    <Text style={styles.trackDuration}>
-                      {formatDuration(track.duration)}
-                    </Text>
-                    <View style={styles.trackActions}>
-                      {downloadedTracks.has(track.id) ? (
-                        <TouchableOpacity
-                          onPress={() => handleRemoveDownload(track)}
-                          style={styles.downloadedButton}
-                        >
-                          <Ionicons name="checkmark-circle" size={16} color={colors.saffron[500]} />
-                        </TouchableOpacity>
-                      ) : (
-                        <CircularProgressButton
-                          progress={downloadProgress.get(track.id) || 0}
-                          isActive={downloadingTracks.has(track.id)}
-                          onPress={() => handleDownloadTrack(track)}
-                          size={16}
-                          strokeWidth={2}
-                          icon="download-outline"
-                          style={styles.downloadButton}
-                        />
-                      )}
-                    </View>
-                  </View>
+                  <Text style={styles.trackDuration}>
+                    {formatDuration(track.duration)}
+                  </Text>
                 </View>
-                {isCurrentTrack && (
-                  <View style={styles.playingIndicator}>
-                    <AnimatedPlayingBars 
-                      isPlaying={true}
-                      size={20} 
-                      color={colors.burgundy[500]} 
-                    />
-                  </View>
-                )}
+                
+                <View style={styles.trackRightSection}>
+                  {isCurrentTrack && (
+                    <View style={styles.playingIndicator}>
+                      <AnimatedPlayingBars 
+                        isPlaying={isTrackPlaying}
+                        size={20} 
+                        color={colors.burgundy[500]} 
+                      />
+                    </View>
+                  )}
+                  
+                  {downloadedTracks.has(track.id) ? (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveDownload(track)}
+                      style={styles.downloadedIconButton}
+                    >
+                      <Ionicons name="checkmark-circle" size={24} color={colors.saffron[500]} />
+                    </TouchableOpacity>
+                  ) : downloadingTracks.has(track.id) ? (
+                    <TouchableOpacity
+                      onPress={() => handleDownloadTrack(track)}
+                      style={styles.downloadingIconButton}
+                    >
+                      <CircularProgressButton
+                        progress={downloadProgress.get(track.id) || 0}
+                        isActive={true}
+                        onPress={() => handleDownloadTrack(track)}
+                        size={24}
+                        strokeWidth={2}
+                        icon="download-outline"
+                        style={styles.downloadProgress}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => handleDownloadTrack(track)}
+                      style={styles.downloadIconButton}
+                    >
+                      <Ionicons name="download-outline" size={18} color={colors.white} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -478,6 +500,7 @@ export default function SessionDetailScreen() {
         onTrackComplete={handleTrackComplete}
         onNextTrack={currentTrackIndex < allTracks.length - 1 ? goToNextTrack : undefined}
         onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
+        onPlayingStateChange={setIsTrackPlaying}
       />
     </SafeAreaView>
   );
@@ -527,7 +550,7 @@ const styles = StyleSheet.create({
   },
   sessionActions: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 24,
   },
   downloadAllButton: {
     backgroundColor: colors.burgundy[500],
@@ -559,7 +582,6 @@ const styles = StyleSheet.create({
   },
   trackItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: 'white',
     padding: 16,
@@ -576,6 +598,7 @@ const styles = StyleSheet.create({
   },
   trackInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   trackTitle: {
     fontSize: 14,
@@ -590,28 +613,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.gray[500],
   },
-  trackMeta: {
+  trackRightSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
   },
-  trackActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  downloadButton: {
+  downloadIconButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 20,
-    height: 20,
+    backgroundColor: colors.burgundy[500],
+    borderRadius: 18,
+    width: 36,
+    height: 36,
   },
-  downloadedButton: {
+  downloadingIconButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 20,
-    height: 20,
-    backgroundColor: colors.saffron[50],
-    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderRadius: 18,
+    width: 36,
+    height: 36,
+  },
+  downloadedIconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 18,
+    width: 36,
+    height: 36,
+  },
+  downloadProgress: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playingIndicator: {
     alignItems: 'center',

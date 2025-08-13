@@ -32,6 +32,7 @@ interface AudioPlayerProps {
   onTrackComplete?: () => void;
   onNextTrack?: () => void;
   onPreviousTrack?: () => void;
+  onPlayingStateChange?: (isPlaying: boolean) => void;
 }
 
 export function AudioPlayer({ 
@@ -39,7 +40,8 @@ export function AudioPlayer({
   onProgressUpdate,
   onTrackComplete,
   onNextTrack,
-  onPreviousTrack 
+  onPreviousTrack,
+  onPlayingStateChange
 }: AudioPlayerProps) {
   // State machine and core state
   const [playerState, setPlayerState] = useState<AudioPlayerState>('LOADING');
@@ -527,14 +529,34 @@ export function AudioPlayer({
   
   // Change playback speed
   const changePlaybackSpeed = () => {
+    // Don't change speed if audio is loading or seeking
+    if (isPlayButtonDisabled || !player || !status?.isLoaded) {
+      return;
+    }
+    
     const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
     const currentIndex = speeds.indexOf(playbackSpeed);
     const newSpeed = speeds[(currentIndex + 1) % speeds.length];
     
     setPlaybackSpeed(newSpeed);
-    if (player) {
-      player.setPlaybackRate(newSpeed, 'medium');
-    }
+    player.setPlaybackRate(newSpeed, 'medium');
+  };
+
+  // Skip backward 15 seconds
+  const skipBackward = () => {
+    const currentPosition = displayPosition;
+    const newPosition = Math.max(0, currentPosition - 15);
+    console.log(`⏪ Skip backward: ${currentPosition}s → ${newPosition}s`);
+    seekTo(newPosition * 1000);
+  };
+
+  // Skip forward 15 seconds
+  const skipForward = () => {
+    const currentPosition = displayPosition;
+    const duration = status?.duration || track.duration || 0;
+    const newPosition = Math.min(duration, currentPosition + 15);
+    console.log(`⏩ Skip forward: ${currentPosition}s → ${newPosition}s`);
+    seekTo(newPosition * 1000);
   };
   
   // Format time
@@ -544,16 +566,21 @@ export function AudioPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
   
+  // Use display position for all UI elements (calculate before early return)
+  const duration = status?.duration || track?.duration || 0;
+  const isPlaying = status?.playing || false;
+  const isLoading = playerState === 'LOADING';
+  const isPlayButtonDisabled = isLoading || isSeekInProgress;
+  
+  // Call parent callback when playing state changes (before early return)
+  useEffect(() => {
+    onPlayingStateChange?.(isPlaying);
+  }, [isPlaying, onPlayingStateChange]);
+  
   // Don't render if no track
   if (!track) {
     return null;
   }
-  
-  // Use display position for all UI elements
-  const duration = status?.duration || track.duration || 0;
-  const isPlaying = status?.playing || false;
-  const isLoading = playerState === 'LOADING';
-  const isPlayButtonDisabled = isLoading || isSeekInProgress;
   
   console.log(`🖥️ Display: ${displayPosition}s/${duration}s, State: ${playerState}, Playing: ${isPlaying}, SeekInProgress: ${isSeekInProgress}`);
   
@@ -601,6 +628,7 @@ export function AudioPlayer({
         {/* Controls - centered below track info */}
         <View style={styles.controlsContainer}>
           <View style={styles.controls}>
+            {/* Previous track */}
             <TouchableOpacity 
               onPress={onPreviousTrack}
               style={[styles.controlButton, !onPreviousTrack && styles.controlDisabled]}
@@ -609,6 +637,24 @@ export function AudioPlayer({
               <Ionicons name="play-skip-back" size={22} color={onPreviousTrack ? colors.gray[700] : colors.gray[400]} />
             </TouchableOpacity>
             
+            {/* -15s button */}
+            <TouchableOpacity 
+              onPress={skipBackward}
+              style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
+              disabled={isPlayButtonDisabled}
+            >
+              <View style={styles.circularSkipContent}>
+                <Ionicons 
+                  name="refresh-outline" 
+                  size={42} 
+                  color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
+                  style={styles.skipArrowLeft}
+                />
+                <Text style={[styles.skipNumberLeft, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* Play/Pause button */}
             <TouchableOpacity 
               onPress={togglePlayPause}
               style={[styles.playButton, isPlayButtonDisabled && styles.playButtonDisabled]}
@@ -621,6 +667,24 @@ export function AudioPlayer({
               />
             </TouchableOpacity>
             
+            {/* +15s button */}
+            <TouchableOpacity 
+              onPress={skipForward}
+              style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
+              disabled={isPlayButtonDisabled}
+            >
+              <View style={styles.circularSkipContent}>
+                <Ionicons 
+                  name="refresh-outline" 
+                  size={42} 
+                  color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
+                  style={styles.skipArrowRight}
+                />
+                <Text style={[styles.skipNumberRight, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* Next track */}
             <TouchableOpacity 
               onPress={onNextTrack}
               style={[styles.controlButton, !onNextTrack && styles.controlDisabled]}
@@ -630,9 +694,13 @@ export function AudioPlayer({
             </TouchableOpacity>
           </View>
           
-          {/* Speed control positioned to the right */}
-          <TouchableOpacity onPress={changePlaybackSpeed} style={styles.speedButton}>
-            <Text style={styles.speedText}>{playbackSpeed}x</Text>
+          {/* Speed control positioned absolutely */}
+          <TouchableOpacity 
+            onPress={changePlaybackSpeed} 
+            style={[styles.speedButton, isPlayButtonDisabled && styles.speedButtonDisabled]}
+            disabled={isPlayButtonDisabled}
+          >
+            <Text style={[styles.speedText, isPlayButtonDisabled && styles.speedTextDisabled]}>{playbackSpeed}x</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -689,15 +757,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   controlsContainer: {
-    flexDirection: 'row',
+    position: 'relative',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    flex: 1,
+    gap: 10,
     justifyContent: 'center',
   },
   controlButton: {
@@ -715,15 +782,81 @@ const styles = StyleSheet.create({
   playButtonDisabled: {
     opacity: 0.5,
   },
+  circularSkipButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circularSkipContent: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  skipArrowLeft: {
+    transform: [{ scaleX: -1 }], // Flip horizontally for backward arrow
+    position: 'absolute',
+  },
+  skipArrowRight: {
+    position: 'absolute',
+  },
+  skipNumber: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.gray[700],
+    position: 'absolute',
+    textAlign: 'center',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -6 }, { translateY: -4 }], // Default positioning
+  },
+  skipNumberLeft: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.gray[700],
+    position: 'absolute',
+    textAlign: 'center',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -8 }, { translateY: -2 }], // Move text 2px left and 2px down
+  },
+  skipNumberRight: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.gray[700],
+    position: 'absolute',
+    textAlign: 'center',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -5 }, { translateY: -2 }], // Move text 1px right and 2px down
+  },
+  skipNumberDisabled: {
+    color: colors.gray[400],
+  },
   speedButton: {
+    position: 'absolute',
+    right: 0,
+    top: '50%',
+    transform: [{ translateY: -14 }], // Slightly higher to align better with other controls
     backgroundColor: colors.gray[100],
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
   },
+  speedButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: colors.gray[200],
+  },
   speedText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.burgundy[500],
+  },
+  speedTextDisabled: {
+    color: colors.gray[400],
   },
 });

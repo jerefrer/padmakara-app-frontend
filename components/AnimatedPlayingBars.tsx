@@ -43,7 +43,7 @@ export function AnimatedPlayingBars({
       // Start animations with different phases for each bar
       bar1.value = withRepeat(
         withTiming(1, { 
-          duration: 600, 
+          duration: 300, 
           easing: Easing.inOut(Easing.ease) 
         }), 
         -1, 
@@ -52,7 +52,7 @@ export function AnimatedPlayingBars({
       
       bar2.value = withRepeat(
         withTiming(1, { 
-          duration: 800, 
+          duration: 400, 
           easing: Easing.inOut(Easing.ease) 
         }), 
         -1, 
@@ -61,7 +61,7 @@ export function AnimatedPlayingBars({
       
       bar3.value = withRepeat(
         withTiming(1, { 
-          duration: 700, 
+          duration: 350, 
           easing: Easing.inOut(Easing.ease) 
         }), 
         -1, 
@@ -70,7 +70,7 @@ export function AnimatedPlayingBars({
       
       bar4.value = withRepeat(
         withTiming(1, { 
-          duration: 900, 
+          duration: 450, 
           easing: Easing.inOut(Easing.ease) 
         }), 
         -1, 

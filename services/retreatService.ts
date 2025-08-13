@@ -45,6 +45,7 @@ class RetreatService {
   };
   private readonly CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
   private activeDownloads = new Map<string, FileSystem.DownloadResumable>(); // Track active downloads for cancellation
+  private cancelledDownloads = new Set<string>(); // Track which downloads were explicitly cancelled
   
   static getInstance(): RetreatService {
     if (!RetreatService.instance) {
@@ -427,12 +428,16 @@ class RetreatService {
     const download = this.activeDownloads.get(trackId);
     if (download) {
       try {
+        // Mark as cancelled before pausing
+        this.cancelledDownloads.add(trackId);
         await download.pauseAsync();
         this.activeDownloads.delete(trackId);
         console.log(`📥 Cancelled download for track: ${trackId}`);
         return true;
       } catch (error) {
         console.error(`Error cancelling download for track ${trackId}:`, error);
+        // Remove from cancelled set if pause failed
+        this.cancelledDownloads.delete(trackId);
         return false;
       }
     }
@@ -488,7 +493,12 @@ class RetreatService {
 
       const downloadResult = await downloadResumable.downloadAsync();
       
+      // Check if download was cancelled
       if (!downloadResult) {
+        if (this.cancelledDownloads.has(trackId)) {
+          this.cancelledDownloads.delete(trackId);
+          return { success: false, cancelled: true };
+        }
         return { success: false, error: 'Download failed - no result' };
       }
       
@@ -508,6 +518,8 @@ class RetreatService {
       
       // Clean up active download tracking
       this.activeDownloads.delete(trackId);
+      // Clean up cancellation tracking (in case it was marked as cancelled but completed)
+      this.cancelledDownloads.delete(trackId);
       
       return { success: true, localPath: downloadResult.uri };
       
@@ -518,6 +530,12 @@ class RetreatService {
       console.error('Download track error:', error);
       
       // Check if it was cancelled
+      if (this.cancelledDownloads.has(trackId)) {
+        this.cancelledDownloads.delete(trackId);
+        return { success: false, cancelled: true };
+      }
+      
+      // Also check error message for cancelled (legacy support)
       if (error.message && error.message.includes('cancelled')) {
         return { success: false, error: 'Download cancelled', cancelled: true };
       }
