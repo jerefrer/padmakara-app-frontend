@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import retreatService from '@/services/retreatService';
 import { Session } from '@/types';
@@ -55,7 +55,8 @@ export default function RetreatDetailScreen() {
   const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
   const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
   const [isDownloadingRetreat, setIsDownloadingRetreat] = useState(false);
-  const [retreatDownloadProgress, setRetreatDownloadProgress] = useState({ completed: 0, total: 0 });
+  const [retreatDownloadProgress, setRetreatDownloadProgress] = useState({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
+  const buttonOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     loadRetreatDetails();
@@ -66,6 +67,30 @@ export default function RetreatDetailScreen() {
       loadDownloadedTracks();
     }
   }, [retreat]);
+
+  // Refresh download state when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (retreat) {
+        loadDownloadedTracks();
+      }
+    }, [retreat])
+  );
+
+  // Smooth transition when button state changes
+  useEffect(() => {
+    Animated.timing(buttonOpacity, {
+      toValue: 0.7,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.timing(buttonOpacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [downloadedTracks.size, isDownloadingRetreat]);
 
   const loadRetreatDetails = async () => {
     try {
@@ -147,7 +172,7 @@ export default function RetreatDetailScreen() {
         
         // Reset state
         setIsDownloadingRetreat(false);
-        setRetreatDownloadProgress({ completed: 0, total: 0 });
+        setRetreatDownloadProgress({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
         setDownloadingTracks(new Set());
         setDownloadProgress(new Map());
         return;
@@ -198,7 +223,9 @@ export default function RetreatDetailScreen() {
       console.log(`🔽 Starting bulk download for retreat: ${retreat.name}`);
       
       setIsDownloadingRetreat(true);
-      setRetreatDownloadProgress({ completed: 0, total: tracksToDownload.length });
+      const totalSize = tracksToDownload.reduce((sum, track) => 
+        sum + (track.file_size || estimateAudioFileSize(track.duration)), 0);
+      setRetreatDownloadProgress({ completed: 0, total: tracksToDownload.length, downloadedSize: 0, totalSize });
       
       let successCount = 0;
       let failCount = 0;
@@ -239,17 +266,24 @@ export default function RetreatDetailScreen() {
         }
         
         // Update retreat progress
-        setRetreatDownloadProgress({ completed: i + 1, total: tracksToDownload.length });
+        const downloadedSize = tracksToDownload.slice(0, i + 1).reduce((sum, track) => 
+          sum + (track.file_size || estimateAudioFileSize(track.duration)), 0);
+        setRetreatDownloadProgress({ 
+          completed: i + 1, 
+          total: tracksToDownload.length,
+          downloadedSize,
+          totalSize
+        });
       }
       
       setIsDownloadingRetreat(false);
-      setRetreatDownloadProgress({ completed: 0, total: 0 });
+      setRetreatDownloadProgress({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
       
       console.log(`🎉 Retreat download completed: ${successCount} succeeded, ${failCount} failed`);
       
     } catch (error) {
       setIsDownloadingRetreat(false);
-      setRetreatDownloadProgress({ completed: 0, total: 0 });
+      setRetreatDownloadProgress({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
       console.error('Bulk retreat download error:', error);
     }
   };
@@ -297,22 +331,47 @@ export default function RetreatDetailScreen() {
 
         {/* Download Retreat Button */}
         <View style={styles.retreatActions}>
-          <TouchableOpacity
-            onPress={handleDownloadAllRetreat}
-            style={[
-              styles.downloadAllButton,
-              isDownloadingRetreat && styles.downloadAllButtonActive
-            ]}
-          >
+          <Animated.View style={{ opacity: buttonOpacity }}>
+            <TouchableOpacity
+              onPress={handleDownloadAllRetreat}
+              style={[
+                (() => {
+                  const allTracks: any[] = [];
+                  retreat.sessions.forEach(session => {
+                    if (session.tracks) {
+                      allTracks.push(...session.tracks);
+                    }
+                  });
+                  const tracksToDownload = allTracks.filter(t => !downloadedTracks.has(t.id));
+                  const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
+                  const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
+                  
+                  if (isDownloadingRetreat) {
+                    return styles.downloadAllButtonActive;
+                  } else if (allDownloaded) {
+                    return styles.removeAllButton;
+                  } else {
+                    return styles.downloadAllButton;
+                  }
+                })()
+              ]}
+            >
             {isDownloadingRetreat ? (
               <>
-                <ActivityIndicator size="small" color="white" />
-                <Text style={styles.downloadAllButtonText}>
-                  {retreatDownloadProgress.total > 0 
-                    ? `Downloading (${retreatDownloadProgress.completed}/${retreatDownloadProgress.total})`
-                    : 'Preparing...'
-                  }
-                </Text>
+                <ActivityIndicator size="small" color="white" style={styles.downloadSpinner} />
+                <View style={styles.downloadProgressContainer}>
+                  <Text style={styles.downloadAllButtonText}>
+                    {retreatDownloadProgress.total > 0 
+                      ? `${Math.round((retreatDownloadProgress.completed / retreatDownloadProgress.total) * 100)}%`
+                      : 'Preparing...'
+                    }
+                  </Text>
+                  {retreatDownloadProgress.totalSize > 0 && (
+                    <Text style={styles.downloadSizeText}>
+                      {formatBytes(retreatDownloadProgress.downloadedSize)} / {formatBytes(retreatDownloadProgress.totalSize)}
+                    </Text>
+                  )}
+                </View>
               </>
             ) : (() => {
               const allTracks: any[] = [];
@@ -332,8 +391,12 @@ export default function RetreatDetailScreen() {
               
               return (
                 <>
-                  <Ionicons name={allDownloaded ? "trash" : "download"} size={20} color="white" />
-                  <Text style={styles.downloadAllButtonText}>
+                  <Ionicons 
+                    name={allDownloaded ? "trash-outline" : "download"} 
+                    size={20} 
+                    color={allDownloaded ? colors.gray[600] : "white"} 
+                  />
+                  <Text style={allDownloaded ? styles.removeAllButtonText : styles.downloadAllButtonText}>
                     {allDownloaded 
                       ? `Remove Downloads (${tracksDownloaded.length} tracks, ${totalSizeDownloaded})`
                       : `Download Retreat (${tracksToDownload.length} tracks, ${totalSizeToDownload})`
@@ -342,7 +405,8 @@ export default function RetreatDetailScreen() {
                 </>
               );
             })()}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
         {/* Sessions Header */}
@@ -461,7 +525,43 @@ const styles = StyleSheet.create({
   },
   downloadAllButtonActive: {
     backgroundColor: colors.burgundy[600],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
     opacity: 0.9,
+  },
+  removeAllButton: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  removeAllButtonText: {
+    color: colors.gray[600],
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  downloadSpinner: {
+    marginRight: 8,
+  },
+  downloadProgressContainer: {
+    alignItems: 'center',
+  },
+  downloadSizeText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
   sessionsTitle: {
     fontSize: 18,
