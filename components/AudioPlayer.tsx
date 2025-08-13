@@ -1,35 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Track, UserProgress } from '@/types';
-import { BookmarksManager } from './BookmarksManager';
 import retreatService from '@/services/retreatService';
-import i18n from '@/utils/i18n';
 
 const colors = {
-  cream: {
-    100: '#fcf8f3',
-  },
   burgundy: {
     500: '#b91c1c',
     600: '#991b1b',
   },
-  saffron: {
-    500: '#f59e0b',
-  },
   gray: {
+    100: '#f3f4f6',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#1f2937',
   },
+  white: '#ffffff',
 };
 
+// Audio player state machine
+type AudioPlayerState = 'LOADING' | 'READY' | 'RESTORED' | 'PLAYING' | 'SEEKING';
+
 interface AudioPlayerProps {
-  track: Track;
+  track: Track | null;
   onProgressUpdate?: (progress: UserProgress) => void;
   onTrackComplete?: () => void;
   onNextTrack?: () => void;
@@ -38,408 +36,605 @@ interface AudioPlayerProps {
 
 export function AudioPlayer({ 
   track, 
-  onProgressUpdate, 
+  onProgressUpdate,
   onTrackComplete,
   onNextTrack,
   onPreviousTrack 
 }: AudioPlayerProps) {
+  // State machine and core state
+  const [playerState, setPlayerState] = useState<AudioPlayerState>('LOADING');
   const [audioSource, setAudioSource] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [position, setPosition] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [isSliding, setIsSliding] = useState(false);
-  const [localPlayingState, setLocalPlayingState] = useState(false); // Fallback state
-  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [loadedTrackId, setLoadedTrackId] = useState<string | null>(null);
   
-  // Use the expo-audio hooks
-  const player = useAudioPlayer(audioSource, 1000); // 1000ms update interval
+  // Position state - single source of truth
+  const [playerPosition, setPlayerPosition] = useState(0); // Actual player position
+  const [displayPosition, setDisplayPosition] = useState(0); // UI display position
+  const [restorationProtection, setRestorationProtection] = useState(false); // Prevent immediate overwrites
+  const [expectedPosition, setExpectedPosition] = useState(0); // Position we expect player to reach
+  const [isSeekInProgress, setIsSeekInProgress] = useState(false); // Track active seek operations
+  const [pendingTimeouts, setPendingTimeouts] = useState<NodeJS.Timeout[]>([]); // Track timeouts for cleanup
+  const [isRestorationInProgress, setIsRestorationInProgress] = useState(false); // Prevent concurrent restorations
+  const [restorationTrackId, setRestorationTrackId] = useState<string | null>(null); // Track which track is being restored
+  
+  // Audio player hooks
+  const player = useAudioPlayer(audioSource);
   const status = useAudioPlayerStatus(player);
   
-  const progressKey = `progress_${track.id}`;
-
-  // Setup audio session
+  // Setup audio session on mount
   useEffect(() => {
     setAudioModeAsync({
-      allowsRecordingIOS: false,
+      allowsRecording: false,
       staysActiveInBackground: true,
       playsInSilentModeIOS: true,
       shouldDuckAndroid: true,
       playThroughEarpieceAndroid: false,
     });
   }, []);
-
-  // Load saved progress and audio source
+  
+  // Load new track - reset all state and cancel pending operations
   useEffect(() => {
-    loadSavedProgress();
-    loadAudioSource();
-  }, [track.id]);
-
-  // Listen to status updates
-  useEffect(() => {
-    console.log('🎵 Audio status update:', {
-      isPlaying: status?.isPlaying,
-      currentTime: status?.currentTime,
-      duration: status?.duration,
-      muted: status?.muted,
-      error: status?.error,
-      audioSource: audioSource,
-      hasStatus: !!status,
-      isLoaded: status?.isLoaded,
-      isBuffering: status?.isBuffering,
-      playbackState: status?.playbackState,
-      timeControlStatus: status?.timeControlStatus,
-      reasonForWaitingToPlay: status?.reasonForWaitingToPlay
-    });
+    // Cancel all pending timeouts when switching tracks
+    pendingTimeouts.forEach(timeout => clearTimeout(timeout));
+    setPendingTimeouts([]);
     
-    if (status) {
-      // Check for loading errors or failures
-      if (status.error) {
-        console.error('🎵 Audio player error:', status.error);
-        Alert.alert('Playback Error', `Audio error: ${status.error}`);
+    if (track) {
+      console.log(`🔄 Loading new track: ${track.title} (${track.id})`);
+      
+      // Cancel any ongoing restoration by clearing the restoration track ID
+      if (isRestorationInProgress) {
+        console.log('🚫 Cancelling ongoing restoration for track switch');
+        setRestorationTrackId(null);
       }
       
-      // Detect if audio is stuck in buffering/loading state
-      if (audioSource && !status.isLoaded && status.isBuffering) {
-        console.warn('🎵 Audio is stuck in buffering state. This might indicate a URL or format issue.');
-      }
+      setPlayerState('LOADING');
+      setLoadedTrackId(null);
+      setPlayerPosition(0);
+      setDisplayPosition(0);
+      setExpectedPosition(0);
+      setRestorationProtection(false);
+      setIsSeekInProgress(false);
+      setIsRestorationInProgress(false);
+      setRestorationTrackId(null);
+      loadTrack(track);
+    } else {
+      console.log('🔄 No track selected, resetting');
+      setAudioSource(null);
+      setPlayerState('LOADING');
+      setLoadedTrackId(null);
+      setPlayerPosition(0);
+      setDisplayPosition(0);
+      setExpectedPosition(0);
+      setRestorationProtection(false);
+      setIsSeekInProgress(false);
+      setIsRestorationInProgress(false);
+      setRestorationTrackId(null);
+    }
+  }, [track]);
+  
+  // Handle audio loading and restoration
+  useEffect(() => {
+    if (!status || !track) return;
+    
+    console.log(`📊 Status: ${playerState}, isLoaded: ${status.isLoaded}, duration: ${status.duration}, currentTime: ${status.currentTime}`);
+    
+    // State machine transitions - prevent duplicate loading for same track
+    if (playerState === 'LOADING' && status.isLoaded && status.duration > 0 && loadedTrackId !== track.id) {
+      console.log(`✅ Audio loaded: ${track.title} (${track.id}) - Duration: ${status.duration}s`);
+      setLoadedTrackId(track.id);
       
-      // Log when audio successfully loads
-      if (status.isLoaded && status.duration > 0) {
-        console.log('✅ Audio successfully loaded!', {
-          duration: status.duration,
-          playbackState: status.playbackState
-        });
-        
-        // Clear loading timeout since audio loaded successfully
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-          setLoadingTimeout(null);
-        }
-      }
+      // Wait a bit longer before transitioning to READY for subsequent tracks  
+      const isFirstLoad = loadedTrackId === null;
+      const delay = isFirstLoad ? 100 : 800; // Longer delay for subsequent tracks
       
-      // Sync local playing state with actual status
-      if (status.isPlaying !== undefined) {
-        setLocalPlayingState(status.isPlaying);
-      }
+      const timeout = setTimeout(() => {
+        console.log(`✅ Audio stabilized - transitioning to READY (delay: ${delay}ms)`);
+        setPlayerState('READY');
+      }, delay);
       
-      if (!isSliding) {
-        setPosition(status.currentTime * 1000); // Convert to milliseconds
-        
-        // Save progress every 10 seconds
-        const currentTimeMs = status.currentTime * 1000;
-        if (currentTimeMs && currentTimeMs % 10000 < 1000) {
-          saveProgress(currentTimeMs);
-        }
-        
-        // Check if track completed
-        if (status.didJustFinish || (status.currentTime >= status.duration && status.duration > 0)) {
-          saveProgress(status.duration * 1000);
-          onTrackComplete?.();
-        }
+      // Track timeout for cleanup
+      setPendingTimeouts(prev => [...prev, timeout]);
+    }
+    
+    // Automatic restoration when ready (prevent concurrent attempts)
+    if (playerState === 'READY' && loadedTrackId === track.id && !isRestorationInProgress) {
+      console.log(`🎯 Auto-restoring position for: ${track.title}`);
+      restoreSavedPosition();
+    }
+  }, [status, track, playerState, loadedTrackId]);
+  
+  // Handle position updates during normal playback
+  useEffect(() => {
+    if (!status || !track) {
+      return;
+    }
+    
+    // Allow position updates during PLAYING and after manual seeks complete
+    if (playerState !== 'PLAYING' && playerState !== 'SEEKING') {
+      return;
+    }
+    
+    if (loadedTrackId !== track.id || status.currentTime === undefined) {
+      return;
+    }
+    
+    // State-based protection: Check if we're waiting for seek completion
+    if (restorationProtection) {
+      const positionDiff = Math.abs(status.currentTime - expectedPosition);
+      console.log(`🛡️ Protection active - status: ${status.currentTime}s, expected: ${expectedPosition}s, diff: ${positionDiff}s`);
+      
+      // More forgiving tolerance for manual seeks during playback (3 seconds)
+      // Less forgiving for restoration seeks (2 seconds)
+      const tolerance = playerState === 'PLAYING' ? 3 : 2;
+      
+      if (positionDiff <= tolerance) {
+        console.log(`✅ Player reached expected position (tolerance: ${tolerance}s) - clearing protection`);
+        setRestorationProtection(false);
+        setIsSeekInProgress(false);
+      } else {
+        // Still waiting for player to catch up
+        return;
       }
     }
-  }, [status, isSliding]);
-
-  const loadSavedProgress = async () => {
+    
+    // Update positions only if not currently seeking via slider
+    if (playerState !== 'SEEKING') {
+      console.log(`🔄 Updating positions - ${status.currentTime}s`);
+      setPlayerPosition(status.currentTime);
+      setDisplayPosition(status.currentTime);
+    }
+    
+    // Save progress every 10 seconds (only during normal playback)
+    if (playerState === 'PLAYING') {
+      const currentSeconds = Math.floor(status.currentTime);
+      if (currentSeconds > 0 && currentSeconds % 10 === 0) {
+        console.log(`💾 Auto-saving progress at ${currentSeconds}s`);
+        saveProgress(status.currentTime * 1000);
+      }
+    }
+    
+    // Check for completion
+    if (status.didJustFinish || (status.currentTime >= status.duration && status.duration > 0)) {
+      console.log('🏁 Track completed');
+      saveProgress(status.duration * 1000);
+      onTrackComplete?.();
+    }
+  }, [status, track, playerState, loadedTrackId, restorationProtection, expectedPosition]);
+  
+  // Load track audio source
+  const loadTrack = async (newTrack: Track) => {
     try {
-      const savedProgress = await AsyncStorage.getItem(progressKey);
-      if (savedProgress) {
-        const progress = JSON.parse(savedProgress);
-        setPosition(progress.position * 1000); // Convert to milliseconds
+      console.log(`🎵 Loading track: ${newTrack.title} (ID: ${newTrack.id})`);
+      
+      // Get audio source (local or stream)
+      const source = await getAudioSource(newTrack);
+      if (source) {
+        console.log(`📻 Setting audio source for: ${newTrack.title}`);
+        setAudioSource(source);
+        console.log(`✅ Audio source set for: ${newTrack.title}`);
+      } else {
+        console.error(`❌ Failed to get audio source for: ${newTrack.title}`);
       }
     } catch (error) {
-      console.error('Error loading progress:', error);
+      console.error('Error loading track:', error);
     }
   };
-
-  const saveProgress = async (currentPosition: number) => {
+  
+  // Get audio source (local or stream)
+  const getAudioSource = async (track: Track): Promise<string | null> => {
+    try {
+      // Check for local download first
+      const isDownloaded = await retreatService.isTrackDownloaded(track.id);
+      
+      if (isDownloaded) {
+        const localPath = await retreatService.getDownloadedTrackPath(track.id);
+        if (localPath) {
+          console.log(`🎵 Using local audio: ${track.title}`);
+          return localPath;
+        }
+      }
+      
+      // Get stream URL from backend
+      console.log(`🌐 Getting stream URL for: ${track.title}`);
+      const response = await retreatService.getTrackStreamUrl(track.id);
+      
+      if (response.success && response.url) {
+        console.log(`✅ Got stream URL for: ${track.title}`);
+        return response.url;
+      } else {
+        throw new Error(response.error || 'Failed to get stream URL');
+      }
+    } catch (error) {
+      console.error('Error getting audio source:', error);
+      return null;
+    }
+  };
+  
+  // Restore saved position with proper error handling and state cleanup
+  const restoreSavedPosition = async () => {
+    if (!track || !player || !status?.isLoaded || playerState !== 'READY' || isRestorationInProgress) {
+      console.log('❌ Cannot restore position - requirements not met');
+      return;
+    }
+    
+    const currentTrackId = track.id;
+    
+    // Create a restoration session ID to track this specific restoration
+    const restorationSessionId = `${currentTrackId}-${Date.now()}`;
+    
+    try {
+      console.log(`🔄 Starting position restoration for ${track.title} (session: ${restorationSessionId})`);
+      setIsRestorationInProgress(true);
+      setRestorationTrackId(currentTrackId);
+      setPlayerState('SEEKING');
+      setIsSeekInProgress(true);
+      
+      const progressKey = `progress_${currentTrackId}`;
+      const savedProgress = await AsyncStorage.getItem(progressKey);
+      
+      // Check if track changed during async operations
+      if (!track || track.id !== currentTrackId) {
+        console.log(`⚠️ Track changed during restoration (session: ${restorationSessionId}) - track.id: "${track?.id}", currentTrackId: "${currentTrackId}"`);
+        return;
+      }
+      
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        const positionSeconds = progress.position;
+        
+        // Ensure position is valid
+        const maxDuration = status.duration || track.duration || 0;
+        if (positionSeconds > 0 && positionSeconds < maxDuration - 1) {
+          console.log(`🎯 Restoring to saved position: ${positionSeconds}s / ${maxDuration}s`);
+          
+          // Update display position immediately
+          setDisplayPosition(positionSeconds);
+          setExpectedPosition(positionSeconds);
+          
+          // Wait for audio to stabilize
+          console.log('⏳ Waiting for audio to stabilize...');
+          await new Promise(resolve => setTimeout(resolve, 600));
+          
+          // Check again if track changed during wait
+          if (!track || track.id !== currentTrackId) {
+            console.log(`⚠️ Track changed during stabilization wait (session: ${restorationSessionId}), aborting`);
+            return;
+          }
+          
+          // Validate player is still valid before seeking - check multiple conditions
+          console.log(`🔍 Player validation (session: ${restorationSessionId}): player=${!!player}, status.isLoaded=${status?.isLoaded}, playerState=${playerState}, status.currentTime=${status?.currentTime}`);
+          
+          const isPlayerValid = player && 
+                               status?.isLoaded && 
+                               playerState !== 'LOADING';
+                               
+          if (!isPlayerValid) {
+            console.log(`⚠️ Player became invalid during restoration (session: ${restorationSessionId}), aborting`);
+            return;
+          }
+          
+          // Double-check player object validity with try-catch
+          try {
+            // Final check before seek
+            if (!track || track.id !== currentTrackId) {
+              console.log(`⚠️ Track changed just before seek (session: ${restorationSessionId}), aborting`);
+              return;
+            }
+            
+            // Test player object validity before seeking
+            if (!status?.isLoaded) {
+              console.log(`⚠️ Player not loaded during restoration (session: ${restorationSessionId}), aborting`);
+              return;
+            }
+            
+            // Additional player object validation
+            if (!player) {
+              console.log(`⚠️ Player object is null during restoration (session: ${restorationSessionId}), aborting`);
+              return;
+            }
+            
+            // Perform the seek with error handling
+            console.log(`🎯 Executing seek to ${positionSeconds}s (session: ${restorationSessionId})`);
+            
+            try {
+              await player.seekTo(positionSeconds);
+              console.log(`✅ Seek operation completed successfully (session: ${restorationSessionId})`);
+              
+              // Wait for seek completion
+              await new Promise(resolve => setTimeout(resolve, 400));
+              
+              // Verify the seek actually worked by checking current position
+              const currentTime = status?.currentTime || 0;
+              const seekDiff = Math.abs(currentTime - positionSeconds);
+              console.log(`🔍 Post-seek verification: expected ${positionSeconds}s, actual ${currentTime}s, diff: ${seekDiff}s`);
+              
+              // Final validation after seek
+              if (track && track.id === currentTrackId) {
+                setPlayerPosition(positionSeconds);
+                setRestorationProtection(true);
+                console.log(`✅ Position restoration completed: ${positionSeconds}s (session: ${restorationSessionId})`);
+              } else {
+                console.log(`⚠️ Track changed after seek, position not applied (session: ${restorationSessionId})`);
+              }
+            } catch (seekOperationError) {
+              console.error(`❌ Seek operation failed (session: ${restorationSessionId}):`, seekOperationError);
+              // Reset display position to match reality (0s)
+              setDisplayPosition(0);
+              setPlayerPosition(0);
+              setExpectedPosition(0);
+              setRestorationProtection(false);
+              return;
+            }
+          } catch (seekError) {
+            console.error(`❌ Player seek failed during restoration (session: ${restorationSessionId}):`, seekError);
+            // Only reset if we're still on the same track
+            if (track && track.id === currentTrackId) {
+              setDisplayPosition(0);
+              setPlayerPosition(0);
+              setExpectedPosition(0);
+              setRestorationProtection(false);
+            }
+            return;
+          }
+        } else {
+          console.log(`⚠️ Invalid saved position (${positionSeconds}s), starting from beginning`);
+          setDisplayPosition(0);
+          setPlayerPosition(0);
+          setExpectedPosition(0);
+          setRestorationProtection(false);
+        }
+      } else {
+        console.log(`📄 No saved position, starting from beginning`);
+        setDisplayPosition(0);
+        setPlayerPosition(0);
+        setExpectedPosition(0);
+        setRestorationProtection(false);
+      }
+    } catch (error) {
+      console.error('❌ Error during position restoration:', error);
+      // Only reset if we're still on the same track
+      if (track && track.id === currentTrackId) {
+        setRestorationProtection(false);
+        setDisplayPosition(0);
+        setPlayerPosition(0);
+        setExpectedPosition(0);
+      }
+    } finally {
+      // Always clean up flags (since we use local currentTrackId for validation)
+      setIsSeekInProgress(false);
+      setIsRestorationInProgress(false);
+      
+      // Only update player state if we're still on the same track
+      if (track && track.id === currentTrackId) {
+        setPlayerState('RESTORED');
+        console.log(`🎯 Position restoration complete (session: ${restorationSessionId}) - seekInProgress: false`);
+      } else {
+        console.log(`🔄 Restoration cleanup - track changed during restoration (session: ${restorationSessionId})`);
+      }
+      setRestorationTrackId(null);
+    }
+  };
+  
+  // Save progress
+  const saveProgress = async (currentPositionMs: number) => {
+    if (!track || !status) return;
+    
     try {
       const progress: UserProgress = {
         trackId: track.id,
-        position: Math.floor(currentPosition / 1000), // Convert to seconds
-        completed: currentPosition >= duration * 0.95, // Mark completed if 95% played
+        position: Math.floor(currentPositionMs / 1000),
+        completed: currentPositionMs >= (status.duration * 1000 * 0.95),
         lastPlayed: new Date().toISOString(),
-        bookmarks: [], // Will implement bookmarks later
+        bookmarks: [],
       };
       
+      const progressKey = `progress_${track.id}`;
       await AsyncStorage.setItem(progressKey, JSON.stringify(progress));
       onProgressUpdate?.(progress);
     } catch (error) {
       console.error('Error saving progress:', error);
     }
   };
-
-  const loadAudioSource = async () => {
-    try {
-      setIsLoading(true);
-      
-      let source = null;
-      
-      // Check if track is downloaded locally first
-      const isDownloaded = await retreatService.isTrackDownloaded(track.id);
-      
-      if (isDownloaded) {
-        const localPath = await retreatService.getDownloadedTrackPath(track.id);
-        if (localPath) {
-          console.log(`🎵 Playing offline audio: ${localPath}`);
-          source = localPath;
-        }
-      }
-      
-      // If not available locally, stream from backend
-      if (!source) {
-        console.log(`🔍 Fetching stream URL for track ${track.id}...`);
-        const urlResponse = await retreatService.getTrackStreamUrl(track.id);
-        
-        console.log(`🔍 URL Response:`, urlResponse);
-        
-        if (!urlResponse.success || !urlResponse.url) {
-          console.error(`❌ Failed to get URL:`, urlResponse);
-          throw new Error(urlResponse.error || 'Failed to get audio URL');
-        }
-        
-        // URL received from backend - presigned URLs are pre-validated
-        console.log(`✅ Using presigned stream URL: ${urlResponse.url.substring(0, 80)}...`);
-        console.log(`🔍 [AUDIO DEBUG] Presigned URL contains signature: ${urlResponse.url.includes('Signature=')}`);
-        console.log(`🔍 [AUDIO DEBUG] Presigned URL contains expiration: ${urlResponse.url.includes('Expires=')}`);
-        source = urlResponse.url;
-      }
-      
-      setAudioSource(source);
-      
-      // Set up a timeout to detect if audio loading fails
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
-      
-      const timeout = setTimeout(() => {
-        if (status && !status.isLoaded && status.isBuffering) {
-          console.error('🎵 Audio loading timeout - failed to load after 15 seconds');
-          Alert.alert(
-            'Loading Error',
-            'Audio is taking too long to load. This might be due to network issues or server problems.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Retry', onPress: () => loadAudioSource() }
-            ]
-          );
-        }
-      }, 15000); // 15 second timeout
-      
-      setLoadingTimeout(timeout);
-      
-      // Seek to saved position after a delay to allow the player to initialize
-      if (position > 0) {
-        setTimeout(() => {
-          try {
-            player.seekTo(position / 1000); // Convert to seconds
-          } catch (seekError) {
-            console.warn('Could not seek to saved position:', seekError);
-          }
-        }, 1000);
-      }
-      
-    } catch (error) {
-      console.error('Error loading audio source:', error);
-      
-      // Provide specific error messages based on the error
-      let errorMessage = 'Could not load audio file. Please check your connection and try again.';
-      if (error.message.includes('Access denied')) {
-        errorMessage = 'Access denied to audio file. This might be a server configuration issue.';
-      } else if (error.message.includes('not accessible')) {
-        errorMessage = 'Audio file is not accessible. The server might be experiencing issues.';
-      }
-      
-      Alert.alert('Audio Error', errorMessage);
-    } finally {
-      setIsLoading(false);
+  
+  // Toggle play/pause with seek-aware state management
+  const togglePlayPause = () => {
+    if (!player || !status?.isLoaded || playerState === 'LOADING') return;
+    
+    // Block play if seek is in progress
+    if (isSeekInProgress && !status.playing) {
+      console.log(`⚠️ Play blocked - seek in progress`);
+      return;
+    }
+    
+    if (status.playing) {
+      player.pause();
+      setPlayerState('RESTORED'); // Paused state
+      console.log(`⏸️ Playback paused - state: RESTORED`);
+    } else {
+      player.play();
+      setPlayerState('PLAYING'); // Playing state
+      console.log(`▶️ Playbook started - state: PLAYING, expected position: ${expectedPosition}s`);
     }
   };
-
-
-  const togglePlayPause = async () => {
+  
+  // Seek to position with proper error handling
+  const seekTo = async (positionMs: number) => {
+    if (!player || !status?.isLoaded || !track || loadedTrackId !== track.id) {
+      console.log('❌ Cannot seek - audio not ready');
+      setIsSeekInProgress(false);
+      setPlayerState('RESTORED');
+      return;
+    }
+    
     try {
-      const currentlyPlaying = status?.isPlaying || localPlayingState;
-      console.log(`🎵 Toggle play/pause - Status playing: ${status?.isPlaying}, Local playing: ${localPlayingState}, Combined: ${currentlyPlaying}, Source: ${audioSource ? 'loaded' : 'not loaded'}`);
-      console.log(`🎵 Player object exists: ${!!player}, Status object:`, status);
+      const positionSeconds = positionMs / 1000;
+      console.log(`🎯 Manual seek to: ${positionSeconds}s`);
       
-      if (!audioSource) {
-        console.log(`🎵 No audio source loaded, loading...`);
-        await loadAudioSource();
+      // Check if playback was active before seek
+      const wasPlaying = status.playing;
+      if (wasPlaying) {
+        await player.pause();
+        console.log('⏸️ Paused player for seek');
+      }
+      
+      // Update display position immediately
+      setDisplayPosition(positionSeconds);
+      setExpectedPosition(positionSeconds);
+      
+      // Validate player before seeking
+      if (!player || loadedTrackId !== track.id) {
+        console.log('⚠️ Player became invalid during seek, aborting');
+        setIsSeekInProgress(false);
+        setPlayerState('RESTORED');
         return;
       }
-
-      // Check if audio is loaded before trying to play
-      if (!status?.isLoaded) {
-        console.warn(`🎵 Audio not loaded yet. Status:`, {
-          isLoaded: status?.isLoaded,
-          isBuffering: status?.isBuffering,
-          playbackState: status?.playbackState,
-          error: status?.error
-        });
+      
+      // Perform the seek
+      await player.seekTo(positionSeconds);
+      
+      // Wait for seek completion
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setPlayerPosition(positionSeconds);
+      console.log(`✅ Manual seek completed: ${positionSeconds}s`);
+      
+      // Resume playback if it was playing before
+      if (wasPlaying && player && loadedTrackId === track.id) {
+        await player.play();
+        setPlayerState('PLAYING');
+        console.log('▶️ Resumed playback after seek');
         
-        Alert.alert(
-          'Audio Not Ready',
-          'Audio is still loading. Please wait a moment and try again.',
-          [
-            { text: 'OK' },
-            { text: 'Retry Loading', onPress: () => loadAudioSource() }
-          ]
-        );
-        return;
-      }
-
-      if (currentlyPlaying) {
-        console.log(`⏸️ Pausing audio...`);
-        try {
-          player.pause();
-          setLocalPlayingState(false);
-          console.log(`✅ Pause command sent`);
-        } catch (pauseError) {
-          console.error('❌ Error calling pause:', pauseError);
-        }
+        // For manual seeks during playback, clear protection immediately and start normal updates
+        setRestorationProtection(false);
       } else {
-        console.log(`▶️ Playing audio...`);
-        try {
-          player.play();
-          setLocalPlayingState(true);
-          console.log(`✅ Play command sent`);
-        } catch (playError) {
-          console.error('❌ Error calling play:', playError);
-          Alert.alert('Playback Error', `Failed to start playback: ${playError.message}`);
-        }
+        // For seeks while paused, go to restored state
+        setPlayerState('RESTORED');
+        setRestorationProtection(false);
       }
+      
+      // Save progress after seek
+      await saveProgress(positionMs);
+      
     } catch (error) {
-      console.error('Error in togglePlayPause:', error);
-      Alert.alert(
-        'Playback Error', 
-        'Could not play audio. Please check your connection and try again.'
-      );
+      console.error('❌ Error during manual seek:', error);
+      setRestorationProtection(false);
+      setPlayerState('RESTORED');
+    } finally {
+      setIsSeekInProgress(false);
+      console.log(`🎯 Seek complete - seekInProgress: false`);
     }
   };
-
-  const seekTo = async (value: number) => {
-    try {
-      if (audioSource && player) {
-        player.seekTo(value / 1000); // Convert to seconds
-        setPosition(value);
-        await saveProgress(value);
-      }
-    } catch (error) {
-      console.error('Error seeking:', error);
-    }
-  };
-
-  const changePlaybackSpeed = async () => {
-    const speeds = [1.0, 1.25, 1.5, 1.75, 2.0, 0.75];
+  
+  // Change playback speed
+  const changePlaybackSpeed = () => {
+    const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
     const currentIndex = speeds.indexOf(playbackSpeed);
     const newSpeed = speeds[(currentIndex + 1) % speeds.length];
     
     setPlaybackSpeed(newSpeed);
-    
-    if (audioSource && player) {
-      try {
-        player.playbackRate = newSpeed;
-      } catch (error) {
-        console.error('Error changing playback speed:', error);
-      }
+    if (player) {
+      player.setPlaybackRate(newSpeed, 'medium');
     }
   };
-
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  
+  // Format time
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const duration = (status?.duration || track.duration) * 1000; // Convert to milliseconds
-  const progressPercentage = duration > 0 ? (position / duration) * 100 : 0;
-  const isCurrentlyPlaying = status?.isPlaying || localPlayingState;
-
+  
+  // Don't render if no track
+  if (!track) {
+    return null;
+  }
+  
+  // Use display position for all UI elements
+  const duration = status?.duration || track.duration || 0;
+  const isPlaying = status?.playing || false;
+  const isLoading = playerState === 'LOADING';
+  const isPlayButtonDisabled = isLoading || isSeekInProgress;
+  
+  console.log(`🖥️ Display: ${displayPosition}s/${duration}s, State: ${playerState}, Playing: ${isPlaying}, SeekInProgress: ${isSeekInProgress}`);
+  
   return (
     <View style={styles.container}>
-      {/* Track Info */}
-      <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle} numberOfLines={2}>
-          {track.title}
-        </Text>
-        <Text style={styles.progressText}>
-          {formatTime(position)} / {formatTime(duration)} ({progressPercentage.toFixed(1)}%)
-        </Text>
-      </View>
-
-      {/* Progress Slider */}
-      <View style={styles.sliderContainer}>
+      {/* Progress bar */}
+      <View style={styles.progressContainer}>
         <Slider
-          style={styles.slider}
+          style={styles.progressBar}
           minimumValue={0}
-          maximumValue={duration}
-          value={position}
-          onValueChange={(value) => {
-            setIsSliding(true);
-            setPosition(value);
+          maximumValue={Math.max(duration, 1)}
+          value={displayPosition}
+          onSlidingStart={() => {
+            console.log(`🎚️ Slider interaction started at: ${displayPosition}s`);
+            setPlayerState('SEEKING');
+            setIsSeekInProgress(true);
           }}
-          onSlidingComplete={(value) => {
-            setIsSliding(false);
-            seekTo(value);
+          onSlidingComplete={async (value) => {
+            console.log(`🎚️ Slider released at: ${value}s`);
+            await seekTo(value * 1000);
+          }}
+          onValueChange={(value) => {
+            if (playerState === 'SEEKING') {
+              setDisplayPosition(value);
+            }
           }}
           minimumTrackTintColor={colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[400]}
-          thumbStyle={styles.sliderThumb}
+          thumbStyle={styles.progressThumb}
         />
       </View>
-
-      {/* Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity 
-          onPress={onPreviousTrack}
-          style={styles.controlButton}
-          disabled={!onPreviousTrack}
-        >
-          <Ionicons 
-            name="play-skip-back" 
-            size={24} 
-            color={onPreviousTrack ? colors.burgundy[500] : colors.gray[400]} 
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={togglePlayPause}
-          style={[styles.controlButton, styles.playButton]}
-          disabled={isLoading}
-        >
-          <Ionicons 
-            name={isCurrentlyPlaying ? "pause" : "play"} 
-            size={32} 
-            color="white" 
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={onNextTrack}
-          style={styles.controlButton}
-          disabled={!onNextTrack}
-        >
-          <Ionicons 
-            name="play-skip-forward" 
-            size={24} 
-            color={onNextTrack ? colors.burgundy[500] : colors.gray[400]} 
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Speed Control & Bookmarks */}
-      <View style={styles.bottomControls}>
-        <TouchableOpacity onPress={changePlaybackSpeed} style={styles.speedButton}>
-          <Text style={styles.speedText}>{playbackSpeed}x</Text>
-        </TouchableOpacity>
+      
+      {/* Player content */}
+      <View style={styles.playerContent}>
+        {/* Track info - title and duration on separate lines */}
+        <View style={styles.trackInfo}>
+          <Text style={styles.trackTitle} numberOfLines={2}>
+            {track.title}
+          </Text>
+          <Text style={styles.trackTime}>
+            {formatTime(displayPosition)} / {formatTime(duration)}
+          </Text>
+        </View>
         
-        <BookmarksManager
-          trackId={track.id}
-          currentPosition={position}
-          onSeekToBookmark={seekTo}
-        />
+        {/* Controls - centered below track info */}
+        <View style={styles.controlsContainer}>
+          <View style={styles.controls}>
+            <TouchableOpacity 
+              onPress={onPreviousTrack}
+              style={[styles.controlButton, !onPreviousTrack && styles.controlDisabled]}
+              disabled={!onPreviousTrack}
+            >
+              <Ionicons name="play-skip-back" size={22} color={onPreviousTrack ? colors.gray[700] : colors.gray[400]} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              onPress={togglePlayPause}
+              style={[styles.playButton, isPlayButtonDisabled && styles.playButtonDisabled]}
+              disabled={isPlayButtonDisabled}
+            >
+              <Ionicons 
+                name={isPlaying ? "pause" : "play"} 
+                size={26} 
+                color={colors.white} 
+              />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              onPress={onNextTrack}
+              style={[styles.controlButton, !onNextTrack && styles.controlDisabled]}
+              disabled={!onNextTrack}
+            >
+              <Ionicons name="play-skip-forward" size={22} color={onNextTrack ? colors.gray[700] : colors.gray[400]} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Speed control positioned to the right */}
+          <TouchableOpacity onPress={changePlaybackSpeed} style={styles.speedButton}>
+            <Text style={styles.speedText}>{playbackSpeed}x</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -447,75 +642,87 @@ export function AudioPlayer({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[400],
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 8,
+  },
+  progressContainer: {
+    height: 4,
+  },
+  progressBar: {
+    height: 4,
+    marginHorizontal: 0,
+  },
+  progressThumb: {
+    width: 12,
+    height: 12,
+    backgroundColor: colors.burgundy[500],
+  },
+  playerContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 88,
   },
   trackInfo: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   trackTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    color: colors.gray[800],
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  progressText: {
-    fontSize: 14,
-    color: colors.gray[600],
+  trackTime: {
+    fontSize: 13,
+    color: colors.gray[500],
+    textAlign: 'center',
   },
-  sliderContainer: {
-    marginBottom: 20,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  sliderThumb: {
-    backgroundColor: colors.burgundy[500],
-    width: 20,
-    height: 20,
+  controlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   controls: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    gap: 16,
+    flex: 1,
+    justifyContent: 'center',
   },
   controlButton: {
     padding: 10,
-    marginHorizontal: 15,
+  },
+  controlDisabled: {
+    opacity: 0.5,
   },
   playButton: {
     backgroundColor: colors.burgundy[500],
-    borderRadius: 30,
-    padding: 15,
+    borderRadius: 24,
+    padding: 10,
+    marginHorizontal: 8,
   },
-  bottomControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  playButtonDisabled: {
+    opacity: 0.5,
   },
   speedButton: {
     backgroundColor: colors.gray[100],
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 15,
+    borderRadius: 14,
   },
   speedText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.burgundy[500],
   },

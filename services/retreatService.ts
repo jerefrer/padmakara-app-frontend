@@ -44,6 +44,7 @@ class RetreatService {
     RETREAT_GROUP_DETAILS: '@retreat_cache:group_',
   };
   private readonly CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
+  private activeDownloads = new Map<string, FileSystem.DownloadResumable>(); // Track active downloads for cancellation
   
   static getInstance(): RetreatService {
     if (!RetreatService.instance) {
@@ -416,14 +417,42 @@ class RetreatService {
     }
   }
 
+  // Check if track download is in progress
+  isTrackDownloading(trackId: string): boolean {
+    return this.activeDownloads.has(trackId);
+  }
+
+  // Cancel track download
+  async cancelTrackDownload(trackId: string): Promise<boolean> {
+    const download = this.activeDownloads.get(trackId);
+    if (download) {
+      try {
+        await download.pauseAsync();
+        this.activeDownloads.delete(trackId);
+        console.log(`📥 Cancelled download for track: ${trackId}`);
+        return true;
+      } catch (error) {
+        console.error(`Error cancelling download for track ${trackId}:`, error);
+        return false;
+      }
+    }
+    return false;
+  }
+
   // Download track for offline playback
   async downloadTrack(trackId: string, onProgress?: (progress: number) => void): Promise<{
     success: boolean;
     localPath?: string;
     error?: string;
+    cancelled?: boolean;
   }> {
     try {
       console.log(`Starting download for track: ${trackId}`);
+
+      // Check if already downloading
+      if (this.activeDownloads.has(trackId)) {
+        return { success: false, error: 'Download already in progress' };
+      }
 
       // First get the stream URL
       const streamResult = await this.getTrackStreamUrl(trackId);
@@ -454,6 +483,9 @@ class RetreatService {
         }
       );
 
+      // Track active download
+      this.activeDownloads.set(trackId, downloadResumable);
+
       const downloadResult = await downloadResumable.downloadAsync();
       
       if (!downloadResult) {
@@ -473,10 +505,23 @@ class RetreatService {
       });
 
       console.log(`✅ Track download completed: ${trackId} (${Math.round(fileSize / 1024 / 1024)}MB)`);
+      
+      // Clean up active download tracking
+      this.activeDownloads.delete(trackId);
+      
       return { success: true, localPath: downloadResult.uri };
       
     } catch (error) {
+      // Clean up active download tracking on error
+      this.activeDownloads.delete(trackId);
+      
       console.error('Download track error:', error);
+      
+      // Check if it was cancelled
+      if (error.message && error.message.includes('cancelled')) {
+        return { success: false, error: 'Download cancelled', cancelled: true };
+      }
+      
       return { success: false, error: 'Failed to download track' };
     }
   }

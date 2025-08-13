@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
+import { CircularProgressButton } from '@/components/CircularProgressButton';
+import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -48,11 +50,17 @@ interface SessionDetails {
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useLanguage();
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadedTracks, setDownloadedTracks] = useState<Set<string>>(new Set());
+  const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
+  const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
+  const [isDownloadingSession, setIsDownloadingSession] = useState(false);
+  const [sessionDownloadProgress, setSessionDownloadProgress] = useState({ completed: 0, total: 0 });
 
   useEffect(() => {
     loadSessionDetails();
@@ -63,6 +71,12 @@ export default function SessionDetailScreen() {
       loadDownloadedTracks();
     }
   }, [session]);
+
+  // Simple progress update handler
+  const handleProgressUpdate = (progress: UserProgress) => {
+    // In production, this would sync with your backend
+    console.log('Progress updated:', progress);
+  };
 
   const loadSessionDetails = async () => {
     try {
@@ -130,89 +144,100 @@ export default function SessionDetailScreen() {
 
   // Get all tracks in order
   const allTracks: Track[] = session.tracks.sort((a, b) => a.order - b.order);
-  const currentTrack = allTracks[currentTrackIndex];
-
-  const selectTrack = (trackIndex: number) => {
+  
+  // Track selection - simple state update
+  const selectTrack = (track: Track, trackIndex: number) => {
+    setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
   };
 
-  const handleProgressUpdate = (progress: UserProgress) => {
-    // In production, this would sync with your backend
-    console.log('Progress updated:', progress);
-  };
-
-  const handleTrackComplete = () => {
-    // Auto-advance to next track
-    if (currentTrackIndex < allTracks.length - 1) {
-      setCurrentTrackIndex(currentTrackIndex + 1);
-    } else {
-      Alert.alert('Session Complete', 'You have finished all tracks in this session!');
-    }
-  };
 
   const handleDownloadTrack = async (track: Track) => {
     try {
-      Alert.alert(
-        'Download Track',
-        `Download "${track.title}" for offline playback?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Download',
-            onPress: async () => {
-              console.log(`🔽 Starting download for track: ${track.id} - ${track.title}`);
-              
-              const result = await retreatService.downloadTrack(track.id, (progress) => {
-                console.log(`📊 Download progress: ${Math.round(progress)}%`);
-              });
-              
-              console.log(`🔽 Download result:`, result);
-              
-              if (result.success) {
-                setDownloadedTracks(prev => new Set(prev).add(track.id));
-                Alert.alert('Download Complete', 'Track has been downloaded for offline playback.');
-              } else {
-                Alert.alert('Download Failed', result.error || 'Failed to download track.');
-              }
-            }
-          }
-        ]
-      );
+      // Check if already downloading
+      if (downloadingTracks.has(track.id)) {
+        // Cancel download
+        const cancelled = await retreatService.cancelTrackDownload(track.id);
+        if (cancelled) {
+          setDownloadingTracks(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(track.id);
+            return newSet;
+          });
+          setDownloadProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(track.id);
+            return newMap;
+          });
+        }
+        return;
+      }
+
+      console.log(`🔽 Starting download for track: ${track.id} - ${track.title}`);
+      
+      // Mark as downloading
+      setDownloadingTracks(prev => new Set(prev).add(track.id));
+      setDownloadProgress(prev => new Map(prev).set(track.id, 0));
+      
+      const result = await retreatService.downloadTrack(track.id, (progress) => {
+        console.log(`📊 Download progress: ${Math.round(progress)}%`);
+        setDownloadProgress(prev => new Map(prev).set(track.id, progress));
+      });
+      
+      console.log(`🔽 Download result:`, result);
+      
+      // Clean up downloading state
+      setDownloadingTracks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(track.id);
+        return newSet;
+      });
+      setDownloadProgress(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(track.id);
+        return newMap;
+      });
+      
+      if (result.success) {
+        setDownloadedTracks(prev => new Set(prev).add(track.id));
+        console.log(`✅ Track download completed: ${track.title}`);
+      } else if (!result.cancelled) {
+        console.error(`❌ Download failed: ${result.error}`);
+      }
     } catch (error) {
+      // Clean up on error
+      setDownloadingTracks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(track.id);
+        return newSet;
+      });
+      setDownloadProgress(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(track.id);
+        return newMap;
+      });
+      
       console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download track.');
     }
   };
 
   const handleRemoveDownload = async (track: Track) => {
     try {
-      Alert.alert(
-        'Remove Download',
-        `Remove downloaded file for "${track.title}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: async () => {
-              const result = await retreatService.removeDownloadedTrack(track.id);
-              if (result.success) {
-                setDownloadedTracks(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete(track.id);
-                  return newSet;
-                });
-                Alert.alert('Removed', 'Downloaded file has been removed.');
-              } else {
-                Alert.alert('Error', result.error || 'Failed to remove download.');
-              }
-            }
-          }
-        ]
-      );
+      console.log(`🗑️ Removing download for track: ${track.id} - ${track.title}`);
+      
+      const result = await retreatService.removeDownloadedTrack(track.id);
+      if (result.success) {
+        setDownloadedTracks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(track.id);
+          return newSet;
+        });
+        console.log(`✅ Download removed: ${track.title}`);
+      } else {
+        console.error(`❌ Failed to remove download: ${result.error}`);
+      }
     } catch (error) {
       console.error('Remove download error:', error);
-      Alert.alert('Error', 'Failed to remove download.');
     }
   };
 
@@ -220,60 +245,112 @@ export default function SessionDetailScreen() {
     try {
       if (!session || !allTracks.length) return;
       
-      Alert.alert(
-        'Download Session',
-        `Download all ${allTracks.length} tracks from "${session.name}" for offline playback?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Download All',
-            onPress: async () => {
-              console.log(`🔽 Starting bulk download for session: ${session.name}`);
-              
-              let successCount = 0;
-              let failCount = 0;
-              
-              for (let i = 0; i < allTracks.length; i++) {
-                const track = allTracks[i];
-                console.log(`📊 Downloading track ${i + 1}/${allTracks.length}: ${track.title}`);
-                
-                const result = await retreatService.downloadTrack(track.id);
-                
-                if (result.success) {
-                  successCount++;
-                  setDownloadedTracks(prev => new Set(prev).add(track.id));
-                } else {
-                  failCount++;
-                  console.error(`Failed to download track ${track.title}:`, result.error);
-                }
-              }
-              
-              if (successCount === allTracks.length) {
-                Alert.alert('Download Complete', `All ${successCount} tracks downloaded successfully.`);
-              } else if (successCount > 0) {
-                Alert.alert('Partial Download', `${successCount} tracks downloaded, ${failCount} failed.`);
-              } else {
-                Alert.alert('Download Failed', 'Failed to download any tracks. Please check your connection.');
-              }
-            }
-          }
-        ]
-      );
+      // Check if already downloading session
+      if (isDownloadingSession) {
+        // Cancel all active downloads
+        for (const trackId of downloadingTracks) {
+          await retreatService.cancelTrackDownload(trackId);
+        }
+        
+        // Reset state
+        setIsDownloadingSession(false);
+        setSessionDownloadProgress({ completed: 0, total: 0 });
+        setDownloadingTracks(new Set());
+        setDownloadProgress(new Map());
+        return;
+      }
+
+      console.log(`🔽 Starting bulk download for session: ${session.name}`);
+      
+      // Filter out already downloaded tracks
+      const tracksToDownload = allTracks.filter(track => !downloadedTracks.has(track.id));
+      
+      if (tracksToDownload.length === 0) {
+        console.log(`✅ All tracks already downloaded`);
+        return;
+      }
+      
+      setIsDownloadingSession(true);
+      setSessionDownloadProgress({ completed: 0, total: tracksToDownload.length });
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (let i = 0; i < tracksToDownload.length; i++) {
+        const track = tracksToDownload[i];
+        console.log(`📊 Downloading track ${i + 1}/${tracksToDownload.length}: ${track.title}`);
+        
+        // Mark track as downloading
+        setDownloadingTracks(prev => new Set(prev).add(track.id));
+        
+        const result = await retreatService.downloadTrack(track.id, (progress) => {
+          setDownloadProgress(prev => new Map(prev).set(track.id, progress));
+        });
+        
+        // Clean up track downloading state
+        setDownloadingTracks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(track.id);
+          return newSet;
+        });
+        setDownloadProgress(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(track.id);
+          return newMap;
+        });
+        
+        if (result.success && !result.cancelled) {
+          successCount++;
+          setDownloadedTracks(prev => new Set(prev).add(track.id));
+          console.log(`✅ Track downloaded: ${track.title}`);
+        } else if (!result.cancelled) {
+          failCount++;
+          console.error(`❌ Failed to download track ${track.title}:`, result.error);
+        }
+        
+        // Update session progress
+        setSessionDownloadProgress({ completed: i + 1, total: tracksToDownload.length });
+        
+        // Check if session download was cancelled
+        if (!isDownloadingSession) {
+          break;
+        }
+      }
+      
+      setIsDownloadingSession(false);
+      setSessionDownloadProgress({ completed: 0, total: 0 });
+      
+      console.log(`🎉 Session download completed: ${successCount} succeeded, ${failCount} failed`);
+      
     } catch (error) {
+      setIsDownloadingSession(false);
+      setSessionDownloadProgress({ completed: 0, total: 0 });
       console.error('Bulk download error:', error);
-      Alert.alert('Error', 'Failed to download session.');
     }
   };
 
   const goToNextTrack = () => {
-    if (currentTrackIndex < allTracks.length - 1) {
-      setCurrentTrackIndex(currentTrackIndex + 1);
+    const nextIndex = currentTrackIndex + 1;
+    if (nextIndex < allTracks.length) {
+      const nextTrack = allTracks[nextIndex];
+      selectTrack(nextTrack, nextIndex);
     }
   };
 
   const goToPreviousTrack = () => {
-    if (currentTrackIndex > 0) {
-      setCurrentTrackIndex(currentTrackIndex - 1);
+    const prevIndex = currentTrackIndex - 1;
+    if (prevIndex >= 0) {
+      const prevTrack = allTracks[prevIndex];
+      selectTrack(prevTrack, prevIndex);
+    }
+  };
+
+  const handleTrackComplete = () => {
+    // Auto-advance to next track
+    if (currentTrackIndex < allTracks.length - 1) {
+      goToNextTrack();
+    } else {
+      Alert.alert('Session Complete', 'You have finished all tracks in this session!');
     }
   };
 
@@ -297,26 +374,34 @@ export default function SessionDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Current Track Player */}
-        {currentTrack && (
-          <AudioPlayer
-            track={currentTrack}
-            onProgressUpdate={handleProgressUpdate}
-            onTrackComplete={handleTrackComplete}
-            onNextTrack={currentTrackIndex < allTracks.length - 1 ? goToNextTrack : undefined}
-            onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
-          />
-        )}
-
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Session Actions */}
         <View style={styles.sessionActions}>
           <TouchableOpacity
             onPress={handleDownloadAllSession}
-            style={styles.downloadAllButton}
+            style={[
+              styles.downloadAllButton,
+              isDownloadingSession && styles.downloadAllButtonActive
+            ]}
           >
-            <Ionicons name="download" size={20} color="white" />
-            <Text style={styles.downloadAllButtonText}>Download Session ({allTracks.length} tracks)</Text>
+            {isDownloadingSession ? (
+              <>
+                <ActivityIndicator size="small" color="white" />
+                <Text style={styles.downloadAllButtonText}>
+                  {sessionDownloadProgress.total > 0 
+                    ? `Downloading (${sessionDownloadProgress.completed}/${sessionDownloadProgress.total})`
+                    : 'Preparing...'
+                  }
+                </Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="download" size={20} color="white" />
+                <Text style={styles.downloadAllButtonText}>
+                  Download Session ({allTracks.filter(t => !downloadedTracks.has(t.id)).length} tracks)
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -327,12 +412,12 @@ export default function SessionDetailScreen() {
           </Text>
           
           {allTracks.map((track, trackIndex) => {
-            const isCurrentTrack = trackIndex === currentTrackIndex;
+            const isCurrentTrack = currentTrack?.id === track.id;
             
             return (
               <TouchableOpacity
                 key={track.id}
-                onPress={() => selectTrack(trackIndex)}
+                onPress={() => selectTrack(track, trackIndex)}
                 style={[
                   styles.trackItem,
                   isCurrentTrack && styles.currentTrackItem
@@ -355,33 +440,45 @@ export default function SessionDetailScreen() {
                           onPress={() => handleRemoveDownload(track)}
                           style={styles.downloadedButton}
                         >
-                          <Ionicons name="checkmark-circle" size={14} color={colors.saffron[500]} />
-                          <Text style={styles.downloadedButtonText}>Downloaded</Text>
+                          <Ionicons name="checkmark-circle" size={16} color={colors.saffron[500]} />
                         </TouchableOpacity>
                       ) : (
-                        <TouchableOpacity
+                        <CircularProgressButton
+                          progress={downloadProgress.get(track.id) || 0}
+                          isActive={downloadingTracks.has(track.id)}
                           onPress={() => handleDownloadTrack(track)}
+                          size={16}
+                          strokeWidth={2}
+                          icon="download-outline"
                           style={styles.downloadButton}
-                        >
-                          <Ionicons name="download-outline" size={14} color={colors.gray[600]} />
-                          <Text style={styles.downloadButtonText}>Download</Text>
-                        </TouchableOpacity>
+                        />
                       )}
                     </View>
                   </View>
                 </View>
                 {isCurrentTrack && (
-                  <Ionicons 
-                    name="play-circle" 
-                    size={20} 
-                    color={colors.burgundy[500]} 
-                  />
+                  <View style={styles.playingIndicator}>
+                    <AnimatedPlayingBars 
+                      isPlaying={true}
+                      size={20} 
+                      color={colors.burgundy[500]} 
+                    />
+                  </View>
                 )}
               </TouchableOpacity>
             );
           })}
         </View>
       </ScrollView>
+      
+      {/* Bottom-sticky Audio Player */}
+      <AudioPlayer
+        track={currentTrack}
+        onProgressUpdate={handleProgressUpdate}
+        onTrackComplete={handleTrackComplete}
+        onNextTrack={currentTrackIndex < allTracks.length - 1 ? goToNextTrack : undefined}
+        onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
+      />
     </SafeAreaView>
   );
 }
@@ -425,6 +522,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 80, // Space for bottom player
+  },
   sessionActions: {
     padding: 16,
     paddingTop: 8,
@@ -443,6 +543,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  downloadAllButtonActive: {
+    backgroundColor: colors.burgundy[600],
+    opacity: 0.9,
   },
   tracksList: {
     padding: 16,
@@ -496,32 +600,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   downloadButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.gray[100],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  downloadButtonText: {
-    fontSize: 12,
-    color: colors.gray[600],
-    marginLeft: 4,
-    fontWeight: '600',
+    justifyContent: 'center',
+    width: 20,
+    height: 20,
   },
   downloadedButton: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    width: 20,
+    height: 20,
     backgroundColor: colors.saffron[50],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
   },
-  downloadedButtonText: {
-    fontSize: 12,
-    color: colors.saffron[500],
-    marginLeft: 4,
-    fontWeight: '600',
+  playingIndicator: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 20,
   },
   loadingContainer: {
     flex: 1,
