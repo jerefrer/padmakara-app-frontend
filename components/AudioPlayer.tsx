@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
-import Slider from '@react-native-community/slider';
+import retreatService from '@/services/retreatService';
+import { Track, UserProgress } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Track, UserProgress } from '@/types';
-import retreatService from '@/services/retreatService';
+import Slider from '@react-native-community/slider';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const colors = {
   burgundy: {
@@ -58,10 +58,27 @@ export function AudioPlayer({
   const [pendingTimeouts, setPendingTimeouts] = useState<NodeJS.Timeout[]>([]); // Track timeouts for cleanup
   const [isRestorationInProgress, setIsRestorationInProgress] = useState(false); // Prevent concurrent restorations
   const [restorationTrackId, setRestorationTrackId] = useState<string | null>(null); // Track which track is being restored
+  const currentRestorationSessionIdRef = useRef<string | null>(null); // Track current active restoration session - using ref to prevent React state interference
+  const [isStreamLoading, setIsStreamLoading] = useState(false); // Track if stream URL is being fetched
+  const [streamLoadedTrackId, setStreamLoadedTrackId] = useState<string | null>(null); // Track which track has stream loaded
   
   // Audio player hooks
   const player = useAudioPlayer(audioSource);
   const status = useAudioPlayerStatus(player);
+  
+  // Safe session ID clearing with protection
+  const safeClearSessionId = (reason: string, force: boolean = false) => {
+    console.log(`🔍 [SESSION] Attempting to clear session ID: reason="${reason}", force=${force}, isRestorationInProgress=${isRestorationInProgress}, currentSessionId=${currentRestorationSessionIdRef.current}`);
+    
+    if (!force && isRestorationInProgress) {
+      console.log(`🛡️ [SESSION] Blocked session ID clearing during active restoration: reason="${reason}"`);
+      return false;
+    }
+    
+    console.log(`✅ [SESSION] Clearing session ID: ${currentRestorationSessionIdRef.current} → null (reason: ${reason})`);
+    currentRestorationSessionIdRef.current = null;
+    return true;
+  };
   
   // Setup audio session on mount
   useEffect(() => {
@@ -82,11 +99,20 @@ export function AudioPlayer({
     
     if (track) {
       console.log(`🔄 Loading new track: ${track.title} (${track.id})`);
+      console.log(`🔍 [DEBUG] Track loading effect: loadedTrackId=${loadedTrackId}, isRestorationInProgress=${isRestorationInProgress}, restorationTrackId=${restorationTrackId}`);
       
-      // Cancel any ongoing restoration by clearing the restoration track ID
+      // Skip if this is the same track that's already loaded and being restored
+      if (loadedTrackId === track.id && isRestorationInProgress && restorationTrackId === track.id) {
+        console.log(`🔍 [DEBUG] Skipping track loading - same track already loaded and being restored: ${track.id}`);
+        return;
+      }
+      
+      // Cancel any ongoing restoration by clearing all restoration tracking
       if (isRestorationInProgress) {
         console.log('🚫 Cancelling ongoing restoration for track switch');
+        console.log(`🔍 [DEBUG] Explicitly cancelling restoration for track switch: ${currentRestorationSessionIdRef.current} → null`);
         setRestorationTrackId(null);
+        safeClearSessionId("track switch cancellation", true); // Force clear for track switch
       }
       
       setPlayerState('LOADING');
@@ -98,6 +124,10 @@ export function AudioPlayer({
       setIsSeekInProgress(false);
       setIsRestorationInProgress(false);
       setRestorationTrackId(null);
+      setIsStreamLoading(false);
+      setStreamLoadedTrackId(null);
+      console.log(`🔍 [DEBUG] Track loading: Clearing currentRestorationSessionId: ${currentRestorationSessionIdRef.current} → null`);
+      safeClearSessionId("track loading reset", false);
       loadTrack(track);
     } else {
       console.log('🔄 No track selected, resetting');
@@ -111,6 +141,10 @@ export function AudioPlayer({
       setIsSeekInProgress(false);
       setIsRestorationInProgress(false);
       setRestorationTrackId(null);
+      setIsStreamLoading(false);
+      setStreamLoadedTrackId(null);
+      console.log(`🔍 [DEBUG] No track: Clearing currentRestorationSessionId: ${currentRestorationSessionIdRef.current} → null`);
+      safeClearSessionId("no track reset", false);
     }
   }, [track]);
   
@@ -119,6 +153,13 @@ export function AudioPlayer({
     if (!status || !track) return;
     
     console.log(`📊 Status: ${playerState}, isLoaded: ${status.isLoaded}, duration: ${status.duration}, currentTime: ${status.currentTime}`);
+    console.log(`🔍 [DEBUG] Restoration effect: playerState=${playerState}, isRestorationInProgress=${isRestorationInProgress}, currentRestorationSessionId=${currentRestorationSessionIdRef.current}`);
+    
+    // Prevent effect from running during active restoration to avoid self-interference
+    if (isRestorationInProgress) {
+      console.log('🔍 [DEBUG] Skipping restoration effect - restoration already in progress');
+      return;
+    }
     
     // State machine transitions - prevent duplicate loading for same track
     if (playerState === 'LOADING' && status.isLoaded && status.duration > 0 && loadedTrackId !== track.id) {
@@ -131,6 +172,7 @@ export function AudioPlayer({
       
       const timeout = setTimeout(() => {
         console.log(`✅ Audio stabilized - transitioning to READY (delay: ${delay}ms)`);
+        console.log(`🔍 [DEBUG] Before READY transition: currentRestorationSessionId=${currentRestorationSessionIdRef.current}`);
         setPlayerState('READY');
       }, delay);
       
@@ -139,11 +181,19 @@ export function AudioPlayer({
     }
     
     // Automatic restoration when ready (prevent concurrent attempts)
-    if (playerState === 'READY' && loadedTrackId === track.id && !isRestorationInProgress) {
-      console.log(`🎯 Auto-restoring position for: ${track.title}`);
+    // Wait for audio source loading to complete before restoration
+    
+    // Check if the current track has completed its loading process
+    // streamLoadedTrackId gets set for both local and streamed tracks when loading completes
+    const isAudioSourceReady = streamLoadedTrackId === track.id;
+    
+    if (playerState === 'READY' && loadedTrackId === track.id && !isRestorationInProgress && isAudioSourceReady) {
+      console.log(`🎯 Auto-restoring position for: ${track.title} (audioSourceReady: ${isAudioSourceReady}, streamLoadedTrackId: ${streamLoadedTrackId})`);
       restoreSavedPosition();
+    } else if (playerState === 'READY' && loadedTrackId === track.id && !isRestorationInProgress && !isAudioSourceReady) {
+      console.log(`⏳ Waiting for audio source to be ready for restoration: ${track.title} (streamLoading: ${isStreamLoading}, streamLoadedTrackId: ${streamLoadedTrackId})`);
     }
-  }, [status, track, playerState, loadedTrackId]);
+  }, [status, track, playerState, loadedTrackId, isRestorationInProgress, audioSource, isStreamLoading, streamLoadedTrackId]);
   
   // Handle position updates during normal playback
   useEffect(() => {
@@ -182,8 +232,11 @@ export function AudioPlayer({
     // Update positions only if not currently seeking via slider
     if (playerState !== 'SEEKING') {
       console.log(`🔄 Updating positions - ${status.currentTime}s`);
+      console.log(`🔍 [DEBUG] Position update: playerState=${playerState}, restorationProtection=${restorationProtection}, expectedPosition=${expectedPosition}`);
       setPlayerPosition(status.currentTime);
       setDisplayPosition(status.currentTime);
+    } else {
+      console.log(`🔍 [DEBUG] Skipping position update - playerState=${playerState} (SEEKING)`);
     }
     
     // Save progress every 10 seconds (only during normal playback)
@@ -232,22 +285,29 @@ export function AudioPlayer({
         const localPath = await retreatService.getDownloadedTrackPath(track.id);
         if (localPath) {
           console.log(`🎵 Using local audio: ${track.title}`);
+          setStreamLoadedTrackId(track.id); // Mark as ready (local tracks are immediately ready)
           return localPath;
         }
       }
       
       // Get stream URL from backend
       console.log(`🌐 Getting stream URL for: ${track.title}`);
+      setIsStreamLoading(true);
+      
       const response = await retreatService.getTrackStreamUrl(track.id);
       
       if (response.success && response.url) {
         console.log(`✅ Got stream URL for: ${track.title}`);
+        setStreamLoadedTrackId(track.id); // Mark stream as loaded
+        setIsStreamLoading(false);
         return response.url;
       } else {
+        setIsStreamLoading(false);
         throw new Error(response.error || 'Failed to get stream URL');
       }
     } catch (error) {
       console.error('Error getting audio source:', error);
+      setIsStreamLoading(false);
       return null;
     }
   };
@@ -266,8 +326,11 @@ export function AudioPlayer({
     
     try {
       console.log(`🔄 Starting position restoration for ${track.title} (session: ${restorationSessionId})`);
+      console.log(`🔍 [DEBUG] Session state: currentRestorationSessionId=${currentRestorationSessionIdRef.current}, loadedTrackId=${loadedTrackId}, currentTrackId=${currentTrackId}`);
       setIsRestorationInProgress(true);
       setRestorationTrackId(currentTrackId);
+      currentRestorationSessionIdRef.current = restorationSessionId; // Set current active session
+      console.log(`🔍 [DEBUG] Set currentRestorationSessionId to: ${restorationSessionId}`);
       setPlayerState('SEEKING');
       setIsSeekInProgress(true);
       
@@ -293,9 +356,21 @@ export function AudioPlayer({
           setDisplayPosition(positionSeconds);
           setExpectedPosition(positionSeconds);
           
-          // Wait for audio to stabilize
-          console.log('⏳ Waiting for audio to stabilize...');
-          await new Promise(resolve => setTimeout(resolve, 600));
+          // Wait for audio to stabilize - longer wait for streamed tracks
+          // Check the actual current audio source to determine stream vs local
+          const currentAudioSource = audioSource || '';
+          const isStreamedTrack = currentAudioSource.startsWith('http://') || currentAudioSource.startsWith('https://');
+          const stabilizationWait = isStreamedTrack ? 1200 : 600; // 1.2s for streamed, 0.6s for local
+          
+          console.log(`⏳ Waiting for audio to stabilize... (${stabilizationWait}ms wait for ${isStreamedTrack ? 'streamed' : 'local'} track)`);
+          console.log(`🔍 Audio source type: ${isStreamedTrack ? 'HTTPS/HTTP stream' : 'Local file'} - ${currentAudioSource.substring(0, 50)}${currentAudioSource.length > 50 ? '...' : ''}`);
+          await new Promise(resolve => setTimeout(resolve, stabilizationWait));
+          
+          // Check if restoration session was cancelled during wait
+          if (currentRestorationSessionIdRef.current !== restorationSessionId) {
+            console.log(`⚠️ Restoration session cancelled during stabilization wait (session: ${restorationSessionId}), current: ${currentRestorationSessionIdRef.current}, aborting`);
+            return;
+          }
           
           // Check again if track changed during wait
           if (!track || track.id !== currentTrackId) {
@@ -303,20 +378,49 @@ export function AudioPlayer({
             return;
           }
           
-          // Validate player is still valid before seeking - check multiple conditions
+          // Enhanced player validation for both state and native object integrity
           console.log(`🔍 Player validation (session: ${restorationSessionId}): player=${!!player}, status.isLoaded=${status?.isLoaded}, playerState=${playerState}, status.currentTime=${status?.currentTime}`);
           
-          const isPlayerValid = player && 
-                               status?.isLoaded && 
-                               playerState !== 'LOADING';
+          const isPlayerStateValid = player && 
+                                   status?.isLoaded && 
+                                   playerState !== 'LOADING' &&
+                                   typeof status.duration === 'number' &&
+                                   status.duration > 0;
                                
-          if (!isPlayerValid) {
-            console.log(`⚠️ Player became invalid during restoration (session: ${restorationSessionId}), aborting`);
+          if (!isPlayerStateValid) {
+            console.log(`⚠️ Player state invalid during restoration (session: ${restorationSessionId}), aborting`);
+            return;
+          }
+          
+          // Test player object validity with a safe operation before seeking
+          try {
+            // Try to access a simple player property to verify the native object is valid
+            const testValid = player && status?.isLoaded;
+            if (!testValid) {
+              console.log(`⚠️ Player object validation failed (session: ${restorationSessionId}), aborting`);
+              return;
+            }
+          } catch (validationError) {
+            console.log(`⚠️ Player object validation threw error (session: ${restorationSessionId}):`, validationError);
             return;
           }
           
           // Double-check player object validity with try-catch
           try {
+            // Enhanced session validation - check if this session is still active
+            console.log(`🔍 [DEBUG] Validation check: currentRestorationSessionId=${currentRestorationSessionIdRef.current}, restorationSessionId=${restorationSessionId}`);
+            if (currentRestorationSessionIdRef.current !== restorationSessionId) {
+              console.log(`⚠️ Restoration session superseded (session: ${restorationSessionId}), current: ${currentRestorationSessionIdRef.current}, aborting`);
+              return;
+            }
+            
+            // Check if loaded track matches the session track
+            console.log(`🔍 [DEBUG] Track validation: loadedTrackId=${loadedTrackId}, currentTrackId=${currentTrackId}`);
+            if (loadedTrackId !== currentTrackId) {
+              console.log(`⚠️ Loaded track mismatch (session: ${restorationSessionId}), loaded: ${loadedTrackId}, expected: ${currentTrackId}, aborting`);
+              return;
+            }
+            
             // Final check before seek
             if (!track || track.id !== currentTrackId) {
               console.log(`⚠️ Track changed just before seek (session: ${restorationSessionId}), aborting`);
@@ -337,6 +441,7 @@ export function AudioPlayer({
             
             // Perform the seek with error handling
             console.log(`🎯 Executing seek to ${positionSeconds}s (session: ${restorationSessionId})`);
+            console.log(`🔍 [DEBUG] Player state before seek: isLoaded=${status?.isLoaded}, currentTime=${status?.currentTime}, duration=${status?.duration}`);
             
             try {
               await player.seekTo(positionSeconds);
@@ -351,30 +456,58 @@ export function AudioPlayer({
               console.log(`🔍 Post-seek verification: expected ${positionSeconds}s, actual ${currentTime}s, diff: ${seekDiff}s`);
               
               // Final validation after seek
+              console.log(`🔍 [DEBUG] Final validation: track.id=${track?.id}, currentTrackId=${currentTrackId}, match=${track && track.id === currentTrackId}`);
               if (track && track.id === currentTrackId) {
                 setPlayerPosition(positionSeconds);
                 setRestorationProtection(true);
                 console.log(`✅ Position restoration completed: ${positionSeconds}s (session: ${restorationSessionId})`);
+                console.log(`🔍 [DEBUG] Set playerPosition=${positionSeconds}, restorationProtection=true`);
               } else {
                 console.log(`⚠️ Track changed after seek, position not applied (session: ${restorationSessionId})`);
               }
             } catch (seekOperationError) {
-              console.error(`❌ Seek operation failed (session: ${restorationSessionId}):`, seekOperationError);
-              // Reset display position to match reality (0s)
-              setDisplayPosition(0);
-              setPlayerPosition(0);
-              setExpectedPosition(0);
-              setRestorationProtection(false);
+              // Only log errors for active sessions, not cancelled ones
+              if (currentRestorationSessionIdRef.current === restorationSessionId) {
+                // Check if this is a native player object error
+                const errorMessage = seekOperationError?.message || '';
+                const isNativePlayerError = errorMessage.includes('SharedObject<AudioPlayer>') || 
+                                          errorMessage.includes('native shared object') ||
+                                          errorMessage.includes('Unable to find the native');
+                
+                if (isNativePlayerError) {
+                  console.error(`❌ Native player object error during restoration (session: ${restorationSessionId}): Player object became invalid`);
+                  console.log(`🔧 This typically happens when switching from local to streamed tracks`);
+                  
+                  // For native player errors, keep display position but don't set protection
+                  // The user will see the correct position on the slider, and manual operations will work
+                  console.log(`🎚️ Keeping display position at ${positionSeconds}s for user visibility`);
+                } else {
+                  console.error(`❌ Seek operation failed (session: ${restorationSessionId}):`, seekOperationError);
+                  
+                  // Reset display position to match reality (0s) for other errors
+                  setDisplayPosition(0);
+                  setPlayerPosition(0);
+                  setExpectedPosition(0);
+                }
+                setRestorationProtection(false);
+              } else {
+                console.log(`⚠️ Seek operation failed for cancelled session (session: ${restorationSessionId}), ignoring error`);
+              }
               return;
             }
           } catch (seekError) {
-            console.error(`❌ Player seek failed during restoration (session: ${restorationSessionId}):`, seekError);
-            // Only reset if we're still on the same track
-            if (track && track.id === currentTrackId) {
-              setDisplayPosition(0);
-              setPlayerPosition(0);
-              setExpectedPosition(0);
-              setRestorationProtection(false);
+            // Only log errors for active sessions, not cancelled ones
+            if (currentRestorationSessionIdRef.current === restorationSessionId) {
+              console.error(`❌ Player seek failed during restoration (session: ${restorationSessionId}):`, seekError);
+              // Only reset if we're still on the same track
+              if (track && track.id === currentTrackId) {
+                setDisplayPosition(0);
+                setPlayerPosition(0);
+                setExpectedPosition(0);
+                setRestorationProtection(false);
+              }
+            } else {
+              console.log(`⚠️ Player seek failed for cancelled session (session: ${restorationSessionId}), ignoring error`);
             }
             return;
           }
@@ -393,25 +526,33 @@ export function AudioPlayer({
         setRestorationProtection(false);
       }
     } catch (error) {
-      console.error('❌ Error during position restoration:', error);
-      // Only reset if we're still on the same track
-      if (track && track.id === currentTrackId) {
-        setRestorationProtection(false);
-        setDisplayPosition(0);
-        setPlayerPosition(0);
-        setExpectedPosition(0);
+      // Only log errors for active sessions, not cancelled ones
+      if (currentRestorationSessionIdRef.current === restorationSessionId) {
+        console.error('❌ Error during position restoration:', error);
+        // Only reset if we're still on the same track
+        if (track && track.id === currentTrackId) {
+          setRestorationProtection(false);
+          setDisplayPosition(0);
+          setPlayerPosition(0);
+          setExpectedPosition(0);
+        }
+      } else {
+        console.log(`⚠️ Position restoration error for cancelled session (session: ${restorationSessionId}), ignoring`);
       }
     } finally {
       // Always clean up flags (since we use local currentTrackId for validation)
       setIsSeekInProgress(false);
       setIsRestorationInProgress(false);
       
-      // Only update player state if we're still on the same track
-      if (track && track.id === currentTrackId) {
+      // Only update player state if we're still on the same track and this is the active session
+      console.log(`🔍 [DEBUG] Finally block: track.id=${track?.id}, currentTrackId=${currentTrackId}, currentRestorationSessionId=${currentRestorationSessionIdRef.current}, restorationSessionId=${restorationSessionId}`);
+      if (track && track.id === currentTrackId && currentRestorationSessionIdRef.current === restorationSessionId) {
         setPlayerState('RESTORED');
         console.log(`🎯 Position restoration complete (session: ${restorationSessionId}) - seekInProgress: false`);
+        console.log(`🔍 [DEBUG] Clearing currentRestorationSessionId: ${restorationSessionId} → null`);
+        safeClearSessionId("restoration completion", false); // Clear the current session
       } else {
-        console.log(`🔄 Restoration cleanup - track changed during restoration (session: ${restorationSessionId})`);
+        console.log(`🔄 Restoration cleanup - track changed or session cancelled during restoration (session: ${restorationSessionId})`);
       }
       setRestorationTrackId(null);
     }
@@ -440,7 +581,12 @@ export function AudioPlayer({
   
   // Toggle play/pause with seek-aware state management
   const togglePlayPause = () => {
-    if (!player || !status?.isLoaded || playerState === 'LOADING') return;
+    console.log(`🔍 [DEBUG] togglePlayPause called: playerState=${playerState}, isSeekInProgress=${isSeekInProgress}, status.playing=${status?.playing}, status.currentTime=${status?.currentTime}`);
+    
+    if (!player || !status?.isLoaded || playerState === 'LOADING') {
+      console.log(`⚠️ [DEBUG] Play blocked - player not ready: player=${!!player}, isLoaded=${status?.isLoaded}, playerState=${playerState}`);
+      return;
+    }
     
     // Block play if seek is in progress
     if (isSeekInProgress && !status.playing) {
@@ -453,6 +599,7 @@ export function AudioPlayer({
       setPlayerState('RESTORED'); // Paused state
       console.log(`⏸️ Playback paused - state: RESTORED`);
     } else {
+      console.log(`🔍 [DEBUG] Starting playback: playerPosition=${playerPosition}, displayPosition=${displayPosition}, expectedPosition=${expectedPosition}, status.currentTime=${status.currentTime}`);
       player.play();
       setPlayerState('PLAYING'); // Playing state
       console.log(`▶️ Playbook started - state: PLAYING, expected position: ${expectedPosition}s`);
@@ -803,16 +950,6 @@ const styles = StyleSheet.create({
   },
   skipArrowRight: {
     position: 'absolute',
-  },
-  skipNumber: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: colors.gray[700],
-    position: 'absolute',
-    textAlign: 'center',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -6 }, { translateY: -4 }], // Default positioning
   },
   skipNumberLeft: {
     fontSize: 11,
