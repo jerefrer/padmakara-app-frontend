@@ -50,10 +50,21 @@ export default function RetreatDetailScreen() {
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadedTracks, setDownloadedTracks] = useState<Set<string>>(new Set());
+  const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
+  const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
+  const [isDownloadingRetreat, setIsDownloadingRetreat] = useState(false);
+  const [retreatDownloadProgress, setRetreatDownloadProgress] = useState({ completed: 0, total: 0 });
 
   useEffect(() => {
     loadRetreatDetails();
   }, [id]);
+  
+  useEffect(() => {
+    if (retreat) {
+      loadDownloadedTracks();
+    }
+  }, [retreat]);
 
   const loadRetreatDetails = async () => {
     try {
@@ -74,6 +85,31 @@ export default function RetreatDetailScreen() {
     }
   };
 
+  const loadDownloadedTracks = async () => {
+    try {
+      if (retreat?.sessions) {
+        const downloadedTrackIds = new Set<string>();
+        
+        // Check each track across all sessions to see if it's downloaded
+        for (const session of retreat.sessions) {
+          if (session.tracks) {
+            for (const track of session.tracks) {
+              const isDownloaded = await retreatService.isTrackDownloaded(track.id);
+              if (isDownloaded) {
+                downloadedTrackIds.add(track.id);
+              }
+            }
+          }
+        }
+        
+        setDownloadedTracks(downloadedTrackIds);
+        console.log(`📥 Found ${downloadedTrackIds.size} downloaded tracks in retreat`);
+      }
+    } catch (error) {
+      console.error('Load downloaded tracks error:', error);
+    }
+  };
+
   const handleSessionPress = (sessionId: string) => {
     router.push(`/session/${sessionId}`);
   };
@@ -82,62 +118,119 @@ export default function RetreatDetailScreen() {
     try {
       if (!retreat) return;
       
-      // Count total tracks across all sessions
-      const totalTracks = retreat.sessions.reduce((sum, session) => 
-        sum + (session.tracks?.length || 0), 0
-      );
+      // Check if already downloading retreat
+      if (isDownloadingRetreat) {
+        // Cancel all active downloads
+        for (const trackId of downloadingTracks) {
+          await retreatService.cancelTrackDownload(trackId);
+        }
+        
+        // Reset state
+        setIsDownloadingRetreat(false);
+        setRetreatDownloadProgress({ completed: 0, total: 0 });
+        setDownloadingTracks(new Set());
+        setDownloadProgress(new Map());
+        return;
+      }
+
+      // Get all tracks from all sessions
+      const allTracks: any[] = [];
+      retreat.sessions.forEach(session => {
+        if (session.tracks) {
+          allTracks.push(...session.tracks);
+        }
+      });
       
-      if (totalTracks === 0) {
+      if (allTracks.length === 0) {
         Alert.alert('No Tracks', 'This retreat has no tracks to download.');
         return;
       }
       
-      Alert.alert(
-        'Download Retreat',
-        `Download all ${totalTracks} tracks from "${retreat.name}" for offline playback?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Download All',
-            onPress: async () => {
-              console.log(`🔽 Starting bulk download for retreat: ${retreat.name}`);
-              
-              let successCount = 0;
-              let failCount = 0;
-              
-              for (const session of retreat.sessions) {
-                console.log(`📂 Downloading session: ${session.name}`);
-                
-                if (session.tracks) {
-                  for (const track of session.tracks) {
-                    console.log(`📊 Downloading track: ${track.title}`);
-                    
-                    const result = await retreatService.downloadTrack(track.id);
-                    
-                    if (result.success) {
-                      successCount++;
-                    } else {
-                      failCount++;
-                      console.error(`Failed to download track ${track.title}:`, result.error);
-                    }
-                  }
-                }
-              }
-              
-              if (successCount === totalTracks) {
-                Alert.alert('Download Complete', `All ${successCount} tracks downloaded successfully.`);
-              } else if (successCount > 0) {
-                Alert.alert('Partial Download', `${successCount} tracks downloaded, ${failCount} failed.`);
-              } else {
-                Alert.alert('Download Failed', 'Failed to download any tracks. Please check your connection.');
-              }
-            }
+      // Check if all tracks are downloaded - if so, remove them
+      const tracksToDownload = allTracks.filter(track => !downloadedTracks.has(track.id));
+      const tracksToRemove = allTracks.filter(track => downloadedTracks.has(track.id));
+      
+      if (tracksToDownload.length === 0 && tracksToRemove.length > 0) {
+        // All tracks are downloaded, so remove them
+        console.log(`🗑️ Removing all downloads for retreat: ${retreat.name}`);
+        
+        for (const track of tracksToRemove) {
+          const result = await retreatService.removeDownloadedTrack(track.id);
+          if (result.success) {
+            setDownloadedTracks(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(track.id);
+              return newSet;
+            });
+            console.log(`✅ Removed download: ${track.title}`);
           }
-        ]
-      );
+        }
+        
+        console.log(`🎉 All retreat downloads removed`);
+        return;
+      }
+      
+      if (tracksToDownload.length === 0) {
+        console.log(`✅ All tracks already downloaded`);
+        return;
+      }
+
+      console.log(`🔽 Starting bulk download for retreat: ${retreat.name}`);
+      
+      setIsDownloadingRetreat(true);
+      setRetreatDownloadProgress({ completed: 0, total: tracksToDownload.length });
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (let i = 0; i < tracksToDownload.length; i++) {
+        const track = tracksToDownload[i];
+        console.log(`📊 Downloading track ${i + 1}/${tracksToDownload.length}: ${track.title}`);
+        
+        // Mark track as downloading
+        setDownloadingTracks(prev => new Set(prev).add(track.id));
+        
+        const result = await retreatService.downloadTrack(track.id, (progress) => {
+          setDownloadProgress(prev => new Map(prev).set(track.id, progress));
+        });
+        
+        // Clean up track downloading state
+        setDownloadingTracks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(track.id);
+          return newSet;
+        });
+        setDownloadProgress(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(track.id);
+          return newMap;
+        });
+        
+        if (result.success && !result.cancelled) {
+          successCount++;
+          setDownloadedTracks(prev => new Set(prev).add(track.id));
+          console.log(`✅ Track downloaded: ${track.title} (${successCount}/${tracksToDownload.length})`);
+        } else if (result.cancelled) {
+          console.log(`⏸️ Track download cancelled: ${track.title}`);
+          break; // Exit the loop if download was cancelled
+        } else {
+          failCount++;
+          console.error(`❌ Failed to download track ${track.title}:`, result.error);
+        }
+        
+        // Update retreat progress
+        setRetreatDownloadProgress({ completed: i + 1, total: tracksToDownload.length });
+      }
+      
+      setIsDownloadingRetreat(false);
+      setRetreatDownloadProgress({ completed: 0, total: 0 });
+      
+      console.log(`🎉 Retreat download completed: ${successCount} succeeded, ${failCount} failed`);
+      
     } catch (error) {
+      setIsDownloadingRetreat(false);
+      setRetreatDownloadProgress({ completed: 0, total: 0 });
       console.error('Bulk retreat download error:', error);
-      Alert.alert('Error', 'Failed to download retreat.');
     }
   };
 
@@ -186,12 +279,44 @@ export default function RetreatDetailScreen() {
         <View style={styles.retreatActions}>
           <TouchableOpacity
             onPress={handleDownloadAllRetreat}
-            style={styles.downloadAllButton}
+            style={[
+              styles.downloadAllButton,
+              isDownloadingRetreat && styles.downloadAllButtonActive
+            ]}
           >
-            <Ionicons name="download" size={20} color="white" />
-            <Text style={styles.downloadAllButtonText}>
-              Download Retreat ({retreat.sessions.reduce((sum, s) => sum + (s.tracks?.length || 0), 0)} tracks)
-            </Text>
+            {isDownloadingRetreat ? (
+              <>
+                <ActivityIndicator size="small" color="white" />
+                <Text style={styles.downloadAllButtonText}>
+                  {retreatDownloadProgress.total > 0 
+                    ? `Downloading (${retreatDownloadProgress.completed}/${retreatDownloadProgress.total})`
+                    : 'Preparing...'
+                  }
+                </Text>
+              </>
+            ) : (() => {
+              const allTracks: any[] = [];
+              retreat.sessions.forEach(session => {
+                if (session.tracks) {
+                  allTracks.push(...session.tracks);
+                }
+              });
+              const tracksToDownload = allTracks.filter(t => !downloadedTracks.has(t.id));
+              const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
+              const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
+              
+              return (
+                <>
+                  <Ionicons name={allDownloaded ? "trash" : "download"} size={20} color="white" />
+                  <Text style={styles.downloadAllButtonText}>
+                    {allDownloaded 
+                      ? `Remove Downloads (${tracksDownloaded.length} tracks)`
+                      : `Download Retreat (${tracksToDownload.length} tracks)`
+                    }
+                  </Text>
+                </>
+              );
+            })()}
           </TouchableOpacity>
         </View>
 
@@ -308,6 +433,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  downloadAllButtonActive: {
+    backgroundColor: colors.burgundy[600],
+    opacity: 0.9,
   },
   sessionsTitle: {
     fontSize: 18,

@@ -265,15 +265,36 @@ export default function SessionDetailScreen() {
         return;
       }
 
-      console.log(`🔽 Starting bulk download for session: ${session.name}`);
-      
-      // Filter out already downloaded tracks
+      // Check if all tracks are downloaded - if so, remove them
       const tracksToDownload = allTracks.filter(track => !downloadedTracks.has(track.id));
+      const tracksToRemove = allTracks.filter(track => downloadedTracks.has(track.id));
+      
+      if (tracksToDownload.length === 0 && tracksToRemove.length > 0) {
+        // All tracks are downloaded, so remove them
+        console.log(`🗑️ Removing all downloads for session: ${session.name}`);
+        
+        for (const track of tracksToRemove) {
+          const result = await retreatService.removeDownloadedTrack(track.id);
+          if (result.success) {
+            setDownloadedTracks(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(track.id);
+              return newSet;
+            });
+            console.log(`✅ Removed download: ${track.title}`);
+          }
+        }
+        
+        console.log(`🎉 All session downloads removed`);
+        return;
+      }
       
       if (tracksToDownload.length === 0) {
         console.log(`✅ All tracks already downloaded`);
         return;
       }
+
+      console.log(`🔽 Starting bulk download for session: ${session.name}`);
       
       sessionDownloadCancelRef.current = false;
       setIsDownloadingSession(true);
@@ -405,14 +426,23 @@ export default function SessionDetailScreen() {
                   }
                 </Text>
               </>
-            ) : (
-              <>
-                <Ionicons name="download" size={20} color="white" />
-                <Text style={styles.downloadAllButtonText}>
-                  Download Session ({allTracks.filter(t => !downloadedTracks.has(t.id)).length} tracks)
-                </Text>
-              </>
-            )}
+            ) : (() => {
+              const tracksToDownload = allTracks.filter(t => !downloadedTracks.has(t.id));
+              const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
+              const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
+              
+              return (
+                <>
+                  <Ionicons name={allDownloaded ? "trash" : "download"} size={20} color="white" />
+                  <Text style={styles.downloadAllButtonText}>
+                    {allDownloaded 
+                      ? `Remove Downloads (${tracksDownloaded.length} tracks)`
+                      : `Download Session (${tracksToDownload.length} tracks)`
+                    }
+                  </Text>
+                </>
+              );
+            })()}
           </TouchableOpacity>
         </View>
 
