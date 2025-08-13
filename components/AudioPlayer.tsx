@@ -1,11 +1,11 @@
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const colors = {
   burgundy: {
@@ -61,6 +61,7 @@ export function AudioPlayer({
   const currentRestorationSessionIdRef = useRef<string | null>(null); // Track current active restoration session - using ref to prevent React state interference
   const [isStreamLoading, setIsStreamLoading] = useState(false); // Track if stream URL is being fetched
   const [streamLoadedTrackId, setStreamLoadedTrackId] = useState<string | null>(null); // Track which track has stream loaded
+  const [isTrackLoading, setIsTrackLoading] = useState(false); // Overall track loading state for UI feedback
   
   // Audio player hooks
   const player = useAudioPlayer(audioSource);
@@ -78,6 +79,26 @@ export function AudioPlayer({
     console.log(`✅ [SESSION] Clearing session ID: ${currentRestorationSessionIdRef.current} → null (reason: ${reason})`);
     currentRestorationSessionIdRef.current = null;
     return true;
+  };
+  
+  // Get remembered position for optimistic display
+  const getRememberedPosition = async (trackId: string): Promise<{ position: number; duration: number }> => {
+    try {
+      const progressKey = `progress_${trackId}`;
+      const savedProgress = await AsyncStorage.getItem(progressKey);
+      
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        return {
+          position: progress.position || 0,
+          duration: track?.duration || 1800 // Use track duration or default
+        };
+      }
+    } catch (error) {
+      console.error('Error getting remembered position:', error);
+    }
+    
+    return { position: 0, duration: track?.duration || 1800 };
   };
   
   // Setup audio session on mount
@@ -115,20 +136,34 @@ export function AudioPlayer({
         safeClearSessionId("track switch cancellation", true); // Force clear for track switch
       }
       
-      setPlayerState('LOADING');
-      setLoadedTrackId(null);
-      setPlayerPosition(0);
-      setDisplayPosition(0);
-      setExpectedPosition(0);
-      setRestorationProtection(false);
-      setIsSeekInProgress(false);
-      setIsRestorationInProgress(false);
-      setRestorationTrackId(null);
-      setIsStreamLoading(false);
-      setStreamLoadedTrackId(null);
-      console.log(`🔍 [DEBUG] Track loading: Clearing currentRestorationSessionId: ${currentRestorationSessionIdRef.current} → null`);
-      safeClearSessionId("track loading reset", false);
-      loadTrack(track);
+      // Start loading state immediately for smooth UX
+      setIsTrackLoading(true);
+      
+      // Set optimistic display with remembered position
+      const setupOptimisticDisplay = async () => {
+        const remembered = await getRememberedPosition(track.id);
+        console.log(`🎯 Setting optimistic display: position=${remembered.position}s, duration=${remembered.duration}s`);
+        
+        setDisplayPosition(remembered.position);
+        setPlayerPosition(remembered.position);
+        setExpectedPosition(remembered.position);
+        
+        // Don't reset other states until we start loading
+        setPlayerState('LOADING');
+        setLoadedTrackId(null);
+        setRestorationProtection(false);
+        setIsSeekInProgress(false);
+        setIsRestorationInProgress(false);
+        setRestorationTrackId(null);
+        setIsStreamLoading(false);
+        setStreamLoadedTrackId(null);
+        console.log(`🔍 [DEBUG] Track loading: Clearing currentRestorationSessionId: ${currentRestorationSessionIdRef.current} → null`);
+        safeClearSessionId("track loading reset", false);
+        
+        loadTrack(track);
+      };
+      
+      setupOptimisticDisplay();
     } else {
       console.log('🔄 No track selected, resetting');
       setAudioSource(null);
@@ -143,6 +178,7 @@ export function AudioPlayer({
       setRestorationTrackId(null);
       setIsStreamLoading(false);
       setStreamLoadedTrackId(null);
+      setIsTrackLoading(false);
       console.log(`🔍 [DEBUG] No track: Clearing currentRestorationSessionId: ${currentRestorationSessionIdRef.current} → null`);
       safeClearSessionId("no track reset", false);
     }
@@ -548,6 +584,7 @@ export function AudioPlayer({
       console.log(`🔍 [DEBUG] Finally block: track.id=${track?.id}, currentTrackId=${currentTrackId}, currentRestorationSessionId=${currentRestorationSessionIdRef.current}, restorationSessionId=${restorationSessionId}`);
       if (track && track.id === currentTrackId && currentRestorationSessionIdRef.current === restorationSessionId) {
         setPlayerState('RESTORED');
+        setIsTrackLoading(false); // Clear loading state when restoration completes
         console.log(`🎯 Position restoration complete (session: ${restorationSessionId}) - seekInProgress: false`);
         console.log(`🔍 [DEBUG] Clearing currentRestorationSessionId: ${restorationSessionId} → null`);
         safeClearSessionId("restoration completion", false); // Clear the current session
@@ -790,15 +827,13 @@ export function AudioPlayer({
               style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
               disabled={isPlayButtonDisabled}
             >
-              <View style={styles.circularSkipContent}>
-                <Ionicons 
-                  name="refresh-outline" 
-                  size={42} 
-                  color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-                  style={styles.skipArrowLeft}
-                />
-                <Text style={[styles.skipNumberLeft, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
-              </View>
+              <FontAwesome 
+                name="rotate-left" 
+                size={32} 
+                color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
+                style={styles.skipIcon}
+              />
+              <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
             </TouchableOpacity>
             
             {/* Play/Pause button */}
@@ -820,15 +855,13 @@ export function AudioPlayer({
               style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
               disabled={isPlayButtonDisabled}
             >
-              <View style={styles.circularSkipContent}>
-                <Ionicons 
-                  name="refresh-outline" 
-                  size={42} 
-                  color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-                  style={styles.skipArrowRight}
-                />
-                <Text style={[styles.skipNumberRight, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
-              </View>
+              <FontAwesome 
+                name="rotate-right" 
+                size={32} 
+                color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
+                style={styles.skipIcon}
+              />
+              <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
             </TouchableOpacity>
             
             {/* Next track */}
@@ -851,6 +884,13 @@ export function AudioPlayer({
           </TouchableOpacity>
         </View>
       </View>
+      
+      {/* Loading Overlay */}
+      {isTrackLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color={colors.burgundy[500]} />
+        </View>
+      )}
     </View>
   );
 }
@@ -937,39 +977,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circularSkipContent: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
+  skipIcon: {
+    // Remove absolute positioning
   },
-  skipArrowLeft: {
-    transform: [{ scaleX: -1 }], // Flip horizontally for backward arrow
-    position: 'absolute',
-  },
-  skipArrowRight: {
-    position: 'absolute',
-  },
-  skipNumberLeft: {
-    fontSize: 11,
+  skipNumber: {
+    fontSize: 10,
     fontWeight: 'bold',
     color: colors.gray[700],
-    position: 'absolute',
     textAlign: 'center',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -8 }, { translateY: -2 }], // Move text 2px left and 2px down
-  },
-  skipNumberRight: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: colors.gray[700],
-    position: 'absolute',
-    textAlign: 'center',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -5 }, { translateY: -2 }], // Move text 1px right and 2px down
+    position: 'absolute', // Position text over the icon
   },
   skipNumberDisabled: {
     color: colors.gray[400],
@@ -995,5 +1011,18 @@ const styles = StyleSheet.create({
   },
   speedTextDisabled: {
     color: colors.gray[400],
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+    paddingBottom: 28, // Adjusted to align with controls center
+    paddingLeft: 16, // Match controls container padding
+    zIndex: 1000,
   },
 });
