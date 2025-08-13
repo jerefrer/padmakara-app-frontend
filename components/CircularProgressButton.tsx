@@ -82,7 +82,7 @@ export function CircularProgressButton({
               ) : (
                 <Ionicons 
                   name="close" 
-                  size={size * 0.4} 
+                  size={size * 0.6} 
                   color={colors.gray[600]} 
                 />
               )}
