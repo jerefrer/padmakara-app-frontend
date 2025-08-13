@@ -1,8 +1,8 @@
+import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
+import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
-import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
-import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';

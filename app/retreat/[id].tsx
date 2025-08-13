@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import retreatService from '@/services/retreatService';
 import { Session } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 
 const colors = {
   cream: {
@@ -112,6 +113,25 @@ export default function RetreatDetailScreen() {
 
   const handleSessionPress = (sessionId: string) => {
     router.push(`/session/${sessionId}`);
+  };
+
+  const calculateSessionSize = (session: Session) => {
+    if (!session.tracks) return 0;
+    return session.tracks.reduce((total, track) => {
+      return total + (track.file_size || estimateAudioFileSize(track.duration));
+    }, 0);
+  };
+
+  const calculateTotalRetreatSize = (sessions: Session[]) => {
+    return sessions.reduce((total, session) => {
+      return total + calculateSessionSize(session);
+    }, 0);
+  };
+
+  const formatSessionInfo = (session: Session) => {
+    const tracksCount = session.tracks?.length || 0;
+    const sessionSize = formatBytes(calculateSessionSize(session));
+    return `${tracksCount} tracks • ${t(`retreats.${session.type}`)} • ${sessionSize}`;
   };
 
   const handleDownloadAllRetreat = async () => {
@@ -305,13 +325,18 @@ export default function RetreatDetailScreen() {
               const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
               const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
               
+              const totalSizeToDownload = formatBytes(tracksToDownload.reduce((total, track) => 
+                total + (track.file_size || estimateAudioFileSize(track.duration)), 0));
+              const totalSizeDownloaded = formatBytes(tracksDownloaded.reduce((total, track) => 
+                total + (track.file_size || estimateAudioFileSize(track.duration)), 0));
+              
               return (
                 <>
                   <Ionicons name={allDownloaded ? "trash" : "download"} size={20} color="white" />
                   <Text style={styles.downloadAllButtonText}>
                     {allDownloaded 
-                      ? `Remove Downloads (${tracksDownloaded.length} tracks)`
-                      : `Download Retreat (${tracksToDownload.length} tracks)`
+                      ? `Remove Downloads (${tracksDownloaded.length} tracks, ${totalSizeDownloaded})`
+                      : `Download Retreat (${tracksToDownload.length} tracks, ${totalSizeToDownload})`
                     }
                   </Text>
                 </>
@@ -343,7 +368,7 @@ export default function RetreatDetailScreen() {
                   <View style={styles.cardContent}>
                     <Text style={styles.sessionName}>{session.name}</Text>
                     <Text style={styles.sessionInfo}>
-                      {session.tracks?.length || 0} tracks • {t(`retreats.${session.type}`)}
+                      {formatSessionInfo(session)}
                     </Text>
                     <Text style={styles.sessionDate}>
                       {new Date(session.date).toLocaleDateString()}

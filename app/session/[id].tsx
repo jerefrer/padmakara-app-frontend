@@ -9,6 +9,7 @@ import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 
 const colors = {
   cream: {
@@ -390,6 +391,18 @@ export default function SessionDetailScreen() {
     return `${minutes}m`;
   };
 
+  const formatTrackInfo = (track: Track) => {
+    const duration = formatDuration(track.duration);
+    const fileSize = track.file_size ? formatBytes(track.file_size) : formatBytes(estimateAudioFileSize(track.duration));
+    return `${duration} • ${fileSize}`;
+  };
+
+  const calculateTotalSize = (tracks: Track[]) => {
+    return tracks.reduce((total, track) => {
+      return total + (track.file_size || estimateAudioFileSize(track.duration));
+    }, 0);
+  };
+
   return (
     <View style={styles.container}>
       {/* Fixed Header Section - unmovable */}
@@ -431,13 +444,16 @@ export default function SessionDetailScreen() {
               const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
               const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
               
+              const totalSizeToDownload = formatBytes(calculateTotalSize(tracksToDownload));
+              const totalSizeDownloaded = formatBytes(calculateTotalSize(tracksDownloaded));
+              
               return (
                 <>
                   <Ionicons name={allDownloaded ? "trash" : "download"} size={20} color="white" />
                   <Text style={styles.downloadAllButtonText}>
                     {allDownloaded 
-                      ? `Remove Downloads (${tracksDownloaded.length} tracks)`
-                      : `Download Session (${tracksToDownload.length} tracks)`
+                      ? `Remove Downloads (${tracksDownloaded.length} tracks, ${totalSizeDownloaded})`
+                      : `Download Session (${tracksToDownload.length} tracks, ${totalSizeToDownload})`
                     }
                   </Text>
                 </>
@@ -476,7 +492,7 @@ export default function SessionDetailScreen() {
                     {track.title}
                   </Text>
                   <Text style={styles.trackDuration}>
-                    {formatDuration(track.duration)}
+                    {formatTrackInfo(track)}
                   </Text>
                 </View>
                 

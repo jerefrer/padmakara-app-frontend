@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system';
 import { mockRetreatGroups } from '@/data/mockData';
 import { Track, DownloadedContent } from '@/types';
 import i18n from '@/utils/i18n';
+import { formatBytes } from '@/utils/fileSize';
 
 const colors = {
   cream: {
@@ -80,15 +81,6 @@ export default function DownloadsScreen() {
     }
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
 
   const findTrackById = (trackId: string): Track | null => {
     for (const group of mockRetreatGroups) {

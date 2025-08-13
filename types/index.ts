@@ -58,6 +58,7 @@ export interface Track {
   id: string;
   title: string;
   duration: number; // in seconds
+  file_size?: number; // in bytes
   audio_file?: string;
   transcript_file?: string;
   order: number;
