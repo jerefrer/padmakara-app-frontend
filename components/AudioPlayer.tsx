@@ -924,7 +924,8 @@ const styles = StyleSheet.create({
   },
   playerContent: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 16,
+    paddingBottom: 24,
     minHeight: 88,
   },
   trackInfo: {
