@@ -1,19 +1,20 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import magicLinkService from '@/services/magicLinkService';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
+  ActivityIndicator,
   Alert,
   Animated,
-  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import magicLinkService from '@/services/magicLinkService';
-import { useAuth } from '@/contexts/AuthContext';
 
 const colors = {
   cream: {
@@ -253,15 +254,19 @@ export default function CheckEmailScreen() {
         colors={[colors.cream[50], colors.cream[100]]}
         style={styles.background}
       >
-        <Animated.View 
-          style={[
-            styles.content,
-            { 
-              opacity: fadeAnim,
-              transform: [{ scale: successScale }]
-            }
-          ]}
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
+          <Animated.View 
+            style={[
+              styles.content,
+              { 
+                opacity: fadeAnim,
+                transform: [{ scale: successScale }]
+              }
+            ]}
+          >
           {/* Email Icon with Pulse Animation */}
           <Animated.View 
             style={[
@@ -299,7 +304,7 @@ export default function CheckEmailScreen() {
               <View style={styles.statusIndicator}>
                 <ActivityIndicator size="small" color={colors.saffron[500]} />
                 <Text style={styles.statusText}>
-                  Waiting for activation... (checking automatically)
+                  Waiting for activation...
                 </Text>
               </View>
             )}
@@ -315,23 +320,23 @@ export default function CheckEmailScreen() {
           {/* Instructions */}
           <View style={styles.instructionsContainer}>
             <View style={styles.stepsContainer}>
-            <View style={styles.instruction}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepText}>1</Text>
+              <View style={styles.instruction}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepText}>1</Text>
+                </View>
+                <Text style={styles.instructionText}>
+                  Check your email for the activation link
+                </Text>
               </View>
-              <Text style={styles.instructionText}>
-                Check your email inbox (and spam folder)
-              </Text>
-            </View>
 
-            <View style={styles.instruction}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepText}>2</Text>
+              <View style={styles.instruction}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepText}>2</Text>
+                </View>
+                <Text style={styles.instructionText}>
+                  Tap the activation button in the email
+                </Text>
               </View>
-              <Text style={styles.instructionText}>
-                Tap the "Activate Your Device" button
-              </Text>
-            </View>
 
               <View style={styles.instruction}>
                 <View style={styles.stepNumber}>
@@ -435,6 +440,7 @@ export default function CheckEmailScreen() {
             </Text>
           </View>
         </Animated.View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -447,16 +453,20 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    minHeight: '100%',
+  },
   content: {
-    flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 60,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconContainer: {
-    marginBottom: 32,
+    marginBottom: 16,
   },
   iconBackground: {
     width: 96,
@@ -475,7 +485,7 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
@@ -499,7 +509,7 @@ const styles = StyleSheet.create({
   },
   instructionsContainer: {
     alignSelf: 'stretch',
-    marginBottom: 32,
+    marginBottom: 16,
     alignItems: 'center',
   },
   stepsContainer: {
@@ -509,28 +519,27 @@ const styles = StyleSheet.create({
   instruction: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    marginBottom: 10,
   },
   stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.burgundy[500],
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   stepText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
   instructionText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.gray[700],
-    lineHeight: 22,
+    lineHeight: 20,
   },
   securityNotice: {
     flexDirection: 'row',
@@ -539,7 +548,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
-    marginBottom: 32,
+    marginBottom: 20,
     borderLeftWidth: 3,
     borderLeftColor: colors.saffron[500],
   },
@@ -551,7 +560,7 @@ const styles = StyleSheet.create({
   },
   actionContainer: {
     alignSelf: 'stretch',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   resendButton: {
     borderRadius: 50,

@@ -206,82 +206,6 @@ class MagicLinkService {
       });
 
       if (!response.success || !response.data) {
-        // Development fallback - simulate magic link sent
-        if (__DEV__) {
-          console.log('🎭 Development mode: Simulating magic link sent for email:', email);
-          
-          // Check if we already have development tokens that are valid
-          const existingToken = await this.safeGetItem('auth_token');
-          const existingUserData = await this.safeGetItem('user_data');
-          const deviceActivated = await this.safeGetItem('device_activated');
-          
-          console.log('🎭 Current token state analysis:', {
-            hasToken: !!existingToken,
-            tokenType: existingToken?.startsWith('dev-token-') ? 'development' : (existingToken?.startsWith('eyJ') ? 'JWT' : 'unknown'),
-            tokenPrefix: existingToken?.substring(0, 20) + '...',
-            hasUserData: !!existingUserData,
-            deviceActivated,
-            email: email
-          });
-          
-          // Only treat as already activated if ALL required components are valid
-          if (existingToken && existingToken.startsWith('dev-token-') && existingUserData && deviceActivated === 'true') {
-            console.log('🎭 Valid development tokens already exist, treating as already activated');
-            try {
-              const userData = JSON.parse(existingUserData);
-              return {
-                success: true,
-                data: {
-                  status: 'already_activated',
-                  message: 'Device already activated (development mode)',
-                  access_token: existingToken,
-                  user: userData
-                }
-              };
-            } catch (parseError) {
-              console.warn('🎭 Corrupted development user data, clearing and proceeding with new activation');
-              await this.clearDeviceActivation();
-            }
-          }
-          
-          // Handle any inconsistent states by cleaning up
-          if ((existingToken && deviceActivated !== 'true') || (deviceActivated === 'true' && (!existingToken || !existingUserData))) {
-            console.log('🎭 Development mode: Inconsistent state detected, clearing all auth data');
-            console.log('🎭 State details:', {
-              hasToken: !!existingToken,
-              tokenType: existingToken?.startsWith('dev-token-') ? 'development' : (existingToken?.startsWith('eyJ') ? 'JWT' : 'unknown'),
-              hasUserData: !!existingUserData,
-              deviceActivated,
-              tokenPrefix: existingToken?.substring(0, 20) + '...'
-            });
-            
-            // Clear ALL auth-related data to ensure clean state
-            await this.clearDeviceActivation();
-            
-            // Also clear any remaining auth service data
-            try {
-              await AsyncStorage.multiRemove([
-                'auth_token',
-                'refresh_token', 
-                'user_data',
-                'device_activated',
-                'activation_date'
-              ]);
-              console.log('🧹 Cleared all authentication data for fresh start');
-            } catch (clearError) {
-              console.error('Error clearing auth data:', clearError);
-            }
-          }
-          
-          return { 
-            success: true, 
-            data: {
-              status: 'magic_link_sent',
-              message: 'Magic link sent to your email (development mode)',
-              email: email.toLowerCase().trim()
-            }
-          };
-        }
         return { 
           success: false, 
           error: response.error || 'Failed to request magic link' 
@@ -307,18 +231,6 @@ class MagicLinkService {
     } catch (error) {
       console.error('Error requesting magic link:', error);
       
-      // Development fallback
-      if (__DEV__) {
-        console.log('🎭 Development mode: Backend unavailable, simulating magic link sent');
-        return { 
-          success: true, 
-          data: {
-            status: 'magic_link_sent',
-            message: 'Magic link sent to your email (development mode)',
-            email: email.toLowerCase().trim()
-          }
-        };
-      }
       
       return { success: false, error: 'Network error. Please try again.' };
     }
@@ -371,61 +283,6 @@ class MagicLinkService {
       );
 
       if (!response.success || !response.data) {
-        // Development fallback - simulate successful activation
-        if (__DEV__) {
-          console.log('🎭 Development mode: Simulating device activation');
-          
-          const deviceInfo = await this.getDeviceInfo();
-          const mockUser = {
-            id: 'dev-user-1',
-            email: 'dev@example.com',
-            name: 'Development User',
-            isActive: true,
-            preferences: {
-              language: 'en',
-              contentLanguage: 'en',
-              biometricEnabled: false,
-            },
-            subscription: {
-              status: 'active',
-              type: 'premium'
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          
-          // Create stable mock tokens based on device fingerprint to survive hot-reloads
-          const stableBase = deviceInfo.fingerprint.substring(0, 8);
-          const mockToken = `dev-token-${stableBase}`;
-          const mockRefreshToken = `dev-refresh-${stableBase}`;
-          
-          const storageResults = await Promise.all([
-            this.safeSetItem('auth_token', mockToken),
-            this.safeSetItem('refresh_token', mockRefreshToken),
-            this.safeSetItem('user_data', JSON.stringify(mockUser)),
-            this.safeSetItem('device_activated', 'true'),
-            this.safeSetItem('activation_date', new Date().toISOString())
-          ]);
-          
-          if (!storageResults.every(result => result)) {
-            console.warn('Some development activation data failed to save');
-          }
-          
-          return { 
-            success: true, 
-            data: {
-              status: 'device_activated',
-              message: 'Device activated successfully (development mode)',
-              access_token: mockToken,
-              refresh_token: mockRefreshToken,
-              user: mockUser,
-              device_activation: {
-                device_name: deviceInfo.name,
-                activated_at: new Date().toISOString()
-              }
-            }
-          };
-        }
         
         return { 
           success: false, 
@@ -454,61 +311,6 @@ class MagicLinkService {
     } catch (error) {
       console.error('Error activating device:', error);
       
-      // Development fallback
-      if (__DEV__) {
-        console.log('🎭 Development mode: Backend unavailable, simulating activation');
-        
-        const deviceInfo = await this.getDeviceInfo();
-        const mockUser = {
-          id: 'dev-user-1',
-          email: 'dev@example.com',
-          name: 'Development User',
-          isActive: true,
-          preferences: {
-            language: 'en',
-            contentLanguage: 'en',
-            biometricEnabled: false,
-          },
-          subscription: {
-            status: 'active',
-            type: 'premium'
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        
-        // Create stable mock tokens based on device fingerprint to survive hot-reloads
-        const stableBase = deviceInfo.fingerprint.substring(0, 8);
-        const mockToken = `dev-token-${stableBase}`;
-        const mockRefreshToken = `dev-refresh-${stableBase}`;
-        
-        const storageResults = await Promise.all([
-          this.safeSetItem('auth_token', mockToken),
-          this.safeSetItem('refresh_token', mockRefreshToken),
-          this.safeSetItem('user_data', JSON.stringify(mockUser)),
-          this.safeSetItem('device_activated', 'true'),
-          this.safeSetItem('activation_date', new Date().toISOString())
-        ]);
-        
-        if (!storageResults.every(result => result)) {
-          console.warn('Some development fallback activation data failed to save');
-        }
-        
-        return { 
-          success: true, 
-          data: {
-            status: 'device_activated',
-            message: 'Device activated successfully (development mode)',
-            access_token: mockToken,
-            refresh_token: mockRefreshToken,
-            user: mockUser,
-            device_activation: {
-              device_name: deviceInfo.name,
-              activated_at: new Date().toISOString()
-            }
-          }
-        };
-      }
       
       return { success: false, error: 'Activation failed. Please try again.' };
     }

@@ -10,16 +10,6 @@ interface AuthState {
   token: string | null;
 }
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-interface SignupData {
-  name: string;
-  email: string;
-  password: string;
-}
 
 class AuthService {
   private static instance: AuthService;
@@ -73,15 +63,6 @@ class AuthService {
           };
         }
         
-        // Additional validation for development tokens
-        if (__DEV__ && token.startsWith('dev-token-')) {
-          console.log('🎭 Development token detected, skipping backend validation');
-          return {
-            isAuthenticated: true,
-            user,
-            token,
-          };
-        }
         
         return {
           isAuthenticated: true,
@@ -161,92 +142,6 @@ class AuthService {
     }
   }
 
-  async login(credentials: LoginCredentials): Promise<{ success: boolean; user?: User; error?: string }> {
-    try {
-      console.log('Attempting login with Django backend...');
-      
-      // Call Django backend login endpoint
-      const response = await apiService.post<{
-        access: string;
-        refresh: string;
-        user: User;
-      }>(API_ENDPOINTS.LOGIN, {
-        email: credentials.email,
-        password: credentials.password,
-      });
-
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Login failed. Please check your credentials.' 
-        };
-      }
-
-      const { access: token, refresh: refreshToken, user } = response.data;
-      
-      // Store auth data with error handling
-      const storageOperations = [
-        this.safeSetItem('auth_token', token),
-        this.safeSetItem('refresh_token', refreshToken),
-        this.safeSetItem('user_data', JSON.stringify(user))
-      ];
-      
-      const results = await Promise.all(storageOperations);
-      if (!results.every(result => result)) {
-        console.warn('Some auth data failed to save to AsyncStorage');
-      }
-      
-      console.log('Login successful, user authenticated');
-      return { success: true, user };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Login failed. Please try again.' };
-    }
-  }
-
-  async signup(data: SignupData): Promise<{ success: boolean; user?: User; error?: string }> {
-    try {
-      console.log('Attempting signup with Django backend...');
-      
-      // Call Django backend signup endpoint
-      const response = await apiService.post<{
-        access: string;
-        refresh: string;
-        user: User;
-      }>(API_ENDPOINTS.SIGNUP, {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-      });
-
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Account creation failed. Please try again.' 
-        };
-      }
-
-      const { access: token, refresh: refreshToken, user } = response.data;
-      
-      // Store auth data with error handling
-      const storageOperations = [
-        this.safeSetItem('auth_token', token),
-        this.safeSetItem('refresh_token', refreshToken),
-        this.safeSetItem('user_data', JSON.stringify(user))
-      ];
-      
-      const results = await Promise.all(storageOperations);
-      if (!results.every(result => result)) {
-        console.warn('Some auth data failed to save to AsyncStorage');
-      }
-      
-      console.log('Signup successful, user registered and authenticated');
-      return { success: true, user };
-    } catch (error) {
-      console.error('Signup error:', error);
-      return { success: false, error: 'Account creation failed. Please try again.' };
-    }
-  }
 
   async loginWithBiometric(): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
@@ -392,11 +287,6 @@ class AuthService {
         return { success: false, error: 'No valid session' };
       }
 
-      // For development tokens, always return valid
-      if (__DEV__ && authState.token && authState.token.startsWith('dev-token-')) {
-        console.log('🎭 Development mode: Session valid');
-        return { success: true, user: authState.user };
-      }
       
       // For magic link auth, the session is either valid or not - no refresh needed
       // The device activation status determines session validity
@@ -406,64 +296,11 @@ class AuthService {
     } catch (error) {
       console.error('Session check error:', error);
       
-      // Development fallback
-      if (__DEV__) {
-        const userData = await this.safeGetItem('user_data');
-        const token = await this.safeGetItem('auth_token');
-        if (userData && token && token.startsWith('dev-token-')) {
-          console.log('🎭 Development mode: Using fallback session');
-          try {
-            const user = JSON.parse(userData);
-            return { success: true, user };
-          } catch (parseError) {
-            console.error('Error parsing user data in fallback:', parseError);
-          }
-        }
-      }
       
       return { success: false, error: 'Session check failed' };
     }
   }
 
-  // Password Management
-  async resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const response = await apiService.post(API_ENDPOINTS.RESET_PASSWORD, { email });
-      
-      if (!response.success) {
-        return { 
-          success: false, 
-          error: response.error || 'Password reset failed' 
-        };
-      }
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Reset password error:', error);
-      return { success: false, error: 'Password reset failed' };
-    }
-  }
-
-  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const response = await apiService.post(API_ENDPOINTS.CHANGE_PASSWORD, {
-        current_password: currentPassword,
-        new_password: newPassword,
-      });
-      
-      if (!response.success) {
-        return { 
-          success: false, 
-          error: response.error || 'Password change failed' 
-        };
-      }
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Change password error:', error);
-      return { success: false, error: 'Password change failed' };
-    }
-  }
 }
 
 export default AuthService.getInstance();

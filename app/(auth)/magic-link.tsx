@@ -1,23 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import magicLinkService from '@/services/magicLinkService';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Keyboard,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Keyboard,
-  ScrollView,
-  Animated,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import magicLinkService from '@/services/magicLinkService';
-import { useAuth } from '@/contexts/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const colors = {
   cream: {
@@ -213,32 +212,34 @@ export default function MagicLinkScreen() {
       <View style={styles.headerContainer}>
         <Text style={styles.title}>Welcome to Padmakara</Text>
         <Text style={styles.subtitle}>
-          Enter your email address to access your retreat recordings and teachings
+          Enter your email address to access your retreat recordings
         </Text>
       </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Email Address</Text>
-        <TextInput
-          style={styles.textInput}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="your.email@example.com"
-          placeholderTextColor={colors.gray[400]}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          editable={!isLoading}
-        />
-      </View>
+      <View style={styles.formContainer}>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="your.email@example.com"
+            placeholderTextColor={colors.gray[400]}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            editable={!isLoading}
+            onSubmitEditing={handleEmailSubmit}
+            returnKeyType="go"
+          />
+        </View>
 
-      <TouchableOpacity
-        style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-        onPress={handleEmailSubmit}
-        disabled={isLoading}
-        activeOpacity={0.8}
-      >
+        <TouchableOpacity
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={handleEmailSubmit}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
         <LinearGradient
           colors={[colors.burgundy[500], colors.burgundy[600]]}
           style={styles.buttonGradient}
@@ -249,76 +250,9 @@ export default function MagicLinkScreen() {
             <Text style={styles.primaryButtonText}>Continue</Text>
           )}
         </LinearGradient>
-      </TouchableOpacity>
-
-      <View style={styles.securityNote}>
-        <Text style={styles.securityText}>
-          🔒 Secure, passwordless authentication for your peace of mind
-        </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Development Mode Quick Actions */}
-      {__DEV__ && (
-        <View style={styles.devActions}>
-          <Text style={styles.devTitle}>Development Mode</Text>
-          <TouchableOpacity
-            style={styles.devButton}
-            onPress={async () => {
-              console.log('🎭 Development mode: Quick activation with local backend');
-              setIsLoading(true);
-              try {
-                // Use development email for quick activation
-                const devEmail = 'dev@local.test';
-                setEmail(devEmail);
-                
-                // Request magic link from local backend
-                console.log('📧 Requesting magic link from local Django backend...');
-                const result = await magicLinkService.requestMagicLink(devEmail);
-                
-                if (result.success) {
-                  console.log('✅ Magic link request successful:', result.data?.status);
-                  
-                  if (result.data?.status === 'already_activated') {
-                    // Already activated, refresh auth and navigate
-                    await refreshAuth();
-                    router.replace('/(tabs)');
-                  } else if (result.data?.status === 'magic_link_sent') {
-                    // Magic link sent, show check email screen
-                    router.push({
-                      pathname: '/(auth)/check-email',
-                      params: { email: devEmail }
-                    });
-                  } else {
-                    Alert.alert('Development Note', 'Magic link sent to dev email. Check the Django server logs for the activation link.');
-                    router.push({
-                      pathname: '/(auth)/check-email',
-                      params: { email: devEmail }
-                    });
-                  }
-                } else {
-                  console.warn('⚠️ Magic link request failed, but continuing for development');
-                  // In development, still show the check email screen
-                  Alert.alert('Development Mode', 'Backend request failed, but you can still test the flow. Check Django server logs for any activation links.');
-                  router.push({
-                    pathname: '/(auth)/check-email',
-                    params: { email: devEmail }
-                  });
-                }
-              } catch (error) {
-                console.error('🎭 Development activation error:', error);
-                Alert.alert('Development Error', 'Failed to connect to local backend. Make sure Django server is running on the expected port.');
-              } finally {
-                setIsLoading(false);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.devButtonText}>
-              🚀 Quick Activate (Dev Only)
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </Animated.View>
   );
 
@@ -426,33 +360,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 40,
     paddingBottom: 32,
+    justifyContent: 'center',
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 120,
   },
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
     color: colors.burgundy[500],
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 21,
     fontFamily: 'Georgia',
   },
   subtitle: {
+    marginTop: 12,
     fontSize: 16,
     color: colors.gray[600],
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
+  },
+  formContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
   inputContainer: {
     marginBottom: 24,
@@ -470,6 +411,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: 16,
     color: colors.gray[700],
+    textAlign: 'center',
     borderWidth: 2,
     borderColor: colors.cream[200],
     shadowColor: colors.gray[500],
@@ -517,51 +459,5 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     fontSize: 16,
     fontWeight: '600',
-  },
-  securityNote: {
-    backgroundColor: colors.cream[200],
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginTop: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.saffron[500],
-  },
-  securityText: {
-    color: colors.gray[600],
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  devActions: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(249, 115, 22, 0.1)', // Orange tint for dev mode
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.3)',
-    borderStyle: 'dashed',
-  },
-  devTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(249, 115, 22, 0.8)',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  devButton: {
-    backgroundColor: 'rgba(249, 115, 22, 0.2)',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
-  },
-  devButtonText: {
-    color: 'rgba(249, 115, 22, 0.9)',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });

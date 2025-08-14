@@ -22,13 +22,6 @@ export const API_ENDPOINTS = {
   DEACTIVATE_DEVICE: '/auth/device/deactivate/',
   LIST_USER_DEVICES: '/auth/devices/',
   
-  // Traditional Authentication (not implemented - magic link only)
-  // LOGIN: '/auth/login/',
-  // SIGNUP: '/auth/signup/', 
-  // LOGOUT: '/auth/logout/',
-  // REFRESH_TOKEN: '/auth/refresh/', // Not needed for magic link auth
-  // RESET_PASSWORD: '/auth/reset-password/',
-  // CHANGE_PASSWORD: '/auth/change-password/',
   
   // User Profile
   USER_PROFILE: '/auth/user/',

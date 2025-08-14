@@ -10,8 +10,6 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isDeviceActivated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginWithBiometric: () => Promise<{ success: boolean; error?: string }>;
   activateDeviceWithToken: (token: string) => Promise<{ success: boolean; error?: string; user?: User; device_name?: string }>;
   logout: () => Promise<void>;
@@ -36,15 +34,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Platform-specific debugging helper
   const logDebugInfo = (message: string, data?: any) => {
-    if (__DEV__) {
-      const timestamp = new Date().toISOString();
-      const platformInfo = {
-        platform: Platform.OS,
-        version: Platform.Version,
-        timestamp
-      };
-      console.log(`[${timestamp}] 🔐 ${message}`, { ...platformInfo, ...data });
-    }
+    const timestamp = new Date().toISOString();
+    const platformInfo = {
+      platform: Platform.OS,
+      version: Platform.Version,
+      timestamp
+    };
+    console.log(`[${timestamp}] 🔐 ${message}`, { ...platformInfo, ...data });
   };
 
   useEffect(() => {
@@ -130,7 +126,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         platform: Platform.OS,
         version: Platform.Version,
         isWeb: Platform.OS === 'web',
-        isDev: __DEV__
       });
       setIsLoading(true);
       
@@ -194,8 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               console.log('📱 Platform-specific refresh error context:', {
                 platform: Platform.OS,
                 error: refreshError instanceof Error ? refreshError.message : 'Unknown error',
-                isDev: __DEV__
-              });
+                      });
             }
           } else {
             console.log('❌ Auth state invalid or missing - device activated but auth tokens missing');
@@ -257,7 +251,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('📱 Auth initialization failed with context:', {
         platform: Platform.OS,
         version: Platform.Version,
-        isDev: __DEV__,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
@@ -285,45 +278,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await initializeAuth();
   };
 
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      setIsLoading(true);
-      const result = await authService.login({ email, password });
-      
-      if (result.success && result.user) {
-        setIsAuthenticated(true);
-        setUser(result.user);
-        return { success: true };
-      }
-      
-      return { success: false, error: result.error || 'Login failed' };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Login failed' };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignup = async (name: string, email: string, password: string) => {
-    try {
-      setIsLoading(true);
-      const result = await authService.signup({ name, email, password });
-      
-      if (result.success && result.user) {
-        setIsAuthenticated(true);
-        setUser(result.user);
-        return { success: true };
-      }
-      
-      return { success: false, error: result.error || 'Account creation failed' };
-    } catch (error) {
-      console.error('Signup error:', error);
-      return { success: false, error: 'Account creation failed' };
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleBiometricLogin = async () => {
     try {
@@ -472,8 +426,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     isLoading,
     isDeviceActivated,
-    login: handleLogin,
-    signup: handleSignup,
     loginWithBiometric: handleBiometricLogin,
     activateDeviceWithToken: handleActivateDeviceWithToken,
     logout: handleLogout,

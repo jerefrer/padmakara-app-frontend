@@ -41,7 +41,6 @@ class ApiService {
     console.log('📱 Platform context:', {
       platform: Platform.OS,
       version: Platform.Version,
-      isDev: __DEV__
     });
     
     // Clear all auth-related data with platform-specific handling
@@ -139,13 +138,6 @@ class ApiService {
       if (response.status === 401) {
         // Check if this is a development token - don't clear auth for dev tokens
         const token = await this.getAuthToken();
-        if (__DEV__ && token && token.startsWith('dev-token-')) {
-          console.log('🎭 Development mode: 401 from backend but using dev token, ignoring auth failure');
-          return {
-            success: false,
-            error: 'Backend unavailable in development mode',
-          };
-        }
         
         // Token expired or invalid, handle globally
         await this.handleAuthFailure();
@@ -185,8 +177,7 @@ class ApiService {
         version: Platform.Version,
         error: error.message || 'Unknown error',
         errorName: error.name,
-        isDev: __DEV__
-      });
+        });
       
       // Handle network errors with platform-specific messages
       if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
@@ -322,8 +313,7 @@ class ApiService {
     try {
       console.log('🔐 Validating authentication token...', {
         platform: Platform.OS,
-        isDev: __DEV__
-      });
+        });
       
       const token = await this.getAuthToken();
       if (!token) {
@@ -331,11 +321,6 @@ class ApiService {
         return false;
       }
       
-      // For development tokens, always return true
-      if (__DEV__ && token.startsWith('dev-token-')) {
-        console.log('🎭 Development token detected, validation passed');
-        return true;
-      }
       
       // Make a simple authenticated request to validate token using existing endpoint
       console.log('🔍 Making token validation request to backend...');
@@ -353,8 +338,7 @@ class ApiService {
       console.log('📱 Token validation error context:', {
         platform: Platform.OS,
         error: error instanceof Error ? error.message : 'Unknown error',
-        isDev: __DEV__
-      });
+        });
       return false;
     }
   }
