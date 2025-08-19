@@ -19,7 +19,37 @@
     "signInToContinue": "Por favor, faça login para continuar",
     "useBiometric": "Usar {{biometricType}}",
     "biometricPrompt": "Use sua {{biometricType}} para acessar o conteúdo do retiro",
-    "biometricFallback": "Inserir Código"
+    "biometricFallback": "Inserir Código",
+    "magicLink": {
+      "title": "Bem-vindo ao Padmakara",
+      "subtitle": "Digite seu endereço de e-mail para acessar suas gravações de retiro",
+      "emailPlaceholder": "seu.email@exemplo.com",
+      "continueButton": "Continuar",
+      "language": "Idioma",
+      "english": "Inglês",
+      "portuguese": "Português",
+      "emailRequired": "Por favor, digite seu e-mail",
+      "emailRequiredMessage": "Precisamos do seu endereço de e-mail para enviar o link de ativação.",
+      "invalidEmail": "E-mail inválido",
+      "invalidEmailMessage": "Por favor, digite um endereço de e-mail válido.",
+      "errorTitle": "Erro",
+      "networkErrorTitle": "Erro de Rede",
+      "networkErrorMessage": "Verifique sua conexão com a internet e tente novamente.",
+      "approval": {
+        "title": "Bem-vindo, Novo Amigo",
+        "subtitle": "Gostaríamos muito de tê-lo em nossa comunidade. Por favor, forneça alguns detalhes para que nossa equipe possa aprovar seu acesso.",
+        "firstName": "Nome",
+        "firstNamePlaceholder": "Digite seu nome",
+        "lastName": "Sobrenome",
+        "lastNamePlaceholder": "Digite seu sobrenome",
+        "message": "Mensagem (Opcional)",
+        "messagePlaceholder": "Conte-nos como soube de nós ou qualquer mensagem para nossa equipe...",
+        "requestAccessButton": "Solicitar Acesso",
+        "backButton": "Voltar",
+        "requiredFields": "Campos obrigatórios",
+        "requiredFieldsMessage": "Por favor, digite seu nome e sobrenome."
+      }
+    }
   },
   "navigation": {
     "home": "Início",

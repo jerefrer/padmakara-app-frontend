@@ -19,7 +19,37 @@
     "signInToContinue": "Please sign in to continue",
     "useBiometric": "Use {{biometricType}}",
     "biometricPrompt": "Use your {{biometricType}} to access your retreat content",
-    "biometricFallback": "Enter Passcode"
+    "biometricFallback": "Enter Passcode",
+    "magicLink": {
+      "title": "Welcome to Padmakara",
+      "subtitle": "Enter your email address to access your retreat recordings",
+      "emailPlaceholder": "your.email@example.com",
+      "continueButton": "Continue",
+      "language": "Language",
+      "english": "English",
+      "portuguese": "Portuguese",
+      "emailRequired": "Please enter your email",
+      "emailRequiredMessage": "We need your email address to send you the activation link.",
+      "invalidEmail": "Invalid email",
+      "invalidEmailMessage": "Please enter a valid email address.",
+      "errorTitle": "Error",
+      "networkErrorTitle": "Network Error",
+      "networkErrorMessage": "Please check your internet connection and try again.",
+      "approval": {
+        "title": "Welcome, New Friend",
+        "subtitle": "We'd love to have you join our community. Please provide a few details so our team can approve your access.",
+        "firstName": "First Name",
+        "firstNamePlaceholder": "Enter your first name",
+        "lastName": "Last Name",
+        "lastNamePlaceholder": "Enter your last name",
+        "message": "Message (Optional)",
+        "messagePlaceholder": "Tell us how you heard about us or any message for our team...",
+        "requestAccessButton": "Request Access",
+        "backButton": "Back",
+        "requiredFields": "Required fields",
+        "requiredFieldsMessage": "Please enter your first and last name."
+      }
+    }
   },
   "navigation": {
     "home": "Home",

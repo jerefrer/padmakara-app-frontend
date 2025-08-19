@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,12 +44,14 @@ const colors = {
 
 export default function MagicLinkScreen() {
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState('');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -95,12 +98,12 @@ export default function MagicLinkScreen() {
 
   const handleEmailSubmit = async () => {
     if (!email.trim()) {
-      Alert.alert('Please enter your email', 'We need your email address to send you the activation link.');
+      Alert.alert(t('auth.magicLink.emailRequired'), t('auth.magicLink.emailRequiredMessage'));
       return;
     }
 
     if (!validateEmail(email.trim())) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      Alert.alert(t('auth.magicLink.invalidEmail'), t('auth.magicLink.invalidEmailMessage'));
       return;
     }
 
@@ -108,10 +111,10 @@ export default function MagicLinkScreen() {
     Keyboard.dismiss();
 
     try {
-      const result = await magicLinkService.requestMagicLink(email.trim());
+      const result = await magicLinkService.requestMagicLink(email.trim(), language);
 
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to process your request. Please try again.');
+        Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to process your request. Please try again.');
         return;
       }
 
@@ -139,11 +142,11 @@ export default function MagicLinkScreen() {
           break;
 
         default:
-          Alert.alert('Error', responseMessage || 'Unexpected response from server.');
+          Alert.alert(t('auth.magicLink.errorTitle'), responseMessage || 'Unexpected response from server.');
       }
     } catch (error) {
       console.error('Magic link request error:', error);
-      Alert.alert('Network Error', 'Please check your internet connection and try again.');
+      Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +154,7 @@ export default function MagicLinkScreen() {
 
   const handleApprovalSubmit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Required fields', 'Please enter your first and last name.');
+      Alert.alert(t('auth.magicLink.approval.requiredFields'), t('auth.magicLink.approval.requiredFieldsMessage'));
       return;
     }
 
@@ -163,10 +166,11 @@ export default function MagicLinkScreen() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         message: message.trim(),
+        language: language,
       });
 
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to submit your request. Please try again.');
+        Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to submit your request. Please try again.');
         return;
       }
 
@@ -180,11 +184,53 @@ export default function MagicLinkScreen() {
       });
     } catch (error) {
       console.error('Approval request error:', error);
-      Alert.alert('Network Error', 'Please check your internet connection and try again.');
+      Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));
     } finally {
       setIsLoading(false);
     }
   };
+
+  const renderLanguageSwitcher = () => (
+    <View style={styles.languageSwitcherContainer}>
+      <TouchableOpacity
+        style={styles.languageButton}
+        onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
+        disabled={isLoading}
+      >
+        <Text style={styles.languageButtonText}>
+          {t('auth.magicLink.language')}: {language === 'en' ? t('auth.magicLink.english') : t('auth.magicLink.portuguese')}
+        </Text>
+        <Text style={styles.languageArrow}>{showLanguageDropdown ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      
+      {showLanguageDropdown && (
+        <View style={styles.languageDropdown}>
+          <TouchableOpacity
+            style={[styles.languageOption, language === 'en' && styles.languageOptionSelected]}
+            onPress={() => {
+              setLanguage('en');
+              setShowLanguageDropdown(false);
+            }}
+          >
+            <Text style={[styles.languageOptionText, language === 'en' && styles.languageOptionTextSelected]}>
+              {t('auth.magicLink.english')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.languageOption, language === 'pt' && styles.languageOptionSelected]}
+            onPress={() => {
+              setLanguage('pt');
+              setShowLanguageDropdown(false);
+            }}
+          >
+            <Text style={[styles.languageOptionText, language === 'pt' && styles.languageOptionTextSelected]}>
+              {t('auth.magicLink.portuguese')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
   const renderEmailForm = () => (
     <Animated.View 
@@ -196,6 +242,8 @@ export default function MagicLinkScreen() {
         }
       ]}
     >
+      {renderLanguageSwitcher()}
+      
       <Animated.View 
         style={[
           styles.logoContainer,
@@ -210,9 +258,9 @@ export default function MagicLinkScreen() {
       </Animated.View>
 
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Welcome to Padmakara</Text>
+        <Text style={styles.title}>{t('auth.magicLink.title')}</Text>
         <Text style={styles.subtitle}>
-          Enter your email address to access your retreat recordings
+          {t('auth.magicLink.subtitle')}
         </Text>
       </View>
 
@@ -222,7 +270,7 @@ export default function MagicLinkScreen() {
             style={styles.textInput}
             value={email}
             onChangeText={setEmail}
-            placeholder="your.email@example.com"
+            placeholder={t('auth.magicLink.emailPlaceholder')}
             placeholderTextColor={colors.gray[400]}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -247,7 +295,7 @@ export default function MagicLinkScreen() {
           {isLoading ? (
             <ActivityIndicator color="white" size="small" />
           ) : (
-            <Text style={styles.primaryButtonText}>Continue</Text>
+            <Text style={styles.primaryButtonText}>{t('auth.magicLink.continueButton')}</Text>
           )}
         </LinearGradient>
         </TouchableOpacity>
@@ -258,21 +306,23 @@ export default function MagicLinkScreen() {
 
   const renderApprovalForm = () => (
     <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+      {renderLanguageSwitcher()}
+      
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Welcome, New Friend</Text>
+        <Text style={styles.title}>{t('auth.magicLink.approval.title')}</Text>
         <Text style={styles.subtitle}>
-          We'd love to have you join our community. Please provide a few details so our team can approve your access.
+          {t('auth.magicLink.approval.subtitle')}
         </Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>First Name *</Text>
+          <Text style={styles.inputLabel}>{t('auth.magicLink.approval.firstName')} *</Text>
           <TextInput
             style={styles.textInput}
             value={firstName}
             onChangeText={setFirstName}
-            placeholder="Enter your first name"
+            placeholder={t('auth.magicLink.approval.firstNamePlaceholder')}
             placeholderTextColor={colors.gray[400]}
             autoCapitalize="words"
             editable={!isLoading}
@@ -280,12 +330,12 @@ export default function MagicLinkScreen() {
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Last Name *</Text>
+          <Text style={styles.inputLabel}>{t('auth.magicLink.approval.lastName')} *</Text>
           <TextInput
             style={styles.textInput}
             value={lastName}
             onChangeText={setLastName}
-            placeholder="Enter your last name"
+            placeholder={t('auth.magicLink.approval.lastNamePlaceholder')}
             placeholderTextColor={colors.gray[400]}
             autoCapitalize="words"
             editable={!isLoading}
@@ -293,12 +343,12 @@ export default function MagicLinkScreen() {
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Message (Optional)</Text>
+          <Text style={styles.inputLabel}>{t('auth.magicLink.approval.message')}</Text>
           <TextInput
             style={[styles.textInput, styles.textArea]}
             value={message}
             onChangeText={setMessage}
-            placeholder="Tell us how you heard about us or any message for our team..."
+            placeholder={t('auth.magicLink.approval.messagePlaceholder')}
             placeholderTextColor={colors.gray[400]}
             multiline
             numberOfLines={4}
@@ -320,7 +370,7 @@ export default function MagicLinkScreen() {
             {isLoading ? (
               <ActivityIndicator color="white" size="small" />
             ) : (
-              <Text style={styles.primaryButtonText}>Request Access</Text>
+              <Text style={styles.primaryButtonText}>{t('auth.magicLink.approval.requestAccessButton')}</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -330,7 +380,7 @@ export default function MagicLinkScreen() {
           onPress={() => setShowApprovalForm(false)}
           disabled={isLoading}
         >
-          <Text style={styles.secondaryButtonText}>Back</Text>
+          <Text style={styles.secondaryButtonText}>{t('auth.magicLink.approval.backButton')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </Animated.View>
@@ -458,6 +508,71 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: colors.gray[500],
     fontSize: 16,
+    fontWeight: '600',
+  },
+  languageSwitcherContainer: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+  },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    shadowColor: colors.gray[500],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  languageButtonText: {
+    fontSize: 14,
+    color: colors.gray[700],
+    fontWeight: '500',
+    marginRight: 8,
+  },
+  languageArrow: {
+    fontSize: 12,
+    color: colors.gray[500],
+  },
+  languageDropdown: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    shadowColor: colors.gray[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minWidth: 120,
+    marginTop: 4,
+  },
+  languageOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cream[100],
+  },
+  languageOptionSelected: {
+    backgroundColor: colors.cream[50],
+  },
+  languageOptionText: {
+    fontSize: 14,
+    color: colors.gray[700],
+    fontWeight: '500',
+  },
+  languageOptionTextSelected: {
+    color: colors.burgundy[600],
     fontWeight: '600',
   },
 });

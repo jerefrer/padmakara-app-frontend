@@ -183,9 +183,9 @@ class MagicLinkService {
   /**
    * Step 1: Request magic link via email
    */
-  async requestMagicLink(email: string): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string }> {
+  async requestMagicLink(email: string, language: string = 'en'): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string }> {
     try {
-      console.log('Requesting magic link for email:', email);
+      console.log('Requesting magic link for email:', email, 'in language:', language);
       
       const deviceInfo = await this.getDeviceInfo();
       
@@ -193,7 +193,8 @@ class MagicLinkService {
         email: email.toLowerCase().trim(),
         device_fingerprint: deviceInfo.fingerprint,
         device_name: deviceInfo.name,
-        device_type: deviceInfo.type
+        device_type: deviceInfo.type,
+        language: language
       });
 
       if (!response.success || !response.data) {
@@ -235,9 +236,10 @@ class MagicLinkService {
     first_name: string;
     last_name: string;
     message?: string;
+    language?: string;
   }): Promise<{ success: boolean; data?: ApprovalResponse; error?: string }> {
     try {
-      console.log('Requesting approval for:', data.email);
+      console.log('Requesting approval for:', data.email, 'in language:', data.language || 'en');
       
       const deviceInfo = await this.getDeviceInfo();
       
@@ -245,7 +247,8 @@ class MagicLinkService {
         ...data,
         device_fingerprint: deviceInfo.fingerprint,
         device_name: deviceInfo.name,
-        device_type: deviceInfo.type
+        device_type: deviceInfo.type,
+        language: data.language || 'en'
       });
 
       if (!response.success || !response.data) {
