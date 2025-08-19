@@ -25,15 +25,6 @@ interface ApprovalResponse {
   message: string;
 }
 
-interface ActivationResponse {
-  status: 'device_activated' | 'token_invalid';
-  message: string;
-  access_token?: string;
-  refresh_token?: string;
-  user?: any;
-  device_activation?: any;
-  error?: string;
-}
 
 class MagicLinkService {
   private static instance: MagicLinkService;
@@ -271,50 +262,6 @@ class MagicLinkService {
     }
   }
 
-  /**
-   * Step 3: Activate device using magic link token
-   */
-  async activateDevice(token: string): Promise<{ success: boolean; data?: ActivationResponse; error?: string }> {
-    try {
-      console.log('Activating device with token');
-      
-      const response = await apiService.post<ActivationResponse>(
-        API_ENDPOINTS.ACTIVATE_DEVICE.replace('<token>', token)
-      );
-
-      if (!response.success || !response.data) {
-        
-        return { 
-          success: false, 
-          error: response.error || 'Failed to activate device' 
-        };
-      }
-
-      // Store tokens if activation successful
-      if (response.data.status === 'device_activated' && response.data.access_token) {
-        const storageResults = await Promise.all([
-          this.safeSetItem('auth_token', response.data.access_token),
-          this.safeSetItem('refresh_token', response.data.refresh_token || ''),
-          this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-          this.safeSetItem('device_activated', 'true'),
-          this.safeSetItem('activation_date', new Date().toISOString())
-        ]);
-        
-        if (!storageResults.every(result => result)) {
-          console.warn('Some device activation data failed to save to AsyncStorage');
-        } else {
-          console.log('✅ Device activation data saved successfully');
-        }
-      }
-
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Error activating device:', error);
-      
-      
-      return { success: false, error: 'Activation failed. Please try again.' };
-    }
-  }
 
   /**
    * Check if current device is activated with enhanced error handling

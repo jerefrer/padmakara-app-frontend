@@ -11,7 +11,6 @@ interface AuthContextType {
   isLoading: boolean;
   isDeviceActivated: boolean;
   loginWithBiometric: () => Promise<{ success: boolean; error?: string }>;
-  activateDeviceWithToken: (token: string) => Promise<{ success: boolean; error?: string; user?: User; device_name?: string }>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   enableBiometric: () => Promise<{ success: boolean; error?: string }>;
@@ -299,49 +298,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const handleActivateDeviceWithToken = async (token: string) => {
-    try {
-      console.log('🔗 Starting device activation with token');
-      setIsLoading(true);
-      const result = await magicLinkService.activateDevice(token);
-      
-      if (result.success && result.data && result.data.status === 'device_activated') {
-        console.log('✅ Device activation successful, updating auth states');
-        
-        // Update states atomically to prevent race conditions
-        setIsDeviceActivated(true);
-        setIsAuthenticated(true);
-        setUser(result.data.user);
-        
-        // Reset initialization flag to allow proper re-evaluation
-        setIsInitialized(false);
-        
-        console.log('🔐 Auth states updated:', {
-          isDeviceActivated: true,
-          isAuthenticated: true,
-          userName: result.data.user?.name
-        });
-        
-        // Force a brief delay to ensure state updates have propagated
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        return { 
-          success: true, 
-          user: result.data.user,
-          device_name: result.data.device_activation?.device_name
-        };
-      }
-      
-      console.log('❌ Device activation failed:', result.error);
-      return { success: false, error: result.error || 'Device activation failed' };
-    } catch (error) {
-      console.error('Device activation error:', error);
-      return { success: false, error: 'Device activation failed' };
-    } finally {
-      setIsLoading(false);
-      console.log('🔐 Device activation completed, loading state cleared');
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -427,7 +383,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isDeviceActivated,
     loginWithBiometric: handleBiometricLogin,
-    activateDeviceWithToken: handleActivateDeviceWithToken,
     logout: handleLogout,
     updateUser: handleUpdateUser,
     enableBiometric: handleEnableBiometric,

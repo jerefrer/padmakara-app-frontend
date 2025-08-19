@@ -18,11 +18,6 @@
         "screens": {
           "(auth)": {
             "screens": {
-              "activate": {
-                "screens": {
-                  "[token]": "activate/:token"
-                }
-              },
               "magic-link": "magic-link",
               "check-email": "check-email"
             }
