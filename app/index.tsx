@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { router } from 'expo-router';
+import { router, useGlobalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import magicLinkService from '@/services/magicLinkService';
 
 const colors = {
   cream: {
@@ -13,9 +14,45 @@ const colors = {
 };
 
 export default function RootIndex() {
-  const { isAuthenticated, isLoading, isDeviceActivated } = useAuth();
+  const { isAuthenticated, isLoading, isDeviceActivated, refreshAuth } = useAuth();
   const [hasRedirected, setHasRedirected] = useState(false);
   const [redirectTimeout, setRedirectTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isAutoActivating, setIsAutoActivating] = useState(false);
+  const params = useGlobalSearchParams();
+
+  // Auto-activation effect - runs first if auto_activate parameter is present
+  useEffect(() => {
+    const autoActivateToken = params.auto_activate as string;
+    
+    if (autoActivateToken && !isAutoActivating && !isAuthenticated) {
+      console.log('🔄 Auto-activation token detected:', autoActivateToken.substring(0, 20) + '...');
+      setIsAutoActivating(true);
+      
+      // Attempt auto-activation
+      handleAutoActivation(autoActivateToken);
+    }
+  }, [params.auto_activate, isAutoActivating, isAuthenticated]);
+
+  const handleAutoActivation = async (token: string) => {
+    try {
+      console.log('🚀 Attempting auto-activation with token');
+      
+      const result = await magicLinkService.autoActivateDevice(token);
+      
+      if (result.success) {
+        console.log('✅ Auto-activation successful, refreshing auth state');
+        await refreshAuth();
+        // The normal useEffect will handle redirect after auth refresh
+      } else {
+        console.warn('❌ Auto-activation failed:', result.error);
+        // Fall back to normal authentication flow
+        setIsAutoActivating(false);
+      }
+    } catch (error) {
+      console.error('💥 Auto-activation error:', error);
+      setIsAutoActivating(false);
+    }
+  };
 
   useEffect(() => {
     // Clear any existing redirect timeout
@@ -24,8 +61,8 @@ export default function RootIndex() {
       setRedirectTimeout(null);
     }
 
-    // Don't redirect while loading or if already redirected
-    if (isLoading || hasRedirected) {
+    // Don't redirect while loading, if already redirected, or if auto-activating
+    if (isLoading || hasRedirected || isAutoActivating) {
       return;
     }
 
@@ -78,7 +115,7 @@ export default function RootIndex() {
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.burgundy[500]} />
       <Text style={styles.loadingText}>
-        {isLoading ? 'Checking authentication...' : 'Redirecting...'}
+        {isAutoActivating ? 'Activating device...' : isLoading ? 'Checking authentication...' : 'Redirecting...'}
       </Text>
     </View>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet, Alert, Switch, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +43,7 @@ interface UserStats {
 export default function ProfileScreen() {
   const { language, contentLanguage, setLanguage, setContentLanguage, t } = useLanguage();
   const { user, updateUser, enableBiometric, disableBiometric, logout } = useAuth();
-  const [stats, setStats] = useState<UserStats>({
+  const [_stats, setStats] = useState<UserStats>({
     totalTracks: 0,
     completedTracks: 0,
     totalListeningTime: 0,
@@ -52,14 +52,64 @@ export default function ProfileScreen() {
   });
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('');
+  const [isClearing, setIsClearing] = useState(false);
+
+  // Web-compatible alert system
+  const showAlert = (title: string, message: string, buttons?: Array<{text: string, onPress?: () => void, style?: string}>) => {
+    if (Platform.OS === 'web') {
+      // Use browser confirm dialog for web
+      const confirmed = window.confirm(`${title}\n\n${message}`);
+      if (confirmed && buttons) {
+        const confirmButton = buttons.find(btn => btn.style === 'destructive' || btn.text !== 'Cancel');
+        if (confirmButton?.onPress) {
+          confirmButton.onPress();
+        }
+      }
+    } else {
+      // Use React Native Alert for mobile
+      Alert.alert(title, message, buttons);
+    }
+  };
+
+  // Debug helper to test web click handling  
+  const debugClickHandler = (buttonName: string) => {
+    console.log(`🔍 [${Platform.OS}] Button clicked: ${buttonName}`);
+  };
+
+  // Platform-specific error handling helper
+  const getStorageErrorMessage = (error: any): string => {
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    
+    if (Platform.OS === 'web') {
+      if (errorMessage.includes('localStorage') || errorMessage.includes('storage')) {
+        return 'Storage access blocked. Please check browser settings and allow storage for this site.';
+      }
+      if (errorMessage.includes('quota') || errorMessage.includes('QuotaExceededError')) {
+        return 'Browser storage is full. Please clear browser data or try in incognito mode.';
+      }
+      return 'Web storage error. Please try refreshing the page or using a different browser.';
+    } else {
+      if (errorMessage.includes('AsyncStorage')) {
+        return 'Device storage error. Please restart the app and try again.';
+      }
+      return 'Storage operation failed. Please restart the app and try again.';
+    }
+  };
 
   useEffect(() => {
+    console.log(`🚀 [${Platform.OS}] Profile screen mounted`);
+    if (Platform.OS === 'web') {
+      console.log('🌐 Web platform detected in profile screen');
+      console.log('🌐 Window object available:', typeof window !== 'undefined');
+      console.log('🌐 Alert function available:', typeof Alert !== 'undefined');
+    }
     loadUserStats();
     checkBiometricSupport();
   }, []);
 
   const loadUserStats = async () => {
     try {
+      console.log(`📊 [${Platform.OS}] Loading user stats...`);
       const listeningStats = await progressService.getListeningStats();
       const allPDFProgress = await progressService.getAllPDFProgress();
       
@@ -74,8 +124,19 @@ export default function ProfileScreen() {
         totalHighlights,
         totalBookmarks,
       });
+      
+      console.log(`✅ [${Platform.OS}] User stats loaded successfully`);
     } catch (error) {
-      console.error('Error loading user stats:', error);
+      console.error(`💥 [${Platform.OS}] Error loading user stats:`, error);
+      
+      // Set fallback stats if loading fails
+      setStats({
+        totalTracks: 0,
+        completedTracks: 0,
+        totalListeningTime: 0,
+        totalHighlights: 0,
+        totalBookmarks: 0,
+      });
     }
   };
 
@@ -128,31 +189,31 @@ export default function ProfileScreen() {
       try {
         const result = await enableBiometric();
         if (result.success) {
-          Alert.alert('Success', `${biometricType} has been enabled for app access.`);
+          showAlert('Success', `${biometricType} has been enabled for app access.`);
         } else {
-          Alert.alert('Error', result.error || 'Failed to enable biometric authentication');
+          showAlert('Error', result.error || 'Failed to enable biometric authentication');
         }
       } catch (error) {
         console.error('Biometric authentication error:', error);
-        Alert.alert('Error', 'Failed to enable biometric authentication');
+        showAlert('Error', 'Failed to enable biometric authentication');
       }
     } else {
       try {
         const result = await disableBiometric();
         if (result.success) {
-          Alert.alert('Success', 'Biometric authentication has been disabled.');
+          showAlert('Success', 'Biometric authentication has been disabled.');
         } else {
-          Alert.alert('Error', result.error || 'Failed to disable biometric authentication');
+          showAlert('Error', result.error || 'Failed to disable biometric authentication');
         }
       } catch (error) {
         console.error('Biometric disable error:', error);
-        Alert.alert('Error', 'Failed to disable biometric authentication');
+        showAlert('Error', 'Failed to disable biometric authentication');
       }
     }
   };
 
 
-  const formatListeningTime = (seconds: number) => {
+  const _formatListeningTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {
@@ -162,7 +223,9 @@ export default function ProfileScreen() {
   };
 
   const clearDownloads = () => {
-    Alert.alert(
+    if (isClearing) return; // Prevent multiple simultaneous operations
+    
+    showAlert(
       'Clear Downloads',
       'This will remove all downloaded audio files. You can re-download them later.',
       [
@@ -171,19 +234,26 @@ export default function ProfileScreen() {
           text: 'Clear Downloads',
           style: 'destructive',
           onPress: async () => {
+            setIsClearing(true);
             try {
+              console.log(`🧹 [${Platform.OS}] Starting clear downloads operation...`);
               const result = await retreatService.clearAllDownloads();
               
               if (result.success) {
-                Alert.alert('Success', `Removed ${result.removedCount} downloaded files.`);
+                console.log(`✅ [${Platform.OS}] Downloads cleared: ${result.removedCount} files`);
+                showAlert('Success', `Removed ${result.removedCount} downloaded files.`);
                 // Reload stats to reflect changes
                 await loadUserStats();
               } else {
-                Alert.alert('Error', result.error || 'Failed to clear downloads.');
+                console.error(`❌ [${Platform.OS}] Clear downloads failed:`, result.error);
+                showAlert('Error', result.error || 'Failed to clear downloads.');
               }
             } catch (error) {
-              console.error('Clear downloads error:', error);
-              Alert.alert('Error', 'Failed to clear downloads. Please try again.');
+              console.error(`💥 [${Platform.OS}] Clear downloads error:`, error);
+              const errorMessage = getStorageErrorMessage(error);
+              showAlert('Error', errorMessage);
+            } finally {
+              setIsClearing(false);
             }
           },
         },
@@ -192,7 +262,9 @@ export default function ProfileScreen() {
   };
 
   const clearAllData = () => {
-    Alert.alert(
+    if (isClearing) return; // Prevent multiple simultaneous operations
+    
+    showAlert(
       'Clear All Data',
       'This will remove all your progress, bookmarks, highlights, and cached retreat data. This action cannot be undone.',
       [
@@ -201,20 +273,42 @@ export default function ProfileScreen() {
           text: 'Clear All',
           style: 'destructive',
           onPress: async () => {
+            setIsClearing(true);
             try {
-              // Clear retreat cache
+              console.log(`🧹 [${Platform.OS}] Starting clear all data operation...`);
+              
+              // Clear retreat cache and downloads
               await retreatService.clearAllCache();
+              console.log(`✅ [${Platform.OS}] Retreat cache cleared`);
               
-              // Clear progress data (would implement in progressService)
-              // await progressService.clearAllData();
+              // Clear progress data, bookmarks, and PDF highlights
+              const progressResult = await progressService.clearAllData();
+              console.log(`✅ [${Platform.OS}] Progress data cleared: ${progressResult.removedCount} items`);
               
-              Alert.alert('Success', 'All local data has been cleared.');
+              if (progressResult.success) {
+                const totalCleared = progressResult.removedCount;
+                showAlert(
+                  'Success', 
+                  `All local data has been cleared. Removed ${totalCleared} progress and bookmark items.`
+                );
+              } else {
+                console.error(`❌ [${Platform.OS}] Progress clearing failed:`, progressResult.error);
+                const errorMessage = getStorageErrorMessage(new Error(progressResult.error));
+                showAlert(
+                  'Partial Success', 
+                  `Retreat cache cleared, but progress data clearing failed: ${errorMessage}`
+                );
+              }
               
-              // Reload stats
+              // Reload stats to reflect changes
               await loadUserStats();
+              
             } catch (error) {
-              console.error('Clear data error:', error);
-              Alert.alert('Error', 'Failed to clear all data. Please try again.');
+              console.error(`💥 [${Platform.OS}] Clear all data error:`, error);
+              const errorMessage = getStorageErrorMessage(error);
+              showAlert('Error', errorMessage);
+            } finally {
+              setIsClearing(false);
             }
           },
         },
@@ -223,7 +317,9 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    if (isClearing) return; // Prevent multiple simultaneous operations
+    
+    showAlert(
       'Sign Out',
       'Are you sure you want to sign out?',
       [
@@ -232,8 +328,22 @@ export default function ProfileScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await logout();
-            router.replace('/(auth)/magic-link');
+            setIsClearing(true);
+            try {
+              console.log(`🚪 [${Platform.OS}] Starting logout operation...`);
+              await logout();
+              console.log(`✅ [${Platform.OS}] Logout completed successfully`);
+              router.replace('/(auth)/magic-link');
+            } catch (error) {
+              console.error(`💥 [${Platform.OS}] Logout error:`, error);
+              const errorMessage = getStorageErrorMessage(error);
+              showAlert(
+                'Logout Error', 
+                `Failed to sign out completely: ${errorMessage}. You may need to restart the app.`
+              );
+            } finally {
+              setIsClearing(false);
+            }
           },
         },
       ]
@@ -258,7 +368,16 @@ export default function ProfileScreen() {
         {/* Language Settings */}
         <Text style={styles.sectionTitleOutside}>{t('profile.languageSettings') || 'Language Settings'}</Text>
         <View style={styles.section}>
-          <TouchableOpacity style={styles.settingItem} onPress={toggleLanguage}>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem,
+              pressed && Platform.OS === 'web' && styles.webPressed
+            ]} 
+            onPress={() => {
+              debugClickHandler('Toggle Language');
+              toggleLanguage();
+            }}
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="language-outline" size={20} color={colors.burgundy[500]} />
               <Text style={styles.settingTitle}>{t('profile.language') || 'App Language'}</Text>
@@ -269,9 +388,18 @@ export default function ProfileScreen() {
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity style={styles.settingItem} onPress={toggleContentLanguage}>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem,
+              pressed && Platform.OS === 'web' && styles.webPressed
+            ]} 
+            onPress={() => {
+              debugClickHandler('Toggle Content Language');
+              toggleContentLanguage();
+            }}
+          >
             <View style={styles.settingLeft}>
               <Ionicons name="headset-outline" size={20} color={colors.burgundy[500]} />
               <Text style={styles.settingTitle}>{t('profile.contentLanguage') || 'Content Language'}</Text>
@@ -282,7 +410,7 @@ export default function ProfileScreen() {
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Security Settings */}
@@ -316,38 +444,113 @@ export default function ProfileScreen() {
         {/* Account Management */}
         <Text style={styles.sectionTitleOutside}>Account</Text>
         <View style={styles.section}>
-          <TouchableOpacity style={styles.settingItem} onPress={clearDownloads}>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem, 
+              isClearing && styles.disabledSetting,
+              pressed && Platform.OS === 'web' && styles.webPressed
+            ]} 
+            onPress={() => {
+              debugClickHandler('Clear Downloads');
+              if (!isClearing) clearDownloads();
+            }}
+            disabled={isClearing}
+          >
             <View style={styles.settingLeft}>
-              <Ionicons name="cloud-download-outline" size={20} color={colors.saffron[500]} />
+              <Ionicons 
+                name="cloud-download-outline" 
+                size={20} 
+                color={isClearing ? colors.gray[400] : colors.saffron[500]} 
+              />
               <View>
-                <Text style={styles.settingTitle}>Clear Downloads</Text>
-                <Text style={styles.settingSubtitle}>Remove all downloaded audio files</Text>
+                <Text style={[styles.settingTitle, isClearing && styles.disabledText]}>
+                  Clear Downloads
+                </Text>
+                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
+                  Remove all downloaded audio files
+                </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-          </TouchableOpacity>
+            {isClearing ? (
+              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+            )}
+          </Pressable>
 
-          <TouchableOpacity style={styles.settingItem} onPress={clearAllData}>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem, 
+              isClearing && styles.disabledSetting,
+              pressed && Platform.OS === 'web' && styles.webPressed
+            ]} 
+            onPress={() => {
+              debugClickHandler('Clear All Data');
+              if (!isClearing) clearAllData();
+            }}
+            disabled={isClearing}
+          >
             <View style={styles.settingLeft}>
-              <Ionicons name="trash-outline" size={20} color="#ef4444" />
+              <Ionicons 
+                name="trash-outline" 
+                size={20} 
+                color={isClearing ? colors.gray[400] : "#ef4444"} 
+              />
               <View>
-                <Text style={[styles.settingTitle, { color: '#ef4444' }]}>Clear All Data</Text>
-                <Text style={styles.settingSubtitle}>Remove all progress and downloaded content</Text>
+                <Text style={[
+                  styles.settingTitle, 
+                  { color: isClearing ? colors.gray[400] : '#ef4444' }
+                ]}>
+                  Clear All Data
+                </Text>
+                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
+                  Remove all progress and downloaded content
+                </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-          </TouchableOpacity>
+            {isClearing ? (
+              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+            )}
+          </Pressable>
 
-          <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem, 
+              isClearing && styles.disabledSetting,
+              pressed && Platform.OS === 'web' && styles.webPressed
+            ]} 
+            onPress={() => {
+              debugClickHandler('Sign Out');
+              if (!isClearing) handleLogout();
+            }}
+            disabled={isClearing}
+          >
             <View style={styles.settingLeft}>
-              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              <Ionicons 
+                name="log-out-outline" 
+                size={20} 
+                color={isClearing ? colors.gray[400] : "#ef4444"} 
+              />
               <View>
-                <Text style={[styles.settingTitle, { color: '#ef4444' }]}>Sign Out</Text>
-                <Text style={styles.settingSubtitle}>Sign out of your account</Text>
+                <Text style={[
+                  styles.settingTitle, 
+                  { color: isClearing ? colors.gray[400] : '#ef4444' }
+                ]}>
+                  Sign Out
+                </Text>
+                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
+                  Sign out of your account
+                </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-          </TouchableOpacity>
+            {isClearing ? (
+              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+            )}
+          </Pressable>
         </View>
 
         {/* About Section */}
@@ -443,5 +646,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[600],
     marginRight: 8,
+  },
+  disabledSetting: {
+    opacity: 0.6,
+  },
+  disabledText: {
+    color: colors.gray[400],
+  },
+  webPressed: {
+    backgroundColor: colors.gray[100],
+    opacity: 0.8,
   },
 });

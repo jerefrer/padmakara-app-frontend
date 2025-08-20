@@ -197,6 +197,36 @@ class ProgressService {
     }
   }
 
+  // Clear all progress and bookmark data
+  async clearAllData(): Promise<{ success: boolean; removedCount: number; error?: string }> {
+    try {
+      console.log('🧹 Clearing all progress and bookmark data...');
+      
+      const keys = await AsyncStorage.getAllKeys();
+      const progressKeys = keys.filter(key => 
+        key.startsWith('progress_') || 
+        key.startsWith('bookmarks_') || 
+        key.startsWith('pdf_progress_')
+      );
+      
+      if (progressKeys.length > 0) {
+        await AsyncStorage.multiRemove(progressKeys);
+        console.log(`✅ Cleared ${progressKeys.length} progress and bookmark items`);
+        return { success: true, removedCount: progressKeys.length };
+      } else {
+        console.log('ℹ️ No progress or bookmark data found to clear');
+        return { success: true, removedCount: 0 };
+      }
+    } catch (error) {
+      console.error('Error clearing all progress data:', error);
+      return { 
+        success: false, 
+        removedCount: 0, 
+        error: 'Failed to clear progress data. Please try again.' 
+      };
+    }
+  }
+
   // Sync with backend (placeholder for future AWS integration)
   async syncWithBackend(): Promise<void> {
     try {

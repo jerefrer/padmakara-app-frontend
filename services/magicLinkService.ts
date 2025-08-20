@@ -510,6 +510,51 @@ class MagicLinkService {
   }
 
   /**
+   * Auto-activate device using short-lived auto-activation token
+   */
+  async autoActivateDevice(token: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      console.log('Auto-activating device with token');
+      
+      const deviceInfo = await this.getDeviceInfo();
+      
+      const response = await apiService.post<any>(API_ENDPOINTS.AUTO_ACTIVATE_DEVICE, {
+        token: token,
+        device_fingerprint: deviceInfo.fingerprint,
+        device_name: deviceInfo.name,
+        device_type: deviceInfo.type
+      });
+
+      if (!response.success || !response.data) {
+        return { 
+          success: false, 
+          error: response.error || 'Failed to auto-activate device' 
+        };
+      }
+
+      // Store tokens if auto-activation successful
+      if (response.data.access_token) {
+        const storageResults = await Promise.all([
+          this.safeSetItem('auth_token', response.data.access_token),
+          this.safeSetItem('refresh_token', response.data.refresh_token || ''),
+          this.safeSetItem('user_data', JSON.stringify(response.data.user)),
+          this.safeSetItem('device_activated', 'true'),
+          this.safeSetItem('activation_date', new Date().toISOString())
+        ]);
+        
+        if (!storageResults.every(result => result)) {
+          console.warn('Some auto-activation tokens failed to save to AsyncStorage');
+        }
+      }
+
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Error auto-activating device:', error);
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  }
+
+  /**
    * Parse magic link URL to extract token
    */
   parseActivationLink(url: string): string | null {
