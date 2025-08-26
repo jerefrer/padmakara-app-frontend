@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
+import { AppHeader } from '@/components/ui/AppHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AuthGuard } from '@/components/AuthGuard';
 
@@ -16,7 +17,8 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: '#b91c1c', // Burgundy red
         tabBarInactiveTintColor: '#6b7280',
-        headerShown: false,
+        headerShown: true,
+        header: () => <AppHeader />,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
@@ -32,7 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Retreats',
+          title: 'Groups',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="leaf.fill" color={color} />,
         }}
       />

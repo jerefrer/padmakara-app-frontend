@@ -30,50 +30,52 @@ const colors = {
   },
 };
 
-interface RetreatCardProps {
-  retreat: Gathering;
+interface GroupCardProps {
+  group: RetreatGroup;
   onPress: () => void;
 }
 
-function RetreatCard({ retreat, onPress }: RetreatCardProps) {
-  const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
-  const totalDuration = retreat.sessions?.reduce((sum: number, session) => 
-    sum + (session.tracks?.reduce((trackSum: number, track) => trackSum + track.duration, 0) || 0), 0
+function GroupCard({ group, onPress }: GroupCardProps) {
+  const retreatCount = group.gatherings?.length || 0;
+  const totalTracks = group.gatherings?.reduce((sum, gathering) => 
+    sum + (gathering.sessions?.reduce((sessionSum, session) => 
+      sessionSum + (session.tracks?.length || 0), 0
+    ) || 0), 0
+  ) || 0;
+  const totalDuration = group.gatherings?.reduce((sum, gathering) => 
+    sum + (gathering.sessions?.reduce((sessionSum, session) => 
+      sessionSum + (session.tracks?.reduce((trackSum, track) => 
+        trackSum + track.duration, 0
+      ) || 0), 0
+    ) || 0), 0
   ) || 0;
   
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);
 
-  // Format dates
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString();
-    } catch {
-      return dateStr;
-    }
-  };
-
   return (
-    <TouchableOpacity onPress={onPress} style={styles.retreatCard}>
+    <TouchableOpacity onPress={onPress} style={styles.groupCard}>
       <View style={styles.card}>
         <View style={styles.borderAccent} />
         <View style={styles.cardContent}>
-          <Text style={styles.retreatTitle}>{retreat.name}</Text>
-          <Text style={styles.retreatSubtitle}>
-            {i18n.t(`retreats.${retreat.season}`)} {retreat.year}
-          </Text>
-          <View style={styles.retreatInfo}>
+          <Text style={styles.groupTitle}>{group.name}</Text>
+          {group.description && (
+            <Text style={styles.groupDescription} numberOfLines={2}>
+              {group.description}
+            </Text>
+          )}
+          <View style={styles.groupInfo}>
             <View>
               <Text style={styles.infoText}>
                 {totalTracks} tracks • {hours}h {minutes}m
               </Text>
               <Text style={styles.dateText}>
-                {formatDate(retreat.startDate)} to {formatDate(retreat.endDate)}
+                {retreatCount} retreat{retreatCount !== 1 ? 's' : ''} attended
               </Text>
             </View>
-            <View style={styles.sessionsBadge}>
-              <Text style={styles.sessionsBadgeText}>
-                {retreat.sessions?.length || 0} {i18n.t('retreats.sessions').toLowerCase()}
+            <View style={styles.retreatsBadge}>
+              <Text style={styles.retreatsBadgeText}>
+                {retreatCount} retreat{retreatCount !== 1 ? 's' : ''}
               </Text>
             </View>
           </View>
@@ -122,8 +124,8 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  const handleRetreatPress = (retreatId: string) => {
-    router.push(`/retreat/${retreatId}`);
+  const handleGroupPress = (groupId: string) => {
+    router.push(`/group/${groupId}`);
   };
 
   const handleRetryPress = () => {
@@ -194,19 +196,22 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        {/* All Retreats List */}
-        {userGroups.flatMap(group => 
-          (group.gatherings || []).map(retreat => ({ ...retreat, groupName: group.name }))
-        )
-          .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-          .map(retreat => (
-            <RetreatCard
-              key={retreat.id}
-              retreat={retreat}
-              onPress={() => handleRetreatPress(retreat.id)}
-            />
-          ))
-        }
+        {/* Page Title */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Your Retreat Groups</Text>
+          <Text style={styles.subtitle}>
+            {userGroups.length} group{userGroups.length !== 1 ? 's' : ''} with attended retreats
+          </Text>
+        </View>
+
+        {/* Groups List */}
+        {userGroups.map(group => (
+          <GroupCard
+            key={group.id}
+            group={group}
+            onPress={() => handleGroupPress(group.id)}
+          />
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -246,17 +251,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   header: {
-    paddingVertical: 24,
+    paddingVertical: 16,
+    paddingBottom: 24,
   },
   title: {
-    fontSize: 30,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '600',
     color: colors.burgundy[500],
-    marginBottom: 8,
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 16,
-    color: colors.gray[600],
+    fontSize: 14,
+    color: colors.gray[500],
   },
   groupSection: {
     marginBottom: 32,
@@ -299,7 +305,7 @@ const styles = StyleSheet.create({
     color: colors.burgundy[500],
     marginBottom: 12,
   },
-  retreatCard: {
+  groupCard: {
     marginBottom: 16,
   },
   borderAccent: {
@@ -315,18 +321,19 @@ const styles = StyleSheet.create({
   cardContent: {
     paddingLeft: 8,
   },
-  retreatTitle: {
+  groupTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: colors.burgundy[500],
     marginBottom: 4,
   },
-  retreatSubtitle: {
-    fontSize: 16,
+  groupDescription: {
+    fontSize: 14,
     color: colors.gray[600],
-    marginBottom: 16,
+    marginBottom: 12,
+    lineHeight: 20,
   },
-  retreatInfo: {
+  groupInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -340,13 +347,13 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     marginTop: 4,
   },
-  sessionsBadge: {
+  retreatsBadge: {
     backgroundColor: colors.burgundy[100],
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
-  sessionsBadgeText: {
+  retreatsBadgeText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.burgundy[700],
