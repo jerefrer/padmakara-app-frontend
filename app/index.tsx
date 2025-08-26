@@ -28,8 +28,20 @@ export default function RootIndex() {
       console.log('🔄 Auto-activation token detected:', autoActivateToken.substring(0, 20) + '...');
       setIsAutoActivating(true);
       
+      // Set timeout fallback to prevent infinite spinner
+      const autoActivationTimeout = setTimeout(() => {
+        console.warn('⏰ Auto-activation timeout - forcing fallback to normal flow');
+        setIsAutoActivating(false);
+      }, 15000); // 15 second timeout
+      
       // Attempt auto-activation
-      handleAutoActivation(autoActivateToken);
+      handleAutoActivation(autoActivateToken).finally(() => {
+        clearTimeout(autoActivationTimeout);
+      });
+      
+      return () => {
+        clearTimeout(autoActivationTimeout);
+      };
     }
   }, [params.auto_activate, isAutoActivating, isAuthenticated]);
 
@@ -42,7 +54,8 @@ export default function RootIndex() {
       if (result.success) {
         console.log('✅ Auto-activation successful, refreshing auth state');
         await refreshAuth();
-        // The normal useEffect will handle redirect after auth refresh
+        console.log('🔄 Auth refresh completed, allowing redirect logic');
+        setIsAutoActivating(false); // Critical: Allow redirect logic to execute
       } else {
         console.warn('❌ Auto-activation failed:', result.error);
         // Fall back to normal authentication flow
