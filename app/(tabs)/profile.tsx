@@ -456,7 +456,7 @@ export default function ProfileScreen() {
                 size={20} 
                 color={colors.burgundy[500]} 
               />
-              <View>
+              <View style={styles.textContainer}>
                 <Text style={styles.settingTitle}>
                   {biometricAvailable ? `${biometricType} Authentication` : t('profile.biometricAuth')}
                 </Text>
@@ -475,7 +475,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Account Management - All features work identically on iOS, Android, and Web */}
-        <Text style={styles.sectionTitleOutside}>Account</Text>
+        <Text style={styles.sectionTitleOutside}>{t('profile.account') || 'Account'}</Text>
         <View style={styles.section}>
           <Pressable 
             style={({ pressed }) => [
@@ -495,12 +495,12 @@ export default function ProfileScreen() {
                 size={20} 
                 color={isClearing ? colors.gray[400] : colors.saffron[500]} 
               />
-              <View>
+              <View style={styles.textContainer}>
                 <Text style={[styles.settingTitle, isClearing && styles.disabledText]}>
-                  Clear Downloads
+                  {t('profile.clearDownloads') || 'Clear Downloads'}
                 </Text>
                 <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  Remove all downloaded audio files
+                  {t('profile.clearDownloadsDescription') || 'Remove all downloaded audio files'}
                 </Text>
               </View>
             </View>
@@ -529,15 +529,15 @@ export default function ProfileScreen() {
                 size={20} 
                 color={isClearing ? colors.gray[400] : "#ef4444"} 
               />
-              <View>
+              <View style={styles.textContainer}>
                 <Text style={[
                   styles.settingTitle, 
                   { color: isClearing ? colors.gray[400] : '#ef4444' }
                 ]}>
-                  Clear All Data
+                  {t('profile.clearAllData') || 'Clear All Data'}
                 </Text>
                 <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  Remove all progress and downloaded content
+                  {t('profile.clearAllDataDescription') || 'Remove all progress and downloaded content'}
                 </Text>
               </View>
             </View>
@@ -566,15 +566,15 @@ export default function ProfileScreen() {
                 size={20} 
                 color={isClearing ? colors.gray[400] : colors.burgundy[500]} 
               />
-              <View>
+              <View style={styles.textContainer}>
                 <Text style={[
                   styles.settingTitle, 
                   { color: isClearing ? colors.gray[400] : colors.burgundy[500] }
                 ]}>
-                  Sign Out
+                  {t('profile.signOut') || 'Sign Out'}
                 </Text>
                 <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  Sign out of your account (keeps device activated)
+                  {t('profile.signOutDescription') || 'Sign out of your account (keeps device activated)'}
                 </Text>
               </View>
             </View>
@@ -603,15 +603,15 @@ export default function ProfileScreen() {
                 size={20} 
                 color={isClearing ? colors.gray[400] : "#ef4444"} 
               />
-              <View>
+              <View style={styles.textContainer}>
                 <Text style={[
                   styles.settingTitle, 
                   { color: isClearing ? colors.gray[400] : '#ef4444' }
                 ]}>
-                  Forget This Device
+                  {t('profile.forgetDevice') || 'Forget This Device'}
                 </Text>
                 <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  Remove device completely (will require email confirmation to activate again)
+                  {t('profile.forgetDeviceDescription') || 'Remove device completely (requires email activation)'}
                 </Text>
               </View>
             </View>
@@ -624,12 +624,12 @@ export default function ProfileScreen() {
         </View>
 
         {/* About Section */}
-        <Text style={styles.sectionTitleOutside}>About</Text>
+        <Text style={styles.sectionTitleOutside}>{t('profile.about') || 'About'}</Text>
         <View style={styles.section}>
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="information-circle-outline" size={20} color={colors.burgundy[500]} />
-              <Text style={styles.settingTitle}>Version</Text>
+              <Text style={styles.settingTitle}>{t('profile.version') || 'Version'}</Text>
             </View>
             <Text style={styles.settingValue}>1.0.0 (Beta)</Text>
           </View>
@@ -726,5 +726,9 @@ const styles = StyleSheet.create({
   webPressed: {
     backgroundColor: colors.gray[100],
     opacity: 0.8,
+  },
+  textContainer: {
+    flex: 1,
+    paddingRight: 16, // Prevents text from reaching chevron icon on all platforms
   },
 });
