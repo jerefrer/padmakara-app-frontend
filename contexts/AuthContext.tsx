@@ -12,6 +12,7 @@ interface AuthContextType {
   isDeviceActivated: boolean;
   loginWithBiometric: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  forgetDevice: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   enableBiometric: () => Promise<{ success: boolean; error?: string }>;
   disableBiometric: () => Promise<{ success: boolean; error?: string }>;
@@ -303,11 +304,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
       
-      // Deactivate device on backend BEFORE clearing auth tokens
-      // This needs to happen while we still have valid authentication
+      // Simple logout: only clear local auth data (all platforms)
+      // Device remains activated on backend for easy re-entry
+      await authService.logout();
+      
+      setIsAuthenticated(false);
+      setUser(null);
+      // Note: isDeviceActivated remains true - device is still activated on backend
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgetDevice = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Full device deactivation: deactivate on backend AND clear local data (all platforms)
+      // This forces user to go through email activation again
       await magicLinkService.deactivateDeviceOnBackend();
       
-      // Now clear local auth data
+      // Clear local auth data
       await authService.logout();
       await magicLinkService.clearDeviceActivation();
       
@@ -315,7 +335,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setIsDeviceActivated(false);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Forget device error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -384,6 +404,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isDeviceActivated,
     loginWithBiometric: handleBiometricLogin,
     logout: handleLogout,
+    forgetDevice: handleForgetDevice,
     updateUser: handleUpdateUser,
     enableBiometric: handleEnableBiometric,
     disableBiometric: handleDisableBiometric,

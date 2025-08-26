@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet, Alert, Switch, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import * as LocalAuthentication from 'expo-local-authentication';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const colors = {
   cream: {
@@ -42,7 +42,7 @@ interface UserStats {
 
 export default function ProfileScreen() {
   const { language, contentLanguage, setLanguage, setContentLanguage, t } = useLanguage();
-  const { user, updateUser, enableBiometric, disableBiometric, logout } = useAuth();
+  const { user, updateUser, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
   const [_stats, setStats] = useState<UserStats>({
     totalTracks: 0,
     completedTracks: 0,
@@ -54,10 +54,10 @@ export default function ProfileScreen() {
   const [biometricType, setBiometricType] = useState<string>('');
   const [isClearing, setIsClearing] = useState(false);
 
-  // Web-compatible alert system
-  const showAlert = (title: string, message: string, buttons?: Array<{text: string, onPress?: () => void, style?: string}>) => {
+  // Cross-platform alert system (only the UI implementation differs by platform)
+  const showAlert = (title: string, message: string, buttons?: {text: string, onPress?: () => void, style?: string}[]) => {
     if (Platform.OS === 'web') {
-      // Use browser confirm dialog for web
+      // Use browser confirm dialog for web (technical limitation - React Native Alert doesn't work on web)
       const confirmed = window.confirm(`${title}\n\n${message}`);
       if (confirmed && buttons) {
         const confirmButton = buttons.find(btn => btn.style === 'destructive' || btn.text !== 'Cancel');
@@ -66,12 +66,12 @@ export default function ProfileScreen() {
         }
       }
     } else {
-      // Use React Native Alert for mobile
+      // Use React Native Alert for mobile platforms (iOS/Android)
       Alert.alert(title, message, buttons);
     }
   };
 
-  // Debug helper to test web click handling  
+  // Debug helper for click handling (all platforms)
   const debugClickHandler = (buttonName: string) => {
     console.log(`🔍 [${Platform.OS}] Button clicked: ${buttonName}`);
   };
@@ -97,12 +97,7 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => {
-    console.log(`🚀 [${Platform.OS}] Profile screen mounted`);
-    if (Platform.OS === 'web') {
-      console.log('🌐 Web platform detected in profile screen');
-      console.log('🌐 Window object available:', typeof window !== 'undefined');
-      console.log('🌐 Alert function available:', typeof Alert !== 'undefined');
-    }
+    console.log(`🚀 [${Platform.OS}] Profile screen mounted - all authentication features work identically across platforms`);
     loadUserStats();
     checkBiometricSupport();
   }, []);
@@ -316,12 +311,14 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleLogout = () => {
+  // Sign Out handler - works identically on all platforms (iOS, Android, Web)
+  // Only clears local auth data, keeps device activated on backend for easy re-entry
+  const handleSignOut = () => {
     if (isClearing) return; // Prevent multiple simultaneous operations
     
     showAlert(
       'Sign Out',
-      'Are you sure you want to sign out?',
+      'Sign out of your account? You can sign back in easily with the same email address.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -330,16 +327,52 @@ export default function ProfileScreen() {
           onPress: async () => {
             setIsClearing(true);
             try {
-              console.log(`🚪 [${Platform.OS}] Starting logout operation...`);
-              await logout();
-              console.log(`✅ [${Platform.OS}] Logout completed successfully`);
+              console.log(`🚪 [${Platform.OS}] Starting sign out operation...`);
+              await logout(); // Same logout logic for all platforms
+              console.log(`✅ [${Platform.OS}] Sign out completed successfully`);
               router.replace('/(auth)/magic-link');
             } catch (error) {
-              console.error(`💥 [${Platform.OS}] Logout error:`, error);
+              console.error(`💥 [${Platform.OS}] Sign out error:`, error);
               const errorMessage = getStorageErrorMessage(error);
               showAlert(
-                'Logout Error', 
-                `Failed to sign out completely: ${errorMessage}. You may need to restart the app.`
+                'Sign Out Error', 
+                `Failed to sign out: ${errorMessage}. You may need to restart the app.`
+              );
+            } finally {
+              setIsClearing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Forget Device handler - works identically on all platforms (iOS, Android, Web)  
+  // Fully deactivates device on backend, requires email activation to return
+  const handleForgetDevice = () => {
+    if (isClearing) return; // Prevent multiple simultaneous operations
+    
+    showAlert(
+      'Forget This Device',
+      'This will completely remove this device from your account. You\'ll need to activate via email again to access the app. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Forget Device',
+          style: 'destructive',
+          onPress: async () => {
+            setIsClearing(true);
+            try {
+              console.log(`🗑️ [${Platform.OS}] Starting forget device operation...`);
+              await forgetDevice(); // Same forgetDevice logic for all platforms
+              console.log(`✅ [${Platform.OS}] Device forgotten successfully`);
+              router.replace('/(auth)/magic-link');
+            } catch (error) {
+              console.error(`💥 [${Platform.OS}] Forget device error:`, error);
+              const errorMessage = getStorageErrorMessage(error);
+              showAlert(
+                'Device Removal Error', 
+                `Failed to remove device: ${errorMessage}. You may need to restart the app.`
               );
             } finally {
               setIsClearing(false);
@@ -441,7 +474,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Account Management */}
+        {/* Account Management - All features work identically on iOS, Android, and Web */}
         <Text style={styles.sectionTitleOutside}>Account</Text>
         <View style={styles.section}>
           <Pressable 
@@ -523,13 +556,50 @@ export default function ProfileScreen() {
             ]} 
             onPress={() => {
               debugClickHandler('Sign Out');
-              if (!isClearing) handleLogout();
+              if (!isClearing) handleSignOut();
             }}
             disabled={isClearing}
           >
             <View style={styles.settingLeft}>
               <Ionicons 
                 name="log-out-outline" 
+                size={20} 
+                color={isClearing ? colors.gray[400] : colors.burgundy[500]} 
+              />
+              <View>
+                <Text style={[
+                  styles.settingTitle, 
+                  { color: isClearing ? colors.gray[400] : colors.burgundy[500] }
+                ]}>
+                  Sign Out
+                </Text>
+                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
+                  Sign out of your account (keeps device activated)
+                </Text>
+              </View>
+            </View>
+            {isClearing ? (
+              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+            )}
+          </Pressable>
+
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem, 
+              isClearing && styles.disabledSetting,
+              pressed && Platform.OS === 'web' && styles.webPressed
+            ]} 
+            onPress={() => {
+              debugClickHandler('Forget This Device');
+              if (!isClearing) handleForgetDevice();
+            }}
+            disabled={isClearing}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons 
+                name="phone-portrait-outline" 
                 size={20} 
                 color={isClearing ? colors.gray[400] : "#ef4444"} 
               />
@@ -538,10 +608,10 @@ export default function ProfileScreen() {
                   styles.settingTitle, 
                   { color: isClearing ? colors.gray[400] : '#ef4444' }
                 ]}>
-                  Sign Out
+                  Forget This Device
                 </Text>
                 <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  Sign out of your account
+                  Remove device completely (will require email confirmation to activate again)
                 </Text>
               </View>
             </View>
