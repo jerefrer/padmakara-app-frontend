@@ -596,7 +596,7 @@ export default function SessionDetailScreen() {
                   <Text style={allDownloaded ? styles.removeAllButtonText : styles.downloadAllButtonText}>
                     {allDownloaded 
                       ? `Remove Downloads (${tracksDownloaded.length} tracks, ${totalSizeDownloaded})`
-                      : `Download Session (${tracksToDownload.length} tracks, ${totalSizeToDownload})`
+                      : `${t('common.download')} Session (${tracksToDownload.length} tracks, ${totalSizeToDownload})`
                     }
                   </Text>
                 </>

@@ -6,7 +6,8 @@
     "loading": "Loading...",
     "error": "Error",
     "retry": "Try Again",
-    "download": "Download",
+    "download": "Save Offline",
+    "downloadRetreatZip": "Download Retreat as ZIP",
     "play": "Play",
     "pause": "Pause",
     "next": "Next",
@@ -54,7 +55,7 @@
   "navigation": {
     "home": "Home",
     "retreats": "Retreats",
-    "downloads": "Downloads",
+    "downloads": "Saved Content",
     "profile": "Profile"
   },
   "retreats": {
@@ -77,7 +78,7 @@
     "completed": "Completed"
   },
   "downloads": {
-    "myDownloads": "My Downloads",
+    "myDownloads": "My Saved Content",
     "downloadComplete": "Download Complete",
     "downloadFailed": "Download Failed",
     "storage": "Storage Used",

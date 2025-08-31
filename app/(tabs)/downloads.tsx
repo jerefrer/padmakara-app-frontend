@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { mockRetreatGroups } from '@/data/mockData';
 import { Track, DownloadedContent } from '@/types';
-import i18n from '@/utils/i18n';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { formatBytes } from '@/utils/fileSize';
 
 const colors = {
@@ -39,6 +39,7 @@ interface DownloadProgress {
 }
 
 export default function DownloadsScreen() {
+  const { t } = useLanguage();
   const [downloads, setDownloads] = useState<DownloadedContent[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress[]>([]);
   const [totalStorageUsed, setTotalStorageUsed] = useState(0);
@@ -203,10 +204,10 @@ export default function DownloadsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>
-            {i18n.t('downloads.myDownloads')}
+            {t('downloads.myDownloads')}
           </Text>
           <Text style={styles.subtitle}>
-            Manage your offline content
+            Manage your saved offline content
           </Text>
         </View>
 
@@ -214,7 +215,7 @@ export default function DownloadsScreen() {
         <View style={styles.card}>
           <View style={styles.storageHeader}>
             <Text style={styles.cardTitle}>
-              {i18n.t('downloads.storage')}
+              {t('downloads.storage')}
             </Text>
             <Text style={styles.storageAmount}>
               {formatBytes(totalStorageUsed)}
@@ -335,7 +336,7 @@ export default function DownloadsScreen() {
         {downloads.length === 0 && downloadProgress.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="download-outline" size={64} color={colors.gray[400]} />
-            <Text style={styles.emptyTitle}>No Downloads Yet</Text>
+            <Text style={styles.emptyTitle}>No {t('navigation.downloads')} Yet</Text>
             <Text style={styles.emptyText}>
               Download tracks to listen offline during your retreat practice.
             </Text>

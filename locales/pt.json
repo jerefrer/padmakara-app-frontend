@@ -6,7 +6,8 @@
     "loading": "Carregando...",
     "error": "Erro",
     "retry": "Tentar Novamente",
-    "download": "Download",
+    "download": "Salvar Offline",
+    "downloadRetreatZip": "Baixar Retiro como ZIP",
     "play": "Reproduzir",
     "pause": "Pausar",
     "next": "Próximo",
@@ -54,7 +55,7 @@
   "navigation": {
     "home": "Início",
     "retreats": "Retiros",
-    "downloads": "Downloads",
+    "downloads": "Conteúdo Salvo",
     "profile": "Perfil"
   },
   "retreats": {
@@ -77,7 +78,7 @@
     "completed": "Concluído"
   },
   "downloads": {
-    "myDownloads": "Meus Downloads",
+    "myDownloads": "Meu Conteúdo Salvo",
     "downloadComplete": "Download Concluído",
     "downloadFailed": "Falha no Download",
     "storage": "Armazenamento Usado",

@@ -158,18 +158,33 @@ Use the `AudioPlayer` component for consistent playback experience with progress
 ### Language/Content Management
 Access translation functions via `useLanguage()` hook. UI language and content language are managed separately.
 
-## Backend Integration (Future)
+## Backend Integration
 
 ### Current State
-- **Mock Data**: Currently using sample files and mock authentication
-- **AWS S3 Storage**: Audio and PDF files will be served from Amazon S3
-- **Authentication Strategy**: Plan to use AWS platform for user authentication and content authorization
+- **Production Backend**: App now connects to production Django server by default (212.227.131.117)
+- **Local Development Override**: Option to use local Django backend when needed
+- **API Configuration**: Located in `services/apiConfig.ts` with environment-based switching
 
-### Implementation Approach
-- **Delayed AWS Integration**: Focus on frontend development first
-- **Step-by-step Backend Connection**: Gradual migration from mock to real backend
-- **Admin Panel Consideration**: May implement if AWS-only approach becomes too complex
-- **Content Security**: Group-based access control to restrict users to authorized content only
+### Server Configuration
+**Default (Production):**
+```typescript
+// Uses production server: http://212.227.131.117/api
+```
+
+**Local Development Override:**
+```bash
+# Create .env file with:
+EXPO_PUBLIC_USE_LOCAL_BACKEND=true
+# This switches to: http://localhost:8000/api
+```
+
+### Environment Setup
+1. **Production Mode (Default)**: No configuration needed - uses production server
+2. **Local Development Mode**: 
+   - Copy `.env.example` to `.env`
+   - Set `EXPO_PUBLIC_USE_LOCAL_BACKEND=true`
+   - Ensure Django backend is running on `localhost:8000`
+3. **Backend Features**: PostgreSQL database, S3 file storage, JWT authentication, ZIP download generation
 
 ### Visual Assets
 - **Logo**: Use `assets/images/logo.png` for app branding

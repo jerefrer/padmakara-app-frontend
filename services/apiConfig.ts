@@ -1,8 +1,11 @@
 // API Configuration for Padmakara Backend Integration
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:8000/api'  // Django development server
-  : 'https://api.padmakara.app/api'; // Production API
+// Check for local development override
+const USE_LOCAL_BACKEND = process.env.EXPO_PUBLIC_USE_LOCAL_BACKEND === 'true';
+
+const API_BASE_URL = USE_LOCAL_BACKEND
+  ? 'http://localhost:8000/api'  // Local Django development server
+  : 'https://padmakara-backend.frerejeremy.me/api'; // Production API server
 
 export const API_CONFIG = {
   baseURL: API_BASE_URL,
@@ -48,6 +51,11 @@ export const API_ENDPOINTS = {
   // Audio & File Access
   PRESIGNED_URL: (trackId: string) => `/content/presigned-url/${trackId}/`,
   TRANSCRIPT_URL: (trackId: string) => `/content/transcript-url/${trackId}/`,
+  
+  // ZIP Download Endpoints
+  RETREAT_DOWNLOAD_REQUEST: (retreatId: string) => `/retreats/${retreatId}/request-download/`,
+  DOWNLOAD_STATUS: (requestId: string) => `/retreats/download-requests/${requestId}/status/`,
+  DOWNLOAD_FILE: (requestId: string) => `/retreats/download-requests/${requestId}/download/`,
 };
 
 export interface ApiResponse<T> {

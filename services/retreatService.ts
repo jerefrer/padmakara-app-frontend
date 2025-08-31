@@ -1,8 +1,8 @@
-import { RetreatGroup, Gathering, Session, Track } from '@/types';
-import apiService from './apiService';
-import { API_ENDPOINTS, PaginatedResponse } from './apiConfig';
+import { Gathering, RetreatGroup, Session, Track } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
+import { API_ENDPOINTS, PaginatedResponse } from './apiConfig';
+import apiService from './apiService';
 
 interface UserRetreatData {
   retreat_groups: RetreatGroup[];
@@ -195,7 +195,7 @@ class RetreatService {
       console.log(`Fetching retreat details for ID: ${retreatId}`);
       
       const response = await apiService.get<any>(
-        `/retreats/retreats/${retreatId}/`
+        `/retreats/${retreatId}/`
       );
 
       if (response.success && response.data) {
