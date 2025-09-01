@@ -194,7 +194,7 @@ export default function RetreatDetailScreen() {
             } else if (serverStatus === 'processing' || serverStatus === 'pending') {
               // Server confirms it's still processing, safe to resume
               setIsDownloadingZip(true);
-              setZipDownloadProgress(existingDownload.progressMessage || 'Resuming ZIP generation...');
+              setZipDownloadProgress(existingDownload.progressMessage || 'Preparing download...');
               resumeDownloadPolling(existingDownload.requestId);
             } else {
               // Unknown status, clean up to be safe
@@ -303,9 +303,9 @@ export default function RetreatDetailScreen() {
           
           let progressMsg;
           if (minutesPending > 2) {
-            progressMsg = `Waiting for ZIP generation... (${minutesPending} min) - Lambda may have issues`;
+            progressMsg = `Preparing download...`;
           } else {
-            progressMsg = `Waiting for ZIP generation to start...`;
+            progressMsg = `Preparing download...`;
           }
           setZipDownloadProgress(progressMsg);
           
@@ -320,7 +320,7 @@ export default function RetreatDetailScreen() {
       if (!isComplete) {
         // Clean up timed out state before throwing error
         await downloadStateService.removeDownloadState(id);
-        throw new Error('ZIP generation timed out - you can try again');
+        throw new Error('Download preparation timed out - please try again');
       }
 
       // Step 3: Download the ZIP file
@@ -329,18 +329,33 @@ export default function RetreatDetailScreen() {
       // Make authenticated API request to get presigned S3 URL
       const downloadResponse = await apiService.get(API_ENDPOINTS.DOWNLOAD_FILE(requestId));
       
-      // Handle auto-recovery scenario where backend needs to regenerate file
-      if (downloadResponse.data?.regenerating === true) {
+      // Handle auto-recovery scenarios
+      if (downloadResponse.data?.reused_existing_zip === true) {
+        // ZIP was recovered using existing valid file - proceed with download
+        console.log(`✅ ZIP recovered using existing valid file`);
+        // Fall through to normal download handling
+      } else if (downloadResponse.data?.regenerating === true) {
         console.log(`🔄 ZIP file missing, auto-recovery initiated. New request: ${downloadResponse.data.new_request_id}`);
         
-        // Update UI to show regeneration status
-        setZipDownloadProgress('File missing - regenerating ZIP...');
+        // Update UI to show simple waiting message
+        setZipDownloadProgress('Preparing download...');
         
-        // Wait recommended time before polling new request
-        await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second wait
+        // Wait for processing to complete (Lambda takes ~5s + overhead)
+        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second wait
         
         // Recursively call with new request ID to continue polling
-        return await resumeZipDownloadPolling(downloadResponse.data.new_request_id);
+        return await resumeDownloadPolling(downloadResponse.data.new_request_id);
+      } else if (downloadResponse.data?.waiting_for_existing === true) {
+        console.log(`⏳ ZIP generation already in progress, waiting for request: ${downloadResponse.data.existing_request_id}`);
+        
+        // Update UI to show simple waiting message
+        setZipDownloadProgress('Preparing download...');
+        
+        // Wait for processing to complete (Lambda takes ~5s + overhead)
+        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second wait
+        
+        // Recursively call with existing request ID to continue polling
+        return await resumeDownloadPolling(downloadResponse.data.existing_request_id);
       }
       
       if (!downloadResponse.data?.success || !downloadResponse.data?.download_url) {
@@ -369,10 +384,8 @@ export default function RetreatDetailScreen() {
       
       // Show user-friendly error message
       const errorMsg = error.message?.includes('timed out') 
-        ? 'ZIP generation took too long. Please try again - the system will retry faster.'
-        : error.message?.includes('regenerating')
-        ? 'File regeneration failed. You can try downloading again.'
-        : `Failed to resume ZIP download: ${error.message}`;
+        ? 'Download preparation took too long. Please try again.'
+        : `Failed to resume download: ${error.message}`;
       
       Alert.alert('Download Error', errorMsg);
     } finally {
@@ -645,7 +658,7 @@ export default function RetreatDetailScreen() {
       }
       
       setIsDownloadingZip(true);
-      setZipDownloadProgress('Requesting ZIP generation...');
+      setZipDownloadProgress('Preparing download...');
 
       // Step 1: Request ZIP generation
       console.log('🔍 Retreat ID type and value:', typeof retreat.id, retreat.id);
@@ -679,7 +692,7 @@ export default function RetreatDetailScreen() {
       console.log('📋 ZIP API response data:', requestResponse.data);
 
       if (!requestResponse.success) {
-        throw new Error(requestResponse.error || 'Failed to request ZIP generation');
+        throw new Error(requestResponse.error || 'Failed to prepare download');
       }
 
       const requestId = requestResponse.data?.request_id;
@@ -721,10 +734,8 @@ export default function RetreatDetailScreen() {
       
       // Show user-friendly error message
       const errorMsg = error.message?.includes('timed out') 
-        ? 'ZIP generation took too long. The system is optimized now - please try again.'
-        : error.message?.includes('regenerating')
-        ? 'File was missing and regeneration failed. Please try again - the system will create a fresh copy.'
-        : `Failed to download ZIP: ${error.message}`;
+        ? 'Download preparation took too long. Please try again.'
+        : `Failed to download: ${error.message}`;
       
       Alert.alert('Download Error', errorMsg);
     }
@@ -742,7 +753,7 @@ export default function RetreatDetailScreen() {
       }
       
       setIsDownloadingZip(true);
-      setZipDownloadProgress('Requesting ZIP generation (direct)...');
+      setZipDownloadProgress('Preparing download...');
 
       // Make direct API request
       const directEndpoint = API_ENDPOINTS.RETREAT_DOWNLOAD_REQUEST(retreat.id);
