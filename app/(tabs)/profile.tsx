@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
+
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -54,6 +55,7 @@ export default function ProfileScreen() {
   const [biometricType, setBiometricType] = useState<string>('');
   const [isClearing, setIsClearing] = useState(false);
 
+
   // Cross-platform alert system (only the UI implementation differs by platform)
   const showAlert = (title: string, message: string, buttons?: {text: string, onPress?: () => void, style?: string}[]) => {
     if (Platform.OS === 'web') {
@@ -100,7 +102,10 @@ export default function ProfileScreen() {
     console.log(`🚀 [${Platform.OS}] Profile screen mounted - all authentication features work identically across platforms`);
     loadUserStats();
     checkBiometricSupport();
+
   }, []);
+
+
 
   const loadUserStats = async () => {
     try {
@@ -157,6 +162,8 @@ export default function ProfileScreen() {
 
   const toggleLanguage = async () => {
     const newLanguage = language === 'en' ? 'pt' : 'en';
+    
+    // Update local state and user preferences
     if (user) {
       const updatedPreferences = {
         ...(user.preferences || {}),
@@ -168,7 +175,22 @@ export default function ProfileScreen() {
   };
 
   const toggleContentLanguage = async () => {
-    const newContentLanguage = contentLanguage === 'en' ? 'en-pt' : 'en';
+    // Cycle through: en -> en-pt -> pt -> en
+    let newContentLanguage: 'en' | 'en-pt' | 'pt';
+    switch (contentLanguage) {
+      case 'en':
+        newContentLanguage = 'en-pt';
+        break;
+      case 'en-pt':
+        newContentLanguage = 'pt';
+        break;
+      case 'pt':
+        newContentLanguage = 'en';
+        break;
+      default:
+        newContentLanguage = 'en';
+    }
+    
     if (user) {
       const updatedPreferences = {
         ...(user.preferences || {}),
@@ -178,6 +200,8 @@ export default function ProfileScreen() {
     }
     await setContentLanguage(newContentLanguage);
   };
+
+
 
   const toggleBiometric = async (enabled: boolean) => {
     if (enabled && biometricAvailable) {
@@ -435,16 +459,20 @@ export default function ProfileScreen() {
           >
             <View style={styles.settingLeft}>
               <Ionicons name="headset-outline" size={20} color={colors.burgundy[500]} />
-              <Text style={styles.settingTitle}>{t('profile.contentLanguage') || 'Content Language'}</Text>
+              <Text style={styles.settingTitle}>{t('profile.contentLanguage') || 'Tracks Language'}</Text>
             </View>
             <View style={styles.settingRight}>
               <Text style={styles.settingValue}>
-                {contentLanguage === 'en' ? t('profile.englishOnly') || 'English Only' : t('profile.englishPortuguese') || 'English + Portuguese'}
+                {contentLanguage === 'en' ? 'English Only' : 
+                 contentLanguage === 'en-pt' ? 'English + Portuguese' : 
+                 'Portuguese Only'}
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
             </View>
           </Pressable>
         </View>
+
+
 
         {/* Security Settings */}
         <Text style={styles.sectionTitleOutside}>{t('profile.security') || 'Security'}</Text>
@@ -731,4 +759,5 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 16, // Prevents text from reaching chevron icon on all platforms
   },
+
 });

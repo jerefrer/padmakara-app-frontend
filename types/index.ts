@@ -63,6 +63,8 @@ export interface Track {
   transcript_file?: string;
   order: number;
   session_id: string;
+  language?: string; // Language code (e.g., 'en', 'pt')
+  isOriginal?: boolean; // True if original track, false if translation
   created_at: string;
   updated_at: string;
 }

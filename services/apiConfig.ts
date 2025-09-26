@@ -8,7 +8,7 @@ const API_BASE_URL = USE_LOCAL_BACKEND
   : 'https://padmakara-backend.frerejeremy.me/api'; // Production API server
 
 export const API_CONFIG = {
-  baseURL: API_BASE_URL,
+  BASE_URL: API_BASE_URL,
   timeout: 15000, // 15 seconds timeout
   headers: {
     'Content-Type': 'application/json',
@@ -31,12 +31,16 @@ export const API_ENDPOINTS = {
   UPDATE_PROFILE: '/auth/user/',
   USER_PREFERENCES: '/auth/user/preferences/',
   
+  // Language Preferences
+  USER_LANGUAGE_PREFERENCES: '/retreats/user-language-preferences/',
+  CLEAR_RETREAT_LANGUAGE_PREFERENCE: '/retreats/:id/clear-language-preference/',
+  
   // Retreat Groups & Content
   RETREAT_GROUPS: '/retreats/groups/',
   USER_RETREATS: '/retreats/user-retreats/',
   RETREAT_DETAILS: (id: string) => `/retreats/groups/${id}/`,
   GATHERING_DETAILS: (id: string) => `/retreats/gatherings/${id}/`,
-  SESSION_DETAILS: (id: string) => `/retreats/sessions/${id}/`,
+  SESSION_DETAILS: `/retreats/sessions/:id/`,
   TRACK_DETAILS: (id: string) => `/retreats/tracks/${id}/`,
   
   // User Progress & Content
@@ -81,13 +85,27 @@ export interface ApiError {
 
 // Helper function to build full API URL
 export const buildApiUrl = (endpoint: string): string => {
-  return `${API_CONFIG.baseURL}${endpoint}`;
+  return `${API_CONFIG.BASE_URL}${endpoint}`;
 };
 
 // Helper function to get auth headers
-export const getAuthHeaders = (token: string) => ({
-  ...API_CONFIG.headers,
-  'Authorization': `Bearer ${token}`,
-});
+export const getAuthHeaders = async () => {
+  try {
+    const AsyncStorage = await import('@react-native-async-storage/async-storage');
+    const token = await AsyncStorage.default.getItem('auth_token');
+    
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    return {
+      ...API_CONFIG.headers,
+      'Authorization': `Bearer ${token}`,
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    throw error;
+  }
+};
 
 export default API_CONFIG;

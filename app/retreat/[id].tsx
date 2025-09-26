@@ -666,7 +666,7 @@ export default function RetreatDetailScreen() {
       
       const downloadEndpoint = API_ENDPOINTS.RETREAT_DOWNLOAD_REQUEST(retreat.id);
       console.log('📋 Making ZIP API request to:', downloadEndpoint);
-      console.log('🗺️ Full URL will be:', require('@/services/apiConfig').API_CONFIG.baseURL + downloadEndpoint);
+      console.log('🗺️ Full URL will be:', require('@/services/apiConfig').API_CONFIG.BASE_URL + downloadEndpoint);
       
       // TEST: Try to get auth token first to verify authentication
       const authToken = await AsyncStorage.getItem('auth_token');
@@ -758,7 +758,7 @@ export default function RetreatDetailScreen() {
       // Make direct API request
       const directEndpoint = API_ENDPOINTS.RETREAT_DOWNLOAD_REQUEST(retreat.id);
       console.log('📋 Making DIRECT API request to:', directEndpoint);
-      console.log('🗺️ DIRECT Full URL:', require('@/services/apiConfig').API_CONFIG.baseURL + directEndpoint);
+      console.log('🗺️ DIRECT Full URL:', require('@/services/apiConfig').API_CONFIG.BASE_URL + directEndpoint);
       
       const requestResponse = await apiService.post(directEndpoint);
 

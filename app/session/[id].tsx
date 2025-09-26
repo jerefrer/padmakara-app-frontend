@@ -10,6 +10,7 @@ import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const colors = {
   cream: {
@@ -47,11 +48,12 @@ interface SessionDetails {
     id: string;
     name: string;
   };
+
 }
 
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useLanguage();
+  const { t, contentLanguage } = useLanguage();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
@@ -66,6 +68,8 @@ export default function SessionDetailScreen() {
   const sessionDownloadCancelRef = useRef(false);
   const buttonOpacity = useRef(new Animated.Value(1)).current;
   const [downloadStateLoaded, setDownloadStateLoaded] = useState(false);
+  const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
+  const [currentLanguageMode, setCurrentLanguageMode] = useState<string>('en');
   
   // Confirmation states for double-click removal
   const [sessionRemovalConfirmation, setSessionRemovalConfirmation] = useState(false);
@@ -80,8 +84,38 @@ export default function SessionDetailScreen() {
   useEffect(() => {
     if (session) {
       loadDownloadedTracks();
+      applyLanguageFilter();
     }
   }, [session]);
+
+  // Update filtered tracks when session or language mode changes
+  const applyLanguageFilter = useCallback(() => {
+    if (!session?.tracks) {
+      setFilteredTracks([]);
+      return;
+    }
+
+    // Client-side filtering based on current language mode
+    let filtered: Track[] = [];
+
+    if (currentLanguageMode === 'en') {
+      // English only - show only original tracks
+      filtered = session.tracks.filter(track => track.isOriginal);
+    } else if (currentLanguageMode === 'en-pt') {
+      // English + Portuguese - show all tracks
+      filtered = session.tracks;
+    } else if (currentLanguageMode === 'pt') {
+      // Portuguese only - show only translation tracks
+      filtered = session.tracks.filter(track => !track.isOriginal && track.language === 'pt');
+    } else {
+      // Default to English only
+      filtered = session.tracks.filter(track => track.isOriginal);
+    }
+
+    // Sort by order
+    filtered.sort((a, b) => a.order - b.order);
+    setFilteredTracks(filtered);
+  }, [session, currentLanguageMode]);
 
   // Refresh download state when screen comes into focus (but not on initial load)
   const hasMountedRef = useRef(false);
@@ -132,6 +166,28 @@ export default function SessionDetailScreen() {
       
       const response = await retreatService.getSessionDetails(id);
       if (response.success && response.data) {
+        // Initialize language preference: session-specific > profile default > fallback
+        let initialLanguageMode = 'en'; // fallback default
+        
+        try {
+          // First, try to get session-specific language preference from AsyncStorage
+          const sessionLanguageKey = `session_language_${id}`;
+          const storedSessionLanguage = await AsyncStorage.getItem(sessionLanguageKey);
+          
+          if (storedSessionLanguage && ['en', 'en-pt', 'pt'].includes(storedSessionLanguage)) {
+            initialLanguageMode = storedSessionLanguage;
+            console.log(`✅ Using stored session language: ${storedSessionLanguage}`);
+          } else {
+            // If no session-specific preference, use profile content language as default
+            initialLanguageMode = contentLanguage || 'en';
+            console.log(`✅ Using profile default language: ${initialLanguageMode}`);
+          }
+        } catch (storageError) {
+          console.warn('Failed to load session language preference, using defaults:', storageError);
+          initialLanguageMode = contentLanguage || 'en';
+        }
+        
+        setCurrentLanguageMode(initialLanguageMode);
         setSession(response.data);
       } else {
         setError(response.error || 'Failed to load session details');
@@ -173,6 +229,56 @@ export default function SessionDetailScreen() {
     }
   };
 
+  // Client-side language mode update with persistence
+  const updateLanguagePreference = async (newLanguageMode: string) => {
+    if (!session) return;
+
+    try {
+      // Persist session-specific language preference
+      const sessionLanguageKey = `session_language_${id}`;
+      await AsyncStorage.setItem(sessionLanguageKey, newLanguageMode);
+      
+      // Update local language mode state
+      setCurrentLanguageMode(newLanguageMode);
+      
+      console.log(`✅ Session ${id} language preference saved: ${newLanguageMode}`);
+    } catch (error) {
+      console.error('Failed to save session language preference:', error);
+      
+      // Still update local state even if persistence fails
+      setCurrentLanguageMode(newLanguageMode);
+    }
+  };
+
+  const toggleLanguageMode = () => {
+    if (!currentLanguageMode) return;
+    // Cycle through: en -> en-pt -> pt -> en
+    let newMode: string;
+    switch (currentLanguageMode) {
+      case 'en':
+        newMode = 'en-pt';
+        break;
+      case 'en-pt':
+        newMode = 'pt';
+        break;
+      case 'pt':
+        newMode = 'en';
+        break;
+      default:
+        newMode = 'en';
+    }
+    updateLanguagePreference(newMode);
+  };
+
+  const getLanguageLabel = (languageMode?: string) => {
+    switch (languageMode) {
+      case 'en': return 'English Only';
+      case 'en-pt': return 'English + Portuguese';
+      case 'pt': return 'Portuguese Only';
+      default: return 'English Only';
+    }
+  };
+
   if (loading || !downloadStateLoaded) {
     return (
       <View style={styles.container}>
@@ -199,8 +305,8 @@ export default function SessionDetailScreen() {
     );
   }
 
-  // Get all tracks in order
-  const allTracks: Track[] = session.tracks.sort((a, b) => a.order - b.order);
+  // Get all tracks in order - use filtered tracks for display
+  const allTracks: Track[] = filteredTracks.length > 0 ? filteredTracks : session.tracks.sort((a, b) => a.order - b.order);
   
   // Track selection - simple state update
   const selectTrack = (track: Track, trackIndex: number) => {
@@ -526,6 +632,24 @@ export default function SessionDetailScreen() {
           </View>
         </View>
 
+        {/* Language Toggle - Client-side only */}
+        {currentLanguageMode && (
+          <View style={styles.languageSection}>
+            <View style={styles.languageToggle}>
+              <Text style={styles.languageLabel}>Tracks Language:</Text>
+              <TouchableOpacity 
+                style={styles.languageButton} 
+                onPress={toggleLanguageMode}
+              >
+                <Text style={styles.languageButtonText}>
+                  {getLanguageLabel(currentLanguageMode)}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.gray[600]} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Download Session Button */}
         <View style={styles.sessionActions}>
           <Animated.View style={{ opacity: buttonOpacity }}>
@@ -622,23 +746,34 @@ export default function SessionDetailScreen() {
             return (
               <TouchableOpacity
                 key={track.id}
-                onPress={() => selectTrack(track, trackIndex)}
-                style={[
-                  styles.trackItem,
-                  isCurrentTrack && styles.currentTrackItem
-                ]}
-              >
-                <View style={styles.trackInfo}>
-                  <Text style={[
-                    styles.trackTitle,
-                    isCurrentTrack && styles.currentTrackTitle
-                  ]}>
-                    {track.title}
-                  </Text>
-                  <Text style={styles.trackDuration}>
-                    {formatTrackInfo(track)}
-                  </Text>
-                </View>
+                  onPress={() => selectTrack(track, trackIndex)}
+                  style={[
+                    styles.trackItem,
+                    isCurrentTrack && styles.currentTrackItem,
+                    !track.isOriginal && styles.translationTrack
+                  ]}
+                >
+                  {/* Track Number on the left */}
+                  <View style={styles.trackNumberContainer}>
+                    <Text style={[
+                      styles.trackNumber,
+                      isCurrentTrack && styles.currentTrackNumber
+                    ]}>
+                      {track.order}
+                    </Text>
+                  </View>
+
+                  <View style={styles.trackInfo}>
+                    <Text style={[
+                      styles.trackTitle,
+                      isCurrentTrack && styles.currentTrackTitle
+                    ]}>
+                      {track.title}
+                    </Text>
+                    <Text style={styles.trackDuration}>
+                      {formatTrackInfo(track)}
+                    </Text>
+                  </View>
                 
                 <View style={styles.trackRightSection}>
                   {isCurrentTrack && (
@@ -745,6 +880,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[600],
     marginTop: 2,
+  },
+  languageSection: {
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+  },
+  languageToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  languageLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[700],
+  },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray[100],
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  languageButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray[700],
+    marginRight: 4,
   },
   content: {
     flex: 1,
@@ -854,6 +1020,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: 'white', // Default white border for alignment
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -863,9 +1031,26 @@ const styles = StyleSheet.create({
   currentTrackItem: {
     backgroundColor: colors.burgundy[50],
   },
+  translationTrack: {
+    borderLeftColor: colors.saffron[500], // Override white border with saffron
+  },
+  trackNumberContainer: {
+    width: 24,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginLeft: -1, // 20% more space than -4px (was too close)
+    marginRight: 4,
+  },
+  trackNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.gray[600],
+  },
+  currentTrackNumber: {
+    color: colors.burgundy[600],
+  },
   trackInfo: {
     flex: 1,
-    justifyContent: 'center',
   },
   trackTitle: {
     fontSize: 14,
@@ -896,28 +1081,22 @@ const styles = StyleSheet.create({
   downloadingIconButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: 18,
     width: 36,
     height: 36,
   },
   downloadedIconButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: 18,
     width: 36,
     height: 36,
   },
-  downloadProgress: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   playingIndicator: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 24,
-    height: 20,
+    width: 30,
+    height: 30,
   },
   loadingContainer: {
     flex: 1,
@@ -941,5 +1120,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.gray[600],
     marginBottom: 20,
+  },
+  downloadProgress: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

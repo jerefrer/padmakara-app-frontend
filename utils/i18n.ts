@@ -7,7 +7,7 @@ import en from '../locales/en.json';
 import pt from '../locales/pt.json';
 
 export type Language = 'en' | 'pt';
-export type ContentLanguage = 'en' | 'en-pt';
+export type ContentLanguage = 'en' | 'en-pt' | 'pt';
 
 const translations = {
   en,

@@ -109,8 +109,8 @@ class ApiService {
       }
 
       // Defensive check for undefined baseURL
-      if (!API_CONFIG.baseURL) {
-        console.error('❌ API_CONFIG.baseURL is undefined:', API_CONFIG);
+      if (!API_CONFIG.BASE_URL) {
+        console.error('❌ API_CONFIG.BASE_URL is undefined:', API_CONFIG);
         return {
           success: false,
           error: 'API configuration error',
@@ -119,10 +119,10 @@ class ApiService {
 
       const token = await this.getAuthToken();
       const headers = token 
-        ? getAuthHeaders(token)
+        ? await getAuthHeaders()
         : API_CONFIG.headers;
 
-      const fullUrl = `${API_CONFIG.baseURL}${endpoint}`;
+      const fullUrl = `${API_CONFIG.BASE_URL}${endpoint}`;
       console.log('🌐 Making API request to:', fullUrl);
 
       const response = await fetch(fullUrl, {
@@ -261,7 +261,7 @@ class ApiService {
         });
       }
 
-      const response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
         method: 'POST',
         headers,
         body: formData,
