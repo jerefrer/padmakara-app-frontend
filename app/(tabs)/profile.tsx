@@ -285,7 +285,7 @@ export default function ProfileScreen() {
     
     showAlert(
       'Clear All Data',
-      'This will remove all your progress, bookmarks, highlights, and cached retreat data. This action cannot be undone.',
+      'This will remove all your progress and offline retreat data. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
