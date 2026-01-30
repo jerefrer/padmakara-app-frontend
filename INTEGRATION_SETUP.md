@@ -29,11 +29,12 @@ This document describes the completed integration between the React Native front
 - Presigned URL handling for secure S3 content access
 - Search functionality for content discovery
 
-### 5. Updated Retreat Screen (`app/(tabs)/retreats.tsx`)
+### 5. Retreat Screens (`app/group/[id].tsx`, `app/retreat/[id].tsx`)
 - **REPLACED MOCK DATA** with backend API integration
 - Loading states, error handling, and retry functionality
 - Real-time data loading from Django backend
 - Proper error messages and empty states
+- Offline download status indicators
 
 ### 6. Updated Type Definitions (`types/index.ts`)
 - Updated to match Django backend model structure
@@ -63,7 +64,8 @@ The Django backend needs these API endpoints:
    - Verify JWT tokens are stored and used
    - Test biometric authentication (if enabled)
 4. **Test retreat loading**:
-   - Navigate to Retreats tab after login
+   - Navigate to Groups tab (home) after login
+   - Tap a group to see its retreats
    - Verify data loads from backend
    - Test error states by stopping backend
    - Test retry functionality

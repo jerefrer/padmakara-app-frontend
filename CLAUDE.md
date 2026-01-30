@@ -44,11 +44,66 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 ### Routing System
 - Uses **Expo Router v5** with file-based routing and typed routes
 - Root entry point: `app/index.tsx` (authentication guard)
-- Main structure:
-  - `app/(tabs)/` - Protected main app with tab navigation (Home, Retreats, Downloads, Profile)
-  - `app/(auth)/` - Authentication flow (Login, Signup)  
-  - `app/gathering/[id].tsx` - Dynamic gathering detail pages
-  - `app/transcript/[id].tsx` - Dynamic transcript viewer pages
+
+### Navigation Flow (IMPORTANT!)
+
+**Main User Flow:**
+```
+(tabs)/index.tsx (Groups Tab)     →  Shows list of RetreatGroups
+        ↓ tap group
+group/[id].tsx (Group Detail)     →  Shows list of Retreats for that group
+        ↓ tap retreat
+retreat/[id].tsx (Retreat Detail) →  Shows list of Sessions
+        ↓ tap session
+session/[id].tsx (Session Detail) →  Shows tracks with audio player
+        ↓ tap transcript
+transcript/[id].tsx               →  PDF transcript viewer
+```
+
+### Active Screens (Used in Navigation)
+| File | Purpose | Navigation From |
+|------|---------|-----------------|
+| `(tabs)/index.tsx` | Home/Groups list | Tab bar |
+| `(tabs)/profile.tsx` | User profile | Tab bar |
+| `group/[id].tsx` | **Retreats list for a group** | Groups list |
+| `retreat/[id].tsx` | Sessions list | Retreats list |
+| `session/[id].tsx` | Tracks with audio player | Sessions list |
+| `transcript/[id].tsx` | PDF transcript viewer | Track actions |
+
+### Terminology Clarification
+**IMPORTANT:** The codebase uses "Gathering" and "Retreat" interchangeably:
+- **In Types/API**: Uses `Gathering` interface
+- **In UI/Routes**: Uses "retreat" terminology (e.g., `/retreat/[id].tsx`)
+- **In `group/[id].tsx`**: Shows `Gathering` objects but calls them "retreats" in the UI
+
+When editing retreat-related code:
+- **To modify the retreats LIST**: Edit `group/[id].tsx` (NOT `(tabs)/retreats.tsx`)
+- **To modify retreat DETAIL page**: Edit `retreat/[id].tsx`
+
+### App Directory Structure
+```
+app/
+├── (auth)/                 # Authentication flow (unauthenticated)
+│   ├── _layout.tsx
+│   ├── magic-link.tsx      # Magic link authentication
+│   ├── check-email.tsx     # Email verification prompt
+│   ├── approval-pending.tsx # Account approval waiting
+│   └── device-activated.tsx # Device activation success
+├── (tabs)/                 # Main app (authenticated, tab navigation)
+│   ├── _layout.tsx         # Tab bar configuration
+│   ├── index.tsx           # Home/Groups tab
+│   └── profile.tsx         # User profile tab
+├── group/
+│   └── [id].tsx            # Group detail → RETREATS LIST
+├── retreat/
+│   └── [id].tsx            # Retreat detail → Sessions list
+├── session/
+│   └── [id].tsx            # Session detail → Audio player
+├── transcript/
+│   └── [id].tsx            # PDF transcript viewer
+├── _layout.tsx             # Root layout with providers
+└── index.tsx               # Auth guard/entry point
+```
 
 ### Global Providers (app/_layout.tsx)
 1. **AuthProvider** - Authentication state management

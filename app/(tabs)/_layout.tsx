@@ -45,24 +45,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle.badge.checkmark" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="retreats"
-        options={{
-          href: null, // Hide this tab but keep the screen for navigation
-        }}
-      />
-      <Tabs.Screen
-        name="downloads"
-        options={{
-          href: null, // Hide this tab but keep the screen for navigation
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null, // Hide this tab but keep the screen for navigation
-        }}
-      />
     </Tabs>
     </AuthGuard>
   );

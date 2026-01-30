@@ -1,50 +1,125 @@
-# Welcome to your Expo app 👋
+# Padmakara App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A cross-platform mobile app for Buddhist practitioners to access retreat recordings and transcripts from Jigme Khyentse Rinpoche's teachings on mind training and the 37 practices of bodhisattvas.
 
-## Get started
+## Get Started
 
-1. Install dependencies
-
+1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. Start the development server:
    ```bash
-   npx expo start
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+3. Run on specific platforms:
+   ```bash
+   npm run ios      # iOS simulator
+   npm run android  # Android emulator
+   npm run web      # Web browser
+   ```
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Project Structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+```
+app/
+├── (auth)/                 # Authentication flow
+│   ├── magic-link.tsx      # Magic link authentication
+│   ├── check-email.tsx     # Email verification prompt
+│   ├── approval-pending.tsx # Account approval waiting
+│   └── device-activated.tsx # Device activation success
+├── (tabs)/                 # Main app (tab navigation)
+│   ├── index.tsx           # Home - Groups list
+│   └── profile.tsx         # User profile
+├── group/[id].tsx          # Group detail → Retreats list
+├── retreat/[id].tsx        # Retreat detail → Sessions list
+├── session/[id].tsx        # Session → Audio player
+├── transcript/[id].tsx     # PDF transcript viewer
+└── +not-found.tsx          # 404 page
 
-## Get a fresh project
+components/
+├── AudioPlayer.tsx         # Audio playback with progress tracking
+├── PDFViewer.tsx           # Cross-platform PDF viewer
+├── BookmarksManager.tsx    # Bookmark management
+├── OfflineBadge.tsx        # Offline availability indicator
+└── ui/                     # UI components
 
-When you're ready, run:
+contexts/
+├── AuthContext.tsx         # Authentication state
+└── LanguageContext.tsx     # i18n support (English/Portuguese)
 
-```bash
-npm run reset-project
+services/
+├── authService.ts          # Authentication API
+├── retreatService.ts       # Retreat data API
+├── downloadService.ts      # Offline downloads
+└── apiService.ts           # Base API client
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Navigation Flow
 
-## Learn more
+```
+Groups (Home) → Group Detail → Retreat → Session → Transcript
+     ↓              ↓            ↓          ↓
+  Profile      Retreats      Sessions    Audio + PDF
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Features
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Audio Player
+- Progress tracking with resume from where you left off
+- Playback speed control (0.5x to 2x)
+- Bookmark system with notes
+- Cross-platform support
 
-## Join the community
+### PDF Transcript Viewer
+- View transcripts alongside audio
+- Text highlighting
+- Progress synchronization
 
-Join our community of developers creating universal apps.
+### Offline Support
+- Download retreats for offline listening
+- Progress saved locally and synced when online
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Authentication
+- Magic link email authentication
+- Biometric support (Face ID / Touch ID)
+- Group-based content access
+
+### Multi-language
+- Interface: English and Portuguese
+- Content: English-only or English+Portuguese
+
+## Technical Stack
+
+- **Framework**: Expo 53 with React Native 0.79
+- **Navigation**: Expo Router with file-based routing
+- **State**: React Context
+- **Audio**: expo-av
+- **PDF**: react-native-pdf
+- **Biometrics**: expo-local-authentication
+- **Storage**: AsyncStorage
+
+## Backend
+
+Connects to Django backend with:
+- JWT authentication
+- S3 storage for audio/PDF files
+- PostgreSQL database
+
+See `CLAUDE.md` for API configuration and development details.
+
+## Development
+
+```bash
+npm start          # Start dev server
+npm run lint       # Run ESLint
+npm run ios        # iOS simulator
+npm run android    # Android emulator
+npm run web        # Web browser
+```
+
+## License
+
+Proprietary software developed for Associação Padmakara Portugal.
