@@ -85,6 +85,7 @@
     "manageStorage": "Manage Storage"
   },
   "profile": {
+    "storage": "Storage",
     "myProfile": "My Profile",
     "yourProgress": "Your Progress",
     "completedTracks": "Completed Tracks",

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
+import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { AppHeader } from '@/components/ui/AppHeader';
+import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import retreatService from '@/services/retreatService';
+import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import i18n from '@/utils/i18n';
 
@@ -37,14 +39,15 @@ const colors = {
 interface RetreatCardProps {
   retreat: Gathering;
   onPress: () => void;
+  isDownloaded?: boolean;
 }
 
-function RetreatCard({ retreat, onPress }: RetreatCardProps) {
+function RetreatCard({ retreat, onPress, isDownloaded }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
-  const totalDuration = retreat.sessions?.reduce((sum: number, session) => 
+  const totalDuration = retreat.sessions?.reduce((sum: number, session) =>
     sum + (session.tracks?.reduce((trackSum: number, track) => trackSum + track.duration, 0) || 0), 0
   ) || 0;
-  
+
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);
 
@@ -62,7 +65,10 @@ function RetreatCard({ retreat, onPress }: RetreatCardProps) {
       <View style={styles.card}>
         <View style={styles.borderAccent} />
         <View style={styles.cardContent}>
-          <Text style={styles.retreatTitle}>{retreat.name}</Text>
+          <View style={styles.retreatTitleRow}>
+            <Text style={styles.retreatTitle}>{retreat.name}</Text>
+            {isDownloaded && <OfflineBadge />}
+          </View>
           <Text style={styles.retreatSubtitle}>
             {i18n.t(`retreats.${retreat.season}`)} {retreat.year}
           </Text>
@@ -93,6 +99,24 @@ export default function GroupDetailScreen() {
   const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadedRetreatIds, setDownloadedRetreatIds] = useState<Set<string>>(new Set());
+
+  // Load downloaded retreat status
+  const loadDownloadStatus = async () => {
+    try {
+      const downloaded = await downloadService.getDownloadedRetreats();
+      setDownloadedRetreatIds(new Set(downloaded.map(r => r.retreatId)));
+    } catch (err) {
+      console.warn('Failed to load download status:', err);
+    }
+  };
+
+  // Refresh download status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDownloadStatus();
+    }, [])
+  );
 
   const loadGroupData = async () => {
     try {
@@ -251,6 +275,7 @@ export default function GroupDetailScreen() {
               key={retreat.id}
               retreat={retreat}
               onPress={() => handleRetreatPress(retreat.id)}
+              isDownloaded={downloadedRetreatIds.has(retreat.id)}
             />
           ))}
         </ScrollView>
@@ -366,11 +391,17 @@ const styles = StyleSheet.create({
   cardContent: {
     paddingLeft: 8,
   },
+  retreatTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   retreatTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: colors.burgundy[500],
-    marginBottom: 4,
+    flex: 1,
   },
   retreatSubtitle: {
     fontSize: 16,

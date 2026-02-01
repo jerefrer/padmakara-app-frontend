@@ -264,9 +264,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[500],
   },
-  groupSection: {
-    marginBottom: 32,
-  },
   card: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -280,30 +277,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-  },
-  groupCard: {
-    backgroundColor: colors.burgundy[50],
-  },
-  groupTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.burgundy[500],
-    marginBottom: 8,
-  },
-  groupDescription: {
-    fontSize: 16,
-    color: colors.gray[600],
-    marginBottom: 8,
-  },
-  groupStats: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.burgundy[500],
-    marginBottom: 12,
   },
   groupCard: {
     marginBottom: 16,
@@ -357,27 +330,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.burgundy[700],
-  },
-  statsTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.burgundy[500],
-    marginBottom: 16,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.gray[600],
   },
   loadingContainer: {
     flex: 1,

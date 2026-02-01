@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
+import { StorageSection } from '@/components/StorageSection';
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -280,61 +281,6 @@ export default function ProfileScreen() {
     );
   };
 
-  const clearAllData = () => {
-    if (isClearing) return; // Prevent multiple simultaneous operations
-    
-    showAlert(
-      'Clear All Data',
-      'This will remove all your progress and offline retreat data. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            setIsClearing(true);
-            try {
-              console.log(`🧹 [${Platform.OS}] Starting clear all data operation...`);
-              
-              // Clear retreat cache and downloads
-              await retreatService.clearAllCache();
-              console.log(`✅ [${Platform.OS}] Retreat cache cleared`);
-              
-              // Clear progress data, bookmarks, and PDF highlights
-              const progressResult = await progressService.clearAllData();
-              console.log(`✅ [${Platform.OS}] Progress data cleared: ${progressResult.removedCount} items`);
-              
-              if (progressResult.success) {
-                const totalCleared = progressResult.removedCount;
-                showAlert(
-                  'Success', 
-                  `All local data has been cleared. Removed ${totalCleared} progress and bookmark items.`
-                );
-              } else {
-                console.error(`❌ [${Platform.OS}] Progress clearing failed:`, progressResult.error);
-                const errorMessage = getStorageErrorMessage(new Error(progressResult.error));
-                showAlert(
-                  'Partial Success', 
-                  `Retreat cache cleared, but progress data clearing failed: ${errorMessage}`
-                );
-              }
-              
-              // Reload stats to reflect changes
-              await loadUserStats();
-              
-            } catch (error) {
-              console.error(`💥 [${Platform.OS}] Clear all data error:`, error);
-              const errorMessage = getStorageErrorMessage(error);
-              showAlert('Error', errorMessage);
-            } finally {
-              setIsClearing(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Sign Out handler - works identically on all platforms (iOS, Android, Web)
   // Only clears local auth data, keeps device activated on backend for easy re-entry
   const handleSignOut = () => {
@@ -472,7 +418,9 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-
+        {/* Storage Management */}
+        <Text style={styles.sectionTitleOutside}>{t('profile.storage') || 'Storage'}</Text>
+        <StorageSection />
 
         {/* Security Settings */}
         <Text style={styles.sectionTitleOutside}>{t('profile.security') || 'Security'}</Text>
@@ -539,46 +487,9 @@ export default function ProfileScreen() {
             )}
           </Pressable>
 
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [
-              styles.settingItem, 
-              isClearing && styles.disabledSetting,
-              pressed && Platform.OS === 'web' && styles.webPressed
-            ]} 
-            onPress={() => {
-              debugClickHandler('Clear All Data');
-              if (!isClearing) clearAllData();
-            }}
-            disabled={isClearing}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons 
-                name="trash-outline" 
-                size={20} 
-                color={isClearing ? colors.gray[400] : "#ef4444"} 
-              />
-              <View style={styles.textContainer}>
-                <Text style={[
-                  styles.settingTitle, 
-                  { color: isClearing ? colors.gray[400] : '#ef4444' }
-                ]}>
-                  {t('profile.clearAllData') || 'Clear All Data'}
-                </Text>
-                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  {t('profile.clearAllDataDescription') || 'Remove all progress and downloaded content'}
-                </Text>
-              </View>
-            </View>
-            {isClearing ? (
-              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-            )}
-          </Pressable>
-
-          <Pressable 
-            style={({ pressed }) => [
-              styles.settingItem, 
+              styles.settingItem,
               isClearing && styles.disabledSetting,
               pressed && Platform.OS === 'web' && styles.webPressed
             ]} 

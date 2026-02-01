@@ -1,5 +1,7 @@
 import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
+import cacheService from '@/services/cacheService';
+import downloadService from '@/services/downloadService';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,15 +37,23 @@ interface AudioPlayerProps {
   onNextTrack?: () => void;
   onPreviousTrack?: () => void;
   onPlayingStateChange?: (isPlaying: boolean) => void;
+  // Pre-caching props
+  upcomingTracks?: Track[]; // Tracks to pre-cache (remaining in session + next session/retreat)
+  retreatId?: string; // Current retreat ID for cache protection
 }
 
-export function AudioPlayer({ 
-  track, 
+// Pre-cache lookahead duration: 1 hour (3600 seconds)
+const PRE_CACHE_DURATION_SECONDS = 3600;
+
+export function AudioPlayer({
+  track,
   onProgressUpdate,
   onTrackComplete,
   onNextTrack,
   onPreviousTrack,
-  onPlayingStateChange
+  onPlayingStateChange,
+  upcomingTracks,
+  retreatId,
 }: AudioPlayerProps) {
   // State machine and core state
   const [playerState, setPlayerState] = useState<AudioPlayerState>('LOADING');
@@ -64,7 +74,10 @@ export function AudioPlayer({
   const [isStreamLoading, setIsStreamLoading] = useState(false); // Track if stream URL is being fetched
   const [streamLoadedTrackId, setStreamLoadedTrackId] = useState<string | null>(null); // Track which track has stream loaded
   const [isTrackLoading, setIsTrackLoading] = useState(false); // Overall track loading state for UI feedback
-  
+
+  // Pre-caching state
+  const hasPreCachedForTrackRef = useRef<string | null>(null); // Track ID for which we've triggered pre-caching
+
   // Audio player hooks
   const player = useAudioPlayer(audioSource);
   const status = useAudioPlayerStatus(player);
@@ -159,9 +172,10 @@ export function AudioPlayer({
         setRestorationTrackId(null);
         setIsStreamLoading(false);
         setStreamLoadedTrackId(null);
+        hasPreCachedForTrackRef.current = null; // Reset pre-cache state for new track
         console.log(`🔍 [DEBUG] Track loading: Clearing currentRestorationSessionId: ${currentRestorationSessionIdRef.current} → null`);
         safeClearSessionId("track loading reset", false);
-        
+
         loadTrack(track);
       };
       
@@ -293,6 +307,59 @@ export function AudioPlayer({
       onTrackComplete?.();
     }
   }, [status, track, playerState, loadedTrackId, restorationProtection, expectedPosition]);
+
+  // Pre-caching effect: trigger after 30 seconds of listening
+  useEffect(() => {
+    if (!track || !status || !upcomingTracks || upcomingTracks.length === 0) {
+      return;
+    }
+
+    // Only pre-cache during active playback
+    if (playerState !== 'PLAYING' || !status.playing) {
+      return;
+    }
+
+    // Check if we've already pre-cached for this track
+    if (hasPreCachedForTrackRef.current === track.id) {
+      return;
+    }
+
+    const currentTime = status.currentTime || 0;
+
+    // Trigger pre-caching after 30 seconds of listening (shows real engagement)
+    if (currentTime >= 30) {
+      console.log(`🔮 [PRE-CACHE] Triggering pre-cache after ${Math.round(currentTime)}s for track: ${track.title}`);
+      hasPreCachedForTrackRef.current = track.id;
+
+      // Get stream URL helper function
+      const getStreamUrlForTrack = async (trackId: string): Promise<string | null> => {
+        try {
+          // First check if already cached or downloaded
+          const cachedPath = await cacheService.getCachedTrackPath(trackId);
+          if (cachedPath) return null; // Already cached, skip
+
+          const downloadedPath = await downloadService.getDownloadedTrackPath(trackId);
+          if (downloadedPath) return null; // Already downloaded, skip
+
+          // Get stream URL from backend
+          const response = await retreatService.getTrackStreamUrl(trackId);
+          return response.success ? response.url || null : null;
+        } catch (error) {
+          console.warn(`🔮 [PRE-CACHE] Failed to get stream URL for ${trackId}:`, error);
+          return null;
+        }
+      };
+
+      // Trigger pre-caching in background
+      const currentRetreatId = retreatId || track.session_id || 'unknown';
+      cacheService.preCacheTracksForDuration(
+        upcomingTracks.map(t => ({ id: t.id, duration: t.duration })),
+        currentRetreatId,
+        getStreamUrlForTrack,
+        PRE_CACHE_DURATION_SECONDS
+      ).catch(err => console.warn('🔮 [PRE-CACHE] Pre-cache failed:', err));
+    }
+  }, [track, status, playerState, upcomingTracks, retreatId]);
   
   // Load track audio source
   const loadTrack = async (newTrack: Track) => {
@@ -313,31 +380,49 @@ export function AudioPlayer({
     }
   };
   
-  // Get audio source (local or stream)
+  // Get audio source (local or stream) with automatic caching
+  // Priority: 1) Downloaded retreat → 2) Cached → 3) Stream + cache in background
   const getAudioSource = async (track: Track): Promise<string | null> => {
     try {
-      // Check for local download first
-      const isDownloaded = await retreatService.isTrackDownloaded(track.id);
-      
-      if (isDownloaded) {
-        const localPath = await retreatService.getDownloadedTrackPath(track.id);
-        if (localPath) {
-          console.log(`🎵 Using local audio: ${track.title}`);
-          setStreamLoadedTrackId(track.id); // Mark as ready (local tracks are immediately ready)
-          return localPath;
-        }
+      // 1. Check for explicitly downloaded track first (pinned, never auto-evicted)
+      const downloadedPath = await downloadService.getDownloadedTrackPath(track.id);
+      if (downloadedPath) {
+        console.log(`📥 Using downloaded audio: ${track.title}`);
+        setStreamLoadedTrackId(track.id);
+        return downloadedPath;
       }
-      
-      // Get stream URL from backend
-      console.log(`🌐 Getting stream URL for: ${track.title}`);
+
+      // 2. Check for cached track (auto-managed with LRU eviction)
+      const cachedPath = await cacheService.getCachedTrackPath(track.id);
+      if (cachedPath) {
+        console.log(`📦 Using cached audio: ${track.title}`);
+        setStreamLoadedTrackId(track.id);
+        return cachedPath;
+      }
+
+      // 3. Stream from backend and cache in background
+      console.log(`🌐 Streaming and caching: ${track.title}`);
       setIsStreamLoading(true);
-      
+
       const response = await retreatService.getTrackStreamUrl(track.id);
-      
+
       if (response.success && response.url) {
         console.log(`✅ Got stream URL for: ${track.title}`);
-        setStreamLoadedTrackId(track.id); // Mark stream as loaded
+        setStreamLoadedTrackId(track.id);
         setIsStreamLoading(false);
+
+        // Cache the track in background (don't await - let playback start immediately)
+        // Get retreat ID from session context if available, fallback to track's session_id
+        const retreatId = track.session_id || 'unknown';
+        cacheService.cacheTrack(track.id, retreatId, response.url)
+          .then((localPath) => {
+            console.log(`📦 Background cache complete: ${track.title}`);
+          })
+          .catch((cacheError) => {
+            // Cache failure is non-critical - streaming still works
+            console.warn(`⚠️ Background cache failed: ${track.title}`, cacheError);
+          });
+
         return response.url;
       } else {
         setIsStreamLoading(false);

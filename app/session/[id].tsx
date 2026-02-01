@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Animated } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
-import { CircularProgressButton } from '@/components/CircularProgressButton';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const colors = {
@@ -53,40 +51,60 @@ interface SessionDetails {
 
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, contentLanguage } = useLanguage();
+  const { contentLanguage } = useLanguage();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [downloadedTracks, setDownloadedTracks] = useState<Set<string>>(new Set());
-  const [downloadProgress, setDownloadProgress] = useState<Map<string, number>>(new Map());
-  const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
-  const [isDownloadingSession, setIsDownloadingSession] = useState(false);
-  const [sessionDownloadProgress, setSessionDownloadProgress] = useState({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
-  const sessionDownloadCancelRef = useRef(false);
-  const buttonOpacity = useRef(new Animated.Value(1)).current;
-  const [downloadStateLoaded, setDownloadStateLoaded] = useState(false);
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [currentLanguageMode, setCurrentLanguageMode] = useState<string>('en');
-  
-  // Confirmation states for double-click removal
-  const [sessionRemovalConfirmation, setSessionRemovalConfirmation] = useState(false);
-  const [trackRemovalConfirmation, setTrackRemovalConfirmation] = useState<Set<string>>(new Set());
-  const removalTimeoutRef = useRef<NodeJS.Timeout>();
-  const trackRemovalTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const [nextSessionTracks, setNextSessionTracks] = useState<Track[]>([]);
+  const [retreatId, setRetreatId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSessionDetails();
   }, [id]);
-  
+
+  // Load next session tracks for pre-caching across session boundaries
+  const loadNextSessionTracks = useCallback(async (gatheringId: string, currentSessionDate: string) => {
+    try {
+      // Get retreat details to find adjacent sessions
+      const retreatResponse = await retreatService.getRetreatDetails(gatheringId);
+      if (retreatResponse.success && retreatResponse.data) {
+        setRetreatId(gatheringId);
+        const sessions = retreatResponse.data.sessions || [];
+
+        // Sort sessions by date
+        const sortedSessions = sessions.sort((a: any, b: any) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        // Find current session index
+        const currentIndex = sortedSessions.findIndex((s: any) => s.id === id);
+        if (currentIndex >= 0 && currentIndex < sortedSessions.length - 1) {
+          // Get next session
+          const nextSession = sortedSessions[currentIndex + 1];
+          if (nextSession?.tracks) {
+            console.log(`🔮 [PRE-CACHE] Found ${nextSession.tracks.length} tracks in next session: ${nextSession.name}`);
+            setNextSessionTracks(nextSession.tracks);
+          }
+        } else {
+          console.log('🔮 [PRE-CACHE] No next session available (this is the last session)');
+          // TODO: Could fetch next retreat's first session here for continuous pre-caching
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load next session tracks for pre-caching:', error);
+    }
+  }, [id]);
+
   useEffect(() => {
     if (session) {
-      loadDownloadedTracks();
       applyLanguageFilter();
     }
-  }, [session]);
+  }, [session, currentLanguageMode]);
 
   // Update filtered tracks when session or language mode changes
   const applyLanguageFilter = useCallback(() => {
@@ -117,42 +135,6 @@ export default function SessionDetailScreen() {
     setFilteredTracks(filtered);
   }, [session, currentLanguageMode]);
 
-  // Refresh download state when screen comes into focus (but not on initial load)
-  const hasMountedRef = useRef(false);
-  useFocusEffect(
-    useCallback(() => {
-      if (session && hasMountedRef.current) {
-        loadDownloadedTracks();
-      }
-      hasMountedRef.current = true;
-    }, [session])
-  );
-
-  // Smooth transition when button state changes
-  useEffect(() => {
-    Animated.timing(buttonOpacity, {
-      toValue: 0.7,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.timing(buttonOpacity, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    });
-  }, [downloadedTracks.size, isDownloadingSession]);
-  
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (removalTimeoutRef.current) {
-        clearTimeout(removalTimeoutRef.current);
-      }
-      trackRemovalTimeoutRef.current.forEach(timeout => clearTimeout(timeout));
-    };
-  }, []);
-
   // Simple progress update handler
   const handleProgressUpdate = (progress: UserProgress) => {
     // In production, this would sync with your backend
@@ -163,17 +145,17 @@ export default function SessionDetailScreen() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await retreatService.getSessionDetails(id);
       if (response.success && response.data) {
         // Initialize language preference: session-specific > profile default > fallback
         let initialLanguageMode = 'en'; // fallback default
-        
+
         try {
           // First, try to get session-specific language preference from AsyncStorage
           const sessionLanguageKey = `session_language_${id}`;
           const storedSessionLanguage = await AsyncStorage.getItem(sessionLanguageKey);
-          
+
           if (storedSessionLanguage && ['en', 'en-pt', 'pt'].includes(storedSessionLanguage)) {
             initialLanguageMode = storedSessionLanguage;
             console.log(`✅ Using stored session language: ${storedSessionLanguage}`);
@@ -186,9 +168,14 @@ export default function SessionDetailScreen() {
           console.warn('Failed to load session language preference, using defaults:', storageError);
           initialLanguageMode = contentLanguage || 'en';
         }
-        
+
         setCurrentLanguageMode(initialLanguageMode);
         setSession(response.data);
+
+        // Load next session tracks for cross-session pre-caching
+        if (response.data.gathering?.id) {
+          loadNextSessionTracks(response.data.gathering.id, response.data.date);
+        }
       } else {
         setError(response.error || 'Failed to load session details');
       }
@@ -200,35 +187,6 @@ export default function SessionDetailScreen() {
     }
   };
 
-  const loadDownloadedTracks = async () => {
-    try {
-      if (session?.tracks) {
-        const downloadedTrackIds = new Set<string>();
-        
-        // Check each track to see if it's downloaded
-        // Use Promise.all to check all tracks simultaneously for faster loading
-        const downloadPromises = session.tracks.map(async (track) => {
-          const isDownloaded = await retreatService.isTrackDownloaded(track.id);
-          return { trackId: track.id, isDownloaded };
-        });
-        
-        const results = await Promise.all(downloadPromises);
-        results.forEach(({ trackId, isDownloaded }) => {
-          if (isDownloaded) {
-            downloadedTrackIds.add(trackId);
-          }
-        });
-        
-        setDownloadedTracks(downloadedTrackIds);
-        setDownloadStateLoaded(true);
-        console.log(`📥 Found ${downloadedTrackIds.size} downloaded tracks`);
-      }
-    } catch (error) {
-      console.error('Load downloaded tracks error:', error);
-      setDownloadStateLoaded(true); // Set loaded even on error to prevent infinite loading
-    }
-  };
-
   // Client-side language mode update with persistence
   const updateLanguagePreference = async (newLanguageMode: string) => {
     if (!session) return;
@@ -237,14 +195,14 @@ export default function SessionDetailScreen() {
       // Persist session-specific language preference
       const sessionLanguageKey = `session_language_${id}`;
       await AsyncStorage.setItem(sessionLanguageKey, newLanguageMode);
-      
+
       // Update local language mode state
       setCurrentLanguageMode(newLanguageMode);
-      
+
       console.log(`✅ Session ${id} language preference saved: ${newLanguageMode}`);
     } catch (error) {
       console.error('Failed to save session language preference:', error);
-      
+
       // Still update local state even if persistence fails
       setCurrentLanguageMode(newLanguageMode);
     }
@@ -279,14 +237,12 @@ export default function SessionDetailScreen() {
     }
   };
 
-  if (loading || !downloadStateLoaded) {
+  if (loading) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.loadingText}>
-            {loading ? 'Loading session...' : 'Loading download status...'}
-          </Text>
+          <Text style={styles.loadingText}>Loading session...</Text>
         </View>
       </View>
     );
@@ -307,270 +263,11 @@ export default function SessionDetailScreen() {
 
   // Get all tracks in order - use filtered tracks for display
   const allTracks: Track[] = filteredTracks.length > 0 ? filteredTracks : session.tracks.sort((a, b) => a.order - b.order);
-  
+
   // Track selection - simple state update
   const selectTrack = (track: Track, trackIndex: number) => {
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
-  };
-
-
-  const handleDownloadTrack = async (track: Track) => {
-    try {
-      // Check if already downloading
-      if (downloadingTracks.has(track.id)) {
-        // Cancel download
-        const cancelled = await retreatService.cancelTrackDownload(track.id);
-        if (cancelled) {
-          setDownloadingTracks(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(track.id);
-            return newSet;
-          });
-          setDownloadProgress(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(track.id);
-            return newMap;
-          });
-        }
-        return;
-      }
-
-      console.log(`🔽 Starting download for track: ${track.id} - ${track.title}`);
-      
-      // Mark as downloading
-      setDownloadingTracks(prev => new Set(prev).add(track.id));
-      setDownloadProgress(prev => new Map(prev).set(track.id, 0));
-      
-      const result = await retreatService.downloadTrack(track.id, (progress) => {
-        console.log(`📊 Download progress: ${Math.round(progress)}%`);
-        setDownloadProgress(prev => new Map(prev).set(track.id, progress));
-      });
-      
-      console.log(`🔽 Download result:`, result);
-      
-      // Clean up downloading state
-      setDownloadingTracks(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(track.id);
-        return newSet;
-      });
-      setDownloadProgress(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(track.id);
-        return newMap;
-      });
-      
-      if (result.success) {
-        setDownloadedTracks(prev => new Set(prev).add(track.id));
-        console.log(`✅ Track download completed: ${track.title}`);
-      } else if (result.cancelled) {
-        console.log(`⏸️ Track download cancelled: ${track.title}`);
-      } else {
-        console.error(`❌ Download failed: ${result.error}`);
-      }
-    } catch (error) {
-      // Clean up on error
-      setDownloadingTracks(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(track.id);
-        return newSet;
-      });
-      setDownloadProgress(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(track.id);
-        return newMap;
-      });
-      
-      console.error('Download error:', error);
-    }
-  };
-
-  const handleRemoveDownload = async (track: Track) => {
-    try {
-      // Double-click confirmation for individual track removal
-      if (trackRemovalConfirmation.has(track.id)) {
-        // Second click - execute removal
-        console.log(`🗑️ Removing download for track: ${track.id} - ${track.title}`);
-        resetTrackRemovalConfirmation(track.id);
-        
-        const result = await retreatService.removeDownloadedTrack(track.id);
-        if (result.success) {
-          setDownloadedTracks(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(track.id);
-            return newSet;
-          });
-          console.log(`✅ Download removed: ${track.title}`);
-        } else {
-          console.error(`❌ Failed to remove download: ${result.error}`);
-        }
-      } else {
-        // First click - enter confirmation state
-        setTrackRemovalConfirmation(prev => new Set(prev).add(track.id));
-        const timeout = setTimeout(() => {
-          resetTrackRemovalConfirmation(track.id);
-        }, 4000);
-        trackRemovalTimeoutRef.current.set(track.id, timeout);
-      }
-    } catch (error) {
-      console.error('Remove download error:', error);
-    }
-  };
-
-  // Helper functions for confirmation system
-  const resetSessionRemovalConfirmation = () => {
-    setSessionRemovalConfirmation(false);
-    if (removalTimeoutRef.current) {
-      clearTimeout(removalTimeoutRef.current);
-    }
-  };
-
-  const resetTrackRemovalConfirmation = (trackId: string) => {
-    setTrackRemovalConfirmation(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(trackId);
-      return newSet;
-    });
-    const timeout = trackRemovalTimeoutRef.current.get(trackId);
-    if (timeout) {
-      clearTimeout(timeout);
-      trackRemovalTimeoutRef.current.delete(trackId);
-    }
-  };
-
-  const handleDownloadAllSession = async () => {
-    try {
-      if (!session || !allTracks.length) return;
-      
-      // Check if already downloading session
-      if (isDownloadingSession) {
-        // Cancel all active downloads
-        for (const trackId of downloadingTracks) {
-          await retreatService.cancelTrackDownload(trackId);
-        }
-        
-        // Reset state
-        sessionDownloadCancelRef.current = true;
-        setIsDownloadingSession(false);
-        setSessionDownloadProgress({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
-        setDownloadingTracks(new Set());
-        setDownloadProgress(new Map());
-        return;
-      }
-
-      // Check if all tracks are downloaded - if so, handle removal with confirmation
-      const tracksToDownload = allTracks.filter(track => !downloadedTracks.has(track.id));
-      const tracksToRemove = allTracks.filter(track => downloadedTracks.has(track.id));
-      
-      if (tracksToDownload.length === 0 && tracksToRemove.length > 0) {
-        // All tracks are downloaded - handle removal with double-click confirmation
-        if (sessionRemovalConfirmation) {
-          // Second click - execute removal
-          console.log(`🗑️ Removing all downloads for session: ${session.name}`);
-          resetSessionRemovalConfirmation();
-          
-          for (const track of tracksToRemove) {
-            const result = await retreatService.removeDownloadedTrack(track.id);
-            if (result.success) {
-              setDownloadedTracks(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(track.id);
-                return newSet;
-              });
-              console.log(`✅ Removed download: ${track.title}`);
-            }
-          }
-          
-          console.log(`🎉 All session downloads removed`);
-          return;
-        } else {
-          // First click - enter confirmation state
-          setSessionRemovalConfirmation(true);
-          removalTimeoutRef.current = setTimeout(() => {
-            setSessionRemovalConfirmation(false);
-          }, 4000);
-          return;
-        }
-      }
-      
-      if (tracksToDownload.length === 0) {
-        console.log(`✅ All tracks already downloaded`);
-        return;
-      }
-
-      console.log(`🔽 Starting bulk download for session: ${session.name}`);
-      
-      sessionDownloadCancelRef.current = false;
-      setIsDownloadingSession(true);
-      const totalSize = calculateTotalSize(tracksToDownload);
-      setSessionDownloadProgress({ completed: 0, total: tracksToDownload.length, downloadedSize: 0, totalSize });
-      
-      let successCount = 0;
-      let failCount = 0;
-      
-      for (let i = 0; i < tracksToDownload.length; i++) {
-        const track = tracksToDownload[i];
-        console.log(`📊 Downloading track ${i + 1}/${tracksToDownload.length}: ${track.title}`);
-        
-        // Check if session download was cancelled before starting next track
-        if (sessionDownloadCancelRef.current) {
-          console.log('🚫 Session download cancelled, stopping');
-          break;
-        }
-        
-        // Mark track as downloading
-        setDownloadingTracks(prev => new Set(prev).add(track.id));
-        
-        const result = await retreatService.downloadTrack(track.id, (progress) => {
-          setDownloadProgress(prev => new Map(prev).set(track.id, progress));
-        });
-        
-        // Clean up track downloading state
-        setDownloadingTracks(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(track.id);
-          return newSet;
-        });
-        setDownloadProgress(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(track.id);
-          return newMap;
-        });
-        
-        if (result.success && !result.cancelled) {
-          successCount++;
-          setDownloadedTracks(prev => new Set(prev).add(track.id));
-          console.log(`✅ Track downloaded: ${track.title} (${successCount}/${tracksToDownload.length})`);
-        } else if (result.cancelled) {
-          console.log(`⏸️ Track download cancelled: ${track.title}`);
-          break; // Exit the loop if download was cancelled
-        } else {
-          failCount++;
-          console.error(`❌ Failed to download track ${track.title}:`, result.error);
-        }
-        
-        // Update session progress
-        const downloadedSize = tracksToDownload.slice(0, i + 1).reduce((sum, track) => 
-          sum + (track.file_size || estimateAudioFileSize(track.duration)), 0);
-        setSessionDownloadProgress({ 
-          completed: i + 1, 
-          total: tracksToDownload.length,
-          downloadedSize,
-          totalSize: calculateTotalSize(tracksToDownload)
-        });
-      }
-      
-      setIsDownloadingSession(false);
-      setSessionDownloadProgress({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
-      
-      console.log(`🎉 Session download completed: ${successCount} succeeded, ${failCount} failed`);
-      
-    } catch (error) {
-      setIsDownloadingSession(false);
-      setSessionDownloadProgress({ completed: 0, total: 0, downloadedSize: 0, totalSize: 0 });
-      console.error('Bulk download error:', error);
-    }
   };
 
   const goToNextTrack = () => {
@@ -605,14 +302,7 @@ export default function SessionDetailScreen() {
 
   const formatTrackInfo = (track: Track) => {
     const duration = formatDuration(track.duration);
-    const fileSize = track.file_size ? formatBytes(track.file_size) : formatBytes(estimateAudioFileSize(track.duration));
-    return `${duration} • ${fileSize}`;
-  };
-
-  const calculateTotalSize = (tracks: Track[]) => {
-    return tracks.reduce((total, track) => {
-      return total + (track.file_size || estimateAudioFileSize(track.duration));
-    }, 0);
+    return duration;
   };
 
   return (
@@ -637,8 +327,8 @@ export default function SessionDetailScreen() {
           <View style={styles.languageSection}>
             <View style={styles.languageToggle}>
               <Text style={styles.languageLabel}>Tracks Language:</Text>
-              <TouchableOpacity 
-                style={styles.languageButton} 
+              <TouchableOpacity
+                style={styles.languageButton}
                 onPress={toggleLanguageMode}
               >
                 <Text style={styles.languageButtonText}>
@@ -649,86 +339,6 @@ export default function SessionDetailScreen() {
             </View>
           </View>
         )}
-
-        {/* Download Session Button */}
-        <View style={styles.sessionActions}>
-          <Animated.View style={{ opacity: buttonOpacity }}>
-            <TouchableOpacity
-              onPress={handleDownloadAllSession}
-              style={[
-                (() => {
-                  const tracksToDownload = allTracks.filter(t => !downloadedTracks.has(t.id));
-                  const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
-                  const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
-                  
-                  if (isDownloadingSession) {
-                    return styles.downloadAllButtonActive;
-                  } else if (allDownloaded && sessionRemovalConfirmation) {
-                    return styles.confirmRemovalButton;
-                  } else if (allDownloaded) {
-                    return styles.removeAllButton;
-                  } else {
-                    return styles.downloadAllButton;
-                  }
-                })()
-              ]}
-            >
-            {isDownloadingSession ? (
-              <>
-                <ActivityIndicator size="small" color="white" style={styles.downloadSpinner} />
-                <View style={styles.downloadProgressContainer}>
-                  <Text style={styles.downloadAllButtonText}>
-                    {sessionDownloadProgress.total > 0 
-                      ? `${Math.round((sessionDownloadProgress.completed / sessionDownloadProgress.total) * 100)}%`
-                      : 'Preparing...'
-                    }
-                  </Text>
-                  {sessionDownloadProgress.totalSize > 0 && (
-                    <Text style={styles.downloadSizeText}>
-                      {formatBytes(sessionDownloadProgress.downloadedSize)} / {formatBytes(sessionDownloadProgress.totalSize)}
-                    </Text>
-                  )}
-                </View>
-              </>
-            ) : (() => {
-              const tracksToDownload = allTracks.filter(t => !downloadedTracks.has(t.id));
-              const tracksDownloaded = allTracks.filter(t => downloadedTracks.has(t.id));
-              const allDownloaded = tracksToDownload.length === 0 && tracksDownloaded.length > 0;
-              
-              const totalSizeToDownload = formatBytes(calculateTotalSize(tracksToDownload));
-              const totalSizeDownloaded = formatBytes(calculateTotalSize(tracksDownloaded));
-              
-              // Handle confirmation state for removal
-              if (allDownloaded && sessionRemovalConfirmation) {
-                return (
-                  <>
-                    <Ionicons name="warning" size={20} color={colors.saffron[500]} />
-                    <Text style={styles.confirmRemovalButtonText}>
-                      Tap again to confirm removal
-                    </Text>
-                  </>
-                );
-              }
-              
-              return (
-                <>
-                  <Ionicons 
-                    name={allDownloaded ? "trash-outline" : "download"} 
-                    size={20} 
-                    color={allDownloaded ? colors.gray[600] : "white"} 
-                  />
-                  <Text style={allDownloaded ? styles.removeAllButtonText : styles.downloadAllButtonText}>
-                    {allDownloaded 
-                      ? `Remove Downloads (${tracksDownloaded.length} tracks, ${totalSizeDownloaded})`
-                      : `${t('common.download')} Session (${tracksToDownload.length} tracks, ${totalSizeToDownload})`
-                    }
-                  </Text>
-                </>
-              );
-            })()}
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
 
         {/* Tracks Header */}
         <View style={styles.tracksHeaderSection}>
@@ -742,7 +352,7 @@ export default function SessionDetailScreen() {
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {allTracks.map((track, trackIndex) => {
             const isCurrentTrack = currentTrack?.id === track.id;
-            
+
             return (
               <TouchableOpacity
                 key={track.id}
@@ -774,61 +384,23 @@ export default function SessionDetailScreen() {
                       {formatTrackInfo(track)}
                     </Text>
                   </View>
-                
+
                 <View style={styles.trackRightSection}>
                   {isCurrentTrack && (
                     <View style={styles.playingIndicator}>
-                      <AnimatedPlayingBars 
+                      <AnimatedPlayingBars
                         isPlaying={isTrackPlaying}
-                        size={20} 
-                        color={colors.burgundy[500]} 
+                        size={20}
+                        color={colors.burgundy[500]}
                       />
                     </View>
-                  )}
-                  
-                  {downloadedTracks.has(track.id) ? (
-                    <TouchableOpacity
-                      onPress={() => handleRemoveDownload(track)}
-                      style={[
-                        styles.downloadedIconButton,
-                        trackRemovalConfirmation.has(track.id) && styles.confirmRemovalIconButton
-                      ]}
-                    >
-                      <Ionicons 
-                        name={trackRemovalConfirmation.has(track.id) ? "warning" : "checkmark-circle"} 
-                        size={24} 
-                        color={trackRemovalConfirmation.has(track.id) ? colors.saffron[500] : colors.saffron[500]} 
-                      />
-                    </TouchableOpacity>
-                  ) : downloadingTracks.has(track.id) ? (
-                    <TouchableOpacity
-                      onPress={() => handleDownloadTrack(track)}
-                      style={styles.downloadingIconButton}
-                    >
-                      <CircularProgressButton
-                        progress={downloadProgress.get(track.id) || 0}
-                        isActive={true}
-                        onPress={() => handleDownloadTrack(track)}
-                        size={24}
-                        strokeWidth={2}
-                        icon="download-outline"
-                        style={styles.downloadProgress}
-                      />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => handleDownloadTrack(track)}
-                      style={styles.downloadIconButton}
-                    >
-                      <Ionicons name="download-outline" size={18} color={colors.white} />
-                    </TouchableOpacity>
                   )}
                 </View>
               </TouchableOpacity>
             );
           })}
       </ScrollView>
-      
+
       {/* Bottom-sticky Audio Player */}
       <AudioPlayer
         track={currentTrack}
@@ -837,6 +409,12 @@ export default function SessionDetailScreen() {
         onNextTrack={currentTrackIndex < allTracks.length - 1 ? goToNextTrack : undefined}
         onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
         onPlayingStateChange={setIsTrackPlaying}
+        // Pre-caching: remaining tracks in session + next session tracks
+        upcomingTracks={[
+          ...allTracks.slice(currentTrackIndex + 1), // Remaining tracks after current
+          ...nextSessionTracks, // Next session's tracks
+        ]}
+        retreatId={retreatId || session?.gathering?.id}
       />
     </View>
   );
@@ -918,11 +496,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 80, // Space for bottom player
-  },
-  sessionActions: {
-    padding: 16,
-    backgroundColor: 'white',
+    paddingBottom: 180, // Space for bottom player
   },
   tracksHeaderSection: {
     paddingHorizontal: 16,
@@ -930,83 +504,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],
-  },
-  downloadAllButton: {
-    backgroundColor: colors.burgundy[500],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  downloadAllButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  downloadAllButtonActive: {
-    backgroundColor: colors.burgundy[600],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-    opacity: 0.9,
-  },
-  removeAllButton: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  removeAllButtonText: {
-    color: colors.gray[600],
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  downloadSpinner: {
-    marginRight: 8,
-  },
-  downloadProgressContainer: {
-    alignItems: 'center',
-  },
-  downloadSizeText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  confirmRemovalButton: {
-    backgroundColor: colors.saffron[500],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.saffron[500],
-  },
-  confirmRemovalButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  confirmRemovalIconButton: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderWidth: 1,
-    borderColor: colors.saffron[500],
   },
   tracksTitle: {
     fontSize: 18,
@@ -1038,7 +535,7 @@ const styles = StyleSheet.create({
     width: 24,
     alignItems: 'flex-start',
     justifyContent: 'center',
-    marginLeft: -1, // 20% more space than -4px (was too close)
+    marginLeft: -1,
     marginRight: 4,
   },
   trackNumber: {
@@ -1070,28 +567,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  downloadIconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.burgundy[500],
-    borderRadius: 18,
-    width: 36,
-    height: 36,
-  },
-  downloadingIconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 36,
-    height: 36,
-  },
-  downloadedIconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: 18,
-    width: 36,
-    height: 36,
-  },
   playingIndicator: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1120,9 +595,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.gray[600],
     marginBottom: 20,
-  },
-  downloadProgress: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

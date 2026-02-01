@@ -85,6 +85,7 @@
     "manageStorage": "Gerenciar Armazenamento"
   },
   "profile": {
+    "storage": "Armazenamento",
     "myProfile": "Meu Perfil",
     "yourProgress": "Seu Progresso",
     "completedTracks": "Faixas Concluídas",
