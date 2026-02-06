@@ -1,16 +1,14 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
-import retreatService from '@/services/retreatService';
 import { StorageSection } from '@/components/StorageSection';
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const colors = {
   cream: {
@@ -27,10 +25,12 @@ const colors = {
   gray: {
     100: '#f3f4f6',
     200: '#e5e7eb',
+    300: '#d1d5db',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#1f2937',
   },
 };
 
@@ -42,7 +42,8 @@ interface UserStats {
   totalBookmarks: number;
 }
 
-export default function ProfileScreen() {
+export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { language, contentLanguage, setLanguage, setContentLanguage, t } = useLanguage();
   const { user, updateUser, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
   const [_stats, setStats] = useState<UserStats>({
@@ -82,7 +83,7 @@ export default function ProfileScreen() {
   // Platform-specific error handling helper
   const getStorageErrorMessage = (error: any): string => {
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
-    
+
     if (Platform.OS === 'web') {
       if (errorMessage.includes('localStorage') || errorMessage.includes('storage')) {
         return 'Storage access blocked. Please check browser settings and allow storage for this site.';
@@ -100,7 +101,7 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => {
-    console.log(`🚀 [${Platform.OS}] Profile screen mounted - all authentication features work identically across platforms`);
+    console.log(`🚀 [${Platform.OS}] Settings screen mounted - all authentication features work identically across platforms`);
     loadUserStats();
     checkBiometricSupport();
 
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
       console.log(`📊 [${Platform.OS}] Loading user stats...`);
       const listeningStats = await progressService.getListeningStats();
       const allPDFProgress = await progressService.getAllPDFProgress();
-      
+
       // Calculate highlights and bookmarks (simulated)
       const totalHighlights = allPDFProgress.reduce((sum, pdf) => sum + pdf.highlights.length, 0);
       const totalBookmarks = 15; // Simulated - would get from actual bookmarks
@@ -125,11 +126,11 @@ export default function ProfileScreen() {
         totalHighlights,
         totalBookmarks,
       });
-      
+
       console.log(`✅ [${Platform.OS}] User stats loaded successfully`);
     } catch (error) {
       console.error(`💥 [${Platform.OS}] Error loading user stats:`, error);
-      
+
       // Set fallback stats if loading fails
       setStats({
         totalTracks: 0,
@@ -145,7 +146,7 @@ export default function ProfileScreen() {
     try {
       const isAvailable = await LocalAuthentication.hasHardwareAsync();
       setBiometricAvailable(isAvailable);
-      
+
       if (isAvailable) {
         const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
         if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
@@ -163,7 +164,7 @@ export default function ProfileScreen() {
 
   const toggleLanguage = async () => {
     const newLanguage = language === 'en' ? 'pt' : 'en';
-    
+
     // Update local state and user preferences
     if (user) {
       const updatedPreferences = {
@@ -191,7 +192,7 @@ export default function ProfileScreen() {
       default:
         newContentLanguage = 'en';
     }
-    
+
     if (user) {
       const updatedPreferences = {
         ...(user.preferences || {}),
@@ -242,50 +243,11 @@ export default function ProfileScreen() {
     return `${minutes}m`;
   };
 
-  const clearDownloads = () => {
-    if (isClearing) return; // Prevent multiple simultaneous operations
-    
-    showAlert(
-      'Clear Downloads',
-      'This will remove all downloaded audio files. You can re-download them later.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear Downloads',
-          style: 'destructive',
-          onPress: async () => {
-            setIsClearing(true);
-            try {
-              console.log(`🧹 [${Platform.OS}] Starting clear downloads operation...`);
-              const result = await retreatService.clearAllDownloads();
-              
-              if (result.success) {
-                console.log(`✅ [${Platform.OS}] Downloads cleared: ${result.removedCount} files`);
-                showAlert('Success', `Removed ${result.removedCount} downloaded files.`);
-                // Reload stats to reflect changes
-                await loadUserStats();
-              } else {
-                console.error(`❌ [${Platform.OS}] Clear downloads failed:`, result.error);
-                showAlert('Error', result.error || 'Failed to clear downloads.');
-              }
-            } catch (error) {
-              console.error(`💥 [${Platform.OS}] Clear downloads error:`, error);
-              const errorMessage = getStorageErrorMessage(error);
-              showAlert('Error', errorMessage);
-            } finally {
-              setIsClearing(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Sign Out handler - works identically on all platforms (iOS, Android, Web)
   // Only clears local auth data, keeps device activated on backend for easy re-entry
   const handleSignOut = () => {
     if (isClearing) return; // Prevent multiple simultaneous operations
-    
+
     showAlert(
       'Sign Out',
       'Sign out of your account? You can sign back in easily with the same email address.',
@@ -305,7 +267,7 @@ export default function ProfileScreen() {
               console.error(`💥 [${Platform.OS}] Sign out error:`, error);
               const errorMessage = getStorageErrorMessage(error);
               showAlert(
-                'Sign Out Error', 
+                'Sign Out Error',
                 `Failed to sign out: ${errorMessage}. You may need to restart the app.`
               );
             } finally {
@@ -317,11 +279,11 @@ export default function ProfileScreen() {
     );
   };
 
-  // Forget Device handler - works identically on all platforms (iOS, Android, Web)  
+  // Forget Device handler - works identically on all platforms (iOS, Android, Web)
   // Fully deactivates device on backend, requires email activation to return
   const handleForgetDevice = () => {
     if (isClearing) return; // Prevent multiple simultaneous operations
-    
+
     showAlert(
       'Forget This Device',
       'This will completely remove this device from your account. You\'ll need to activate via email again to access the app. Continue?',
@@ -341,7 +303,7 @@ export default function ProfileScreen() {
               console.error(`💥 [${Platform.OS}] Forget device error:`, error);
               const errorMessage = getStorageErrorMessage(error);
               showAlert(
-                'Device Removal Error', 
+                'Device Removal Error',
                 `Failed to remove device: ${errorMessage}. You may need to restart the app.`
               );
             } finally {
@@ -354,227 +316,190 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <Image
-            source={require('@/assets/images/logo.png')}
-            style={styles.profileImage}
-            contentFit="contain"
-          />
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
-        </View>
-
-
-        {/* Language Settings */}
-        <Text style={styles.sectionTitleOutside}>{t('profile.languageSettings') || 'Language Settings'}</Text>
-        <View style={styles.section}>
-          <Pressable 
-            style={({ pressed }) => [
-              styles.settingItem,
-              pressed && Platform.OS === 'web' && styles.webPressed
-            ]} 
-            onPress={() => {
-              debugClickHandler('Toggle Language');
-              toggleLanguage();
-            }}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="language-outline" size={20} color={colors.burgundy[500]} />
-              <Text style={styles.settingTitle}>{t('profile.language') || 'App Language'}</Text>
-            </View>
-            <View style={styles.settingRight}>
-              <Text style={styles.settingValue}>
-                {language === 'en' ? 'English' : 'Português'}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-            </View>
-          </Pressable>
-
-          <Pressable 
-            style={({ pressed }) => [
-              styles.settingItem,
-              pressed && Platform.OS === 'web' && styles.webPressed
-            ]} 
-            onPress={() => {
-              debugClickHandler('Toggle Content Language');
-              toggleContentLanguage();
-            }}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="headset-outline" size={20} color={colors.burgundy[500]} />
-              <Text style={styles.settingTitle}>{t('profile.contentLanguage') || 'Tracks Language'}</Text>
-            </View>
-            <View style={styles.settingRight}>
-              <Text style={styles.settingValue}>
-                {contentLanguage === 'en' ? 'English Only' : 
-                 contentLanguage === 'en-pt' ? 'English + Portuguese' : 
-                 'Portuguese Only'}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-            </View>
-          </Pressable>
-        </View>
-
-        {/* Storage Management */}
-        <Text style={styles.sectionTitleOutside}>{t('profile.storage') || 'Storage'}</Text>
-        <StorageSection />
-
-        {/* Security Settings */}
-        <Text style={styles.sectionTitleOutside}>{t('profile.security') || 'Security'}</Text>
-        <View style={styles.section}>
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons 
-                name={biometricType === 'Face ID' ? 'scan' : 'finger-print'} 
-                size={20} 
-                color={colors.burgundy[500]} 
-              />
-              <View style={styles.textContainer}>
-                <Text style={styles.settingTitle}>
-                  {biometricAvailable ? `${biometricType} Authentication` : t('profile.biometricAuth')}
-                </Text>
-                <Text style={styles.settingSubtitle}>
-                  {biometricAvailable ? t('profile.secureAccess') : t('profile.notAvailable')}
-                </Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
+          {/* Language Settings */}
+          <Text style={styles.sectionTitleOutside}>{t('profile.languageSettings') || 'Language Settings'}</Text>
+          <View style={styles.section}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingItem,
+                pressed && Platform.OS === 'web' && styles.webPressed
+              ]}
+              onPress={() => {
+                debugClickHandler('Toggle Language');
+                toggleLanguage();
+              }}
+            >
+              <View style={styles.settingLeft}>
+                <Ionicons name="language-outline" size={20} color={colors.burgundy[500]} />
+                <Text style={styles.settingTitle}>{t('profile.language') || 'App Language'}</Text>
               </View>
-            </View>
-            <Switch
-              value={user?.preferences?.biometricEnabled || false}
-              onValueChange={toggleBiometric}
-              disabled={!biometricAvailable}
-              trackColor={{ false: colors.gray[300], true: colors.burgundy[500] }}
-            />
+              <View style={styles.settingRight}>
+                <Text style={styles.settingValue}>
+                  {language === 'en' ? 'English' : 'Português'}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingItem,
+                pressed && Platform.OS === 'web' && styles.webPressed
+              ]}
+              onPress={() => {
+                debugClickHandler('Toggle Content Language');
+                toggleContentLanguage();
+              }}
+            >
+              <View style={styles.settingLeft}>
+                <Ionicons name="headset-outline" size={20} color={colors.burgundy[500]} />
+                <Text style={styles.settingTitle}>{t('profile.contentLanguage') || 'Tracks Language'}</Text>
+              </View>
+              <View style={styles.settingRight}>
+                <Text style={styles.settingValue}>
+                  {contentLanguage === 'en' ? (t('profile.englishOnly') || 'English Only') :
+                   contentLanguage === 'en-pt' ? (t('profile.englishPortuguese') || 'English + Portuguese') :
+                   (t('profile.portugueseOnly') || 'Portuguese Only')}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+              </View>
+            </Pressable>
           </View>
-        </View>
 
-        {/* Account Management - All features work identically on iOS, Android, and Web */}
-        <Text style={styles.sectionTitleOutside}>{t('profile.account') || 'Account'}</Text>
-        <View style={styles.section}>
-          <Pressable 
-            style={({ pressed }) => [
-              styles.settingItem, 
-              isClearing && styles.disabledSetting,
-              pressed && Platform.OS === 'web' && styles.webPressed
-            ]} 
-            onPress={() => {
-              debugClickHandler('Clear Downloads');
-              if (!isClearing) clearDownloads();
-            }}
-            disabled={isClearing}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons 
-                name="cloud-download-outline" 
-                size={20} 
-                color={isClearing ? colors.gray[400] : colors.saffron[500]} 
-              />
-              <View style={styles.textContainer}>
-                <Text style={[styles.settingTitle, isClearing && styles.disabledText]}>
-                  {t('profile.clearDownloads') || 'Clear Downloads'}
-                </Text>
-                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  {t('profile.clearDownloadsDescription') || 'Remove all downloaded audio files'}
-                </Text>
+          {/* Storage Management */}
+          <Text style={styles.sectionTitleOutside}>{t('profile.storage') || 'Storage'}</Text>
+          <StorageSection />
+
+          {/* Security Settings */}
+          <Text style={styles.sectionTitleOutside}>{t('profile.security') || 'Security'}</Text>
+          <View style={styles.section}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <Ionicons
+                  name={biometricType === 'Face ID' ? 'scan' : 'finger-print'}
+                  size={20}
+                  color={colors.burgundy[500]}
+                />
+                <View style={styles.textContainer}>
+                  <Text style={styles.settingTitle}>
+                    {biometricAvailable ? `${biometricType} Authentication` : t('profile.biometricAuth')}
+                  </Text>
+                  <Text style={styles.settingSubtitle}>
+                    {biometricAvailable ? t('profile.secureAccess') : t('profile.notAvailable')}
+                  </Text>
+                </View>
               </View>
-            </View>
-            {isClearing ? (
-              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-            )}
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.settingItem,
-              isClearing && styles.disabledSetting,
-              pressed && Platform.OS === 'web' && styles.webPressed
-            ]} 
-            onPress={() => {
-              debugClickHandler('Sign Out');
-              if (!isClearing) handleSignOut();
-            }}
-            disabled={isClearing}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons 
-                name="log-out-outline" 
-                size={20} 
-                color={isClearing ? colors.gray[400] : colors.burgundy[500]} 
+              <Switch
+                value={user?.preferences?.biometricEnabled || false}
+                onValueChange={toggleBiometric}
+                disabled={!biometricAvailable}
+                trackColor={{ false: colors.gray[300], true: colors.burgundy[500] }}
               />
-              <View style={styles.textContainer}>
-                <Text style={[
-                  styles.settingTitle, 
-                  { color: isClearing ? colors.gray[400] : colors.burgundy[500] }
-                ]}>
-                  {t('profile.signOut') || 'Sign Out'}
-                </Text>
-                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  {t('profile.signOutDescription') || 'Sign out of your account (keeps device activated)'}
-                </Text>
-              </View>
             </View>
-            {isClearing ? (
-              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-            )}
-          </Pressable>
-
-          <Pressable 
-            style={({ pressed }) => [
-              styles.settingItem, 
-              isClearing && styles.disabledSetting,
-              pressed && Platform.OS === 'web' && styles.webPressed
-            ]} 
-            onPress={() => {
-              debugClickHandler('Forget This Device');
-              if (!isClearing) handleForgetDevice();
-            }}
-            disabled={isClearing}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons 
-                name="phone-portrait-outline" 
-                size={20} 
-                color={isClearing ? colors.gray[400] : "#ef4444"} 
-              />
-              <View style={styles.textContainer}>
-                <Text style={[
-                  styles.settingTitle, 
-                  { color: isClearing ? colors.gray[400] : '#ef4444' }
-                ]}>
-                  {t('profile.forgetDevice') || 'Forget This Device'}
-                </Text>
-                <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
-                  {t('profile.forgetDeviceDescription') || 'Remove device completely (requires email activation)'}
-                </Text>
-              </View>
-            </View>
-            {isClearing ? (
-              <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-            )}
-          </Pressable>
-        </View>
-
-        {/* About Section */}
-        <Text style={styles.sectionTitleOutside}>{t('profile.about') || 'About'}</Text>
-        <View style={styles.section}>
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="information-circle-outline" size={20} color={colors.burgundy[500]} />
-              <Text style={styles.settingTitle}>{t('profile.version') || 'Version'}</Text>
-            </View>
-            <Text style={styles.settingValue}>1.0.0 (Beta)</Text>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* Account Management - All features work identically on iOS, Android, and Web */}
+          <Text style={styles.sectionTitleOutside}>{t('profile.account') || 'Account'}</Text>
+          <View style={styles.section}>
+            {/* User Profile Info - less prominent, left-aligned */}
+            <View style={styles.accountUserInfo}>
+              <Ionicons name="person-circle-outline" size={40} color={colors.burgundy[500]} />
+              <View style={styles.accountUserText}>
+                <Text style={styles.accountUserName}>{user?.name || 'User'}</Text>
+                <Text style={styles.accountUserEmail}>{user?.email || 'user@example.com'}</Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingItem,
+                isClearing && styles.disabledSetting,
+                pressed && Platform.OS === 'web' && styles.webPressed
+              ]}
+              onPress={() => {
+                debugClickHandler('Sign Out');
+                if (!isClearing) handleSignOut();
+              }}
+              disabled={isClearing}
+            >
+              <View style={styles.settingLeft}>
+                <Ionicons
+                  name="log-out-outline"
+                  size={20}
+                  color={isClearing ? colors.gray[400] : colors.burgundy[500]}
+                />
+                <View style={styles.textContainer}>
+                  <Text style={[
+                    styles.settingTitle,
+                    { color: isClearing ? colors.gray[400] : colors.burgundy[500] }
+                  ]}>
+                    {t('profile.signOut') || 'Sign Out'}
+                  </Text>
+                  <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
+                    {t('profile.signOutDescription') || 'Sign out of your account (keeps device activated)'}
+                  </Text>
+                </View>
+              </View>
+              {isClearing ? (
+                <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
+              ) : (
+                <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+              )}
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingItem,
+                isClearing && styles.disabledSetting,
+                pressed && Platform.OS === 'web' && styles.webPressed
+              ]}
+              onPress={() => {
+                debugClickHandler('Forget This Device');
+                if (!isClearing) handleForgetDevice();
+              }}
+              disabled={isClearing}
+            >
+              <View style={styles.settingLeft}>
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={20}
+                  color={isClearing ? colors.gray[400] : "#ef4444"}
+                />
+                <View style={styles.textContainer}>
+                  <Text style={[
+                    styles.settingTitle,
+                    { color: isClearing ? colors.gray[400] : '#ef4444' }
+                  ]}>
+                    {t('profile.forgetDevice') || 'Forget This Device'}
+                  </Text>
+                  <Text style={[styles.settingSubtitle, isClearing && styles.disabledText]}>
+                    {t('profile.forgetDeviceDescription') || 'Remove device completely (requires email activation)'}
+                  </Text>
+                </View>
+              </View>
+              {isClearing ? (
+                <Ionicons name="hourglass-outline" size={16} color={colors.gray[400]} />
+              ) : (
+                <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+              )}
+            </Pressable>
+          </View>
+
+          {/* About Section */}
+          <Text style={styles.sectionTitleOutside}>{t('profile.about') || 'About'}</Text>
+          <View style={styles.section}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <Ionicons name="information-circle-outline" size={20} color={colors.burgundy[500]} />
+                <Text style={styles.settingTitle}>{t('profile.version') || 'Version'}</Text>
+              </View>
+              <Text style={styles.settingValue}>1.0.0 (Beta)</Text>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
   );
 }
 
@@ -586,28 +511,27 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  profileHeader: {
+  accountUserInfo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: colors.gray[100],
   },
-  profileImage: {
-    width: 80,
-    height: 80,
-    marginBottom: 16,
+  accountUserText: {
+    marginLeft: 12,
+    flex: 1,
   },
-  userName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.burgundy[500],
-    marginBottom: 4,
-  },
-  userEmail: {
+  accountUserName: {
     fontSize: 16,
-    color: colors.gray[600],
-    marginBottom: 12,
+    fontWeight: '600',
+    color: colors.gray[800],
+  },
+  accountUserEmail: {
+    fontSize: 14,
+    color: colors.gray[500],
+    marginTop: 2,
   },
   sectionTitleOutside: {
     fontSize: 18,

@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PDFViewer } from '@/components/PDFViewer';
 import { mockRetreatGroups } from '@/data/mockData';
 import { Track, PDFProgress } from '@/types';
-import progressService from '@/services/progressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
@@ -87,9 +86,9 @@ export default function TranscriptViewerScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Transcript not found</Text>
+          <Text style={styles.errorText}>{t('transcript.transcriptNotFound') || 'Transcript not found'}</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>{t('common.goBack') || 'Go Back'}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -106,7 +105,7 @@ export default function TranscriptViewerScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
         </TouchableOpacity>
-        
+
         <View style={styles.headerText}>
           <Text style={styles.headerTitle} numberOfLines={2}>
             {track.title}
@@ -132,17 +131,17 @@ export default function TranscriptViewerScreen() {
           <View style={styles.progressItem}>
             <Ionicons name="bookmark-outline" size={16} color={colors.gray[500]} />
             <Text style={styles.progressText}>
-              Page {pdfProgress.page}
+              {t('transcript.page', { current: pdfProgress.page }) || `Page ${pdfProgress.page}`}
             </Text>
           </View>
-          
+
           <View style={styles.progressItem}>
             <Ionicons name="brush-outline" size={16} color={colors.gray[500]} />
             <Text style={styles.progressText}>
-              {pdfProgress.highlights.length} highlights
+              {t('transcript.highlights', { count: pdfProgress.highlights.length }) || `${pdfProgress.highlights.length} highlights`}
             </Text>
           </View>
-          
+
           <View style={styles.progressItem}>
             <Ionicons name="time-outline" size={16} color={colors.gray[500]} />
             <Text style={styles.progressText}>

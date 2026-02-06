@@ -47,38 +47,40 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 
 ### Navigation Flow (IMPORTANT!)
 
+**Tab bar is visible throughout the app** thanks to nested Stack navigation inside tabs.
+
 **Main User Flow:**
 ```
-(tabs)/index.tsx (Groups Tab)     →  Shows list of RetreatGroups
+(tabs)/(groups)/index.tsx (Groups Tab)  →  Shows list of RetreatGroups
         ↓ tap group
-group/[id].tsx (Group Detail)     →  Shows list of Retreats for that group
+(tabs)/(groups)/[groupId].tsx           →  Shows list of Retreats for that group
         ↓ tap retreat
-retreat/[id].tsx (Retreat Detail) →  Shows list of Sessions
+(tabs)/(groups)/retreat/[id].tsx        →  Shows list of Sessions
         ↓ tap session
-session/[id].tsx (Session Detail) →  Shows tracks with audio player
+(tabs)/(groups)/session/[id].tsx        →  Shows tracks with audio player
         ↓ tap transcript
-transcript/[id].tsx               →  PDF transcript viewer
+(tabs)/(groups)/transcript/[id].tsx     →  PDF transcript viewer
 ```
 
 ### Active Screens (Used in Navigation)
 | File | Purpose | Navigation From |
 |------|---------|-----------------|
-| `(tabs)/index.tsx` | Home/Groups list | Tab bar |
-| `(tabs)/profile.tsx` | User profile | Tab bar |
-| `group/[id].tsx` | **Retreats list for a group** | Groups list |
-| `retreat/[id].tsx` | Sessions list | Retreats list |
-| `session/[id].tsx` | Tracks with audio player | Sessions list |
-| `transcript/[id].tsx` | PDF transcript viewer | Track actions |
+| `(tabs)/(groups)/index.tsx` | Home/Groups list | Tab bar (Groups tab) |
+| `(tabs)/settings.tsx` | Settings (formerly Profile) | Tab bar (Settings tab) |
+| `(tabs)/(groups)/[groupId].tsx` | **Retreats list for a group** | Groups list |
+| `(tabs)/(groups)/retreat/[id].tsx` | Sessions list | Retreats list |
+| `(tabs)/(groups)/session/[id].tsx` | Tracks with audio player | Sessions list |
+| `(tabs)/(groups)/transcript/[id].tsx` | PDF transcript viewer | Track actions |
 
 ### Terminology Clarification
 **IMPORTANT:** The codebase uses "Gathering" and "Retreat" interchangeably:
 - **In Types/API**: Uses `Gathering` interface
-- **In UI/Routes**: Uses "retreat" terminology (e.g., `/retreat/[id].tsx`)
-- **In `group/[id].tsx`**: Shows `Gathering` objects but calls them "retreats" in the UI
+- **In UI/Routes**: Uses "retreat" terminology (e.g., `retreat/[id].tsx`)
+- **In `[groupId].tsx`**: Shows `Gathering` objects but calls them "retreats" in the UI
 
 When editing retreat-related code:
-- **To modify the retreats LIST**: Edit `group/[id].tsx` (NOT `(tabs)/retreats.tsx`)
-- **To modify retreat DETAIL page**: Edit `retreat/[id].tsx`
+- **To modify the retreats LIST**: Edit `(tabs)/(groups)/[groupId].tsx`
+- **To modify retreat DETAIL page**: Edit `(tabs)/(groups)/retreat/[id].tsx`
 
 ### App Directory Structure
 ```
@@ -90,19 +92,18 @@ app/
 │   ├── approval-pending.tsx # Account approval waiting
 │   └── device-activated.tsx # Device activation success
 ├── (tabs)/                 # Main app (authenticated, tab navigation)
-│   ├── _layout.tsx         # Tab bar configuration
-│   ├── index.tsx           # Home/Groups tab
-│   └── profile.tsx         # User profile tab
-├── group/
-│   └── [id].tsx            # Group detail → RETREATS LIST
-├── retreat/
-│   └── [id].tsx            # Retreat detail → Sessions list
-├── session/
-│   └── [id].tsx            # Session detail → Audio player
-├── transcript/
-│   └── [id].tsx            # PDF transcript viewer
+│   ├── _layout.tsx         # Tab bar configuration (Groups + Settings tabs)
+│   ├── (groups)/           # Stack navigator for Groups tab content
+│   │   ├── _layout.tsx     # Stack configuration
+│   │   ├── index.tsx       # Groups list (home)
+│   │   ├── [groupId].tsx   # Retreats list for a group
+│   │   ├── retreat/[id].tsx    # Sessions list
+│   │   ├── session/[id].tsx    # Tracks with audio player
+│   │   └── transcript/[id].tsx # PDF transcript viewer
+│   └── settings.tsx        # Settings tab (formerly profile)
 ├── _layout.tsx             # Root layout with providers
-└── index.tsx               # Auth guard/entry point
+├── index.tsx               # Auth guard/entry point
+└── +not-found.tsx          # 404 page
 ```
 
 ### Global Providers (app/_layout.tsx)

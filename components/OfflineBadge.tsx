@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
   burgundy: {
@@ -18,10 +19,11 @@ const colors = {
 };
 
 export function OfflineBadge() {
+  const { t } = useLanguage();
   return (
     <View style={styles.badge}>
       <Ionicons name="checkmark-circle" size={12} color={colors.burgundy[600]} />
-      <Text style={styles.badgeText}>Offline</Text>
+      <Text style={styles.badgeText}>{t('retreats.offline') || 'Offline'}</Text>
     </View>
   );
 }

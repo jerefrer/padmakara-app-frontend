@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
-import i18n from '@/utils/i18n';
 
 const colors = {
   cream: {
@@ -40,50 +39,58 @@ interface RetreatCardProps {
   retreat: Gathering;
   onPress: () => void;
   isDownloaded?: boolean;
+  t: (key: string, params?: Record<string, unknown>) => string;
 }
 
-function RetreatCard({ retreat, onPress, isDownloaded }: RetreatCardProps) {
+function RetreatCard({ retreat, onPress, isDownloaded, t }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
-  const totalDuration = retreat.sessions?.reduce((sum: number, session) =>
-    sum + (session.tracks?.reduce((trackSum: number, track) => trackSum + track.duration, 0) || 0), 0
-  ) || 0;
 
-  const hours = Math.floor(totalDuration / 3600);
-  const minutes = Math.floor((totalDuration % 3600) / 60);
-
-  // Format dates
-  const formatDate = (dateStr: string) => {
+  // Format date range like "March 2nd to 4th" or "May 28th to June 1st"
+  const formatDateRange = (startDateStr: string, endDateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString();
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+
+      const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' });
+      const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
+      const startDay = startDate.getDate();
+      const endDay = endDate.getDate();
+
+      // Add ordinal suffix
+      const getOrdinal = (n: number) => {
+        const s = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+      };
+
+      if (startMonth === endMonth) {
+        return `${startMonth} ${getOrdinal(startDay)} to ${getOrdinal(endDay)}`;
+      } else {
+        return `${startMonth} ${getOrdinal(startDay)} to ${endMonth} ${getOrdinal(endDay)}`;
+      }
     } catch {
-      return dateStr;
+      return `${startDateStr} to ${endDateStr}`;
     }
   };
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.retreatCard}>
       <View style={styles.card}>
-        <View style={styles.borderAccent} />
         <View style={styles.cardContent}>
           <View style={styles.retreatTitleRow}>
             <Text style={styles.retreatTitle}>{retreat.name}</Text>
             {isDownloaded && <OfflineBadge />}
           </View>
-          <Text style={styles.retreatSubtitle}>
-            {i18n.t(`retreats.${retreat.season}`)} {retreat.year}
-          </Text>
           <View style={styles.retreatInfo}>
-            <View>
-              <Text style={styles.infoText}>
-                {totalTracks} tracks • {hours}h {minutes}m
-              </Text>
-              <Text style={styles.dateText}>
-                {formatDate(retreat.startDate)} to {formatDate(retreat.endDate)}
-              </Text>
-            </View>
-            <View style={styles.sessionsBadge}>
-              <Text style={styles.sessionsBadgeText}>
-                {retreat.sessions?.length || 0} {i18n.t('retreats.sessions').toLowerCase()}
+            <Text style={styles.dateText}>
+              {formatDateRange(retreat.startDate, retreat.endDate)}
+            </Text>
+            <View style={styles.tracksBadge}>
+              <Text style={styles.tracksBadgeText}>
+                {totalTracks === 1
+                  ? (t('retreats.track', { count: totalTracks }) || '1 track')
+                  : (t('retreats.tracksPlural', { count: totalTracks }) || `${totalTracks} tracks`)
+                }
               </Text>
             </View>
           </View>
@@ -94,7 +101,8 @@ function RetreatCard({ retreat, onPress, isDownloaded }: RetreatCardProps) {
 }
 
 export default function GroupDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,9 +133,9 @@ export default function GroupDetailScreen() {
 
       // Get user retreats and find the specific group
       const response = await retreatService.getUserRetreats();
-      
+
       if (response.success && response.data) {
-        const group = response.data.retreat_groups.find(g => g.id === id);
+        const group = response.data.retreat_groups.find(g => g.id === groupId);
         if (group) {
           setGroupData(group);
         } else {
@@ -146,13 +154,13 @@ export default function GroupDetailScreen() {
   };
 
   useEffect(() => {
-    if (user && id) {
+    if (user && groupId) {
       loadGroupData();
     }
-  }, [user, id]);
+  }, [user, groupId]);
 
   const handleRetreatPress = (retreatId: string) => {
-    router.push(`/retreat/${retreatId}`);
+    router.push(`/(tabs)/(groups)/retreat/${retreatId}`);
   };
 
   const handleRetryPress = () => {
@@ -163,18 +171,18 @@ export default function GroupDetailScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen 
-          options={{ 
+        <Stack.Screen
+          options={{
             headerShown: true,
-            header: () => <AppHeader showBackButton={true} title="Loading..." />
-          }} 
+            header: () => <AppHeader showBackButton={true} title={t('common.loading') || 'Loading...'} />
+          }}
         />
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.burgundy[500]} />
-            <Text style={styles.loadingText}>Loading group retreats...</Text>
+            <Text style={styles.loadingText}>{t('common.loading') || 'Loading...'}</Text>
           </View>
-        </SafeAreaView>
+        </View>
       </>
     );
   }
@@ -183,13 +191,13 @@ export default function GroupDetailScreen() {
   if (error || !groupData) {
     return (
       <>
-        <Stack.Screen 
-          options={{ 
+        <Stack.Screen
+          options={{
             headerShown: true,
-            header: () => <AppHeader showBackButton={true} title="Error" />
-          }} 
+            header: () => <AppHeader showBackButton={true} title={t('common.error') || 'Error'} />
+          }}
         />
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
           <View style={styles.emptyState}>
             <Image
               source={require('@/assets/images/logo.png')}
@@ -204,11 +212,11 @@ export default function GroupDetailScreen() {
             </Text>
             {error && error !== 'Group not found' && (
               <TouchableOpacity style={styles.retryButton} onPress={handleRetryPress}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+                <Text style={styles.retryButtonText}>{t('common.retry') || 'Try Again'}</Text>
               </TouchableOpacity>
             )}
           </View>
-        </SafeAreaView>
+        </View>
       </>
     );
   }
@@ -217,13 +225,13 @@ export default function GroupDetailScreen() {
   if (!groupData.gatherings || groupData.gatherings.length === 0) {
     return (
       <>
-        <Stack.Screen 
-          options={{ 
+        <Stack.Screen
+          options={{
             headerShown: true,
             header: () => <AppHeader showBackButton={true} title={groupData.name} />
-          }} 
+          }}
         />
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
           <View style={styles.emptyState}>
             <Image
               source={require('@/assets/images/logo.png')}
@@ -235,25 +243,38 @@ export default function GroupDetailScreen() {
               You haven't attended any retreats in {groupData.name} yet.
             </Text>
           </View>
-        </SafeAreaView>
+        </View>
       </>
     );
   }
 
-  // Sort retreats by date (newest first)
+  // Sort retreats by date (newest first) and group by year
   const sortedRetreats = [...groupData.gatherings].sort(
     (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   );
 
+  // Group retreats by year
+  const retreatsByYear = sortedRetreats.reduce((acc, retreat) => {
+    const year = retreat.year || new Date(retreat.startDate).getFullYear();
+    if (!acc[year]) {
+      acc[year] = [];
+    }
+    acc[year].push(retreat);
+    return acc;
+  }, {} as Record<number, Gathering[]>);
+
+  // Get years in descending order
+  const years = Object.keys(retreatsByYear).map(Number).sort((a, b) => b - a);
+
   return (
     <>
-      <Stack.Screen 
-        options={{ 
+      <Stack.Screen
+        options={{
           headerShown: true,
           header: () => <AppHeader showBackButton={true} title={groupData.name} />
-        }} 
+        }}
       />
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <ScrollView style={styles.scrollView}>
           {/* Group Description */}
           {groupData.description && (
@@ -265,21 +286,32 @@ export default function GroupDetailScreen() {
           {/* Retreats Count */}
           <View style={styles.statsContainer}>
             <Text style={styles.statsText}>
-              {sortedRetreats.length} retreat{sortedRetreats.length !== 1 ? 's' : ''} attended
+              {sortedRetreats.length === 1
+                ? (t('groups.retreatAttended', { count: sortedRetreats.length }) || '1 retreat attended')
+                : (t('groups.retreatsAttended', { count: sortedRetreats.length }) || `${sortedRetreats.length} retreats attended`)
+              }
             </Text>
           </View>
 
-          {/* Retreats List */}
-          {sortedRetreats.map(retreat => (
-            <RetreatCard
-              key={retreat.id}
-              retreat={retreat}
-              onPress={() => handleRetreatPress(retreat.id)}
-              isDownloaded={downloadedRetreatIds.has(retreat.id)}
-            />
+          {/* Retreats List grouped by year */}
+          {years.map(year => (
+            <View key={year}>
+              <View style={styles.yearHeader}>
+                <Text style={styles.yearHeaderText}>{year}</Text>
+              </View>
+              {retreatsByYear[year].map(retreat => (
+                <RetreatCard
+                  key={retreat.id}
+                  retreat={retreat}
+                  onPress={() => handleRetreatPress(retreat.id)}
+                  isDownloaded={downloadedRetreatIds.has(retreat.id)}
+                  t={t}
+                />
+              ))}
+            </View>
           ))}
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </>
   );
 }
@@ -312,6 +344,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[500],
     fontWeight: '500',
+  },
+  yearHeader: {
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  yearHeaderText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.gray[700],
   },
   emptyState: {
     flex: 1,
@@ -369,6 +410,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.burgundy[500],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -378,24 +421,13 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  borderAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: colors.burgundy[500],
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-  },
   cardContent: {
-    paddingLeft: 8,
   },
   retreatTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   retreatTitle: {
     fontSize: 20,
@@ -403,32 +435,22 @@ const styles = StyleSheet.create({
     color: colors.burgundy[500],
     flex: 1,
   },
-  retreatSubtitle: {
-    fontSize: 16,
-    color: colors.gray[600],
-    marginBottom: 16,
-  },
   retreatInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  infoText: {
+  dateText: {
     fontSize: 14,
     color: colors.gray[600],
   },
-  dateText: {
-    fontSize: 12,
-    color: colors.gray[500],
-    marginTop: 4,
-  },
-  sessionsBadge: {
+  tracksBadge: {
     backgroundColor: colors.burgundy[100],
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
-  sessionsBadgeText: {
+  tracksBadgeText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.burgundy[700],

@@ -1,11 +1,10 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
-import { AppHeader } from '@/components/ui/AppHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AuthGuard } from '@/components/AuthGuard';
 
@@ -14,38 +13,38 @@ export default function TabLayout() {
   return (
     <AuthGuard>
       <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#b91c1c', // Burgundy red
-        tabBarInactiveTintColor: '#6b7280',
-        headerShown: true,
-        header: () => <AppHeader />,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-            backgroundColor: '#f8f8f8',
-          },
-          default: {
-            backgroundColor: '#f8f8f8',
-          },
-        }),
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Groups',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="leaf.fill" color={color} />,
+        screenOptions={{
+          tabBarActiveTintColor: '#b91c1c', // Burgundy red
+          tabBarInactiveTintColor: '#6b7280',
+          headerShown: false, // Let nested stacks handle headers
+          tabBarButton: HapticTab,
+          tabBarBackground: TabBarBackground,
+          tabBarStyle: Platform.select({
+            ios: {
+              position: 'absolute',
+              backgroundColor: '#f8f8f8',
+            },
+            default: {
+              backgroundColor: '#f8f8f8',
+            },
+          }),
         }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t('navigation.profile'),
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle.badge.checkmark" color={color} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="(groups)"
+          options={{
+            title: t('navigation.retreats') || 'Retreats',
+            tabBarIcon: ({ color }) => <Ionicons size={24} name="list" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: t('navigation.settings') || 'Settings',
+            tabBarIcon: ({ color }) => <Ionicons size={24} name="settings" color={color} />,
+          }}
+        />
+      </Tabs>
     </AuthGuard>
   );
 }

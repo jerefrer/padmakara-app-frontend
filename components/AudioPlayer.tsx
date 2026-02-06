@@ -9,7 +9,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = {
   burgundy: {
@@ -55,6 +56,12 @@ export function AudioPlayer({
   upcomingTracks,
   retreatId,
 }: AudioPlayerProps) {
+  // Safe area insets for proper positioning above tab bar
+  const insets = useSafeAreaInsets();
+  // Tab bar height: ~49px standard + safe area bottom
+  const TAB_BAR_HEIGHT = 49;
+  const bottomOffset = Platform.OS === 'ios' ? TAB_BAR_HEIGHT + insets.bottom : TAB_BAR_HEIGHT;
+
   // State machine and core state
   const [playerState, setPlayerState] = useState<AudioPlayerState>('LOADING');
   const [audioSource, setAudioSource] = useState<string | null>(null);
@@ -856,7 +863,7 @@ export function AudioPlayer({
   console.log(`🖥️ Display: ${displayPosition}s/${duration}s, State: ${playerState}, Playing: ${isPlaying}, SeekInProgress: ${isSeekInProgress}`);
   
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { bottom: bottomOffset }]}>
       {/* Progress bar */}
       <View style={styles.progressContainer}>
         <Slider

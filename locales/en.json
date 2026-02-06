@@ -5,6 +5,7 @@
     "logout": "Logout",
     "loading": "Loading...",
     "error": "Error",
+    "success": "Success",
     "retry": "Try Again",
     "download": "Save Offline",
     "downloadRetreatZip": "Download Retreat as ZIP",
@@ -13,7 +14,11 @@
     "next": "Next",
     "previous": "Previous",
     "search": "Search",
-    "settings": "Settings"
+    "settings": "Settings",
+    "goBack": "Go Back",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "remove": "Remove"
   },
   "auth": {
     "welcomeBack": "Welcome Back",
@@ -56,7 +61,13 @@
     "home": "Home",
     "retreats": "Retreats",
     "downloads": "Saved Content",
-    "profile": "Profile"
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "groups": {
+    "yourGroups": "Your groups",
+    "retreatAttended": "{{count}} retreat attended",
+    "retreatsAttended": "{{count}} retreats attended"
   },
   "retreats": {
     "myRetreats": "My Retreats",
@@ -64,10 +75,29 @@
     "fall": "Fall",
     "sessions": "Sessions",
     "tracks": "Tracks",
+    "track": "{{count}} track",
+    "tracksPlural": "{{count}} tracks",
+    "tracksCount": "Tracks ({{count}})",
     "morning": "Morning",
     "evening": "Evening",
     "transcript": "Transcript",
-    "audio": "Audio"
+    "audio": "Audio",
+    "notFound": "Retreat not found",
+    "offline": "Offline"
+  },
+  "session": {
+    "loadingSession": "Loading session...",
+    "sessionNotFound": "Session not found",
+    "tracksLanguage": "Tracks Language:",
+    "sessionComplete": "Session Complete",
+    "sessionCompleteMessage": "You have finished all tracks in this session!"
+  },
+  "transcript": {
+    "transcriptNotFound": "Transcript not found",
+    "page": "Page {{current}}",
+    "pageOf": "Page {{current}} of {{total}}",
+    "highlights": "{{count}} highlights",
+    "highlightsOnPage": "{{count}} highlights on this page"
   },
   "player": {
     "nowPlaying": "Now Playing",
@@ -84,6 +114,34 @@
     "storage": "Storage Used",
     "manageStorage": "Manage Storage"
   },
+  "storage": {
+    "loadingStorageInfo": "Loading storage info...",
+    "freeOnDevice": "{{size}} free on device",
+    "limit": "Limit: {{size}}",
+    "cache": "Cache: {{size}}",
+    "downloads": "Downloads: {{size}}",
+    "cacheLimit": "Cache Limit",
+    "cacheLimitDescription": "Maximum space for auto-cached tracks",
+    "downloadedRetreats": "DOWNLOADED RETREATS",
+    "clearCache": "Clear Cache",
+    "clearCacheDescription": "Remove all auto-cached audio files",
+    "clearCacheTitle": "Clear Cache",
+    "clearCacheMessage": "This will remove all cached audio files. They will be re-cached when you play them again.",
+    "cacheCleared": "Cache Cleared",
+    "cacheClearedMessage": "Removed {{count}} cached tracks ({{size}})",
+    "clearDownloads": "Clear Downloads",
+    "clearDownloadsDescription": "Remove all downloaded retreats",
+    "clearDownloadsTitle": "Clear Downloads",
+    "clearDownloadsMessage": "Remove all {{count}} downloaded retreat(s)? You can re-download them later.",
+    "downloadsCleared": "Downloads Cleared",
+    "downloadsClearedMessage": "Removed {{count}} downloaded retreat(s) ({{size}})",
+    "removeDownload": "Remove Download",
+    "removeDownloadMessage": "Remove \"{{name}}\" from downloads? You can re-download it later.",
+    "noLimit": "No Limit",
+    "default": "(Default)",
+    "trackCount": "{{count}} track",
+    "tracksCount": "{{count}} tracks"
+  },
   "profile": {
     "storage": "Storage",
     "myProfile": "My Profile",
@@ -95,8 +153,10 @@
     "languageSettings": "Language Settings",
     "language": "App Language",
     "contentLanguage": "Content Language",
+    "tracksLanguage": "Tracks Language",
     "englishOnly": "English Only",
     "englishPortuguese": "English + Portuguese",
+    "portugueseOnly": "Portuguese Only",
     "security": "Security",
     "biometricAuth": "Biometric Authentication",
     "secureAccess": "Secure app access",

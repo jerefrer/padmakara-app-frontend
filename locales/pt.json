@@ -5,6 +5,7 @@
     "logout": "Sair",
     "loading": "Carregando...",
     "error": "Erro",
+    "success": "Sucesso",
     "retry": "Tentar Novamente",
     "download": "Salvar Offline",
     "downloadRetreatZip": "Baixar Retiro como ZIP",
@@ -13,7 +14,11 @@
     "next": "Próximo",
     "previous": "Anterior",
     "search": "Buscar",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "goBack": "Voltar",
+    "cancel": "Cancelar",
+    "ok": "OK",
+    "remove": "Remover"
   },
   "auth": {
     "welcomeBack": "Bem-vindo de Volta",
@@ -56,7 +61,13 @@
     "home": "Início",
     "retreats": "Retiros",
     "downloads": "Conteúdo Salvo",
-    "profile": "Perfil"
+    "profile": "Perfil",
+    "settings": "Configurações"
+  },
+  "groups": {
+    "yourGroups": "Os seus grupos",
+    "retreatAttended": "{{count}} retiro frequentado",
+    "retreatsAttended": "{{count}} retiros frequentados"
   },
   "retreats": {
     "myRetreats": "Meus Retiros",
@@ -64,10 +75,29 @@
     "fall": "Outono",
     "sessions": "Sessões",
     "tracks": "Faixas",
+    "track": "{{count}} faixa",
+    "tracksPlural": "{{count}} faixas",
+    "tracksCount": "Faixas ({{count}})",
     "morning": "Manhã",
     "evening": "Noite",
     "transcript": "Transcrição",
-    "audio": "Áudio"
+    "audio": "Áudio",
+    "notFound": "Retiro não encontrado",
+    "offline": "Offline"
+  },
+  "session": {
+    "loadingSession": "Carregando sessão...",
+    "sessionNotFound": "Sessão não encontrada",
+    "tracksLanguage": "Idioma das Faixas:",
+    "sessionComplete": "Sessão Concluída",
+    "sessionCompleteMessage": "Você terminou todas as faixas desta sessão!"
+  },
+  "transcript": {
+    "transcriptNotFound": "Transcrição não encontrada",
+    "page": "Página {{current}}",
+    "pageOf": "Página {{current}} de {{total}}",
+    "highlights": "{{count}} destaques",
+    "highlightsOnPage": "{{count}} destaques nesta página"
   },
   "player": {
     "nowPlaying": "Tocando Agora",
@@ -84,6 +114,34 @@
     "storage": "Armazenamento Usado",
     "manageStorage": "Gerenciar Armazenamento"
   },
+  "storage": {
+    "loadingStorageInfo": "Carregando informações de armazenamento...",
+    "freeOnDevice": "{{size}} livre no dispositivo",
+    "limit": "Limite: {{size}}",
+    "cache": "Cache: {{size}}",
+    "downloads": "Downloads: {{size}}",
+    "cacheLimit": "Limite de Cache",
+    "cacheLimitDescription": "Espaço máximo para faixas em cache automático",
+    "downloadedRetreats": "RETIROS BAIXADOS",
+    "clearCache": "Limpar Cache",
+    "clearCacheDescription": "Remover todos os arquivos de áudio em cache",
+    "clearCacheTitle": "Limpar Cache",
+    "clearCacheMessage": "Isso removerá todos os arquivos de áudio em cache. Eles serão armazenados novamente quando você reproduzi-los.",
+    "cacheCleared": "Cache Limpo",
+    "cacheClearedMessage": "Removidas {{count}} faixas em cache ({{size}})",
+    "clearDownloads": "Limpar Downloads",
+    "clearDownloadsDescription": "Remover todos os retiros baixados",
+    "clearDownloadsTitle": "Limpar Downloads",
+    "clearDownloadsMessage": "Remover todos os {{count}} retiro(s) baixado(s)? Você pode baixá-los novamente depois.",
+    "downloadsCleared": "Downloads Limpos",
+    "downloadsClearedMessage": "Removidos {{count}} retiro(s) baixado(s) ({{size}})",
+    "removeDownload": "Remover Download",
+    "removeDownloadMessage": "Remover \"{{name}}\" dos downloads? Você pode baixá-lo novamente depois.",
+    "noLimit": "Sem Limite",
+    "default": "(Padrão)",
+    "trackCount": "{{count}} faixa",
+    "tracksCount": "{{count}} faixas"
+  },
   "profile": {
     "storage": "Armazenamento",
     "myProfile": "Meu Perfil",
@@ -95,8 +153,10 @@
     "languageSettings": "Configurações de Idioma",
     "language": "Idioma do App",
     "contentLanguage": "Idioma do Conteúdo",
+    "tracksLanguage": "Idioma das Faixas",
     "englishOnly": "Apenas Inglês",
     "englishPortuguese": "Inglês + Português",
+    "portugueseOnly": "Apenas Português",
     "security": "Segurança",
     "biometricAuth": "Autenticação Biométrica",
     "secureAccess": "Acesso seguro ao app",

@@ -51,7 +51,7 @@ interface SessionDetails {
 
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { contentLanguage } = useLanguage();
+  const { contentLanguage, t } = useLanguage();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
@@ -230,10 +230,10 @@ export default function SessionDetailScreen() {
 
   const getLanguageLabel = (languageMode?: string) => {
     switch (languageMode) {
-      case 'en': return 'English Only';
-      case 'en-pt': return 'English + Portuguese';
-      case 'pt': return 'Portuguese Only';
-      default: return 'English Only';
+      case 'en': return t('profile.englishOnly') || 'English Only';
+      case 'en-pt': return t('profile.englishPortuguese') || 'English + Portuguese';
+      case 'pt': return t('profile.portugueseOnly') || 'Portuguese Only';
+      default: return t('profile.englishOnly') || 'English Only';
     }
   };
 
@@ -242,7 +242,7 @@ export default function SessionDetailScreen() {
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.loadingText}>Loading session...</Text>
+          <Text style={styles.loadingText}>{t('session.loadingSession') || 'Loading session...'}</Text>
         </View>
       </View>
     );
@@ -252,9 +252,9 @@ export default function SessionDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Session not found</Text>
+          <Text style={styles.errorText}>{t('session.sessionNotFound') || 'Session not found'}</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>{t('common.goBack') || 'Go Back'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -291,7 +291,10 @@ export default function SessionDetailScreen() {
     if (currentTrackIndex < allTracks.length - 1) {
       goToNextTrack();
     } else {
-      Alert.alert('Session Complete', 'You have finished all tracks in this session!');
+      Alert.alert(
+        t('session.sessionComplete') || 'Session Complete',
+        t('session.sessionCompleteMessage') || 'You have finished all tracks in this session!'
+      );
     }
   };
 
@@ -326,7 +329,7 @@ export default function SessionDetailScreen() {
         {currentLanguageMode && (
           <View style={styles.languageSection}>
             <View style={styles.languageToggle}>
-              <Text style={styles.languageLabel}>Tracks Language:</Text>
+              <Text style={styles.languageLabel}>{t('session.tracksLanguage') || 'Tracks Language:'}</Text>
               <TouchableOpacity
                 style={styles.languageButton}
                 onPress={toggleLanguageMode}
@@ -343,7 +346,7 @@ export default function SessionDetailScreen() {
         {/* Tracks Header */}
         <View style={styles.tracksHeaderSection}>
           <Text style={styles.tracksTitle}>
-            Tracks ({allTracks.length})
+            {t('retreats.tracks') || 'Tracks'} ({allTracks.length})
           </Text>
         </View>
       </SafeAreaView>

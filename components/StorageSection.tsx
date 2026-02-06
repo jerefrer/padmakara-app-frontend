@@ -27,6 +27,7 @@ import * as FileSystem from 'expo-file-system';
 import cacheService, { CacheStats } from '@/services/cacheService';
 import downloadService, { DownloadedRetreat } from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
   cream: {
@@ -54,15 +55,15 @@ const colors = {
   error: '#ef4444',
 };
 
-// Cache limit options in bytes
-const CACHE_LIMIT_OPTIONS = [
-  { label: '500 MB', value: 500 * 1024 * 1024 },
-  { label: '1 GB', value: 1024 * 1024 * 1024 },
-  { label: '2 GB (Default)', value: 2 * 1024 * 1024 * 1024 },
-  { label: '5 GB', value: 5 * 1024 * 1024 * 1024 },
-  { label: '10 GB', value: 10 * 1024 * 1024 * 1024 },
-  { label: '20 GB', value: 20 * 1024 * 1024 * 1024 },
-  { label: 'No Limit', value: 0 },
+// Cache limit options in bytes (labels will be generated with translations)
+const CACHE_LIMIT_VALUES = [
+  { size: '500 MB', value: 500 * 1024 * 1024, isDefault: false },
+  { size: '1 GB', value: 1024 * 1024 * 1024, isDefault: false },
+  { size: '2 GB', value: 2 * 1024 * 1024 * 1024, isDefault: true },
+  { size: '5 GB', value: 5 * 1024 * 1024 * 1024, isDefault: false },
+  { size: '10 GB', value: 10 * 1024 * 1024 * 1024, isDefault: false },
+  { size: '20 GB', value: 20 * 1024 * 1024 * 1024, isDefault: false },
+  { size: null, value: 0, isDefault: false, isNoLimit: true },
 ];
 
 // Format bytes to human readable string
@@ -74,10 +75,14 @@ const formatBytes = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
-// Get label for cache limit value
-const getCacheLimitLabel = (bytes: number): string => {
-  const option = CACHE_LIMIT_OPTIONS.find(opt => opt.value === bytes);
-  if (option) return option.label;
+// Get label for cache limit value (uses translation function)
+const getCacheLimitLabel = (bytes: number, t: (key: string, params?: Record<string, unknown>) => string): string => {
+  const option = CACHE_LIMIT_VALUES.find(opt => opt.value === bytes);
+  if (option) {
+    if (option.isNoLimit) return t('storage.noLimit') || 'No Limit';
+    const defaultSuffix = option.isDefault ? ` ${t('storage.default') || '(Default)'}` : '';
+    return `${option.size}${defaultSuffix}`;
+  }
   return formatBytes(bytes);
 };
 
@@ -86,6 +91,7 @@ interface StorageSectionProps {
 }
 
 export function StorageSection({ onStorageChange }: StorageSectionProps) {
+  const { t } = useLanguage();
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [cacheLimit, setCacheLimit] = useState<number>(2 * 1024 * 1024 * 1024);
   const [downloadedRetreats, setDownloadedRetreats] = useState<DownloadedRetreat[]>([]);
@@ -312,7 +318,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color={colors.burgundy[500]} />
-        <Text style={styles.loadingText}>Loading storage info...</Text>
+        <Text style={styles.loadingText}>{t('storage.loadingStorageInfo') || 'Loading storage info...'}</Text>
       </View>
     );
   }
@@ -324,7 +330,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
         <View style={styles.deviceInfo}>
           <Ionicons name="phone-portrait-outline" size={16} color={colors.gray[500]} />
           <Text style={styles.deviceInfoText}>
-            {formatBytes(deviceFreeSpace)} free on device
+            {t('storage.freeOnDevice', { size: formatBytes(deviceFreeSpace) }) || `${formatBytes(deviceFreeSpace)} free on device`}
           </Text>
         </View>
       )}
@@ -348,7 +354,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
           />
         </View>
         {cacheLimit > 0 && (
-          <Text style={styles.limitLabel}>Limit: {formatBytes(cacheLimit)}</Text>
+          <Text style={styles.limitLabel}>{t('storage.limit', { size: formatBytes(cacheLimit) }) || `Limit: ${formatBytes(cacheLimit)}`}</Text>
         )}
       </View>
 
@@ -357,13 +363,13 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.saffron[500] }]} />
           <Text style={styles.legendText}>
-            Cache: {formatBytes(cacheStats?.totalSize || 0)}
+            {t('storage.cache', { size: formatBytes(cacheStats?.totalSize || 0) }) || `Cache: ${formatBytes(cacheStats?.totalSize || 0)}`}
           </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.burgundy[500] }]} />
           <Text style={styles.legendText}>
-            Downloads: {formatBytes(totalDownloadSize)}
+            {t('storage.downloads', { size: formatBytes(totalDownloadSize) }) || `Downloads: ${formatBytes(totalDownloadSize)}`}
           </Text>
         </View>
       </View>
@@ -377,24 +383,85 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
         onPress={() => setShowLimitPicker(true)}
       >
         <View style={styles.settingLeft}>
-          <Ionicons name="speedometer-outline" size={20} color={colors.burgundy[500]} />
+          <Ionicons name="speedometer-outline" size={20} color={colors.saffron[500]} />
           <View style={styles.textContainer}>
-            <Text style={styles.settingTitle}>Cache Limit</Text>
+            <Text style={styles.settingTitle}>{t('storage.cacheLimit') || 'Cache Limit'}</Text>
             <Text style={styles.settingSubtitle}>
-              Maximum space for auto-cached tracks
+              {t('storage.cacheLimitDescription') || 'Maximum space for auto-cached tracks'}
             </Text>
           </View>
         </View>
         <View style={styles.settingRight}>
-          <Text style={styles.settingValue}>{getCacheLimitLabel(cacheLimit)}</Text>
+          <Text style={styles.settingValue}>{getCacheLimitLabel(cacheLimit, t)}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
         </View>
       </Pressable>
 
+      {/* Clear Cache Button */}
+      {(cacheStats?.trackCount || 0) > 0 && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingItem,
+            isClearing && styles.disabledSetting,
+            pressed && Platform.OS === 'web' && styles.webPressed,
+          ]}
+          onPress={handleClearCache}
+          disabled={isClearing}
+        >
+          <View style={styles.settingLeft}>
+            {isClearing ? (
+              <ActivityIndicator size="small" color={colors.saffron[500]} />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color={colors.saffron[500]} />
+            )}
+            <View style={styles.textContainer}>
+              <Text style={[styles.settingTitle, isClearing && styles.disabledText]}>
+                {t('storage.clearCache') || 'Clear Cache'}
+              </Text>
+              <Text style={styles.settingSubtitle}>
+                {t('storage.clearCacheDescription') || 'Remove all auto-cached audio files'}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      )}
+
+      {/* Clear Downloads Button */}
+      {downloadedRetreats.length > 0 && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingItem,
+            isClearingDownloads && styles.disabledSetting,
+            pressed && Platform.OS === 'web' && styles.webPressed,
+          ]}
+          onPress={handleClearDownloads}
+          disabled={isClearingDownloads}
+        >
+          <View style={styles.settingLeft}>
+            {isClearingDownloads ? (
+              <ActivityIndicator size="small" color={colors.burgundy[500]} />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color={colors.burgundy[500]} />
+            )}
+            <View style={styles.textContainer}>
+              <Text style={[styles.settingTitle, isClearingDownloads && styles.disabledText]}>
+                {t('storage.clearDownloads') || 'Clear Downloads'}
+              </Text>
+              <Text style={styles.settingSubtitle}>
+                {t('storage.clearDownloadsDescription') || 'Remove all downloaded retreats'}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      )}
+
       {/* Downloaded Retreats List */}
       {downloadedRetreats.length > 0 && (
         <View style={styles.downloadsSection}>
-          <Text style={styles.downloadsSectionTitle}>Downloaded Retreats</Text>
+          <View style={styles.downloadsSectionHeader}>
+            <Ionicons name="cloud-download" size={14} color={colors.gray[500]} />
+            <Text style={styles.downloadsSectionTitle}>{t('storage.downloadedRetreats') || 'DOWNLOADED RETREATS'}</Text>
+          </View>
           {downloadedRetreats.map(retreat => (
             <View key={retreat.retreatId} style={styles.downloadedRetreatItem}>
               <View style={styles.retreatInfo}>
@@ -402,7 +469,10 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
                   {retreat.retreatName}
                 </Text>
                 <Text style={styles.retreatMeta}>
-                  {retreat.trackCount} tracks • {formatBytes(retreat.totalSize)}
+                  {retreat.trackCount === 1
+                    ? (t('storage.trackCount', { count: retreat.trackCount }) || '1 track')
+                    : (t('storage.tracksCount', { count: retreat.trackCount }) || `${retreat.trackCount} tracks`)
+                  } • {formatBytes(retreat.totalSize)}
                 </Text>
               </View>
               <Pressable
@@ -424,50 +494,6 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
         </View>
       )}
 
-      {/* Clear Buttons */}
-      <View style={styles.clearButtonsContainer}>
-        {(cacheStats?.trackCount || 0) > 0 && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.clearButton,
-              isClearing && styles.disabledSetting,
-              pressed && Platform.OS === 'web' && styles.webPressed,
-            ]}
-            onPress={handleClearCache}
-            disabled={isClearing}
-          >
-            {isClearing ? (
-              <ActivityIndicator size="small" color={colors.saffron[500]} />
-            ) : (
-              <Ionicons name="trash-outline" size={18} color={colors.saffron[500]} />
-            )}
-            <Text style={[styles.clearButtonText, { color: colors.saffron[500] }, isClearing && styles.disabledText]}>
-              Clear cache
-            </Text>
-          </Pressable>
-        )}
-        {downloadedRetreats.length > 0 && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.clearButton,
-              isClearingDownloads && styles.disabledSetting,
-              pressed && Platform.OS === 'web' && styles.webPressed,
-            ]}
-            onPress={handleClearDownloads}
-            disabled={isClearingDownloads}
-          >
-            {isClearingDownloads ? (
-              <ActivityIndicator size="small" color={colors.burgundy[500]} />
-            ) : (
-              <Ionicons name="trash-outline" size={18} color={colors.burgundy[500]} />
-            )}
-            <Text style={[styles.clearButtonText, { color: colors.burgundy[500] }, isClearingDownloads && styles.disabledText]}>
-              Clear downloads
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
       {/* Cache Limit Picker Modal */}
       <Modal
         visible={showLimitPicker}
@@ -477,36 +503,41 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowLimitPicker(false)}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Cache Limit</Text>
+            <Text style={styles.modalTitle}>{t('storage.cacheLimit') || 'Cache Limit'}</Text>
             <ScrollView style={styles.optionsList}>
-              {CACHE_LIMIT_OPTIONS.map(option => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.optionItem,
-                    cacheLimit === option.value && styles.optionItemSelected,
-                  ]}
-                  onPress={() => handleCacheLimitChange(option.value)}
-                >
-                  <Text
+              {CACHE_LIMIT_VALUES.map(option => {
+                const label = option.isNoLimit
+                  ? (t('storage.noLimit') || 'No Limit')
+                  : `${option.size}${option.isDefault ? ` ${t('storage.default') || '(Default)'}` : ''}`;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
                     style={[
-                      styles.optionText,
-                      cacheLimit === option.value && styles.optionTextSelected,
+                      styles.optionItem,
+                      cacheLimit === option.value && styles.optionItemSelected,
                     ]}
+                    onPress={() => handleCacheLimitChange(option.value)}
                   >
-                    {option.label}
-                  </Text>
-                  {cacheLimit === option.value && (
-                    <Ionicons name="checkmark" size={20} color={colors.burgundy[500]} />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.optionText,
+                        cacheLimit === option.value && styles.optionTextSelected,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                    {cacheLimit === option.value && (
+                      <Ionicons name="checkmark" size={20} color={colors.burgundy[500]} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
             <TouchableOpacity
               style={styles.modalCancelButton}
               onPress={() => setShowLimitPicker(false)}
             >
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <Text style={styles.modalCancelText}>{t('common.cancel') || 'Cancel'}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -651,14 +682,24 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   downloadsSection: {
-    paddingTop: 16,
+  },
+  downloadsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: colors.gray[100],
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   downloadsSectionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: colors.gray[600],
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    color: colors.gray[500],
+    letterSpacing: 0.5,
+    marginLeft: 8,
   },
   downloadedRetreatItem: {
     flexDirection: 'row',
@@ -687,22 +728,6 @@ const styles = StyleSheet.create({
   },
   removeButtonPressed: {
     opacity: 0.6,
-  },
-  clearButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
-    paddingVertical: 16,
-    marginTop: 8,
-  },
-  clearButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  clearButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
   },
   modalOverlay: {
     flex: 1,
