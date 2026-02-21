@@ -5,6 +5,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
@@ -71,11 +72,12 @@ interface TrackWithSession extends Track {
 export default function RetreatDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, contentLanguage, language } = useLanguage();
+  const audioContext = useAudioPlayerContext();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Audio player state
+  // Local UI state for track highlighting and playing bars
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
@@ -398,10 +400,15 @@ export default function RetreatDetailScreen() {
     }
   };
 
-  // Track selection
+  // Track selection - updates both local UI state and audio context
   const selectTrack = (track: TrackWithSession, trackIndex: number) => {
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
+    audioContext.playTrack(track, filteredTracks, trackIndex, {
+      retreatId: retreat!.id,
+      retreatName: getTranslatedName(retreat!, language) || retreat!.name,
+      groupName: getTranslatedName(retreat!.retreat_group, language) || retreat!.retreat_group.name,
+    });
   };
 
   const goToNextTrack = () => {
@@ -432,6 +439,36 @@ export default function RetreatDetailScreen() {
   const handleProgressUpdate = (progress: UserProgress) => {
     console.log('Progress updated:', progress);
   };
+
+  // Register audio context callbacks
+  useEffect(() => {
+    audioContext.setOnTrackComplete(handleTrackComplete);
+    audioContext.setOnProgressUpdate(handleProgressUpdate);
+    audioContext.setOnPlayingStateChange(setIsTrackPlaying);
+
+    return () => {
+      audioContext.setOnTrackComplete(undefined);
+      audioContext.setOnProgressUpdate(undefined);
+      audioContext.setOnPlayingStateChange(undefined);
+    };
+  }, [currentTrackIndex, filteredTracks]);
+
+  // Register next/previous track callbacks
+  useEffect(() => {
+    audioContext.setOnNextTrack(currentTrackIndex < filteredTracks.length - 1 ? goToNextTrack : undefined);
+    audioContext.setOnPreviousTrack(currentTrackIndex > 0 ? goToPreviousTrack : undefined);
+    return () => {
+      audioContext.setOnNextTrack(undefined);
+      audioContext.setOnPreviousTrack(undefined);
+    };
+  }, [currentTrackIndex, filteredTracks]);
+
+  // Update upcoming tracks for pre-caching when track or list changes
+  useEffect(() => {
+    if (currentTrack && filteredTracks.length > 0) {
+      audioContext.setUpcomingTracks(filteredTracks.slice(currentTrackIndex + 1));
+    }
+  }, [currentTrackIndex, filteredTracks, currentTrack]);
 
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -809,16 +846,7 @@ export default function RetreatDetailScreen() {
       </ScrollView>
 
       {/* Bottom-sticky Audio Player */}
-      <AudioPlayer
-        track={currentTrack}
-        onProgressUpdate={handleProgressUpdate}
-        onTrackComplete={handleTrackComplete}
-        onNextTrack={currentTrackIndex < filteredTracks.length - 1 ? goToNextTrack : undefined}
-        onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
-        onPlayingStateChange={setIsTrackPlaying}
-        upcomingTracks={filteredTracks.slice(currentTrackIndex + 1)}
-        retreatId={retreat.id}
-      />
+      <AudioPlayer />
 
       {/* Overflow Menu Modal */}
       <Modal

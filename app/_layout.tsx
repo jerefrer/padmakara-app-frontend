@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 import '../global.css';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -18,14 +19,16 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false, title: "Padmakara" }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="subscription" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="dark" backgroundColor="#e8d8b7" />
+        <AudioPlayerProvider>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false, title: "Padmakara" }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="subscription" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="dark" backgroundColor="#e8d8b7" />
+        </AudioPlayerProvider>
       </LanguageProvider>
     </AuthProvider>
   );
