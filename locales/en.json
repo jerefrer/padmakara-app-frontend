@@ -228,6 +228,8 @@
     "version": "Version",
     "appDescription": "Padmakara App provides access to Jigme Khyentse Rinpoche's teachings on mind training and the 37 practices of bodhisattvas. Built with love for the Tibetan Buddhist community.",
     "copyright": "© 2024 Associação Padmakara Portugal",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "activeSubscription": "Active",
+    "inactiveSubscription": "Inactive"
   }
 }

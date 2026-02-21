@@ -46,6 +46,7 @@ class DownloadService {
   private initPromise: Promise<void> | null = null;
   private activeDownload: { retreatId: string; cancelled: boolean; current: number; total: number; startTime: number } | null = null;
   private progressListeners: Set<ProgressListener> = new Set();
+  private readonly isWeb = Platform.OS === 'web';
 
   static getInstance(): DownloadService {
     if (!DownloadService.instance) {
@@ -144,6 +145,7 @@ class DownloadService {
     tracks: Array<{ id: string; title: string }>,
     onProgress?: DownloadProgressCallback
   ): Promise<{ success: boolean; error?: string; cancelled?: boolean }> {
+    if (this.isWeb) return { success: false, error: 'Downloads not available on web' };
     await this.initialize();
 
     // Check if already downloaded
@@ -349,6 +351,7 @@ class DownloadService {
    * Remove a downloaded retreat
    */
   async removeDownloadedRetreat(retreatId: string): Promise<{ success: boolean; freedBytes: number }> {
+    if (this.isWeb) return { success: false, freedBytes: 0 };
     await this.initialize();
 
     const retreat = this.downloadedRetreats.get(retreatId);
@@ -395,6 +398,7 @@ class DownloadService {
    * Get the local file path for a downloaded track
    */
   async getDownloadedTrackPath(trackId: string): Promise<string | null> {
+    if (this.isWeb) return null;
     await this.initialize();
 
     // Search through all downloaded retreats for this track

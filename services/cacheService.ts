@@ -53,6 +53,7 @@ class CacheService {
   private settings: CacheSettings = { maxSizeBytes: DEFAULT_CACHE_LIMIT };
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private readonly isWeb = Platform.OS === 'web';
 
   static getInstance(): CacheService {
     if (!CacheService.instance) {
@@ -159,6 +160,7 @@ class CacheService {
    * Get the local file path for a cached track, or null if not cached
    */
   async getCachedTrackPath(trackId: string): Promise<string | null> {
+    if (this.isWeb) return null;
     await this.initialize();
 
     const meta = this.metadata.get(trackId);
@@ -187,6 +189,7 @@ class CacheService {
    * Check if a track is cached (without updating last accessed time)
    */
   async isTrackCached(trackId: string): Promise<boolean> {
+    if (this.isWeb) return false;
     await this.initialize();
 
     const meta = this.metadata.get(trackId);
@@ -210,6 +213,7 @@ class CacheService {
     sourceUrl: string,
     onProgress?: (progress: number) => void
   ): Promise<string> {
+    if (this.isWeb) return sourceUrl; // On web, just return the stream URL directly
     await this.initialize();
 
     // Check if already cached
@@ -379,6 +383,7 @@ class CacheService {
    * Clear all cached files
    */
   async clearCache(): Promise<{ freedBytes: number; tracksRemoved: number }> {
+    if (this.isWeb) return { freedBytes: 0, tracksRemoved: 0 };
     await this.initialize();
 
     const stats = {
@@ -446,6 +451,7 @@ class CacheService {
    * Remove a specific track from cache
    */
   async removeFromCache(trackId: string): Promise<boolean> {
+    if (this.isWeb) return false;
     await this.initialize();
 
     const meta = this.metadata.get(trackId);
@@ -479,6 +485,7 @@ class CacheService {
     getStreamUrl: (trackId: string) => Promise<string | null>,
     durationSeconds: number = 3600
   ): Promise<{ queued: number; skipped: number; totalDuration: number }> {
+    if (this.isWeb) return { queued: 0, skipped: 0, totalDuration: 0 };
     await this.initialize();
 
     let totalDuration = 0;
