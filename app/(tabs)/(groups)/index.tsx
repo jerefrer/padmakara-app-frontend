@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import retreatService from '@/services/retreatService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
@@ -25,20 +26,37 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#1f2937',
   },
+  white: '#ffffff',
 };
 
 interface GroupCardProps {
   group: RetreatGroup;
   onPress: () => void;
+  isDesktopCard?: boolean;
 }
 
-function GroupCard({ group, onPress, t, language }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
+function GroupCard({ group, onPress, t, language, isDesktopCard }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
   const retreatCount = group.gatherings?.length || 0;
+  const [isHovered, setIsHovered] = useState(false);
+
+  const webHoverProps = Platform.OS === 'web' ? {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+  } : {};
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.groupCard}>
-      <View style={styles.card}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.groupCard, isDesktopCard && styles.desktopGroupCard]}
+      {...webHoverProps}
+    >
+      <View style={[
+        styles.card,
+        isDesktopCard && styles.desktopCard,
+        isHovered && styles.cardHovered,
+      ]}>
         <View style={styles.cardContent}>
           <View style={styles.groupTitleRow}>
             <Text style={styles.groupTitle}>{getTranslatedName(group, language as 'en' | 'pt')}</Text>
@@ -55,9 +73,22 @@ function GroupCard({ group, onPress, t, language }: GroupCardProps & { t: (key: 
   );
 }
 
+function getGreeting(t: (key: string, params?: Record<string, string>) => string): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return t('home.greetingMorning') || 'Good morning';
+  if (hour < 18) return t('home.greetingAfternoon') || 'Good afternoon';
+  return t('home.greetingEvening') || 'Good evening';
+}
+
+function getFirstName(name: string | undefined): string {
+  if (!name) return '';
+  return name.split(' ')[0];
+}
+
 export default function RetreatsScreen() {
   const { user, isAuthenticated, hasActiveSubscription } = useAuth();
   const { t, language } = useLanguage();
+  const { isDesktop, isWide } = useDesktopLayout();
   const [retreatData, setRetreatData] = useState<{
     retreat_groups: RetreatGroup[];
     recent_gatherings: Gathering[];
@@ -217,23 +248,58 @@ export default function RetreatsScreen() {
   }
 
   // ─── Groups list ────────────────────────────────────────────────────────────
+  const firstName = getFirstName(user?.name);
+  const greeting = getGreeting(t);
+
   return (
     <>
       <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
       <View style={styles.container}>
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{t('groups.yourGroups') || 'Your groups'}</Text>
-          </View>
-          {retreatData.retreat_groups.map(group => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              onPress={() => handleGroupPress(group.id)}
-              t={t}
-              language={language}
-            />
-          ))}
+        <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
+          {/* Desktop: greeting with name; Mobile: section title */}
+          {isDesktop ? (
+            <View style={styles.desktopHeader}>
+              <Text style={styles.desktopGreeting}>
+                {greeting}{firstName ? `, ${firstName}` : ''}
+              </Text>
+              <Text style={styles.desktopSectionTitle}>
+                {t('groups.yourGroups') || 'Your groups'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.header}>
+              <Text style={styles.title}>{t('groups.yourGroups') || 'Your groups'}</Text>
+            </View>
+          )}
+
+          {/* Desktop: card grid; Mobile: stacked list */}
+          {isDesktop ? (
+            <View style={[
+              styles.desktopCardGrid,
+              isWide && styles.desktopCardGridWide,
+            ]}>
+              {retreatData.retreat_groups.map(group => (
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  onPress={() => handleGroupPress(group.id)}
+                  t={t}
+                  language={language}
+                  isDesktopCard
+                />
+              ))}
+            </View>
+          ) : (
+            retreatData.retreat_groups.map(group => (
+              <GroupCard
+                key={group.id}
+                group={group}
+                onPress={() => handleGroupPress(group.id)}
+                t={t}
+                language={language}
+              />
+            ))
+          )}
         </ScrollView>
       </View>
     </>
@@ -356,5 +422,45 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Desktop styles
+  desktopScrollView: {
+    paddingHorizontal: 40,
+  },
+  desktopHeader: {
+    paddingTop: 32,
+    paddingBottom: 24,
+  },
+  desktopGreeting: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.burgundy[500],
+    marginBottom: 24,
+  },
+  desktopSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  desktopCardGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 16,
+  },
+  desktopCardGridWide: {
+    gap: 20,
+  },
+  desktopGroupCard: {
+    width: '48%' as unknown as number,
+    marginBottom: 0,
+  },
+  desktopCard: {
+    borderRadius: 12,
+    padding: 24,
+  },
+  cardHovered: {
+    backgroundColor: colors.cream[50],
   },
 });

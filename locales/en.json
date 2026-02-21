@@ -79,6 +79,22 @@
     "noGroups": "No Retreat Groups",
     "noGroupsDescription": "You haven't been assigned to any retreat groups yet. Please contact your administrator."
   },
+  "home": {
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening"
+  },
+  "trackDetail": {
+    "retreatOverview": "Retreat Overview",
+    "selectTrack": "Select a track from the list to see details",
+    "playTrack": "Play Track",
+    "session": "Session",
+    "duration": "Duration",
+    "trackNumber": "Track {{number}}",
+    "translation": "Translation",
+    "totalSessions": "{{count}} sessions",
+    "totalTracks": "{{count}} tracks"
+  },
   "subscription": {
     "status": "Subscription",
     "active": "Active",

@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import progressService from '@/services/progressService';
 import { StorageSection } from '@/components/StorageSection';
 
@@ -46,6 +47,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { language, contentLanguage, setLanguage, setContentLanguage, t } = useLanguage();
   const { user, isAuthenticated, updateUser, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
+  const { isDesktop } = useDesktopLayout();
   const [_stats, setStats] = useState<UserStats>({
     totalTracks: 0,
     completedTracks: 0,
@@ -322,7 +324,13 @@ export default function SettingsScreen() {
 
   return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView
+          style={[
+            styles.scrollView,
+            isDesktop && styles.desktopScrollView,
+          ]}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
           {/* Language Settings */}
           <Text style={styles.sectionTitleOutside}>{t('profile.languageSettings') || 'Language Settings'}</Text>
           <View style={styles.section}>
@@ -611,6 +619,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  desktopScrollView: {
+    maxWidth: 720,
+    width: '100%' as unknown as number,
+    alignSelf: 'center' as const,
   },
   accountUserInfo: {
     flexDirection: 'row',

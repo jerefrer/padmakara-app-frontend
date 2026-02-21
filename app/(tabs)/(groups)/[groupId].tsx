@@ -6,6 +6,7 @@ import { AppHeader } from '@/components/ui/AppHeader';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
@@ -106,6 +107,7 @@ export default function GroupDetailScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { t, language } = useLanguage();
   const { user } = useAuth();
+  const { isDesktop } = useDesktopLayout();
   const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -289,16 +291,19 @@ export default function GroupDetailScreen() {
               <View style={styles.yearHeader}>
                 <Text style={styles.yearHeaderText}>{year}</Text>
               </View>
-              {retreatsByYear[year].map(retreat => (
-                <RetreatCard
-                  key={retreat.id}
-                  retreat={retreat}
-                  onPress={() => handleRetreatPress(retreat.id)}
-                  isDownloaded={downloadedRetreatIds.has(retreat.id)}
-                  t={t}
-                  language={language}
-                />
-              ))}
+              <View style={isDesktop ? styles.desktopRetreatGrid : undefined}>
+                {retreatsByYear[year].map(retreat => (
+                  <View key={retreat.id} style={isDesktop ? styles.desktopRetreatCardWrapper : undefined}>
+                    <RetreatCard
+                      retreat={retreat}
+                      onPress={() => handleRetreatPress(retreat.id)}
+                      isDownloaded={downloadedRetreatIds.has(retreat.id)}
+                      t={t}
+                      language={language}
+                    />
+                  </View>
+                ))}
+              </View>
             </View>
           ))}
         </ScrollView>
@@ -434,5 +439,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.burgundy[700],
+  },
+  // Desktop styles
+  desktopRetreatGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 16,
+  },
+  desktopRetreatCardWrapper: {
+    width: '48%' as unknown as number,
   },
 });

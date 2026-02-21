@@ -79,6 +79,22 @@
     "noGroups": "Sem Grupos de Retiro",
     "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador."
   },
+  "home": {
+    "greetingMorning": "Bom dia",
+    "greetingAfternoon": "Boa tarde",
+    "greetingEvening": "Boa noite"
+  },
+  "trackDetail": {
+    "retreatOverview": "Resumo do Retiro",
+    "selectTrack": "Selecione uma faixa da lista para ver detalhes",
+    "session": "Sessão",
+    "duration": "Duração",
+    "playTrack": "Reproduzir Faixa",
+    "trackNumber": "Faixa {{number}}",
+    "translation": "Tradução",
+    "totalSessions": "{{count}} sessões",
+    "totalTracks": "{{count}} faixas"
+  },
   "subscription": {
     "status": "Subscrição",
     "active": "Ativa",

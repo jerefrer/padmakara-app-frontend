@@ -13,6 +13,7 @@ import { OfflineBadge } from '@/components/OfflineBadge';
 import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -73,7 +74,7 @@ interface TrackWithSession extends Track {
 export default function RetreatDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, contentLanguage, language } = useLanguage();
-  const { isMobile } = useDesktopLayout();
+  const { isDesktop } = useDesktopLayout();
   const audioContext = useAudioPlayerContext();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,7 @@ export default function RetreatDetailScreen() {
 
   // Local UI state for track highlighting and playing bars
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<TrackWithSession | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [allTracks, setAllTracks] = useState<TrackWithSession[]>([]);
@@ -406,6 +408,7 @@ export default function RetreatDetailScreen() {
   const selectTrack = (track: TrackWithSession, trackIndex: number) => {
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
+    setSelectedTrack(track);
     audioContext.playTrack(track, filteredTracks, trackIndex, {
       retreatId: retreat!.id,
       retreatName: getTranslatedName(retreat!, language) || retreat!.name,
@@ -693,8 +696,78 @@ export default function RetreatDetailScreen() {
     );
   }
 
-  // Group tracks by session for display with headers
-  let currentSessionId: string | null = null;
+  // Render the track list (shared between desktop master panel and mobile)
+  const renderTrackList = (paddingBottom: number) => {
+    let trackSessionId: string | null = null;
+
+    return (
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom }]}>
+        {filteredTracks.map((track, trackIndex) => {
+          const isActive = currentTrack?.id === track.id;
+          const isSelected = selectedTrack?.id === track.id;
+          const showSessionHeader = track.sessionId !== trackSessionId;
+          trackSessionId = track.sessionId;
+
+          return (
+            <React.Fragment key={track.id}>
+              {/* Session Header */}
+              {showSessionHeader && (
+                <View style={styles.sessionHeader}>
+                  <Text style={styles.sessionHeaderText}>
+                    {formatSessionHeader(track)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Track Item */}
+              <TouchableOpacity
+                onPress={() => selectTrack(track, trackIndex)}
+                style={[
+                  styles.trackItem,
+                  isActive && styles.currentTrackItem,
+                  !track.isOriginal && styles.translationTrack,
+                  isDesktop && isSelected && !isActive && styles.selectedTrackItem,
+                ]}
+              >
+                <View style={styles.trackNumberContainer}>
+                  <Text style={[
+                    styles.trackNumber,
+                    isActive && styles.currentTrackNumber
+                  ]}>
+                    {track.order}
+                  </Text>
+                </View>
+
+                <View style={styles.trackInfo}>
+                  <Text style={[
+                    styles.trackTitle,
+                    isActive && styles.currentTrackTitle
+                  ]}>
+                    {track.title}
+                  </Text>
+                  <Text style={styles.trackDuration}>
+                    {formatDuration(track.duration)}
+                  </Text>
+                </View>
+
+                <View style={styles.trackRightSection}>
+                  {isActive && (
+                    <View style={styles.playingIndicator}>
+                      <AnimatedPlayingBars
+                        isPlaying={isTrackPlaying}
+                        size={20}
+                        color={colors.burgundy[500]}
+                      />
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </React.Fragment>
+          );
+        })}
+      </ScrollView>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -782,73 +855,39 @@ export default function RetreatDetailScreen() {
 
       </SafeAreaView>
 
-      {/* Scrollable Tracks List with Session Headers */}
-      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: isMobile ? 180 : 24 }]}>
-        {filteredTracks.map((track, trackIndex) => {
-          const isCurrentTrack = currentTrack?.id === track.id;
-          const showSessionHeader = track.sessionId !== currentSessionId;
-          currentSessionId = track.sessionId;
-
-          return (
-            <React.Fragment key={track.id}>
-              {/* Session Header */}
-              {showSessionHeader && (
-                <View style={styles.sessionHeader}>
-                  <Text style={styles.sessionHeaderText}>
-                    {formatSessionHeader(track)}
-                  </Text>
-                </View>
-              )}
-
-              {/* Track Item */}
-              <TouchableOpacity
-                onPress={() => selectTrack(track, trackIndex)}
-                style={[
-                  styles.trackItem,
-                  isCurrentTrack && styles.currentTrackItem,
-                  !track.isOriginal && styles.translationTrack
-                ]}
-              >
-                <View style={styles.trackNumberContainer}>
-                  <Text style={[
-                    styles.trackNumber,
-                    isCurrentTrack && styles.currentTrackNumber
-                  ]}>
-                    {track.order}
-                  </Text>
-                </View>
-
-                <View style={styles.trackInfo}>
-                  <Text style={[
-                    styles.trackTitle,
-                    isCurrentTrack && styles.currentTrackTitle
-                  ]}>
-                    {track.title}
-                  </Text>
-                  <Text style={styles.trackDuration}>
-                    {formatDuration(track.duration)}
-                  </Text>
-                </View>
-
-                <View style={styles.trackRightSection}>
-                  {isCurrentTrack && (
-                    <View style={styles.playingIndicator}>
-                      <AnimatedPlayingBars
-                        isPlaying={isTrackPlaying}
-                        size={20}
-                        color={colors.burgundy[500]}
-                      />
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </React.Fragment>
-          );
-        })}
-      </ScrollView>
-
-      {/* Bottom-sticky Audio Player (mobile only; desktop uses DesktopPlayerBar) */}
-      {isMobile && <AudioPlayer />}
+      {/* Main content: desktop master-detail split vs mobile single column */}
+      {isDesktop ? (
+        <View style={styles.masterDetailContainer}>
+          {/* Master: Track list (40%) */}
+          <View style={styles.masterPanel}>
+            {renderTrackList(24)}
+          </View>
+          {/* Detail panel (60%) */}
+          <View style={styles.detailPanel}>
+            <TrackDetailPanel
+              track={selectedTrack}
+              retreat={retreat}
+              onPlayTrack={() => {
+                if (selectedTrack) {
+                  const idx = filteredTracks.findIndex(t => t.id === selectedTrack.id);
+                  if (idx >= 0) selectTrack(selectedTrack, idx);
+                }
+              }}
+              isCurrentlyPlaying={
+                selectedTrack !== null &&
+                currentTrack?.id === selectedTrack?.id &&
+                isTrackPlaying
+              }
+            />
+          </View>
+        </View>
+      ) : (
+        <>
+          {renderTrackList(180)}
+          {/* Bottom-sticky Audio Player (mobile only; desktop uses DesktopPlayerBar) */}
+          <AudioPlayer />
+        </>
+      )}
 
       {/* Overflow Menu Modal */}
       <Modal
@@ -1164,5 +1203,22 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.gray[200],
     marginHorizontal: 16,
+  },
+  // Desktop master-detail layout
+  masterDetailContainer: {
+    flex: 1,
+    flexDirection: 'row' as const,
+  },
+  masterPanel: {
+    flex: 0.4,
+    borderRightWidth: 1,
+    borderRightColor: colors.gray[200],
+  },
+  detailPanel: {
+    flex: 0.6,
+  },
+  selectedTrackItem: {
+    backgroundColor: colors.gray[100],
+    borderLeftColor: colors.burgundy[500],
   },
 });
