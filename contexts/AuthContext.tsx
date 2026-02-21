@@ -7,6 +7,7 @@ import apiService from '@/services/apiService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  hasActiveSubscription: boolean;
   user: User | null;
   isLoading: boolean;
   isDeviceActivated: boolean;
@@ -397,8 +398,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Derive subscription status from user data
+  const hasActiveSubscription = (() => {
+    if (!user?.subscription) return false;
+    if (user.subscription.status !== 'active') return false;
+    if (user.subscription.expiresAt) {
+      return new Date(user.subscription.expiresAt) > new Date();
+    }
+    return true; // Active with no expiry = lifetime
+  })();
+
   const value: AuthContextType = {
     isAuthenticated,
+    hasActiveSubscription,
     user,
     isLoading,
     isDeviceActivated,

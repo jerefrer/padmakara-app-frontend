@@ -8,6 +8,7 @@
  * - Separate from automatic cache
  */
 
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import retreatService from './retreatService';
@@ -69,6 +70,10 @@ class DownloadService {
   }
 
   private async _doInitialize(): Promise<void> {
+    if (Platform.OS === 'web') {
+      this.initialized = true;
+      return;
+    }
     try {
       // Ensure downloads directory exists
       const downloadsDir = getDownloadsDir();

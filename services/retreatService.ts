@@ -36,6 +36,119 @@ interface SessionDetails extends Session {
   };
 }
 
+// ─── Backend → Frontend Type Mappers ────────────────────────────────
+
+/** Map backend retreatGroup → frontend RetreatGroup */
+function mapGroup(backend: any, gatherings?: Gathering[]): RetreatGroup {
+  return {
+    id: String(backend.id),
+    name: backend.nameEn || backend.name_en || '',
+    name_translations: {
+      en: backend.nameEn || backend.name_en || '',
+      ...(backend.namePt || backend.name_pt
+        ? { pt: backend.namePt || backend.name_pt }
+        : {}),
+    },
+    gatherings: gatherings || [],
+    created_at: backend.createdAt || backend.created_at || '',
+    updated_at: backend.updatedAt || backend.updated_at || '',
+  };
+}
+
+/** Derive season from a date string */
+function deriveSeason(dateStr: string): 'spring' | 'fall' {
+  if (!dateStr) return 'spring';
+  const month = new Date(dateStr).getMonth() + 1;
+  return month >= 3 && month <= 8 ? 'spring' : 'fall';
+}
+
+/** Map backend event status to frontend Gathering status */
+function mapEventStatus(
+  status: string,
+  startDate: string,
+  endDate: string,
+): 'draft' | 'upcoming' | 'ongoing' | 'completed' {
+  if (status === 'draft') return 'draft';
+  if (status === 'archived') return 'completed';
+
+  const now = new Date();
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (now < start) return 'upcoming';
+  if (now >= start && now <= end) return 'ongoing';
+  return 'completed';
+}
+
+/** Map backend event → frontend Gathering */
+function mapEvent(backend: any): Gathering {
+  const startDate = backend.startDate || backend.start_date || '';
+  const endDate = backend.endDate || backend.end_date || '';
+
+  return {
+    id: String(backend.id),
+    name: backend.titleEn || backend.title_en || '',
+    name_translations: {
+      en: backend.titleEn || backend.title_en || '',
+      ...(backend.titlePt || backend.title_pt
+        ? { pt: backend.titlePt || backend.title_pt }
+        : {}),
+    },
+    main_topics_translations: {
+      ...(backend.mainThemesEn ? { en: backend.mainThemesEn } : {}),
+      ...(backend.mainThemesPt ? { pt: backend.mainThemesPt } : {}),
+    },
+    season: deriveSeason(startDate),
+    year: startDate ? new Date(startDate).getFullYear() : 0,
+    startDate,
+    endDate,
+    sessions: backend.sessions?.map(mapSession) || undefined,
+    status: mapEventStatus(backend.status || 'published', startDate, endDate),
+    created_at: backend.createdAt || '',
+    updated_at: backend.updatedAt || '',
+  };
+}
+
+/** Map backend session → frontend Session */
+function mapSession(backend: any): Session {
+  return {
+    id: String(backend.id),
+    name: backend.titleEn || backend.title_en || `Session ${backend.sessionNumber || backend.session_number || ''}`,
+    name_translations: {
+      en: backend.titleEn || backend.title_en || `Session ${backend.sessionNumber || ''}`,
+      ...(backend.titlePt || backend.title_pt
+        ? { pt: backend.titlePt || backend.title_pt }
+        : {}),
+    },
+    type: (backend.timePeriod || backend.time_period || 'other') as Session['type'],
+    date: backend.sessionDate || backend.session_date || '',
+    tracks: backend.tracks?.map(mapTrack) || undefined,
+    gathering_id: String(backend.eventId || backend.event_id || backend.retreat_id || ''),
+    created_at: backend.createdAt || '',
+    updated_at: backend.updatedAt || '',
+  };
+}
+
+/** Map backend track → frontend Track */
+function mapTrack(backend: any): Track {
+  return {
+    id: String(backend.id),
+    title: backend.title || '',
+    duration: backend.durationSeconds || backend.duration_seconds || 0,
+    file_size: backend.fileSizeBytes || backend.file_size_bytes || undefined,
+    order: backend.trackNumber || backend.track_number || 0,
+    session_id: String(backend.sessionId || backend.session_id || ''),
+    language: backend.language || undefined,
+    isOriginal: backend.isTranslation != null ? !backend.isTranslation :
+                backend.is_translation != null ? !backend.is_translation : undefined,
+    isPractice: backend.isPractice ?? backend.is_practice ?? undefined,
+    created_at: backend.createdAt || '',
+    updated_at: backend.updatedAt || '',
+  };
+}
+
+// ─── Service ────────────────────────────────────────────────────────
+
 class RetreatService {
   private static instance: RetreatService;
   private readonly CACHE_KEYS = {
@@ -44,9 +157,9 @@ class RetreatService {
     RETREAT_GROUP_DETAILS: '@retreat_cache:group_',
   };
   private readonly CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
-  private activeDownloads = new Map<string, FileSystem.DownloadResumable>(); // Track active downloads for cancellation
-  private cancelledDownloads = new Set<string>(); // Track which downloads were explicitly cancelled
-  
+  private activeDownloads = new Map<string, FileSystem.DownloadResumable>();
+  private cancelledDownloads = new Set<string>();
+
   static getInstance(): RetreatService {
     if (!RetreatService.instance) {
       RetreatService.instance = new RetreatService();
@@ -63,7 +176,6 @@ class RetreatService {
       const { data, timestamp } = JSON.parse(cached);
       const now = Date.now();
 
-      // Check if cache is expired
       if (now - timestamp > this.CACHE_EXPIRY) {
         await AsyncStorage.removeItem(key);
         return null;
@@ -78,10 +190,7 @@ class RetreatService {
 
   private async setCachedData<T>(key: string, data: T): Promise<void> {
     try {
-      const cacheItem = {
-        data,
-        timestamp: Date.now(),
-      };
+      const cacheItem = { data, timestamp: Date.now() };
       await AsyncStorage.setItem(key, JSON.stringify(cacheItem));
     } catch (error) {
       console.error('Cache write error:', error);
@@ -98,190 +207,242 @@ class RetreatService {
     }
   }
 
+  // Get public events (no auth required)
+  async getPublicEvents(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const response = await apiService.get<any[]>(API_ENDPOINTS.PUBLIC_EVENTS);
+      if (response.success && response.data) {
+        return { success: true, data: response.data.map(mapEvent) };
+      }
+      return { success: false, error: response.error || 'Failed to load public events' };
+    } catch (error) {
+      console.error('Error loading public events:', error);
+      return { success: false, error: 'Failed to load public events' };
+    }
+  }
 
   // Get user's retreat groups and recent activity (backend-first with offline fallback)
   async getUserRetreats(): Promise<{ success: boolean; data?: UserRetreatData; error?: string }> {
     try {
-      console.log('Fetching user retreats from Django backend...');
-      
-      const response = await apiService.get<UserRetreatData>(API_ENDPOINTS.USER_RETREATS);
+      console.log('Fetching user groups and events...');
 
-      if (response.success && response.data) {
-        console.log(`✅ Loaded ${response.data.retreat_groups.length} retreat groups from backend`);
-        // Cache the fresh backend data
-        await this.setCachedData(this.CACHE_KEYS.USER_RETREATS, response.data);
-        return { success: true, data: response.data };
-      } else {
-        console.log('❌ Backend API failed, checking cached data only');
-        throw new Error(response.error || 'API request failed');
+      // Parallel fetch: groups + access-filtered events
+      const [groupsRes, eventsRes] = await Promise.all([
+        apiService.get<any[]>(API_ENDPOINTS.GROUPS),
+        apiService.get<any[]>(API_ENDPOINTS.EVENTS),
+      ]);
+
+      if (!groupsRes.success || !groupsRes.data) {
+        throw new Error(groupsRes.error || 'Failed to load groups');
       }
+      if (!eventsRes.success || !eventsRes.data) {
+        throw new Error(eventsRes.error || 'Failed to load events');
+      }
+
+      const backendGroups = groupsRes.data;
+      const backendEvents = eventsRes.data;
+      const mappedEvents = backendEvents.map(mapEvent);
+
+      // For each group, find events that belong to it
+      const mappedGroups: RetreatGroup[] = backendGroups.map((bg: any) => {
+        const groupEvents = backendEvents
+          .filter((ev: any) =>
+            ev.eventRetreatGroups?.some(
+              (erg: any) => erg.retreatGroupId === bg.id || erg.retreatGroup?.id === bg.id
+            )
+          )
+          .map(mapEvent);
+        return mapGroup(bg, groupEvents);
+      });
+
+      // Recent gatherings: sorted by date, take last 5
+      const recentGatherings = [...mappedEvents]
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+        .slice(0, 5);
+
+      const totalTracks = mappedEvents.reduce((sum, ev) =>
+        sum + (ev.sessions?.reduce((s, sess) => s + (sess.tracks?.length || 0), 0) || 0), 0);
+
+      const data: UserRetreatData = {
+        retreat_groups: mappedGroups,
+        recent_gatherings: recentGatherings,
+        total_stats: {
+          total_groups: mappedGroups.length,
+          total_gatherings: mappedEvents.length,
+          total_tracks: totalTracks,
+          completed_tracks: 0,
+        },
+      };
+
+      console.log(`Loaded ${mappedGroups.length} groups, ${mappedEvents.length} events`);
+      await this.setCachedData(this.CACHE_KEYS.USER_RETREATS, data);
+      return { success: true, data };
     } catch (error) {
       console.error('Backend request failed:', error);
-      
-      // Try to get cached data as fallback
+
       const cachedData = await this.getCachedData<UserRetreatData>(this.CACHE_KEYS.USER_RETREATS);
       if (cachedData) {
-        console.log('📦 Using cached retreat data from backend');
+        console.log('Using cached retreat data');
         return { success: true, data: cachedData };
       }
-      
-      // No backend data available - return error
-      console.log('❌ No backend data available, returning error');
+
       return { success: false, error: 'No retreat data available. Please check your connection and try again.' };
     }
   }
 
-  // Get all retreat groups (for admin or browse view)
-  async getRetreatGroups(page: number = 1, limit: number = 20): Promise<{ 
-    success: boolean; 
-    data?: PaginatedResponse<RetreatGroup>; 
-    error?: string 
-  }> {
-    try {
-      const response = await apiService.get<PaginatedResponse<RetreatGroup>>(
-        `${API_ENDPOINTS.RETREAT_GROUPS}?page=${page}&limit=${limit}`
-      );
-
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to load retreat groups' 
-        };
-      }
-
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Get retreat groups error:', error);
-      return { success: false, error: 'Failed to load retreat groups' };
-    }
-  }
-
   // Get detailed information about a specific retreat group
-  async getRetreatGroupDetails(groupId: string): Promise<{ 
-    success: boolean; 
-    data?: RetreatGroupDetails; 
-    error?: string 
+  async getRetreatGroupDetails(groupId: string): Promise<{
+    success: boolean;
+    data?: RetreatGroupDetails;
+    error?: string
   }> {
     try {
-      console.log(`Fetching retreat group details for ID: ${groupId}`);
-      
-      const response = await apiService.get<RetreatGroupDetails>(
-        API_ENDPOINTS.RETREAT_DETAILS(groupId)
-      );
+      console.log(`Fetching group ${groupId} events...`);
 
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to load retreat group details' 
-        };
+      // Parallel: group events + group info
+      const [eventsRes, groupsRes] = await Promise.all([
+        apiService.get<any[]>(API_ENDPOINTS.GROUP_EVENTS(groupId)),
+        apiService.get<any[]>(API_ENDPOINTS.GROUPS),
+      ]);
+
+      if (!eventsRes.success || !eventsRes.data) {
+        return { success: false, error: eventsRes.error || 'Failed to load group events' };
       }
 
-      return { success: true, data: response.data };
+      const gatherings = eventsRes.data.map(mapEvent);
+      const backendGroup = groupsRes.data?.find((g: any) => String(g.id) === groupId);
+
+      const data: RetreatGroupDetails = {
+        ...(backendGroup ? mapGroup(backendGroup, gatherings) : {
+          id: groupId,
+          name: '',
+          gatherings,
+          created_at: '',
+          updated_at: '',
+        }),
+        gatherings,
+        is_member: true,
+      };
+
+      return { success: true, data };
     } catch (error) {
       console.error('Get retreat group details error:', error);
       return { success: false, error: 'Failed to load retreat group details' };
     }
   }
 
-  // Get detailed information about a specific retreat (backend-first with offline fallback)
-  async getRetreatDetails(retreatId: string): Promise<{ 
-    success: boolean; 
-    data?: any; 
-    error?: string 
+  // Get detailed information about a specific retreat/event (backend-first with offline fallback)
+  async getRetreatDetails(retreatId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string
   }> {
     const cacheKey = `${this.CACHE_KEYS.GATHERING_DETAILS}${retreatId}`;
-    
+
     try {
-      console.log(`Fetching retreat details for ID: ${retreatId}`);
-      
-      const response = await apiService.get<any>(
-        `/retreats/${retreatId}/`
-      );
+      console.log(`Fetching event details for ID: ${retreatId}`);
+
+      const response = await apiService.get<any>(API_ENDPOINTS.EVENT_DETAILS(retreatId));
 
       if (response.success && response.data) {
-        console.log(`✅ Loaded retreat details from backend: ${response.data.name}`);
-        await this.setCachedData(cacheKey, response.data);
-        return { success: true, data: response.data };
+        const mapped = mapEvent(response.data);
+
+        // Add retreat_group info from the event's groups
+        const retreatGroup = response.data.eventRetreatGroups?.[0]?.retreatGroup;
+        const data = {
+          ...mapped,
+          retreat_group: retreatGroup ? {
+            id: String(retreatGroup.id),
+            name: retreatGroup.nameEn || retreatGroup.name_en || '',
+            name_translations: {
+              en: retreatGroup.nameEn || retreatGroup.name_en || '',
+              ...(retreatGroup.namePt || retreatGroup.name_pt
+                ? { pt: retreatGroup.namePt || retreatGroup.name_pt }
+                : {}),
+            },
+          } : undefined,
+        };
+
+        console.log(`Loaded event details: ${data.name}`);
+        await this.setCachedData(cacheKey, data);
+        return { success: true, data };
       } else {
-        console.log('❌ Backend API failed for retreat details, checking cache only');
         throw new Error(response.error || 'API request failed');
       }
     } catch (error) {
       console.error('Backend request failed:', error);
-      
-      // Try cached data from previous backend responses
+
       const cachedData = await this.getCachedData<any>(cacheKey);
       if (cachedData) {
-        console.log('📦 Using cached retreat details from backend');
+        console.log('Using cached event details');
         return { success: true, data: cachedData };
       }
-      
-      // No backend data available - return error
-      console.log('❌ No backend retreat data available');
+
       return { success: false, error: 'Retreat details not available. Please check your connection and try again.' };
     }
   }
 
   // Get detailed information about a specific session
-  async getSessionDetails(sessionId: string): Promise<{ 
-    success: boolean; 
-    data?: any; 
-    error?: string 
+  async getSessionDetails(sessionId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string
   }> {
     const cacheKey = `${this.CACHE_KEYS.GATHERING_DETAILS}session_${sessionId}`;
-    
+
     try {
       console.log(`Fetching session details for ID: ${sessionId}`);
-      
-      const response = await apiService.get<any>(
-        `/retreats/sessions/${sessionId}/`
-      );
+
+      const response = await apiService.get<any>(API_ENDPOINTS.SESSION_DETAILS(sessionId));
 
       if (response.success && response.data) {
-        console.log(`✅ Loaded session details from backend: ${response.data.name}`);
-        await this.setCachedData(cacheKey, response.data);
-        return { success: true, data: response.data };
+        const mapped = mapSession(response.data);
+
+        // Add gathering (parent event) info
+        const event = response.data.event;
+        const data = {
+          ...mapped,
+          gathering: event ? {
+            id: String(event.id),
+            name: event.titleEn || event.title_en || '',
+          } : undefined,
+        };
+
+        console.log(`Loaded session details: ${data.name}`);
+        await this.setCachedData(cacheKey, data);
+        return { success: true, data };
       } else {
-        console.log('❌ Backend API failed for session details, checking cache only');
         throw new Error(response.error || 'API request failed');
       }
     } catch (error) {
       console.error('Backend request failed:', error);
-      
-      // Try cached data from previous backend responses
+
       const cachedData = await this.getCachedData<any>(cacheKey);
       if (cachedData) {
-        console.log('📦 Using cached session details from backend');
+        console.log('Using cached session details');
         return { success: true, data: cachedData };
       }
-      
-      // No backend data available - return error
-      console.log('❌ No backend session data available');
+
       return { success: false, error: 'Session details not available. Please check your connection and try again.' };
     }
   }
 
   // Get detailed information about a specific track
-  async getTrackDetails(trackId: string): Promise<{ 
-    success: boolean; 
-    data?: Track; 
-    error?: string 
+  async getTrackDetails(trackId: string): Promise<{
+    success: boolean;
+    data?: Track;
+    error?: string
   }> {
     try {
       console.log(`Fetching track details for ID: ${trackId}`);
-      
-      const response = await apiService.get<Track>(
-        API_ENDPOINTS.TRACK_DETAILS(trackId)
-      );
+
+      const response = await apiService.get<any>(API_ENDPOINTS.TRACK_DETAILS(trackId));
 
       if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to load track details' 
-        };
+        return { success: false, error: response.error || 'Failed to load track details' };
       }
 
-      return { success: true, data: response.data };
+      return { success: true, data: mapTrack(response.data) };
     } catch (error) {
       console.error('Get track details error:', error);
       return { success: false, error: 'Failed to load track details' };
@@ -289,133 +450,59 @@ class RetreatService {
   }
 
   // Get presigned URL for audio file access
-  async getAudioPresignedUrl(trackId: string): Promise<{ 
-    success: boolean; 
-    url?: string; 
-    error?: string 
+  async getAudioPresignedUrl(trackId: string): Promise<{
+    success: boolean;
+    url?: string;
+    error?: string
   }> {
     try {
-      console.log(`🔍 [FRONTEND DEBUG] Getting presigned URL for track: ${trackId}`);
-      console.log(`🔍 [FRONTEND DEBUG] API endpoint: ${API_ENDPOINTS.PRESIGNED_URL(trackId)}`);
-      
-      const response = await apiService.get<{ presigned_url: string }>(
+      // Backend returns { url, expiresIn } (not presigned_url)
+      const response = await apiService.get<{ url: string; presigned_url?: string }>(
         API_ENDPOINTS.PRESIGNED_URL(trackId)
       );
 
-      console.log(`🔍 [FRONTEND DEBUG] Backend response success: ${response.success}`);
       if (response.success && response.data) {
-        const url = response.data.presigned_url;
-        console.log(`🔍 [FRONTEND DEBUG] Received presigned URL: ${url.substring(0, 100)}...`);
-        console.log(`🔍 [FRONTEND DEBUG] URL contains signature: ${url.includes('Signature=')}`);
-        console.log(`🔍 [FRONTEND DEBUG] URL contains expiration: ${url.includes('Expires=')}`);
-        
-        // Presigned URLs are validated by backend - ready for audio streaming
-        console.log(`🔍 [FRONTEND DEBUG] Presigned URL ready for audio streaming`);
-        
-        return { success: true, url };
+        const url = response.data.url || response.data.presigned_url;
+        if (url) return { success: true, url };
       }
 
-      console.error(`🔍 [FRONTEND DEBUG] Backend response failed:`, response.error);
-      return { 
-        success: false, 
-        error: response.error || 'Failed to get audio URL' 
-      };
+      return { success: false, error: response.error || 'Failed to get audio URL' };
     } catch (error) {
-      console.error('❌ [FRONTEND DEBUG] Get presigned URL error:', error);
+      console.error('Get presigned URL error:', error);
       return { success: false, error: 'Failed to get audio URL' };
     }
   }
 
   // Get presigned URL for transcript file access
-  async getTranscriptPresignedUrl(trackId: string): Promise<{ 
-    success: boolean; 
-    url?: string; 
-    error?: string 
+  async getTranscriptPresignedUrl(trackId: string): Promise<{
+    success: boolean;
+    url?: string;
+    error?: string
   }> {
     try {
-      console.log(`Getting transcript URL for track: ${trackId}`);
-      
-      const response = await apiService.get<{ presigned_url: string }>(
+      const response = await apiService.get<{ url: string; presigned_url?: string }>(
         API_ENDPOINTS.TRANSCRIPT_URL(trackId)
       );
 
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to get transcript URL' 
-        };
+      if (response.success && response.data) {
+        const url = response.data.url || response.data.presigned_url;
+        if (url) return { success: true, url };
       }
 
-      return { success: true, url: response.data.presigned_url };
+      return { success: false, error: response.error || 'Failed to get transcript URL' };
     } catch (error) {
       console.error('Get transcript URL error:', error);
       return { success: false, error: 'Failed to get transcript URL' };
     }
   }
 
-  // Search retreats/gatherings/tracks
-  async searchContent(query: string, type?: 'retreat' | 'gathering' | 'track'): Promise<{ 
-    success: boolean; 
-    results?: any[]; 
-    error?: string 
+  // Stream track — uses same presigned URL endpoint
+  async getTrackStreamUrl(trackId: string): Promise<{
+    success: boolean;
+    url?: string;
+    error?: string
   }> {
-    try {
-      const params = new URLSearchParams({ 
-        q: query,
-        ...(type && { type }) 
-      });
-      
-      const response = await apiService.get<{ results: any[] }>(
-        `/retreats/search/?${params.toString()}`
-      );
-
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Search failed' 
-        };
-      }
-
-      return { success: true, results: response.data.results };
-    } catch (error) {
-      console.error('Search content error:', error);
-      return { success: false, error: 'Search failed' };
-    }
-  }
-
-  // Stream track directly from backend or cached URL
-  async getTrackStreamUrl(trackId: string): Promise<{ 
-    success: boolean; 
-    url?: string; 
-    error?: string 
-  }> {
-    try {
-      console.log(`🔍 [FRONTEND DEBUG] Getting stream URL for track: ${trackId}`);
-      console.log(`🔍 [FRONTEND DEBUG] Stream endpoint: /retreats/presigned-url/${trackId}/`);
-      
-      // Try to get presigned URL from backend
-      const response = await apiService.get<{ presigned_url: string }>(
-        `/retreats/presigned-url/${trackId}/`
-      );
-
-      console.log(`🔍 [FRONTEND DEBUG] Stream response success: ${response.success}`);
-      if (response.success && response.data?.presigned_url) {
-        const url = response.data.presigned_url;
-        console.log(`✅ [FRONTEND DEBUG] Got stream URL from backend for track: ${trackId}`);
-        console.log(`🔍 [FRONTEND DEBUG] Stream URL: ${url.substring(0, 100)}...`);
-        
-        // Stream URL ready - backend provides validated presigned URLs
-        console.log(`🔍 [FRONTEND DEBUG] Stream URL ready for audio playback`);
-        
-        return { success: true, url };
-      } else {
-        console.log('❌ [FRONTEND DEBUG] Backend failed to provide stream URL:', response.error);
-        return { success: false, error: 'Stream URL not available. Please check your connection.' };
-      }
-    } catch (error) {
-      console.error('❌ [FRONTEND DEBUG] Get stream URL error:', error);
-      return { success: false, error: 'Failed to get stream URL. Please check your connection.' };
-    }
+    return this.getAudioPresignedUrl(trackId);
   }
 
   // Check if track download is in progress
@@ -428,15 +515,13 @@ class RetreatService {
     const download = this.activeDownloads.get(trackId);
     if (download) {
       try {
-        // Mark as cancelled before pausing
         this.cancelledDownloads.add(trackId);
         await download.pauseAsync();
         this.activeDownloads.delete(trackId);
-        console.log(`📥 Cancelled download for track: ${trackId}`);
+        console.log(`Cancelled download for track: ${trackId}`);
         return true;
       } catch (error) {
         console.error(`Error cancelling download for track ${trackId}:`, error);
-        // Remove from cancelled set if pause failed
         this.cancelledDownloads.delete(trackId);
         return false;
       }
@@ -452,20 +537,15 @@ class RetreatService {
     cancelled?: boolean;
   }> {
     try {
-      console.log(`Starting download for track: ${trackId}`);
-
-      // Check if already downloading
       if (this.activeDownloads.has(trackId)) {
         return { success: false, error: 'Download already in progress' };
       }
 
-      // First get the stream URL
       const streamResult = await this.getTrackStreamUrl(trackId);
       if (!streamResult.success || !streamResult.url) {
         return { success: false, error: streamResult.error || 'Failed to get stream URL' };
       }
 
-      // Create tracks directory if it doesn't exist
       const tracksDir = `${FileSystem.documentDirectory}tracks/`;
       const dirInfo = await FileSystem.getInfoAsync(tracksDir);
       if (!dirInfo.exists) {
@@ -473,11 +553,7 @@ class RetreatService {
       }
 
       const localPath = `${tracksDir}${trackId}.mp3`;
-      
-      console.log(`📥 Downloading from: ${streamResult.url}`);
-      console.log(`📁 Saving to: ${localPath}`);
-      
-      // Create download resumable for progress tracking
+
       const downloadResumable = FileSystem.createDownloadResumable(
         streamResult.url,
         localPath,
@@ -488,12 +564,9 @@ class RetreatService {
         }
       );
 
-      // Track active download
       this.activeDownloads.set(trackId, downloadResumable);
-
       const downloadResult = await downloadResumable.downloadAsync();
-      
-      // Check if download was cancelled
+
       if (!downloadResult) {
         if (this.cancelledDownloads.has(trackId)) {
           this.cancelledDownloads.delete(trackId);
@@ -501,12 +574,10 @@ class RetreatService {
         }
         return { success: false, error: 'Download failed - no result' };
       }
-      
-      // Get file size for metadata
+
       const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
       const fileSize = fileInfo.exists ? fileInfo.size || 0 : 0;
-      
-      // Store download info in AsyncStorage
+
       await this.setCachedData(`@download:${trackId}`, {
         trackId,
         localPath: downloadResult.uri,
@@ -514,32 +585,22 @@ class RetreatService {
         size: fileSize,
       });
 
-      console.log(`✅ Track download completed: ${trackId} (${Math.round(fileSize / 1024 / 1024)}MB)`);
-      
-      // Clean up active download tracking
       this.activeDownloads.delete(trackId);
-      // Clean up cancellation tracking (in case it was marked as cancelled but completed)
       this.cancelledDownloads.delete(trackId);
-      
+
       return { success: true, localPath: downloadResult.uri };
-      
-    } catch (error) {
-      // Clean up active download tracking on error
+    } catch (error: any) {
       this.activeDownloads.delete(trackId);
-      
-      console.error('Download track error:', error);
-      
-      // Check if it was cancelled
+
       if (this.cancelledDownloads.has(trackId)) {
         this.cancelledDownloads.delete(trackId);
         return { success: false, cancelled: true };
       }
-      
-      // Also check error message for cancelled (legacy support)
+
       if (error.message && error.message.includes('cancelled')) {
         return { success: false, error: 'Download cancelled', cancelled: true };
       }
-      
+
       return { success: false, error: 'Failed to download track' };
     }
   }
@@ -548,37 +609,27 @@ class RetreatService {
   async isTrackDownloaded(trackId: string): Promise<boolean> {
     try {
       const downloadInfo = await this.getCachedData<{localPath: string, size: number}>(`@download:${trackId}`);
-      if (!downloadInfo) {
-        return false;
-      }
-      
-      // Check if the file actually exists and is not just an error response
+      if (!downloadInfo) return false;
+
       const fileInfo = await FileSystem.getInfoAsync(downloadInfo.localPath);
       if (!fileInfo.exists) {
-        console.log(`❌ Downloaded file doesn't exist: ${downloadInfo.localPath}`);
-        // Clean up invalid cache entry
         await AsyncStorage.removeItem(`@download:${trackId}`);
         return false;
       }
-      
-      // Check if file is suspiciously small (likely an error response)
+
       const fileSize = fileInfo.size || 0;
-      if (fileSize < 10000) { // Less than 10KB is suspicious for audio
-        console.log(`⚠️ Downloaded file is suspiciously small (${fileSize} bytes), checking content...`);
-        
+      if (fileSize < 10000) {
         try {
-          // Read first few bytes to check if it's XML error response
           const fileContent = await FileSystem.readAsStringAsync(downloadInfo.localPath, { length: 200 });
           if (fileContent.includes('<?xml') && fileContent.includes('<Error>')) {
-            console.log(`❌ Downloaded file is actually an XML error response, removing...`);
             await this.removeDownloadedTrack(trackId);
             return false;
           }
-        } catch (readError) {
-          console.warn('Could not read file content for validation:', readError);
+        } catch {
+          // Ignore read errors during validation
         }
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error checking if track is downloaded:', error);
@@ -599,24 +650,14 @@ class RetreatService {
   // Remove downloaded track
   async removeDownloadedTrack(trackId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log(`Removing downloaded track: ${trackId}`);
-      
-      // Get the local path before removing from cache
       const localPath = await this.getDownloadedTrackPath(trackId);
-      
-      // Delete actual file
       if (localPath) {
         const fileInfo = await FileSystem.getInfoAsync(localPath);
         if (fileInfo.exists) {
           await FileSystem.deleteAsync(localPath);
-          console.log(`🗑️ Deleted file: ${localPath}`);
         }
       }
-
-      // Remove from cache
       await AsyncStorage.removeItem(`@download:${trackId}`);
-      
-      console.log(`✅ Removed downloaded track: ${trackId}`);
       return { success: true };
     } catch (error) {
       console.error('Remove download error:', error);
@@ -632,24 +673,20 @@ class RetreatService {
   // Clear all downloads and clean up files
   async clearAllDownloads(): Promise<{ success: boolean; removedCount: number; error?: string }> {
     try {
-      console.log('🧹 Clearing all downloads...');
       const keys = await AsyncStorage.getAllKeys();
       const downloadKeys = keys.filter(key => key.startsWith('@download:'));
       let removedCount = 0;
-      
+
       for (const key of downloadKeys) {
         try {
           const trackId = key.replace('@download:', '');
           const result = await this.removeDownloadedTrack(trackId);
-          if (result.success) {
-            removedCount++;
-          }
+          if (result.success) removedCount++;
         } catch (error) {
           console.warn(`Failed to remove download for key ${key}:`, error);
         }
       }
-      
-      console.log(`✅ Cleared ${removedCount} downloads`);
+
       return { success: true, removedCount };
     } catch (error) {
       console.error('Error clearing all downloads:', error);
@@ -660,18 +697,14 @@ class RetreatService {
   // Force clear all retreat-related cache (for development)
   async forceClearAllRetreatCache(): Promise<void> {
     try {
-      console.log('🧹 Force clearing all retreat cache data...');
       const keys = await AsyncStorage.getAllKeys();
-      const retreatKeys = keys.filter(key => 
-        key.startsWith('@retreat_cache:') || 
+      const retreatKeys = keys.filter(key =>
+        key.startsWith('@retreat_cache:') ||
         key.startsWith('@download:')
       );
-      
+
       if (retreatKeys.length > 0) {
         await AsyncStorage.multiRemove(retreatKeys);
-        console.log(`✅ Cleared ${retreatKeys.length} cached retreat items`);
-      } else {
-        console.log('ℹ️ No cached retreat data found to clear');
       }
     } catch (error) {
       console.error('Error force clearing cache:', error);

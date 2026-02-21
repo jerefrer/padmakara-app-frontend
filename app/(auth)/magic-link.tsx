@@ -3,7 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -45,6 +45,10 @@ const colors = {
 export default function MagicLinkScreen() {
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const navigation = useNavigation();
+  const canGoBack = navigation.canGoBack();
+  const redirectTarget = (returnTo as string) || '/(tabs)';
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(false);
@@ -86,7 +90,7 @@ export default function MagicLinkScreen() {
       console.log('✅ User already authenticated, redirecting from magic-link screen');
       // Use a slight delay to prevent conflicts with root index routing
       setTimeout(() => {
-        router.replace('/(tabs)');
+        router.replace(redirectTarget);
       }, 100);
     }
   }, [isAuthenticated, isDeviceActivated]);
@@ -125,14 +129,14 @@ export default function MagicLinkScreen() {
           // Device already activated, refresh auth state then redirect
           console.log('🎉 Device already activated, refreshing auth state and redirecting to main app');
           await refreshAuth();
-          router.replace('/(tabs)');
+          router.replace(redirectTarget);
           return; // Exit early to prevent further processing
 
         case 'magic_link_sent':
           // Show success message and redirect to waiting screen
           router.push({
             pathname: '/(auth)/check-email',
-            params: { email: email.trim() }
+            params: { email: email.trim(), returnTo: redirectTarget }
           });
           break;
 
@@ -232,16 +236,30 @@ export default function MagicLinkScreen() {
     </View>
   );
 
+  const renderBackButton = () => {
+    if (!canGoBack) return null;
+    return (
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.back()}
+        disabled={isLoading}
+      >
+        <Text style={styles.backButtonText}>{'‹'}</Text>
+      </TouchableOpacity>
+    );
+  };
+
   const renderEmailForm = () => (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.content,
-        { 
+        {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }]
         }
       ]}
     >
+      {renderBackButton()}
       {renderLanguageSwitcher()}
       
       <Animated.View 
@@ -509,6 +527,29 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     fontSize: 16,
     fontWeight: '600',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: colors.burgundy[500],
+    fontWeight: '600',
+    marginTop: -2,
   },
   languageSwitcherContainer: {
     position: 'absolute',

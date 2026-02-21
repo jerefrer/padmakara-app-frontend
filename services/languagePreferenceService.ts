@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG, API_ENDPOINTS, getAuthHeaders } from './apiConfig';
 
 export interface LanguagePreference {
   globalPreference?: string;
@@ -28,72 +27,33 @@ export class LanguagePreferenceService {
   }
 
   /**
-   * Get user's global and retreat-specific language preferences
+   * Get user's global and retreat-specific language preferences (local storage only)
    */
   async getUserLanguagePreferences(): Promise<LanguagePreference> {
+    const cached = this.cache.get('user_preferences');
+    if (cached) return cached;
+
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.USER_LANGUAGE_PREFERENCES}`,
-        {
-          method: 'GET',
-          headers,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch language preferences: ${response.status}`);
-      }
-
-      const preferences = await response.json();
-      
-      // Cache the preferences
-      this.cache.set('user_preferences', preferences);
-      
-      return preferences;
-    } catch (error) {
-      console.error('Error fetching user language preferences:', error);
-      
-      // Return cached preferences if available
-      const cached = this.cache.get('user_preferences');
-      if (cached) {
-        return cached;
-      }
-      
-      // Return default preferences
-      return {
-        globalPreference: undefined,
+      const globalPref = await AsyncStorage.getItem('language_pref_global');
+      const prefs: LanguagePreference = {
+        globalPreference: globalPref || undefined,
         retreatPreferences: [],
-        defaultLanguage: 'en'
+        defaultLanguage: globalPref || 'en',
       };
+      this.cache.set('user_preferences', prefs);
+      return prefs;
+    } catch (error) {
+      return { globalPreference: undefined, retreatPreferences: [], defaultLanguage: 'en' };
     }
   }
 
   /**
-   * Set user's global language preference
+   * Set user's global language preference (local storage)
    */
   async setGlobalLanguagePreference(language: string): Promise<boolean> {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.USER_LANGUAGE_PREFERENCES}`,
-        {
-          method: 'POST',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ language }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to set global language preference: ${response.status}`);
-      }
-
-      // Invalidate cache
+      await AsyncStorage.setItem('language_pref_global', language);
       this.cache.delete('user_preferences');
-      
       return true;
     } catch (error) {
       console.error('Error setting global language preference:', error);
@@ -102,31 +62,12 @@ export class LanguagePreferenceService {
   }
 
   /**
-   * Set language preference for a specific retreat
+   * Set language preference for a specific retreat (local storage)
    */
   async setRetreatLanguagePreference(sessionId: number, language: string): Promise<boolean> {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.SESSION_DETAILS.replace(':id', sessionId.toString())}`,
-        {
-          method: 'POST',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ language }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to set retreat language preference: ${response.status}`);
-      }
-
-      // Invalidate caches
+      await this.storeLocalLanguagePreference(sessionId, language);
       this.cache.delete('user_preferences');
-      this.cache.delete(`session_${sessionId}`);
-      
       return true;
     } catch (error) {
       console.error('Error setting retreat language preference:', error);
@@ -135,26 +76,13 @@ export class LanguagePreferenceService {
   }
 
   /**
-   * Clear language preference for a specific retreat (fall back to global preference)
+   * Clear language preference for a specific retreat
    */
   async clearRetreatLanguagePreference(retreatId: number): Promise<boolean> {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CLEAR_RETREAT_LANGUAGE_PREFERENCE.replace(':id', retreatId.toString())}`,
-        {
-          method: 'DELETE',
-          headers,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to clear retreat language preference: ${response.status}`);
-      }
-
-      // Invalidate cache
+      const key = `language_pref_retreat_${retreatId}`;
+      await AsyncStorage.removeItem(key);
       this.cache.delete('user_preferences');
-      
       return true;
     } catch (error) {
       console.error('Error clearing retreat language preference:', error);

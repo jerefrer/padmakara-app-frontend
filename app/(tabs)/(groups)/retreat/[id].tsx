@@ -11,6 +11,7 @@ import { ConfirmationModal, ConfirmationButton } from '@/components/Confirmation
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import apiService from '@/services/apiService';
@@ -46,6 +47,7 @@ const colors = {
 interface RetreatDetails {
   id: string;
   name: string;
+  name_translations?: Record<string, string>;
   season: string;
   year: number;
   startDate: string;
@@ -54,6 +56,7 @@ interface RetreatDetails {
   retreat_group: {
     id: string;
     name: string;
+    name_translations?: Record<string, string>;
   };
 }
 
@@ -67,7 +70,7 @@ interface TrackWithSession extends Track {
 
 export default function RetreatDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, contentLanguage } = useLanguage();
+  const { t, contentLanguage, language } = useLanguage();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,24 +120,6 @@ export default function RetreatDetailScreen() {
   const hideModal = () => {
     setModalState(prev => ({ ...prev, visible: false }));
   };
-
-  useEffect(() => {
-    loadRetreatDetails();
-  }, [id]);
-
-  useEffect(() => {
-    if (retreat) {
-      checkDownloadStatus();
-      buildTracksListWithSessions();
-    }
-  }, [retreat, buildTracksListWithSessions]);
-
-  // Apply language filter when language mode or tracks change
-  useEffect(() => {
-    if (allTracks.length > 0) {
-      applyLanguageFilter();
-    }
-  }, [allTracks, currentLanguageMode, applyLanguageFilter]);
 
   // Build flat list of tracks with session info
   const buildTracksListWithSessions = useCallback(() => {
@@ -199,6 +184,24 @@ export default function RetreatDetailScreen() {
 
     setFilteredTracks(filtered);
   }, [allTracks, currentLanguageMode]);
+
+  useEffect(() => {
+    loadRetreatDetails();
+  }, [id]);
+
+  useEffect(() => {
+    if (retreat) {
+      checkDownloadStatus();
+      buildTracksListWithSessions();
+    }
+  }, [retreat, buildTracksListWithSessions]);
+
+  // Apply language filter when language mode or tracks change
+  useEffect(() => {
+    if (allTracks.length > 0) {
+      applyLanguageFilter();
+    }
+  }, [allTracks, currentLanguageMode, applyLanguageFilter]);
 
   // Track download completion to prevent stale callbacks
   const downloadCompletedRef = useRef(false);
@@ -488,7 +491,7 @@ export default function RetreatDetailScreen() {
     if (isRetreatDownloaded) {
       showModal(
         'Remove Download',
-        `Remove "${retreat.name}" from offline storage?`,
+        `Remove "${getTranslatedName(retreat, language)}" from offline storage?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -542,7 +545,7 @@ export default function RetreatDetailScreen() {
     setZipDownloadProgress('Preparing download...');
 
     try {
-      const downloadEndpoint = API_ENDPOINTS.RETREAT_DOWNLOAD_REQUEST(retreat.id);
+      const downloadEndpoint = API_ENDPOINTS.EVENT_DOWNLOAD_REQUEST(retreat.id);
       const requestResponse = await apiService.post(downloadEndpoint);
 
       if (!requestResponse.success) {
@@ -665,11 +668,11 @@ export default function RetreatDetailScreen() {
           </TouchableOpacity>
           <View style={styles.headerText}>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group?.name || ''}</Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''}</Text>
               {isRetreatDownloaded && <OfflineBadge />}
             </View>
             <Text style={styles.headerSubtitle}>
-              {retreat.name} {retreat.year}
+              {getTranslatedName(retreat, language)} {retreat.year}
             </Text>
           </View>
           <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>

@@ -12,9 +12,9 @@ export interface User {
     notifications: boolean;
   };
   subscription: {
-    status: 'active' | 'inactive' | 'expired';
-    plan: 'basic' | 'premium' | 'lifetime';
-    expiresAt: string;
+    status: 'active' | 'expired' | 'none';
+    source: string | null;
+    expiresAt: string | null;
   };
   created_at: string;
   last_login: string;
@@ -23,7 +23,7 @@ export interface User {
 export interface RetreatGroup {
   id: string;
   name: string;
-  description: string;
+  name_translations?: Record<string, string>;
   gatherings?: Gathering[];
   members?: string[];
   created_at: string;
@@ -33,6 +33,8 @@ export interface RetreatGroup {
 export interface Gathering {
   id: string;
   name: string;
+  name_translations?: Record<string, string>;
+  main_topics_translations?: Record<string, string>;
   season: 'spring' | 'fall';
   year: number;
   startDate: string;
@@ -46,6 +48,7 @@ export interface Gathering {
 export interface Session {
   id: string;
   name: string;
+  name_translations?: Record<string, string>;
   type: 'morning' | 'evening' | 'other';
   date: string;
   tracks?: Track[];
@@ -65,6 +68,7 @@ export interface Track {
   session_id: string;
   language?: string; // Language code (e.g., 'en', 'pt')
   isOriginal?: boolean; // True if original track, false if translation
+  isPractice?: boolean; // True if practice/meditation track (displays first in session)
   created_at: string;
   updated_at: string;
 }

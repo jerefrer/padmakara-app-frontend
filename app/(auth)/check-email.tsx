@@ -38,8 +38,9 @@ const colors = {
 };
 
 export default function CheckEmailScreen() {
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
+  const redirectTarget = (returnTo as string) || '/(tabs)';
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isPolling, setIsPolling] = useState(true);
@@ -104,7 +105,7 @@ export default function CheckEmailScreen() {
       setActivationStatus('activated');
       setIsPolling(false); // Stop polling when activation detected via AuthContext
       setTimeout(() => {
-        router.replace('/(tabs)');
+        router.replace(redirectTarget);
       }, 1000);
     }
   }, [isAuthenticated, isDeviceActivated]);
@@ -131,7 +132,7 @@ export default function CheckEmailScreen() {
             
             // Give a moment for the user to see the success state
             setTimeout(() => {
-              router.replace('/(tabs)');
+              router.replace(redirectTarget);
             }, 2000);
           } else {
             setActivationStatus('pending');
@@ -189,9 +190,9 @@ export default function CheckEmailScreen() {
           // Refresh AuthContext to pick up the activation
           console.log('🔄 Refreshing AuthContext after manual status check');
           await refreshAuth();
-          
+
           setTimeout(() => {
-            router.replace('/(tabs)');
+            router.replace(redirectTarget);
           }, 1500);
         } else {
           setActivationStatus('pending');

@@ -90,14 +90,13 @@ export default function RootIndex() {
     const timeout = setTimeout(() => {
       if (!hasRedirected) {
         setHasRedirected(true);
-        
-        if (isAuthenticated && isDeviceActivated) {
-          console.log('✅ User authenticated and device activated, redirecting to main app');
-          router.replace('/(tabs)');
-        } else {
-          console.log('❌ User not authenticated or device not activated, redirecting to magic link');
-          router.replace('/(auth)/magic-link');
-        }
+
+        // Always redirect to tabs — public content is available without login
+        console.log('➡️ Redirecting to main app (public content available without login)', {
+          authenticated: isAuthenticated,
+          deviceActivated: isDeviceActivated,
+        });
+        router.replace('/(tabs)');
       }
     }, 200); // 200ms delay to let state settle
 

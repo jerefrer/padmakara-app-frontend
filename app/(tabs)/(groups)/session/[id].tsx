@@ -377,12 +377,17 @@ export default function SessionDetailScreen() {
                   </View>
 
                   <View style={styles.trackInfo}>
-                    <Text style={[
-                      styles.trackTitle,
-                      isCurrentTrack && styles.currentTrackTitle
-                    ]}>
-                      {track.title}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {track.isPractice && (
+                        <Ionicons name="flower-outline" size={14} color="#9c27b0" />
+                      )}
+                      <Text style={[
+                        styles.trackTitle,
+                        isCurrentTrack && styles.currentTrackTitle
+                      ]}>
+                        {track.title}
+                      </Text>
+                    </View>
                     <Text style={styles.trackDuration}>
                       {formatTrackInfo(track)}
                     </Text>

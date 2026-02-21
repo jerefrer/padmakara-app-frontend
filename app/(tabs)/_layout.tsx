@@ -6,12 +6,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { AuthGuard } from '@/components/AuthGuard';
 
 export default function TabLayout() {
   const { t } = useLanguage();
   return (
-    <AuthGuard>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: '#b91c1c', // Burgundy red
@@ -31,10 +29,26 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
+          name="(events)"
+          options={{
+            title: t('navigation.events') || 'Events',
+            tabBarIcon: ({ color }) => <Ionicons size={24} name="calendar-outline" color={color} />,
+          }}
+        />
+        <Tabs.Screen
           name="(groups)"
           options={{
             title: t('navigation.retreats') || 'Retreats',
             tabBarIcon: ({ color }) => <Ionicons size={24} name="list" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="subscription"
+          options={{
+            title: t('navigation.subscription') || 'Subscribe',
+            tabBarIcon: ({ color }) => <Ionicons size={24} name="card-outline" color={color} />,
+            // Hide on mobile — Apple Reader App rules: no subscription language
+            ...(Platform.OS !== 'web' ? { href: null } : {}),
           }}
         />
         <Tabs.Screen
@@ -45,6 +59,5 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-    </AuthGuard>
   );
 }

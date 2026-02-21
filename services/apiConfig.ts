@@ -4,7 +4,7 @@
 const USE_LOCAL_BACKEND = process.env.EXPO_PUBLIC_USE_LOCAL_BACKEND === 'true';
 
 const API_BASE_URL = USE_LOCAL_BACKEND
-  ? 'http://localhost:8000/api'  // Local Django development server
+  ? 'http://localhost:3000/api'  // Local Hono development server
   : 'https://padmakara-backend.frerejeremy.me/api'; // Production API server
 
 export const API_CONFIG = {
@@ -18,48 +18,50 @@ export const API_CONFIG = {
 
 export const API_ENDPOINTS = {
   // Magic Link Authentication
-  REQUEST_MAGIC_LINK: '/auth/request-magic-link/',
-  REQUEST_USER_APPROVAL: '/auth/request-approval/',
-  AUTO_ACTIVATE_DEVICE: '/auth/auto-activate/',
-  DISCOVER_DEVICE_ACTIVATION: '/auth/device/discover/',
-  DEACTIVATE_DEVICE: '/auth/device/deactivate/',
-  LIST_USER_DEVICES: '/auth/devices/',
-  
-  
+  REQUEST_MAGIC_LINK: '/auth/request-magic-link',
+  REQUEST_USER_APPROVAL: '/auth/request-approval',
+  AUTO_ACTIVATE_DEVICE: '/auth/auto-activate',
+  DISCOVER_DEVICE_ACTIVATION: '/auth/device/discover',
+  DEACTIVATE_DEVICE: '/auth/device/deactivate',
+  LIST_USER_DEVICES: '/auth/devices',
+
   // User Profile
-  USER_PROFILE: '/auth/user/',
-  UPDATE_PROFILE: '/auth/user/',
-  USER_PREFERENCES: '/auth/user/preferences/',
+  USER_PROFILE: '/auth/user',
+  UPDATE_PROFILE: '/auth/user',
+  USER_PREFERENCES: '/auth/user/preferences',
   
-  // Language Preferences
-  USER_LANGUAGE_PREFERENCES: '/retreats/user-language-preferences/',
-  CLEAR_RETREAT_LANGUAGE_PREFERENCE: '/retreats/:id/clear-language-preference/',
-  
-  // Retreat Groups & Content
-  RETREAT_GROUPS: '/retreats/groups/',
-  USER_RETREATS: '/retreats/user-retreats/',
-  RETREAT_DETAILS: (id: string) => `/retreats/groups/${id}/`,
-  GATHERING_DETAILS: (id: string) => `/retreats/gatherings/${id}/`,
-  SESSION_DETAILS: `/retreats/sessions/:id/`,
-  TRACK_DETAILS: (id: string) => `/retreats/tracks/${id}/`,
+  // Public Events (no auth required)
+  PUBLIC_EVENTS: '/events/public',
+
+  // Groups & Events
+  GROUPS: '/groups',
+  GROUP_EVENTS: (id: string) => `/groups/${id}/events`,
+  EVENTS: '/events',
+  EVENT_DETAILS: (id: string) => `/events/${id}`,
+  SESSION_DETAILS: (id: string) => `/events/sessions/${id}`,
+  TRACK_DETAILS: (id: string) => `/events/tracks/${id}`,
   
   // User Progress & Content
-  USER_PROGRESS: '/content/progress/',
-  TRACK_PROGRESS: (trackId: string) => `/content/progress/${trackId}/`,
-  BOOKMARKS: '/content/bookmarks/',
-  TRACK_BOOKMARKS: (trackId: string) => `/content/bookmarks/?track=${trackId}`,
-  PDF_HIGHLIGHTS: '/content/pdf-highlights/',
-  USER_NOTES: '/content/notes/',
-  DOWNLOADED_CONTENT: '/content/downloads/',
+  USER_PROGRESS: '/content/progress',
+  TRACK_PROGRESS: (trackId: string) => `/content/progress/${trackId}`,
+  BOOKMARKS: '/content/bookmarks',
+  TRACK_BOOKMARKS: (trackId: string) => `/content/bookmarks?track=${trackId}`,
+  PDF_HIGHLIGHTS: '/content/pdf-highlights',
+  USER_NOTES: '/content/notes',
+  DOWNLOADED_CONTENT: '/content/downloads',
   
-  // Audio & File Access
-  PRESIGNED_URL: (trackId: string) => `/content/presigned-url/${trackId}/`,
-  TRANSCRIPT_URL: (trackId: string) => `/content/transcript-url/${trackId}/`,
+  // Audio & File Access (Media endpoints)
+  PRESIGNED_URL: (trackId: string) => `/media/audio/${trackId}`,
+  TRANSCRIPT_URL: (transcriptId: string) => `/media/transcript/${transcriptId}`,
   
+  // Payment / Subscription
+  PAYMENT_SUBSCRIBE: '/payment/subscribe',
+  PAYMENT_CANCEL: '/payment/cancel',
+
   // ZIP Download Endpoints
-  RETREAT_DOWNLOAD_REQUEST: (retreatId: string) => `/retreats/${retreatId}/request-download/`,
-  DOWNLOAD_STATUS: (requestId: string) => `/retreats/download-requests/${requestId}/status/`,
-  DOWNLOAD_FILE: (requestId: string) => `/retreats/download-requests/${requestId}/download/`,
+  EVENT_DOWNLOAD_REQUEST: (eventId: string) => `/events/${eventId}/request-download`,
+  DOWNLOAD_STATUS: (requestId: string) => `/download-requests/${requestId}/status`,
+  DOWNLOAD_FILE: (requestId: string) => `/download-requests/${requestId}/download`,
 };
 
 export interface ApiResponse<T> {

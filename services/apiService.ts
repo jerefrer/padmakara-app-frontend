@@ -136,14 +136,16 @@ class ApiService {
 
       // Handle authentication errors
       if (response.status === 401) {
-        // Check if this is a development token - don't clear auth for dev tokens
         const token = await this.getAuthToken();
-        
-        // Token expired or invalid, handle globally
-        await this.handleAuthFailure();
+
+        // Only redirect to login if user was previously authenticated (had a token)
+        // Unauthenticated users hitting a 401 endpoint should just get an error, not a redirect
+        if (token) {
+          await this.handleAuthFailure();
+        }
         return {
           success: false,
-          error: 'Authentication expired. Please login again.',
+          error: token ? 'Authentication expired. Please login again.' : 'Authentication required.',
         };
       }
 
@@ -301,7 +303,7 @@ class ApiService {
   // Health check
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.get<{ status: string }>('/health/');
+      const response = await this.get<{ status: string }>('/health');
       return response.success && response.data?.status === 'ok';
     } catch {
       return false;

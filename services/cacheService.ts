@@ -8,6 +8,7 @@
  * - User-configurable cache limit (500MB to No Limit)
  */
 
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 
@@ -77,6 +78,10 @@ class CacheService {
   }
 
   private async _doInitialize(): Promise<void> {
+    if (Platform.OS === 'web') {
+      this.initialized = true;
+      return;
+    }
     try {
       // Ensure cache directory exists
       const cacheDir = getCacheDir();

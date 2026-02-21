@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
+import { getTranslatedName } from '@/utils/i18n';
 
 const colors = {
   cream: {
@@ -40,9 +41,10 @@ interface RetreatCardProps {
   onPress: () => void;
   isDownloaded?: boolean;
   t: (key: string, params?: Record<string, unknown>) => string;
+  language: string;
 }
 
-function RetreatCard({ retreat, onPress, isDownloaded, t }: RetreatCardProps) {
+function RetreatCard({ retreat, onPress, isDownloaded, t, language }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
 
   // Format date range like "March 2nd to 4th" or "May 28th to June 1st"
@@ -78,7 +80,7 @@ function RetreatCard({ retreat, onPress, isDownloaded, t }: RetreatCardProps) {
       <View style={styles.card}>
         <View style={styles.cardContent}>
           <View style={styles.retreatTitleRow}>
-            <Text style={styles.retreatTitle}>{retreat.name}</Text>
+            <Text style={styles.retreatTitle}>{getTranslatedName(retreat, language as 'en' | 'pt')}</Text>
             {isDownloaded && <OfflineBadge />}
           </View>
           <View style={styles.retreatInfo}>
@@ -102,7 +104,7 @@ function RetreatCard({ retreat, onPress, isDownloaded, t }: RetreatCardProps) {
 
 export default function GroupDetailScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,19 +133,12 @@ export default function GroupDetailScreen() {
       setLoading(true);
       setError(null);
 
-      // Get user retreats and find the specific group
-      const response = await retreatService.getUserRetreats();
+      const response = await retreatService.getRetreatGroupDetails(groupId);
 
       if (response.success && response.data) {
-        const group = response.data.retreat_groups.find(g => g.id === groupId);
-        if (group) {
-          setGroupData(group);
-        } else {
-          setError('Group not found');
-        }
+        setGroupData(response.data);
       } else {
         setError(response.error || 'Failed to load group data');
-        console.error('Error loading group:', response.error);
       }
     } catch (err) {
       console.error('Error loading group:', err);
@@ -228,7 +223,7 @@ export default function GroupDetailScreen() {
         <Stack.Screen
           options={{
             headerShown: true,
-            header: () => <AppHeader showBackButton={true} title={groupData.name} />
+            header: () => <AppHeader showBackButton={true} title={getTranslatedName(groupData, language)} />
           }}
         />
         <View style={styles.container}>
@@ -240,7 +235,7 @@ export default function GroupDetailScreen() {
             />
             <Text style={styles.emptyTitle}>No Retreats Available</Text>
             <Text style={styles.emptyText}>
-              You haven't attended any retreats in {groupData.name} yet.
+              You haven't attended any retreats in {getTranslatedName(groupData, language)} yet.
             </Text>
           </View>
         </View>
@@ -271,17 +266,12 @@ export default function GroupDetailScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          header: () => <AppHeader showBackButton={true} title={groupData.name} />
+          header: () => <AppHeader showBackButton={true} title={getTranslatedName(groupData, language)} />
         }}
       />
       <View style={styles.container}>
         <ScrollView style={styles.scrollView}>
-          {/* Group Description */}
-          {groupData.description && (
-            <View style={styles.descriptionContainer}>
-              <Text style={styles.description}>{groupData.description}</Text>
-            </View>
-          )}
+          {/* Group Description - groups no longer have main_topics */}
 
           {/* Retreats Count */}
           <View style={styles.statsContainer}>
@@ -306,6 +296,7 @@ export default function GroupDetailScreen() {
                   onPress={() => handleRetreatPress(retreat.id)}
                   isDownloaded={downloadedRetreatIds.has(retreat.id)}
                   t={t}
+                  language={language}
                 />
               ))}
             </View>
@@ -325,17 +316,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
-  },
-  descriptionContainer: {
-    backgroundColor: colors.burgundy[50],
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  description: {
-    fontSize: 16,
-    color: colors.gray[600],
-    lineHeight: 24,
   },
   statsContainer: {
     marginBottom: 16,
