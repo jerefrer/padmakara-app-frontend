@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
+import { SidebarNavigationProvider } from '@/contexts/SidebarNavigationContext';
 
 export default function TabLayout() {
   const { t } = useLanguage();
@@ -73,8 +74,10 @@ export default function TabLayout() {
   }
 
   return (
-    <DesktopShell sidebar={<Sidebar />}>
-      {tabsElement}
-    </DesktopShell>
+    <SidebarNavigationProvider>
+      <DesktopShell sidebar={<Sidebar />}>
+        {tabsElement}
+      </DesktopShell>
+    </SidebarNavigationProvider>
   );
 }
