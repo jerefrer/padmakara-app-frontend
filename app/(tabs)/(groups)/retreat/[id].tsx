@@ -12,6 +12,7 @@ import { ConfirmationModal, ConfirmationButton } from '@/components/Confirmation
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -72,6 +73,7 @@ interface TrackWithSession extends Track {
 export default function RetreatDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, contentLanguage, language } = useLanguage();
+  const { isMobile } = useDesktopLayout();
   const audioContext = useAudioPlayerContext();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -781,7 +783,7 @@ export default function RetreatDetailScreen() {
       </SafeAreaView>
 
       {/* Scrollable Tracks List with Session Headers */}
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom: isMobile ? 180 : 24 }]}>
         {filteredTracks.map((track, trackIndex) => {
           const isCurrentTrack = currentTrack?.id === track.id;
           const showSessionHeader = track.sessionId !== currentSessionId;
@@ -845,8 +847,8 @@ export default function RetreatDetailScreen() {
         })}
       </ScrollView>
 
-      {/* Bottom-sticky Audio Player */}
-      <AudioPlayer />
+      {/* Bottom-sticky Audio Player (mobile only; desktop uses DesktopPlayerBar) */}
+      {isMobile && <AudioPlayer />}
 
       {/* Overflow Menu Modal */}
       <Modal
@@ -1030,7 +1032,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 180,
   },
   sessionHeader: {
     paddingVertical: 12,

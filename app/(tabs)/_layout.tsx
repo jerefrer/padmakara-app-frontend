@@ -7,6 +7,7 @@ import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { DesktopPlayerBar } from '@/components/desktop/DesktopPlayerBar';
 import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
 import { SidebarNavigationProvider } from '@/contexts/SidebarNavigationContext';
@@ -75,7 +76,7 @@ export default function TabLayout() {
 
   return (
     <SidebarNavigationProvider>
-      <DesktopShell sidebar={<Sidebar />}>
+      <DesktopShell sidebar={<Sidebar />} playerBar={<DesktopPlayerBar />}>
         {tabsElement}
       </DesktopShell>
     </SidebarNavigationProvider>
