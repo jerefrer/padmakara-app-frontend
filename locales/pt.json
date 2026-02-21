@@ -7,6 +7,7 @@
     "error": "Erro",
     "success": "Sucesso",
     "retry": "Tentar Novamente",
+    "connectionError": "Erro de Ligação",
     "download": "Salvar Offline",
     "downloadRetreatZip": "Baixar Retiro como ZIP",
     "play": "Reproduzir",
@@ -27,7 +28,7 @@
     "biometricPrompt": "Use sua {{biometricType}} para acessar o conteúdo do retiro",
     "biometricFallback": "Inserir Código",
     "magicLink": {
-      "title": "Bem-vindo ao Padmakara",
+      "title": "Iniciar Sessão",
       "subtitle": "Digite seu endereço de e-mail para acessar suas gravações de retiro",
       "emailPlaceholder": "seu.email@exemplo.com",
       "continueButton": "Continuar",
@@ -62,12 +63,72 @@
     "retreats": "Retiros",
     "downloads": "Conteúdo Salvo",
     "profile": "Perfil",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "subscription": "Subscrição",
+    "events": "Eventos",
+    "search": "Pesquisar"
   },
   "groups": {
     "yourGroups": "Os seus grupos",
     "retreatAttended": "{{count}} retiro frequentado",
-    "retreatsAttended": "{{count}} retiros frequentados"
+    "retreatsAttended": "{{count}} retiros frequentados",
+    "publicEvents": "Eventos Públicos",
+    "noPublicEvents": "Nenhum evento público disponível neste momento.",
+    "signInRequired": "Início de Sessão Necessário",
+    "signInPrompt": "Os participantes de retiro podem iniciar sessão para aceder às suas gravações.",
+    "signIn": "Iniciar Sessão",
+    "noGroups": "Sem Grupos de Retiro",
+    "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador.",
+    "groupName": "Grupo",
+    "lastRetreat": "Último retiro",
+    "retreatLabel": "retiro",
+    "retreatsLabel": "retiros",
+    "accountRequired": "Acesso às Gravações de Retiro",
+    "accountRequiredMobile": "É necessária uma conta ativa para aceder às suas gravações de retiro.",
+    "accountRequiredDesktop": "Subscreva para ouvir as gravações do seu grupo de retiro.",
+    "setupAccount": "Visite app.padmakara.pt para configurar a sua conta"
+  },
+  "events": {
+    "eventName": "Evento",
+    "sessions": "Sessões",
+    "sessionLabel": "sessão",
+    "sessionsLabel": "sessões",
+    "date": "Data"
+  },
+  "home": {
+    "greetingMorning": "Bom dia",
+    "greetingAfternoon": "Boa tarde",
+    "greetingEvening": "Boa noite"
+  },
+  "trackDetail": {
+    "retreatOverview": "Resumo do Retiro",
+    "selectTrack": "Selecione uma faixa da lista para ver detalhes",
+    "session": "Sessão",
+    "duration": "Duração",
+    "playTrack": "Reproduzir Faixa",
+    "trackNumber": "Faixa {{number}}",
+    "translation": "Tradução",
+    "totalSessions": "{{count}} sessões",
+    "totalTracks": "{{count}} faixas"
+  },
+  "subscription": {
+    "status": "Subscrição",
+    "active": "Ativa",
+    "expired": "Expirada",
+    "none": "Sem subscrição",
+    "manage": "Gerir Subscrição",
+    "expiresOn": "Expira",
+    "manageOnWeb": "Gerir a sua conta em app.padmakara.pt",
+    "subscribe": "Subscrever",
+    "subscribeCta": "Subscreva para aceder às gravações de retiro",
+    "registerCta": "Os participantes de retiro podem iniciar sessão para aceder às gravações do seu grupo.",
+    "success": "Subscrição Ativada!",
+    "successDescription": "Agora tem acesso a todas as gravações de retiro. Boa prática!",
+    "cancelled": "Subscrição Cancelada",
+    "cancelDescription": "Pode subscrever a qualquer momento para aceder às gravações de retiro.",
+    "goToApp": "Ir para o App",
+    "price": "5\u20ac/mês",
+    "contactUs": "Contacte-nos para gerir a sua subscrição"
   },
   "retreats": {
     "myRetreats": "Meus Retiros",
@@ -79,11 +140,15 @@
     "tracksPlural": "{{count}} faixas",
     "tracksCount": "Faixas ({{count}})",
     "morning": "Manhã",
+    "afternoon": "Tarde",
     "evening": "Noite",
+    "part": "Parte",
     "transcript": "Transcrição",
     "audio": "Áudio",
     "notFound": "Retiro não encontrado",
-    "offline": "Offline"
+    "offline": "Offline",
+    "tracksLabel": "faixas",
+    "trackLabel": "faixa"
   },
   "session": {
     "loadingSession": "Carregando sessão...",
@@ -94,10 +159,20 @@
   },
   "transcript": {
     "transcriptNotFound": "Transcrição não encontrada",
+    "transcript": "Transcrição",
+    "viewTranscript": "Ver Transcrição",
+    "downloadPdf": "Transferir PDF",
+    "downloading": "A transferir...",
+    "downloadError": "Falha ao transferir transcrição",
+    "noTranscript": "Nenhuma transcrição disponível para este evento",
     "page": "Página {{current}}",
     "pageOf": "Página {{current}} de {{total}}",
     "highlights": "{{count}} destaques",
-    "highlightsOnPage": "{{count}} destaques nesta página"
+    "highlightsOnPage": "{{count}} destaques nesta página",
+    "loadingTranscript": "A carregar transcrição...",
+    "loadError": "Falha ao carregar transcrição",
+    "expand": "Expandir",
+    "collapse": "Recolher"
   },
   "player": {
     "nowPlaying": "Tocando Agora",
@@ -105,7 +180,11 @@
     "bookmark": "Marcador",
     "bookmarks": "Marcadores",
     "resume": "Continuar de {{time}}",
-    "completed": "Concluído"
+    "completed": "Concluído",
+    "upNext": "A Seguir",
+    "trackMetadata": "Detalhes da Faixa",
+    "close": "Fechar",
+    "noTrack": "Nenhuma faixa selecionada"
   },
   "downloads": {
     "myDownloads": "Meu Conteúdo Salvo",
@@ -142,6 +221,22 @@
     "trackCount": "{{count}} faixa",
     "tracksCount": "{{count}} faixas"
   },
+  "search": {
+    "placeholder": "Pesquisar por tema ou professor",
+    "noResults": "Nenhum resultado encontrado",
+    "noResultsDescription": "Tente palavras-chave diferentes ou verifique a ortografia",
+    "resultsCount": "{{count}} resultado",
+    "resultsCountPlural": "{{count}} resultados",
+    "matchedIn": "Encontrado em: {{fields}}",
+    "fieldSessionThemes": "temas da sessão",
+    "fieldMainThemes": "temas principais",
+    "fieldTitle": "título",
+    "fieldTeacher": "professor",
+    "fieldTrackTitle": "título da faixa",
+    "matchedTracks": "Faixas correspondentes",
+    "searching": "A pesquisar...",
+    "minChars": "Escreva pelo menos 2 caracteres"
+  },
   "profile": {
     "storage": "Armazenamento",
     "myProfile": "Meu Perfil",
@@ -170,10 +265,17 @@
     "signOutDescription": "Sair da sua conta (mantém dispositivo ativado)",
     "forgetDevice": "Esquecer Este Dispositivo",
     "forgetDeviceDescription": "Remover dispositivo completamente (requer ativação por email)",
+    "accountStatus": "Estado da Conta",
+    "accessGranted": "Sessão iniciada",
+    "limitedAccess": "Conteúdo público apenas",
+    "accessGrantedDescription": "Tem acesso às gravações dos retiros",
+    "visitWebsite": "Visite app.padmakara.pt para gerir a sua conta",
     "about": "Sobre",
     "version": "Versão",
     "appDescription": "O App Padmakara oferece acesso aos ensinamentos de Jigme Khyentse Rinpoche sobre treinamento da mente e as 37 práticas dos bodhisattvas. Construído com amor para a comunidade budista tibetana.",
     "copyright": "© 2024 Associação Padmakara Portugal",
-    "notifications": "Notificações"
+    "notifications": "Notificações",
+    "activeSubscription": "Subscrição ativa",
+    "inactiveSubscription": "Subscrição inativa"
   }
 }

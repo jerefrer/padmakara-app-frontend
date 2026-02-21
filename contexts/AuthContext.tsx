@@ -4,9 +4,11 @@ import { User } from '@/types';
 import authService from '@/services/authService';
 import magicLinkService from '@/services/magicLinkService';
 import apiService from '@/services/apiService';
+import { API_ENDPOINTS } from '@/services/apiConfig';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  hasActiveSubscription: boolean;
   user: User | null;
   isLoading: boolean;
   isDeviceActivated: boolean;
@@ -17,6 +19,7 @@ interface AuthContextType {
   enableBiometric: () => Promise<{ success: boolean; error?: string }>;
   disableBiometric: () => Promise<{ success: boolean; error?: string }>;
   refreshAuth: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -278,6 +281,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await initializeAuth();
   };
 
+  // Lightweight refresh: fetch fresh user data from API without full re-init
+  const handleRefreshUserData = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const response = await apiService.get<User>(API_ENDPOINTS.USER_PROFILE);
+      if (response.success && response.data) {
+        setUser(response.data);
+        // Persist updated user data locally
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        await AsyncStorage.setItem('user_data', JSON.stringify(response.data));
+      }
+    } catch (error) {
+      console.warn('Failed to refresh user data:', error);
+    }
+  };
+
 
   const handleBiometricLogin = async () => {
     try {
@@ -397,8 +416,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Derive subscription status from user data
+  const hasActiveSubscription = (() => {
+    if (!user?.subscription) return false;
+    if (user.subscription.status !== 'active') return false;
+    if (user.subscription.expiresAt) {
+      return new Date(user.subscription.expiresAt) > new Date();
+    }
+    return true; // Active with no expiry = lifetime
+  })();
+
   const value: AuthContextType = {
     isAuthenticated,
+    hasActiveSubscription,
     user,
     isLoading,
     isDeviceActivated,
@@ -409,6 +439,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     enableBiometric: handleEnableBiometric,
     disableBiometric: handleDisableBiometric,
     refreshAuth: handleRefreshAuth,
+    refreshUserData: handleRefreshUserData,
   };
 
   return (

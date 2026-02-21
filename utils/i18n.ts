@@ -102,7 +102,7 @@ class I18n {
     // Replace parameters
     if (params) {
       return value.replace(/\{\{(\w+)\}\}/g, (match: string, paramKey: string) => {
-        return params[paramKey] || match;
+        return paramKey in params ? String(params[paramKey]) : match;
       });
     }
 
@@ -122,6 +122,17 @@ class I18n {
       return false;
     }
   }
+}
+
+/**
+ * Resolve a translated name from an API object's name_translations field.
+ * Falls back to the default `name` field if no translation is available.
+ */
+export function getTranslatedName(
+  obj: { name: string; name_translations?: Record<string, string> },
+  lang: Language
+): string {
+  return obj.name_translations?.[lang]?.trim() || obj.name;
 }
 
 export default new I18n();

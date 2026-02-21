@@ -12,9 +12,9 @@ export interface User {
     notifications: boolean;
   };
   subscription: {
-    status: 'active' | 'inactive' | 'expired';
-    plan: 'basic' | 'premium' | 'lifetime';
-    expiresAt: string;
+    status: 'active' | 'expired' | 'none';
+    source: string | null;
+    expiresAt: string | null;
   };
   created_at: string;
   last_login: string;
@@ -23,7 +23,8 @@ export interface User {
 export interface RetreatGroup {
   id: string;
   name: string;
-  description: string;
+  name_translations?: Record<string, string>;
+  abbreviation?: string;
   gatherings?: Gathering[];
   members?: string[];
   created_at: string;
@@ -33,6 +34,8 @@ export interface RetreatGroup {
 export interface Gathering {
   id: string;
   name: string;
+  name_translations?: Record<string, string>;
+  main_topics_translations?: Record<string, string>;
   season: 'spring' | 'fall';
   year: number;
   startDate: string;
@@ -46,7 +49,9 @@ export interface Gathering {
 export interface Session {
   id: string;
   name: string;
-  type: 'morning' | 'evening' | 'other';
+  name_translations?: Record<string, string>;
+  type: 'morning' | 'afternoon' | 'evening' | 'other';
+  partNumber?: number | null;
   date: string;
   tracks?: Track[];
   gathering_id: string;
@@ -63,8 +68,13 @@ export interface Track {
   transcript_file?: string;
   order: number;
   session_id: string;
-  language?: string; // Language code (e.g., 'en', 'pt')
+  language?: string; // deprecated — use originalLanguage
+  languages?: string[]; // All languages in the track (e.g., ['en', 'pt'] for combo)
+  originalLanguage?: string; // The track's own primary language
+  speaker?: string; // Teacher abbreviation (e.g., 'JKR')
+  speakerName?: string; // Teacher full name (e.g., 'Jigme Khyentse Rinpoche')
   isOriginal?: boolean; // True if original track, false if translation
+  isPractice?: boolean; // True if practice/meditation track (displays first in session)
   created_at: string;
   updated_at: string;
 }
@@ -107,4 +117,38 @@ export interface PDFHighlight {
   text: string;
   color: string;
   createdAt: string;
+}
+
+// ─── Search ──────────────────────────────────────────────────────────
+
+export interface SearchResultSession {
+  id: number;
+  titleEn: string | null;
+  titlePt: string | null;
+  sessionDate: string | null;
+  timePeriod: string | null;
+  sessionNumber: number;
+  score: number;
+  matchedFields: string[];
+  matchedTracks: { id: number; title: string }[];
+}
+
+export interface SearchResultEvent {
+  event: {
+    id: number;
+    titleEn: string;
+    titlePt: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    teachers: string[];
+  };
+  sessions: SearchResultSession[];
+  snippets: { field: string; text: string }[];
+  totalScore: number;
+}
+
+export interface SearchResponse {
+  results: SearchResultEvent[];
+  totalResults: number;
+  query: string;
 }

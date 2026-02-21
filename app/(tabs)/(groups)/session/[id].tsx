@@ -5,6 +5,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -36,6 +38,21 @@ const colors = {
   white: '#ffffff',
 };
 
+const LANG_COLORS: Record<string, { bg: string; text: string }> = {
+  en: { bg: '#eff6ff', text: '#1d4ed8' },
+  pt: { bg: '#f0fdf4', text: '#15803d' },
+  fr: { bg: '#faf5ff', text: '#7e22ce' },
+  tib: { bg: '#fffbeb', text: '#b45309' },
+};
+const DEFAULT_LANG_COLOR = { bg: colors.gray[100], text: colors.gray[500] };
+
+const langBadgeColor = (lang: string) => ({
+  backgroundColor: (LANG_COLORS[lang.toLowerCase()] || DEFAULT_LANG_COLOR).bg,
+});
+const langBadgeTextColor = (lang: string) => ({
+  color: (LANG_COLORS[lang.toLowerCase()] || DEFAULT_LANG_COLOR).text,
+});
+
 interface SessionDetails {
   id: string;
   name: string;
@@ -52,8 +69,8 @@ interface SessionDetails {
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { contentLanguage, t } = useLanguage();
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const audioContext = useAudioPlayerContext();
+  const { isMobile } = useDesktopLayout();
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,29 +134,29 @@ export default function SessionDetailScreen() {
     let filtered: Track[] = [];
 
     if (currentLanguageMode === 'en') {
-      // English only - show only original tracks
-      filtered = session.tracks.filter(track => track.isOriginal);
+      // English only - show tracks whose languages include English
+      filtered = session.tracks.filter(track =>
+        track.languages?.includes('en') ?? track.isOriginal
+      );
     } else if (currentLanguageMode === 'en-pt') {
       // English + Portuguese - show all tracks
       filtered = session.tracks;
     } else if (currentLanguageMode === 'pt') {
-      // Portuguese only - show only translation tracks
-      filtered = session.tracks.filter(track => !track.isOriginal && track.language === 'pt');
+      // Portuguese only - show tracks whose languages include Portuguese
+      filtered = session.tracks.filter(track =>
+        track.languages?.includes('pt') ?? (!track.isOriginal && track.language === 'pt')
+      );
     } else {
       // Default to English only
-      filtered = session.tracks.filter(track => track.isOriginal);
+      filtered = session.tracks.filter(track =>
+        track.languages?.includes('en') ?? track.isOriginal
+      );
     }
 
     // Sort by order
     filtered.sort((a, b) => a.order - b.order);
     setFilteredTracks(filtered);
   }, [session, currentLanguageMode]);
-
-  // Simple progress update handler
-  const handleProgressUpdate = (progress: UserProgress) => {
-    // In production, this would sync with your backend
-    console.log('Progress updated:', progress);
-  };
 
   const loadSessionDetails = async () => {
     try {
@@ -262,32 +279,48 @@ export default function SessionDetailScreen() {
   }
 
   // Get all tracks in order - use filtered tracks for display
-  const allTracks: Track[] = filteredTracks.length > 0 ? filteredTracks : session.tracks.sort((a, b) => a.order - b.order);
+  // For tracks with the same number: original first, then EN → PT → ES → FR → others
+  const LANG_ORDER: Record<string, number> = { en: 0, pt: 1, es: 2, fr: 3 };
+  const allTracks: Track[] = (filteredTracks.length > 0 ? filteredTracks : session.tracks).sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    // Originals before translations
+    const aOrig = a.isOriginal ? 0 : 1;
+    const bOrig = b.isOriginal ? 0 : 1;
+    if (aOrig !== bOrig) return aOrig - bOrig;
+    // Then by language priority
+    const aLang = LANG_ORDER[a.originalLanguage || a.language || 'en'] ?? 4;
+    const bLang = LANG_ORDER[b.originalLanguage || b.language || 'en'] ?? 4;
+    return aLang - bLang;
+  });
 
-  // Track selection - simple state update
+  // Derive current track info from context
+  const currentTrack = audioContext.currentTrack;
+  const currentTrackIndex = audioContext.currentTrackIndex;
+
+  // Track selection via context
   const selectTrack = (track: Track, trackIndex: number) => {
-    setCurrentTrack(track);
-    setCurrentTrackIndex(trackIndex);
+    audioContext.playTrack(track, allTracks, trackIndex, {
+      retreatId: retreatId || session?.gathering?.id || '',
+      retreatName: session?.gathering?.name || '',
+      groupName: '',
+    });
   };
 
   const goToNextTrack = () => {
     const nextIndex = currentTrackIndex + 1;
     if (nextIndex < allTracks.length) {
-      const nextTrack = allTracks[nextIndex];
-      selectTrack(nextTrack, nextIndex);
+      selectTrack(allTracks[nextIndex], nextIndex);
     }
   };
 
   const goToPreviousTrack = () => {
     const prevIndex = currentTrackIndex - 1;
     if (prevIndex >= 0) {
-      const prevTrack = allTracks[prevIndex];
-      selectTrack(prevTrack, prevIndex);
+      selectTrack(allTracks[prevIndex], prevIndex);
     }
   };
 
   const handleTrackComplete = () => {
-    // Auto-advance to next track
     if (currentTrackIndex < allTracks.length - 1) {
       goToNextTrack();
     } else {
@@ -298,14 +331,57 @@ export default function SessionDetailScreen() {
     }
   };
 
+  // Simple progress update handler
+  const handleProgressUpdate = (progress: UserProgress) => {
+    console.log('Progress updated:', progress);
+  };
+
+  // Register callbacks with audio context
+  useEffect(() => {
+    audioContext.setOnProgressUpdate(handleProgressUpdate);
+    return () => audioContext.setOnProgressUpdate(undefined);
+  }, []);
+
+  useEffect(() => {
+    audioContext.setOnTrackComplete(handleTrackComplete);
+    return () => audioContext.setOnTrackComplete(undefined);
+  }, [currentTrackIndex, allTracks.length]);
+
+  useEffect(() => {
+    const hasNext = currentTrackIndex < allTracks.length - 1;
+    const hasPrev = currentTrackIndex > 0;
+    audioContext.setOnNextTrack(hasNext ? goToNextTrack : undefined);
+    audioContext.setOnPreviousTrack(hasPrev ? goToPreviousTrack : undefined);
+    return () => {
+      audioContext.setOnNextTrack(undefined);
+      audioContext.setOnPreviousTrack(undefined);
+    };
+  }, [currentTrackIndex, allTracks.length]);
+
+  useEffect(() => {
+    audioContext.setOnPlayingStateChange(setIsTrackPlaying);
+    return () => audioContext.setOnPlayingStateChange(undefined);
+  }, []);
+
+  // Set upcoming tracks for pre-caching
+  useEffect(() => {
+    const upcoming = [
+      ...allTracks.slice(currentTrackIndex + 1),
+      ...nextSessionTracks,
+    ];
+    audioContext.setUpcomingTracks(upcoming);
+  }, [currentTrackIndex, allTracks.length, nextSessionTracks]);
+
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     return `${minutes}m`;
   };
 
   const formatTrackInfo = (track: Track) => {
-    const duration = formatDuration(track.duration);
-    return duration;
+    const parts: string[] = [];
+    if (track.speakerName) parts.push(track.speakerName);
+    parts.push(formatDuration(track.duration));
+    return parts.join(' · ');
   };
 
   return (
@@ -363,7 +439,6 @@ export default function SessionDetailScreen() {
                   style={[
                     styles.trackItem,
                     isCurrentTrack && styles.currentTrackItem,
-                    !track.isOriginal && styles.translationTrack
                   ]}
                 >
                   {/* Track Number on the left */}
@@ -377,15 +452,29 @@ export default function SessionDetailScreen() {
                   </View>
 
                   <View style={styles.trackInfo}>
-                    <Text style={[
-                      styles.trackTitle,
-                      isCurrentTrack && styles.currentTrackTitle
-                    ]}>
-                      {track.title}
-                    </Text>
-                    <Text style={styles.trackDuration}>
-                      {formatTrackInfo(track)}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {track.isPractice && (
+                        <Ionicons name="flower-outline" size={14} color="#9c27b0" />
+                      )}
+                      <Text style={[
+                        styles.trackTitle,
+                        isCurrentTrack && styles.currentTrackTitle
+                      ]}>
+                        {track.title}
+                      </Text>
+                    </View>
+                    <View style={styles.trackSubtitleRow}>
+                      {track.languages && track.languages.length > 0 && track.languages.map((lang: string) => (
+                        <View key={lang} style={[styles.langBadge, langBadgeColor(lang)]}>
+                          <Text style={[styles.langBadgeText, langBadgeTextColor(lang)]}>
+                            {lang.toUpperCase()}
+                          </Text>
+                        </View>
+                      ))}
+                      <Text style={styles.trackDuration}>
+                        {formatTrackInfo(track)}
+                      </Text>
+                    </View>
                   </View>
 
                 <View style={styles.trackRightSection}>
@@ -404,21 +493,8 @@ export default function SessionDetailScreen() {
           })}
       </ScrollView>
 
-      {/* Bottom-sticky Audio Player */}
-      <AudioPlayer
-        track={currentTrack}
-        onProgressUpdate={handleProgressUpdate}
-        onTrackComplete={handleTrackComplete}
-        onNextTrack={currentTrackIndex < allTracks.length - 1 ? goToNextTrack : undefined}
-        onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
-        onPlayingStateChange={setIsTrackPlaying}
-        // Pre-caching: remaining tracks in session + next session tracks
-        upcomingTracks={[
-          ...allTracks.slice(currentTrackIndex + 1), // Remaining tracks after current
-          ...nextSessionTracks, // Next session's tracks
-        ]}
-        retreatId={retreatId || session?.gathering?.id}
-      />
+      {/* Bottom-sticky Audio Player (mobile only — desktop uses DesktopPlayerBar) */}
+      {isMobile && <AudioPlayer />}
     </View>
   );
 }
@@ -520,8 +596,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: 'white', // Default white border for alignment
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -530,9 +604,6 @@ const styles = StyleSheet.create({
   },
   currentTrackItem: {
     backgroundColor: colors.burgundy[50],
-  },
-  translationTrack: {
-    borderLeftColor: colors.saffron[500], // Override white border with saffron
   },
   trackNumberContainer: {
     width: 24,
@@ -561,9 +632,24 @@ const styles = StyleSheet.create({
     color: colors.burgundy[600],
     fontWeight: '600',
   },
+  trackSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   trackDuration: {
     fontSize: 12,
     color: colors.gray[500],
+  },
+  langBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  langBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   trackRightSection: {
     flexDirection: 'row',

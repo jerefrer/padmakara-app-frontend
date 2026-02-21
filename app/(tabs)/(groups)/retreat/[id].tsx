@@ -5,12 +5,16 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
+import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import apiService from '@/services/apiService';
@@ -43,18 +47,44 @@ const colors = {
   white: '#ffffff',
 };
 
+const LANG_COLORS: Record<string, { bg: string; text: string }> = {
+  en: { bg: '#eff6ff', text: '#1d4ed8' },
+  pt: { bg: '#f0fdf4', text: '#15803d' },
+  fr: { bg: '#faf5ff', text: '#7e22ce' },
+  tib: { bg: '#fffbeb', text: '#b45309' },
+};
+const DEFAULT_LANG_COLOR = { bg: colors.gray[100], text: colors.gray[500] };
+
+const langBadgeColor = (lang: string) => ({
+  backgroundColor: (LANG_COLORS[lang.toLowerCase()] || DEFAULT_LANG_COLOR).bg,
+});
+const langBadgeTextColor = (lang: string) => ({
+  color: (LANG_COLORS[lang.toLowerCase()] || DEFAULT_LANG_COLOR).text,
+});
+
+interface TranscriptInfo {
+  id: number;
+  language: string;
+  pageCount?: number;
+  updatedAt?: string;
+  originalFilename?: string;
+}
+
 interface RetreatDetails {
   id: string;
   name: string;
+  name_translations?: Record<string, string>;
   season: string;
   year: number;
   startDate: string;
   endDate: string;
   sessions: Session[];
-  retreat_group: {
+  retreat_group?: {
     id: string;
     name: string;
+    name_translations?: Record<string, string>;
   };
+  transcripts?: TranscriptInfo[];
 }
 
 // Flat track with session info for display
@@ -63,17 +93,29 @@ interface TrackWithSession extends Track {
   sessionName: string;
   sessionDate: string;
   sessionType: string;
+  sessionPartNumber?: number | null;
 }
 
 export default function RetreatDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, contentLanguage } = useLanguage();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { t, contentLanguage, language } = useLanguage();
+  const { isDesktop } = useDesktopLayout();
+  const audioContext = useAudioPlayerContext();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Audio player state
+  const handleBack = useCallback(() => {
+    if (from === 'events') {
+      router.replace('/(tabs)/(events)');
+    } else {
+      router.back();
+    }
+  }, [from]);
+
+  // Local UI state for track highlighting and playing bars
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<TrackWithSession | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [allTracks, setAllTracks] = useState<TrackWithSession[]>([]);
@@ -118,24 +160,6 @@ export default function RetreatDetailScreen() {
     setModalState(prev => ({ ...prev, visible: false }));
   };
 
-  useEffect(() => {
-    loadRetreatDetails();
-  }, [id]);
-
-  useEffect(() => {
-    if (retreat) {
-      checkDownloadStatus();
-      buildTracksListWithSessions();
-    }
-  }, [retreat, buildTracksListWithSessions]);
-
-  // Apply language filter when language mode or tracks change
-  useEffect(() => {
-    if (allTracks.length > 0) {
-      applyLanguageFilter();
-    }
-  }, [allTracks, currentLanguageMode, applyLanguageFilter]);
-
   // Build flat list of tracks with session info
   const buildTracksListWithSessions = useCallback(() => {
     if (!retreat?.sessions) {
@@ -151,7 +175,16 @@ export default function RetreatDetailScreen() {
 
     for (const session of sortedSessions) {
       if (session.tracks) {
-        const sortedTracks = [...session.tracks].sort((a, b) => a.order - b.order);
+        const LANG_ORDER: Record<string, number> = { en: 0, pt: 1, es: 2, fr: 3 };
+        const sortedTracks = [...session.tracks].sort((a, b) => {
+          if (a.order !== b.order) return a.order - b.order;
+          const aOrig = a.isOriginal ? 0 : 1;
+          const bOrig = b.isOriginal ? 0 : 1;
+          if (aOrig !== bOrig) return aOrig - bOrig;
+          const aLang = LANG_ORDER[a.originalLanguage || a.language || 'en'] ?? 4;
+          const bLang = LANG_ORDER[b.originalLanguage || b.language || 'en'] ?? 4;
+          return aLang - bLang;
+        });
         for (const track of sortedTracks) {
           tracks.push({
             ...track,
@@ -159,6 +192,7 @@ export default function RetreatDetailScreen() {
             sessionName: session.name,
             sessionDate: session.date,
             sessionType: session.type,
+            sessionPartNumber: session.partNumber,
           });
         }
       }
@@ -183,14 +217,18 @@ export default function RetreatDetailScreen() {
       // No language metadata - show all tracks
       filtered = allTracks;
     } else if (currentLanguageMode === 'en') {
-      // English only - show original tracks (or those without explicit language info)
-      filtered = allTracks.filter(track => track.isOriginal !== false);
+      // English only - show tracks whose languages include English
+      filtered = allTracks.filter(track =>
+        track.languages?.includes('en') ?? track.isOriginal !== false
+      );
     } else if (currentLanguageMode === 'en-pt') {
       // Both - show all tracks
       filtered = allTracks;
     } else if (currentLanguageMode === 'pt') {
-      // Portuguese only - show translation tracks
-      filtered = allTracks.filter(track => !track.isOriginal && track.language === 'pt');
+      // Portuguese only - show tracks whose languages include Portuguese
+      filtered = allTracks.filter(track =>
+        track.languages?.includes('pt') ?? (!track.isOriginal && track.language === 'pt')
+      );
       // If no PT tracks, fall back to all
       if (filtered.length === 0) filtered = allTracks;
     } else {
@@ -199,6 +237,24 @@ export default function RetreatDetailScreen() {
 
     setFilteredTracks(filtered);
   }, [allTracks, currentLanguageMode]);
+
+  useEffect(() => {
+    loadRetreatDetails();
+  }, [id]);
+
+  useEffect(() => {
+    if (retreat) {
+      checkDownloadStatus();
+      buildTracksListWithSessions();
+    }
+  }, [retreat, buildTracksListWithSessions]);
+
+  // Apply language filter when language mode or tracks change
+  useEffect(() => {
+    if (allTracks.length > 0) {
+      applyLanguageFilter();
+    }
+  }, [allTracks, currentLanguageMode, applyLanguageFilter]);
 
   // Track download completion to prevent stale callbacks
   const downloadCompletedRef = useRef(false);
@@ -395,10 +451,16 @@ export default function RetreatDetailScreen() {
     }
   };
 
-  // Track selection
+  // Track selection - updates both local UI state and audio context
   const selectTrack = (track: TrackWithSession, trackIndex: number) => {
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
+    setSelectedTrack(track);
+    audioContext.playTrack(track, filteredTracks, trackIndex, {
+      retreatId: retreat!.id,
+      retreatName: getTranslatedName(retreat!, language) || retreat!.name,
+      groupName: retreat!.retreat_group ? (getTranslatedName(retreat!.retreat_group, language) || retreat!.retreat_group.name) : '',
+    });
   };
 
   const goToNextTrack = () => {
@@ -430,13 +492,43 @@ export default function RetreatDetailScreen() {
     console.log('Progress updated:', progress);
   };
 
+  // Register audio context callbacks
+  useEffect(() => {
+    audioContext.setOnTrackComplete(handleTrackComplete);
+    audioContext.setOnProgressUpdate(handleProgressUpdate);
+    audioContext.setOnPlayingStateChange(setIsTrackPlaying);
+
+    return () => {
+      audioContext.setOnTrackComplete(undefined);
+      audioContext.setOnProgressUpdate(undefined);
+      audioContext.setOnPlayingStateChange(undefined);
+    };
+  }, [currentTrackIndex, filteredTracks]);
+
+  // Register next/previous track callbacks
+  useEffect(() => {
+    audioContext.setOnNextTrack(currentTrackIndex < filteredTracks.length - 1 ? goToNextTrack : undefined);
+    audioContext.setOnPreviousTrack(currentTrackIndex > 0 ? goToPreviousTrack : undefined);
+    return () => {
+      audioContext.setOnNextTrack(undefined);
+      audioContext.setOnPreviousTrack(undefined);
+    };
+  }, [currentTrackIndex, filteredTracks]);
+
+  // Update upcoming tracks for pre-caching when track or list changes
+  useEffect(() => {
+    if (currentTrack && filteredTracks.length > 0) {
+      audioContext.setUpcomingTracks(filteredTracks.slice(currentTrackIndex + 1));
+    }
+  }, [currentTrackIndex, filteredTracks, currentTrack]);
+
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     return `${minutes}m`;
   };
 
-  // Format session date header - "Day N · March 2nd · Morning"
-  const formatSessionHeader = (session: { sessionName: string; sessionDate: string; sessionType: string }) => {
+  // Format session date header - "Day 1 · April 18th · Morning · Part 1"
+  const formatSessionHeader = (session: { sessionName: string; sessionDate: string; sessionType: string; sessionPartNumber?: number | null }) => {
     const sessionDate = new Date(session.sessionDate);
     const retreatStartDate = retreat ? new Date(retreat.startDate) : sessionDate;
 
@@ -455,7 +547,12 @@ export default function RetreatDetailScreen() {
     };
 
     const sessionType = t(`retreats.${session.sessionType}`) || session.sessionType;
-    return `Day ${dayNumber} · ${month} ${getOrdinal(dayNum)} · ${sessionType}`;
+    let header = `Day ${dayNumber} · ${month} ${getOrdinal(dayNum)} · ${sessionType}`;
+    if (session.sessionPartNumber) {
+      const partLabel = t('retreats.part') || 'Part';
+      header += ` · ${partLabel} ${session.sessionPartNumber}`;
+    }
+    return header;
   };
 
   const calculateTotalRetreatSize = () => {
@@ -488,7 +585,7 @@ export default function RetreatDetailScreen() {
     if (isRetreatDownloaded) {
       showModal(
         'Remove Download',
-        `Remove "${retreat.name}" from offline storage?`,
+        `Remove "${getTranslatedName(retreat, language)}" from offline storage?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -542,7 +639,7 @@ export default function RetreatDetailScreen() {
     setZipDownloadProgress('Preparing download...');
 
     try {
-      const downloadEndpoint = API_ENDPOINTS.RETREAT_DOWNLOAD_REQUEST(retreat.id);
+      const downloadEndpoint = API_ENDPOINTS.EVENT_DOWNLOAD_REQUEST(retreat.id);
       const requestResponse = await apiService.post(downloadEndpoint);
 
       if (!requestResponse.success) {
@@ -643,7 +740,7 @@ export default function RetreatDetailScreen() {
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{t('retreats.notFound') || 'Retreat not found'}</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButtonError}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButtonError}>
             <Text style={styles.backButtonText}>{t('common.goBack') || 'Go Back'}</Text>
           </TouchableOpacity>
         </View>
@@ -651,8 +748,86 @@ export default function RetreatDetailScreen() {
     );
   }
 
-  // Group tracks by session for display with headers
-  let currentSessionId: string | null = null;
+  // Render the track list (shared between desktop master panel and mobile)
+  const renderTrackList = (paddingBottom: number) => {
+    let trackSessionId: string | null = null;
+
+    return (
+      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom }]}>
+        {filteredTracks.map((track, trackIndex) => {
+          const isActive = currentTrack?.id === track.id;
+          const isSelected = selectedTrack?.id === track.id;
+          const showSessionHeader = track.sessionId !== trackSessionId;
+          trackSessionId = track.sessionId;
+
+          return (
+            <React.Fragment key={track.id}>
+              {/* Session Header */}
+              {showSessionHeader && (
+                <View style={styles.sessionHeader}>
+                  <Text style={styles.sessionHeaderText}>
+                    {formatSessionHeader(track)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Track Item */}
+              <TouchableOpacity
+                onPress={() => selectTrack(track, trackIndex)}
+                style={[
+                  styles.trackItem,
+                  isActive && styles.currentTrackItem,
+                  isDesktop && isSelected && !isActive && styles.selectedTrackItem,
+                ]}
+              >
+                <View style={styles.trackNumberContainer}>
+                  <Text style={[
+                    styles.trackNumber,
+                    isActive && styles.currentTrackNumber
+                  ]}>
+                    {track.order}
+                  </Text>
+                </View>
+
+                <View style={styles.trackInfo}>
+                  <Text style={[
+                    styles.trackTitle,
+                    isActive && styles.currentTrackTitle
+                  ]}>
+                    {track.title}
+                  </Text>
+                  <View style={styles.trackSubtitleRow}>
+                    {track.languages && track.languages.length > 0 && track.languages.map((lang: string) => (
+                      <View key={lang} style={[styles.langBadge, langBadgeColor(lang)]}>
+                        <Text style={[styles.langBadgeText, langBadgeTextColor(lang)]}>
+                          {lang.toUpperCase()}
+                        </Text>
+                      </View>
+                    ))}
+                    <Text style={styles.trackDuration}>
+                      {[track.speakerName, formatDuration(track.duration)].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.trackRightSection}>
+                  {isActive && (
+                    <View style={styles.playingIndicator}>
+                      <AnimatedPlayingBars
+                        isPlaying={isTrackPlaying}
+                        size={20}
+                        color={colors.burgundy[500]}
+                      />
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </React.Fragment>
+          );
+        })}
+      </ScrollView>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -660,18 +835,27 @@ export default function RetreatDetailScreen() {
       <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
         {/* Navigation Header with Overflow Menu */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
           </TouchableOpacity>
           <View style={styles.headerText}>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group?.name || ''}</Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''}</Text>
               {isRetreatDownloaded && <OfflineBadge />}
             </View>
             <Text style={styles.headerSubtitle}>
-              {retreat.name} {retreat.year}
+              {getTranslatedName(retreat, language)} {retreat.year}
             </Text>
           </View>
+          {/* Transcript button (mobile only — desktop shows in detail panel) */}
+          {!isDesktop && retreat.transcripts && retreat.transcripts.length > 0 && (
+            <TouchableOpacity
+              onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)}
+              style={styles.menuButton}
+            >
+              <Ionicons name="document-text-outline" size={22} color={colors.burgundy[500]} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
             <Ionicons name="ellipsis-vertical" size={24} color={colors.gray[600]} />
           </TouchableOpacity>
@@ -740,82 +924,25 @@ export default function RetreatDetailScreen() {
 
       </SafeAreaView>
 
-      {/* Scrollable Tracks List with Session Headers */}
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {filteredTracks.map((track, trackIndex) => {
-          const isCurrentTrack = currentTrack?.id === track.id;
-          const showSessionHeader = track.sessionId !== currentSessionId;
-          currentSessionId = track.sessionId;
-
-          return (
-            <React.Fragment key={track.id}>
-              {/* Session Header */}
-              {showSessionHeader && (
-                <View style={styles.sessionHeader}>
-                  <Text style={styles.sessionHeaderText}>
-                    {formatSessionHeader(track)}
-                  </Text>
-                </View>
-              )}
-
-              {/* Track Item */}
-              <TouchableOpacity
-                onPress={() => selectTrack(track, trackIndex)}
-                style={[
-                  styles.trackItem,
-                  isCurrentTrack && styles.currentTrackItem,
-                  !track.isOriginal && styles.translationTrack
-                ]}
-              >
-                <View style={styles.trackNumberContainer}>
-                  <Text style={[
-                    styles.trackNumber,
-                    isCurrentTrack && styles.currentTrackNumber
-                  ]}>
-                    {track.order}
-                  </Text>
-                </View>
-
-                <View style={styles.trackInfo}>
-                  <Text style={[
-                    styles.trackTitle,
-                    isCurrentTrack && styles.currentTrackTitle
-                  ]}>
-                    {track.title}
-                  </Text>
-                  <Text style={styles.trackDuration}>
-                    {formatDuration(track.duration)}
-                  </Text>
-                </View>
-
-                <View style={styles.trackRightSection}>
-                  {isCurrentTrack && (
-                    <View style={styles.playingIndicator}>
-                      <AnimatedPlayingBars
-                        isPlaying={isTrackPlaying}
-                        size={20}
-                        color={colors.burgundy[500]}
-                      />
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </React.Fragment>
-          );
-        })}
-      </ScrollView>
-
-      {/* Bottom-sticky Audio Player */}
-      <AudioPlayer
-        track={currentTrack}
-        onProgressUpdate={handleProgressUpdate}
-        onTrackComplete={handleTrackComplete}
-        onNextTrack={currentTrackIndex < filteredTracks.length - 1 ? goToNextTrack : undefined}
-        onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
-        onPlayingStateChange={setIsTrackPlaying}
-        upcomingTracks={filteredTracks.slice(currentTrackIndex + 1)}
-        retreatId={retreat.id}
-      />
+      {/* Main content: desktop master-detail split vs mobile single column */}
+      {isDesktop ? (
+        <View style={styles.masterDetailContainer}>
+          {/* Master: Track list (40%) */}
+          <View style={styles.masterPanel}>
+            {renderTrackList(24)}
+          </View>
+          {/* Detail panel (60%) */}
+          <View style={styles.detailPanel}>
+            <TrackDetailPanel retreat={retreat} />
+          </View>
+        </View>
+      ) : (
+        <>
+          {renderTrackList(180)}
+          {/* Bottom-sticky Audio Player (mobile only; desktop uses DesktopPlayerBar) */}
+          <AudioPlayer />
+        </>
+      )}
 
       {/* Overflow Menu Modal */}
       <Modal
@@ -999,7 +1126,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 180,
   },
   sessionHeader: {
     paddingVertical: 12,
@@ -1019,8 +1145,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: 'white',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1029,9 +1153,6 @@ const styles = StyleSheet.create({
   },
   currentTrackItem: {
     backgroundColor: colors.burgundy[50],
-  },
-  translationTrack: {
-    borderLeftColor: colors.saffron[500],
   },
   trackNumberContainer: {
     width: 24,
@@ -1060,9 +1181,24 @@ const styles = StyleSheet.create({
     color: colors.burgundy[600],
     fontWeight: '600',
   },
+  trackSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   trackDuration: {
     fontSize: 12,
     color: colors.gray[500],
+  },
+  langBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  langBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   trackRightSection: {
     flexDirection: 'row',
@@ -1132,5 +1268,22 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.gray[200],
     marginHorizontal: 16,
+  },
+  // Desktop master-detail layout
+  masterDetailContainer: {
+    flex: 1,
+    flexDirection: 'row' as const,
+  },
+  masterPanel: {
+    flex: 0.4,
+    borderRightWidth: 1,
+    borderRightColor: colors.gray[200],
+  },
+  detailPanel: {
+    flex: 0.6,
+  },
+  selectedTrackItem: {
+    backgroundColor: colors.gray[100],
+    borderLeftColor: colors.burgundy[500],
   },
 });

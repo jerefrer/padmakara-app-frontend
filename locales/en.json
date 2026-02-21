@@ -7,6 +7,7 @@
     "error": "Error",
     "success": "Success",
     "retry": "Try Again",
+    "connectionError": "Connection Error",
     "download": "Save Offline",
     "downloadRetreatZip": "Download Retreat as ZIP",
     "play": "Play",
@@ -27,7 +28,7 @@
     "biometricPrompt": "Use your {{biometricType}} to access your retreat content",
     "biometricFallback": "Enter Passcode",
     "magicLink": {
-      "title": "Welcome to Padmakara",
+      "title": "Sign In",
       "subtitle": "Enter your email address to access your retreat recordings",
       "emailPlaceholder": "your.email@example.com",
       "continueButton": "Continue",
@@ -62,12 +63,72 @@
     "retreats": "Retreats",
     "downloads": "Saved Content",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "subscription": "Subscription",
+    "events": "Events",
+    "search": "Search"
   },
   "groups": {
     "yourGroups": "Your groups",
     "retreatAttended": "{{count}} retreat attended",
-    "retreatsAttended": "{{count}} retreats attended"
+    "retreatsAttended": "{{count}} retreats attended",
+    "publicEvents": "Public Events",
+    "noPublicEvents": "No public events available at this time.",
+    "signInRequired": "Sign In Required",
+    "signInPrompt": "Retreat participants can sign in to access their recordings.",
+    "signIn": "Sign In",
+    "noGroups": "No Retreat Groups",
+    "noGroupsDescription": "You haven't been assigned to any retreat groups yet. Please contact your administrator.",
+    "groupName": "Group",
+    "lastRetreat": "Last retreat",
+    "retreatLabel": "retreat",
+    "retreatsLabel": "retreats",
+    "accountRequired": "Access to Retreat Recordings",
+    "accountRequiredMobile": "An active account is needed to access your retreat recordings.",
+    "accountRequiredDesktop": "Subscribe to listen to your retreat group's recordings.",
+    "setupAccount": "Visit app.padmakara.pt to set up your account"
+  },
+  "events": {
+    "eventName": "Event",
+    "sessions": "Sessions",
+    "sessionLabel": "session",
+    "sessionsLabel": "sessions",
+    "date": "Date"
+  },
+  "home": {
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening"
+  },
+  "trackDetail": {
+    "retreatOverview": "Retreat Overview",
+    "selectTrack": "Select a track from the list to see details",
+    "playTrack": "Play Track",
+    "session": "Session",
+    "duration": "Duration",
+    "trackNumber": "Track {{number}}",
+    "translation": "Translation",
+    "totalSessions": "{{count}} sessions",
+    "totalTracks": "{{count}} tracks"
+  },
+  "subscription": {
+    "status": "Subscription",
+    "active": "Active",
+    "expired": "Expired",
+    "none": "No subscription",
+    "manage": "Manage Subscription",
+    "expiresOn": "Expires",
+    "manageOnWeb": "Manage your account at app.padmakara.pt",
+    "subscribe": "Subscribe",
+    "subscribeCta": "Subscribe to access retreat recordings",
+    "registerCta": "Retreat participants can sign in to access their group's recordings.",
+    "success": "Subscription Activated!",
+    "successDescription": "You now have access to all retreat recordings. Enjoy your practice!",
+    "cancelled": "Subscription Cancelled",
+    "cancelDescription": "You can subscribe anytime to access retreat recordings.",
+    "goToApp": "Go to App",
+    "price": "\u20ac5/month",
+    "contactUs": "Contact us to manage your subscription"
   },
   "retreats": {
     "myRetreats": "My Retreats",
@@ -79,11 +140,15 @@
     "tracksPlural": "{{count}} tracks",
     "tracksCount": "Tracks ({{count}})",
     "morning": "Morning",
+    "afternoon": "Afternoon",
     "evening": "Evening",
+    "part": "Part",
     "transcript": "Transcript",
     "audio": "Audio",
     "notFound": "Retreat not found",
-    "offline": "Offline"
+    "offline": "Offline",
+    "tracksLabel": "tracks",
+    "trackLabel": "track"
   },
   "session": {
     "loadingSession": "Loading session...",
@@ -94,10 +159,20 @@
   },
   "transcript": {
     "transcriptNotFound": "Transcript not found",
+    "transcript": "Transcript",
+    "viewTranscript": "View Transcript",
+    "downloadPdf": "Download PDF",
+    "downloading": "Downloading...",
+    "downloadError": "Failed to download transcript",
+    "noTranscript": "No transcript available for this event",
     "page": "Page {{current}}",
     "pageOf": "Page {{current}} of {{total}}",
     "highlights": "{{count}} highlights",
-    "highlightsOnPage": "{{count}} highlights on this page"
+    "highlightsOnPage": "{{count}} highlights on this page",
+    "loadingTranscript": "Loading transcript...",
+    "loadError": "Failed to load transcript",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "player": {
     "nowPlaying": "Now Playing",
@@ -105,7 +180,11 @@
     "bookmark": "Bookmark",
     "bookmarks": "Bookmarks",
     "resume": "Resume from {{time}}",
-    "completed": "Completed"
+    "completed": "Completed",
+    "upNext": "Up Next",
+    "trackMetadata": "Track Details",
+    "close": "Close",
+    "noTrack": "No track selected"
   },
   "downloads": {
     "myDownloads": "My Saved Content",
@@ -142,6 +221,22 @@
     "trackCount": "{{count}} track",
     "tracksCount": "{{count}} tracks"
   },
+  "search": {
+    "placeholder": "Search by topic or teacher",
+    "noResults": "No results found",
+    "noResultsDescription": "Try different keywords or check the spelling",
+    "resultsCount": "{{count}} result",
+    "resultsCountPlural": "{{count}} results",
+    "matchedIn": "Matched in: {{fields}}",
+    "fieldSessionThemes": "session topics",
+    "fieldMainThemes": "main topics",
+    "fieldTitle": "title",
+    "fieldTeacher": "teacher",
+    "fieldTrackTitle": "track title",
+    "matchedTracks": "Matching tracks",
+    "searching": "Searching...",
+    "minChars": "Type at least 2 characters"
+  },
   "profile": {
     "storage": "Storage",
     "myProfile": "My Profile",
@@ -170,10 +265,17 @@
     "signOutDescription": "Sign out of your account (keeps device activated)",
     "forgetDevice": "Forget This Device",
     "forgetDeviceDescription": "Remove device completely (requires email activation)",
+    "accountStatus": "Account Status",
+    "accessGranted": "Signed in",
+    "limitedAccess": "Public content only",
+    "accessGrantedDescription": "You have access to retreat recordings",
+    "visitWebsite": "Visit app.padmakara.pt to manage your account",
     "about": "About",
     "version": "Version",
     "appDescription": "Padmakara App provides access to Jigme Khyentse Rinpoche's teachings on mind training and the 37 practices of bodhisattvas. Built with love for the Tibetan Buddhist community.",
     "copyright": "© 2024 Associação Padmakara Portugal",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "activeSubscription": "Active subscription",
+    "inactiveSubscription": "Inactive subscription"
   }
 }
