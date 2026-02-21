@@ -5,6 +5,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -52,8 +54,8 @@ interface SessionDetails {
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { contentLanguage, t } = useLanguage();
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const audioContext = useAudioPlayerContext();
+  const { isMobile } = useDesktopLayout();
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,12 +136,6 @@ export default function SessionDetailScreen() {
     filtered.sort((a, b) => a.order - b.order);
     setFilteredTracks(filtered);
   }, [session, currentLanguageMode]);
-
-  // Simple progress update handler
-  const handleProgressUpdate = (progress: UserProgress) => {
-    // In production, this would sync with your backend
-    console.log('Progress updated:', progress);
-  };
 
   const loadSessionDetails = async () => {
     try {
@@ -264,30 +260,34 @@ export default function SessionDetailScreen() {
   // Get all tracks in order - use filtered tracks for display
   const allTracks: Track[] = filteredTracks.length > 0 ? filteredTracks : session.tracks.sort((a, b) => a.order - b.order);
 
-  // Track selection - simple state update
+  // Derive current track info from context
+  const currentTrack = audioContext.currentTrack;
+  const currentTrackIndex = audioContext.currentTrackIndex;
+
+  // Track selection via context
   const selectTrack = (track: Track, trackIndex: number) => {
-    setCurrentTrack(track);
-    setCurrentTrackIndex(trackIndex);
+    audioContext.playTrack(track, allTracks, trackIndex, {
+      retreatId: retreatId || session?.gathering?.id || '',
+      retreatName: session?.gathering?.name || '',
+      groupName: '',
+    });
   };
 
   const goToNextTrack = () => {
     const nextIndex = currentTrackIndex + 1;
     if (nextIndex < allTracks.length) {
-      const nextTrack = allTracks[nextIndex];
-      selectTrack(nextTrack, nextIndex);
+      selectTrack(allTracks[nextIndex], nextIndex);
     }
   };
 
   const goToPreviousTrack = () => {
     const prevIndex = currentTrackIndex - 1;
     if (prevIndex >= 0) {
-      const prevTrack = allTracks[prevIndex];
-      selectTrack(prevTrack, prevIndex);
+      selectTrack(allTracks[prevIndex], prevIndex);
     }
   };
 
   const handleTrackComplete = () => {
-    // Auto-advance to next track
     if (currentTrackIndex < allTracks.length - 1) {
       goToNextTrack();
     } else {
@@ -297,6 +297,47 @@ export default function SessionDetailScreen() {
       );
     }
   };
+
+  // Simple progress update handler
+  const handleProgressUpdate = (progress: UserProgress) => {
+    console.log('Progress updated:', progress);
+  };
+
+  // Register callbacks with audio context
+  useEffect(() => {
+    audioContext.setOnProgressUpdate(handleProgressUpdate);
+    return () => audioContext.setOnProgressUpdate(undefined);
+  }, []);
+
+  useEffect(() => {
+    audioContext.setOnTrackComplete(handleTrackComplete);
+    return () => audioContext.setOnTrackComplete(undefined);
+  }, [currentTrackIndex, allTracks.length]);
+
+  useEffect(() => {
+    const hasNext = currentTrackIndex < allTracks.length - 1;
+    const hasPrev = currentTrackIndex > 0;
+    audioContext.setOnNextTrack(hasNext ? goToNextTrack : undefined);
+    audioContext.setOnPreviousTrack(hasPrev ? goToPreviousTrack : undefined);
+    return () => {
+      audioContext.setOnNextTrack(undefined);
+      audioContext.setOnPreviousTrack(undefined);
+    };
+  }, [currentTrackIndex, allTracks.length]);
+
+  useEffect(() => {
+    audioContext.setOnPlayingStateChange(setIsTrackPlaying);
+    return () => audioContext.setOnPlayingStateChange(undefined);
+  }, []);
+
+  // Set upcoming tracks for pre-caching
+  useEffect(() => {
+    const upcoming = [
+      ...allTracks.slice(currentTrackIndex + 1),
+      ...nextSessionTracks,
+    ];
+    audioContext.setUpcomingTracks(upcoming);
+  }, [currentTrackIndex, allTracks.length, nextSessionTracks]);
 
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -409,21 +450,8 @@ export default function SessionDetailScreen() {
           })}
       </ScrollView>
 
-      {/* Bottom-sticky Audio Player */}
-      <AudioPlayer
-        track={currentTrack}
-        onProgressUpdate={handleProgressUpdate}
-        onTrackComplete={handleTrackComplete}
-        onNextTrack={currentTrackIndex < allTracks.length - 1 ? goToNextTrack : undefined}
-        onPreviousTrack={currentTrackIndex > 0 ? goToPreviousTrack : undefined}
-        onPlayingStateChange={setIsTrackPlaying}
-        // Pre-caching: remaining tracks in session + next session tracks
-        upcomingTracks={[
-          ...allTracks.slice(currentTrackIndex + 1), // Remaining tracks after current
-          ...nextSessionTracks, // Next session's tracks
-        ]}
-        retreatId={retreatId || session?.gathering?.id}
-      />
+      {/* Bottom-sticky Audio Player (mobile only — desktop uses DesktopPlayerBar) */}
+      {isMobile && <AudioPlayer />}
     </View>
   );
 }

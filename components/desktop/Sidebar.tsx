@@ -210,10 +210,10 @@ export function Sidebar() {
 
     // Parse segments to determine where we are
     // Segments: ["(tabs)", "(groups)", ...rest]
-    const groupsIndex = segments.indexOf('(groups)');
+    const groupsIndex = (segments as string[]).indexOf('(groups)');
     if (groupsIndex === -1) return;
 
-    const rest = segments.slice(groupsIndex + 1);
+    const rest = (segments as string[]).slice(groupsIndex + 1);
 
     if (rest.length === 0 || (rest.length === 1 && rest[0] === 'index')) {
       // At /(groups) or /(groups)/index -> level 0
