@@ -27,6 +27,8 @@ export interface AudioPlayerContextType {
   retreatName: string | null;
   groupName: string | null;
   isPlayButtonDisabled: boolean;
+  hasNextTrack: boolean;
+  hasPreviousTrack: boolean;
 
   // Actions
   playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }) => void;
@@ -77,6 +79,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const onPlayingStateChangeRef = useRef<((isPlaying: boolean) => void) | undefined>(undefined);
   const onNextTrackRef = useRef<(() => void) | undefined>(undefined);
   const onPreviousTrackRef = useRef<(() => void) | undefined>(undefined);
+  const [hasNextTrack, setHasNextTrack] = useState(false);
+  const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
 
   // --- Upcoming tracks for pre-caching ---
   const [upcomingTracks, setUpcomingTracks] = useState<Track[]>([]);
@@ -772,10 +776,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const setOnNextTrack = useCallback((cb: (() => void) | undefined) => {
     onNextTrackRef.current = cb;
+    setHasNextTrack(!!cb);
   }, []);
 
   const setOnPreviousTrack = useCallback((cb: (() => void) | undefined) => {
     onPreviousTrackRef.current = cb;
+    setHasPreviousTrack(!!cb);
   }, []);
 
   // --- Context value ---
@@ -794,6 +800,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     retreatName: metaRetreatName,
     groupName: metaGroupName,
     isPlayButtonDisabled,
+    hasNextTrack,
+    hasPreviousTrack,
 
     // Actions
     playTrack,

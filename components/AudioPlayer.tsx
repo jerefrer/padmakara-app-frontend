@@ -48,6 +48,8 @@ export function AudioPlayer() {
     skipBackward,
     nextTrack,
     previousTrack,
+    hasNextTrack,
+    hasPreviousTrack,
     changePlaybackSpeed,
     onSlidingStart,
     onSlidingComplete,
@@ -94,9 +96,10 @@ export function AudioPlayer() {
             {/* Previous track */}
             <TouchableOpacity
               onPress={previousTrack}
-              style={styles.controlButton}
+              style={[styles.controlButton, !hasPreviousTrack && styles.controlDisabled]}
+              disabled={!hasPreviousTrack}
             >
-              <Ionicons name="play-skip-back" size={22} color={colors.gray[700]} />
+              <Ionicons name="play-skip-back" size={22} color={hasPreviousTrack ? colors.gray[700] : colors.gray[400]} />
             </TouchableOpacity>
 
             {/* -15s button */}
@@ -143,9 +146,10 @@ export function AudioPlayer() {
             {/* Next track */}
             <TouchableOpacity
               onPress={nextTrack}
-              style={styles.controlButton}
+              style={[styles.controlButton, !hasNextTrack && styles.controlDisabled]}
+              disabled={!hasNextTrack}
             >
-              <Ionicons name="play-skip-forward" size={22} color={colors.gray[700]} />
+              <Ionicons name="play-skip-forward" size={22} color={hasNextTrack ? colors.gray[700] : colors.gray[400]} />
             </TouchableOpacity>
           </View>
 
