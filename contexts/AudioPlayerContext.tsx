@@ -213,6 +213,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       };
 
       setupOptimisticDisplay();
+
+      // Safety timeout: if loading gets stuck, clear the spinner after 15s
+      const safetyTimeout = setTimeout(() => {
+        setIsTrackLoading(prev => {
+          if (prev) {
+            console.warn(`[SAFETY] Clearing stuck loading state after 15s for track: ${track.title}`);
+          }
+          return false;
+        });
+      }, 15000);
+      setPendingTimeouts(prev => [...prev, safetyTimeout]);
     } else {
       console.log('No track selected, resetting');
       setAudioSource(null);
@@ -242,8 +253,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
 
     // State machine transitions - prevent duplicate loading for same track
-    if (playerState === 'LOADING' && status.isLoaded && status.duration > 0 && loadedTrackId !== track.id) {
-      console.log(`Audio loaded: ${track.title} (${track.id}) - Duration: ${status.duration}s`);
+    // Note: Don't require status.duration > 0 — streaming URLs may report 0 duration until fully buffered
+    if (playerState === 'LOADING' && status.isLoaded && loadedTrackId !== track.id) {
+      console.log(`Audio loaded: ${track.title} (${track.id}) - Duration: ${status.duration}s (track.duration: ${track.duration}s)`);
       setLoadedTrackId(track.id);
 
       const isFirstLoad = loadedTrackId === null;
@@ -252,6 +264,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const timeout = setTimeout(() => {
         console.log(`Audio stabilized - transitioning to READY (delay: ${delay}ms)`);
         setPlayerState('READY');
+        setIsTrackLoading(false);
       }, delay);
 
       setPendingTimeouts(prev => [...prev, timeout]);
@@ -450,7 +463,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         const positionSeconds = progress.position;
 
         const maxDuration = status.duration || track.duration || 0;
-        if (positionSeconds > 0 && positionSeconds < maxDuration - 1) {
+        // Allow seek if we have a position, even when duration is unknown (0)
+        if (positionSeconds > 0 && (maxDuration === 0 || positionSeconds < maxDuration - 1)) {
           console.log(`Restoring to saved position: ${positionSeconds}s / ${maxDuration}s`);
 
           setDisplayPosition(positionSeconds);
@@ -476,9 +490,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
           const isPlayerStateValid = player &&
             status?.isLoaded &&
-            (playerState as AudioPlayerState) !== 'LOADING' &&
-            typeof status.duration === 'number' &&
-            status.duration > 0;
+            (playerState as AudioPlayerState) !== 'LOADING';
 
           if (!isPlayerStateValid) {
             console.log(`Player state invalid during restoration (session: ${restorationSessionId})`);
@@ -608,7 +620,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const progress: UserProgress = {
         trackId: track.id,
         position: Math.floor(currentPositionMs / 1000),
-        completed: currentPositionMs >= (status.duration * 1000 * 0.95),
+        completed: (status.duration || track.duration || 0) > 0
+          ? currentPositionMs >= ((status.duration || track.duration) * 1000 * 0.95)
+          : false,
         lastPlayed: new Date().toISOString(),
         bookmarks: [],
       };
