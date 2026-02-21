@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 
 const colors = {
   cream: {
@@ -26,6 +27,12 @@ interface AppHeaderProps {
 
 export function AppHeader({ showBackButton = false, onBackPress, title }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { showSidebar } = useDesktopLayout();
+
+  // Sidebar handles navigation on desktop — hide the header
+  if (showSidebar) {
+    return null;
+  }
   
   const handleLogoPress = () => {
     // Navigate to home when logo is tapped (unless we're already on home)
