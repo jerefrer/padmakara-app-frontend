@@ -151,7 +151,10 @@
     "bookmark": "Bookmark",
     "bookmarks": "Bookmarks",
     "resume": "Resume from {{time}}",
-    "completed": "Completed"
+    "completed": "Completed",
+    "upNext": "Up Next",
+    "trackMetadata": "Track Details",
+    "close": "Close"
   },
   "downloads": {
     "myDownloads": "My Saved Content",

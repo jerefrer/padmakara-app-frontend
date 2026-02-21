@@ -151,7 +151,10 @@
     "bookmark": "Marcador",
     "bookmarks": "Marcadores",
     "resume": "Continuar de {{time}}",
-    "completed": "Concluído"
+    "completed": "Concluído",
+    "upNext": "A Seguir",
+    "trackMetadata": "Detalhes da Faixa",
+    "close": "Fechar"
   },
   "downloads": {
     "myDownloads": "Meu Conteúdo Salvo",

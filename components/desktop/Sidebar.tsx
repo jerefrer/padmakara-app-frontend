@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSidebarNavigation } from '@/contexts/SidebarNavigationContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { colors } from '@/constants/colors';
 import { getTranslatedName } from '@/utils/i18n';
 import retreatService from '@/services/retreatService';
@@ -32,6 +33,7 @@ export function Sidebar() {
   const segments = useSegments();
   const { user, isAuthenticated, hasActiveSubscription } = useAuth();
   const { t, language } = useLanguage();
+  const { sidebarCollapsed } = useDesktopLayout();
   const {
     level,
     drillDown,
@@ -44,6 +46,7 @@ export function Sidebar() {
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [hoveredContentItem, setHoveredContentItem] = useState<string | null>(null);
+  const [hovered, setHovered] = useState(false);
 
   // Data states
   const [groups, setGroups] = useState<RetreatGroup[]>([]);
@@ -107,6 +110,16 @@ export function Sidebar() {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
     return parts[0][0].toUpperCase();
+  };
+
+  const getUserFirstInitial = (): string => {
+    if (!user?.name) return '?';
+    return user.name.trim()[0].toUpperCase();
+  };
+
+  const getGroupInitial = (group: RetreatGroup): string => {
+    const name = getTranslatedName(group, language as 'en' | 'pt');
+    return name ? name[0].toUpperCase() : '?';
   };
 
   const getSubscriptionLabel = (): string => {
@@ -216,10 +229,10 @@ export function Sidebar() {
       if (level.type !== 'retreats' || level.parentId !== groupId) {
         // We need to find the group name. Check if we have groups loaded.
         const group = groups.find(g => g.id === groupId);
-        const groupName = group
+        const groupNameVal = group
           ? getTranslatedName(group, language as 'en' | 'pt')
           : '';
-        drillDown('retreats', groupId, groupName || t('groups.yourGroups') || 'Your Groups');
+        drillDown('retreats', groupId, groupNameVal || t('groups.yourGroups') || 'Your Groups');
       }
     } else if (rest.length >= 2 && rest[0] === 'retreat') {
       // At /(groups)/retreat/[id] -> level 2 (sessions)
@@ -227,10 +240,10 @@ export function Sidebar() {
       if (level.type !== 'sessions' || level.parentId !== retreatId) {
         // Find retreat name from currently loaded retreats
         const retreat = retreats.find(r => r.id === retreatId);
-        const retreatName = retreat
+        const retreatNameVal = retreat
           ? getTranslatedName(retreat, language as 'en' | 'pt')
           : '';
-        drillDown('sessions', retreatId, retreatName || '');
+        drillDown('sessions', retreatId, retreatNameVal || '');
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only reacts to route changes; including other deps would cause infinite sync loops
@@ -381,7 +394,7 @@ export function Sidebar() {
         <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
           {groups.map((group) => {
             const isItemActive = activeItemId === group.id;
-            const isHovered = hoveredContentItem === `group-${group.id}`;
+            const isHoveredItem = hoveredContentItem === `group-${group.id}`;
 
             return (
               <Pressable
@@ -389,7 +402,7 @@ export function Sidebar() {
                 style={[
                   styles.contentItem,
                   isItemActive && styles.contentItemActive,
-                  isHovered && !isItemActive && styles.contentItemHover,
+                  isHoveredItem && !isItemActive && styles.contentItemHover,
                 ]}
                 onPress={() => handleGroupPress(group)}
                 // @ts-ignore -- web-only mouse events
@@ -450,7 +463,7 @@ export function Sidebar() {
               <Text style={styles.yearHeader}>{year}</Text>
               {byYear[year].map((retreat) => {
                 const isItemActive = activeItemId === retreat.id;
-                const isHovered = hoveredContentItem === `retreat-${retreat.id}`;
+                const isHoveredItem = hoveredContentItem === `retreat-${retreat.id}`;
 
                 return (
                   <Pressable
@@ -458,7 +471,7 @@ export function Sidebar() {
                     style={[
                       styles.contentItem,
                       isItemActive && styles.contentItemActive,
-                      isHovered && !isItemActive && styles.contentItemHover,
+                      isHoveredItem && !isItemActive && styles.contentItemHover,
                     ]}
                     onPress={() => handleRetreatPress(retreat)}
                     // @ts-ignore
@@ -510,7 +523,7 @@ export function Sidebar() {
         <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
           {sorted.map((session) => {
             const isItemActive = activeItemId === session.id;
-            const isHovered = hoveredContentItem === `session-${session.id}`;
+            const isHoveredItem = hoveredContentItem === `session-${session.id}`;
             const dateStr = formatSessionDate(session);
             const showDateHeader = dateStr !== lastDate;
             lastDate = dateStr;
@@ -524,7 +537,7 @@ export function Sidebar() {
                   style={[
                     styles.contentItem,
                     isItemActive && styles.contentItemActive,
-                    isHovered && !isItemActive && styles.contentItemHover,
+                    isHoveredItem && !isItemActive && styles.contentItemHover,
                   ]}
                   onPress={() => handleSessionPress(session)}
                   // @ts-ignore
@@ -552,122 +565,261 @@ export function Sidebar() {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Logo and app name */}
-      <View style={styles.logoSection}>
+  // ── Collapsed rail (tablet) ───────────────────────────────────────
+
+  const renderCollapsedRail = () => {
+    return (
+      <View
+        style={styles.railContainer}
+        // @ts-ignore -- web-only mouse events
+        onMouseEnter={() => setHovered(true)}
+        // @ts-ignore
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* Logo icon only */}
         <Pressable
-          style={styles.logoRow}
+          style={styles.railLogoSection}
           onPress={() => handleNavPress('/(tabs)/(groups)')}
           accessibilityRole="link"
           accessibilityLabel="Padmakara home"
         >
           <Image
             source={require('@/assets/images/logo.png')}
-            style={styles.logo}
+            style={styles.railLogo}
             resizeMode="contain"
           />
-          <Text style={styles.appName}>Padmakara</Text>
         </Pressable>
-        <Pressable
-          style={styles.collapseButton}
-          accessibilityRole="button"
-          accessibilityLabel="Collapse sidebar"
-        >
-          <Ionicons name="chevron-back-outline" size={16} color={colors.gray[400]} />
-        </Pressable>
-      </View>
 
-      {/* Navigation items */}
-      <View style={styles.navSection}>
-        {navItems.map((item) => {
-          const active = isActive(item);
-          const hovered = hoveredItem === item.key;
-
-          return (
-            <Pressable
-              key={item.key}
-              style={[
-                styles.navItem,
-                active && styles.navItemActive,
-                hovered && !active && styles.navItemHover,
-              ]}
-              onPress={() => handleNavPress(item.route)}
-              // @ts-ignore -- web-only mouse events
-              onMouseEnter={() => setHoveredItem(item.key)}
-              // @ts-ignore
-              onMouseLeave={() => setHoveredItem(null)}
-              accessibilityRole="link"
-              accessibilityLabel={item.label}
-              accessibilityState={{ selected: active }}
-            >
-              <Ionicons
-                name={active ? item.activeIcon : item.icon}
-                size={20}
-                color={active ? colors.burgundy[500] : colors.gray[500]}
-              />
-              <Text
+        {/* Nav icons */}
+        <View style={styles.railNavSection}>
+          {navItems.map((item) => {
+            const active = isActive(item);
+            return (
+              <Pressable
+                key={item.key}
                 style={[
-                  styles.navLabel,
-                  active && styles.navLabelActive,
+                  styles.railNavItem,
+                  active && styles.railNavItemActive,
                 ]}
+                onPress={() => handleNavPress(item.route)}
+                accessibilityRole="link"
+                accessibilityLabel={item.label}
+                accessibilityState={{ selected: active }}
               >
-                {item.label}
-              </Text>
+                <Ionicons
+                  name={active ? item.activeIcon : item.icon}
+                  size={22}
+                  color={active ? colors.burgundy[500] : colors.gray[500]}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Divider */}
+        <View style={styles.railDivider} />
+
+        {/* Group initials */}
+        <View style={styles.railContentSection}>
+          {groups.map((group) => {
+            const isItemActive = activeItemId === group.id;
+            return (
+              <Pressable
+                key={group.id}
+                style={[
+                  styles.railGroupItem,
+                  isItemActive && styles.railGroupItemActive,
+                ]}
+                onPress={() => handleGroupPress(group)}
+                accessibilityRole="button"
+                accessibilityLabel={getTranslatedName(group, language as 'en' | 'pt')}
+              >
+                <Text
+                  style={[
+                    styles.railGroupInitial,
+                    isItemActive && styles.railGroupInitialActive,
+                  ]}
+                >
+                  {getGroupInitial(group)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* User initial at bottom */}
+        <View style={styles.railUserFooter}>
+          <View style={styles.railDivider} />
+          {isAuthenticated && user ? (
+            <Pressable
+              style={styles.railUserButton}
+              onPress={() => handleNavPress('/(tabs)/settings')}
+              accessibilityRole="link"
+              accessibilityLabel={user.name || 'User'}
+            >
+              <View style={styles.railAvatar}>
+                <Text style={styles.railAvatarText}>{getUserFirstInitial()}</Text>
+              </View>
             </Pressable>
-          );
-        })}
-      </View>
+          ) : (
+            <Pressable
+              style={styles.railUserButton}
+              onPress={() => router.push('/(auth)/magic-link' as any)}
+              accessibilityRole="link"
+              accessibilityLabel="Sign in"
+            >
+              <View style={styles.railAvatar}>
+                <Ionicons name="person-outline" size={14} color={colors.white} />
+              </View>
+            </Pressable>
+          )}
+        </View>
 
-      {/* Divider */}
-      <View style={styles.divider} />
-
-      {/* Content section: drill-down navigation */}
-      {renderContentSection()}
-
-      {/* User footer */}
-      <View style={styles.userFooter}>
-        <View style={styles.footerDivider} />
-        {isAuthenticated && user ? (
-          <Pressable
-            style={styles.userRow}
-            onPress={() => handleNavPress('/(tabs)/settings')}
-            accessibilityRole="link"
-            accessibilityLabel={`${user.name}, ${getSubscriptionLabel()}`}
+        {/* Hover expansion overlay */}
+        {hovered && (
+          <View
+            style={styles.hoverOverlay}
+            // @ts-ignore -- web-only mouse events
+            onMouseEnter={() => setHovered(true)}
+            // @ts-ignore
+            onMouseLeave={() => setHovered(false)}
           >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getUserInitials()}</Text>
-            </View>
-            <View style={styles.userInfo}>
-              <Text style={styles.userName} numberOfLines={1}>
-                {user.dharma_name || user.name}
-              </Text>
-              <Text style={styles.userStatus} numberOfLines={1}>
-                {getSubscriptionLabel()}
-              </Text>
-            </View>
-          </Pressable>
-        ) : (
-          <Pressable
-            style={styles.userRow}
-            onPress={() => router.push('/(auth)/magic-link' as any)}
-            accessibilityRole="link"
-            accessibilityLabel="Sign in"
-          >
-            <View style={styles.avatar}>
-              <Ionicons name="person-outline" size={16} color={colors.white} />
-            </View>
-            <Text style={styles.signInText}>
-              {t('common.login') || 'Sign In'}
-            </Text>
-          </Pressable>
+            {renderFullSidebar()}
+          </View>
         )}
       </View>
-    </View>
-  );
+    );
+  };
+
+  // ── Full sidebar content (shared between default and hover overlay) ─
+
+  const renderFullSidebar = () => {
+    return (
+      <View style={styles.container}>
+        {/* Logo and app name */}
+        <View style={styles.logoSection}>
+          <Pressable
+            style={styles.logoRow}
+            onPress={() => handleNavPress('/(tabs)/(groups)')}
+            accessibilityRole="link"
+            accessibilityLabel="Padmakara home"
+          >
+            <Image
+              source={require('@/assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.appName}>Padmakara</Text>
+          </Pressable>
+          <Pressable
+            style={styles.collapseButton}
+            accessibilityRole="button"
+            accessibilityLabel="Collapse sidebar"
+          >
+            <Ionicons name="chevron-back-outline" size={16} color={colors.gray[400]} />
+          </Pressable>
+        </View>
+
+        {/* Navigation items */}
+        <View style={styles.navSection}>
+          {navItems.map((item) => {
+            const active = isActive(item);
+            const isHoveredNav = hoveredItem === item.key;
+
+            return (
+              <Pressable
+                key={item.key}
+                style={[
+                  styles.navItem,
+                  active && styles.navItemActive,
+                  isHoveredNav && !active && styles.navItemHover,
+                ]}
+                onPress={() => handleNavPress(item.route)}
+                // @ts-ignore -- web-only mouse events
+                onMouseEnter={() => setHoveredItem(item.key)}
+                // @ts-ignore
+                onMouseLeave={() => setHoveredItem(null)}
+                accessibilityRole="link"
+                accessibilityLabel={item.label}
+                accessibilityState={{ selected: active }}
+              >
+                <Ionicons
+                  name={active ? item.activeIcon : item.icon}
+                  size={20}
+                  color={active ? colors.burgundy[500] : colors.gray[500]}
+                />
+                <Text
+                  style={[
+                    styles.navLabel,
+                    active && styles.navLabelActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Content section: drill-down navigation */}
+        {renderContentSection()}
+
+        {/* User footer */}
+        <View style={styles.userFooter}>
+          <View style={styles.footerDivider} />
+          {isAuthenticated && user ? (
+            <Pressable
+              style={styles.userRow}
+              onPress={() => handleNavPress('/(tabs)/settings')}
+              accessibilityRole="link"
+              accessibilityLabel={`${user.name}, ${getSubscriptionLabel()}`}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getUserInitials()}</Text>
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {user.dharma_name || user.name}
+                </Text>
+                <Text style={styles.userStatus} numberOfLines={1}>
+                  {getSubscriptionLabel()}
+                </Text>
+              </View>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={styles.userRow}
+              onPress={() => router.push('/(auth)/magic-link' as any)}
+              accessibilityRole="link"
+              accessibilityLabel="Sign in"
+            >
+              <View style={styles.avatar}>
+                <Ionicons name="person-outline" size={16} color={colors.white} />
+              </View>
+              <Text style={styles.signInText}>
+                {t('common.login') || 'Sign In'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  // ── Main render ───────────────────────────────────────────────────
+
+  if (sidebarCollapsed) {
+    return renderCollapsedRail();
+  }
+
+  return renderFullSidebar();
 }
 
 const styles = StyleSheet.create({
+  // ── Full sidebar styles ─────────────────────────────────────────
   container: {
     flex: 1,
     flexDirection: 'column',
@@ -895,5 +1047,120 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.burgundy[500],
     marginLeft: 10,
+  },
+
+  // ── Collapsed rail styles (tablet) ──────────────────────────────
+  railContainer: {
+    width: 64,
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRightWidth: 1,
+    borderRightColor: colors.gray[200],
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+
+  railLogoSection: {
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  railLogo: {
+    width: 28,
+    height: 28,
+  },
+
+  railNavSection: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 2,
+  },
+  railNavItem: {
+    width: 48,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+  },
+  railNavItemActive: {
+    backgroundColor: colors.cream[100],
+    borderLeftColor: colors.burgundy[500],
+  },
+
+  railDivider: {
+    width: 32,
+    height: 1,
+    backgroundColor: colors.gray[200],
+    marginVertical: 10,
+  },
+
+  railContentSection: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 4,
+  },
+  railGroupItem: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.cream[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railGroupItemActive: {
+    backgroundColor: colors.burgundy[50],
+    borderWidth: 2,
+    borderColor: colors.burgundy[500],
+  },
+  railGroupInitial: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.gray[600],
+  },
+  railGroupInitialActive: {
+    color: colors.burgundy[500],
+  },
+
+  railUserFooter: {
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingBottom: 4,
+  },
+  railUserButton: {
+    padding: 4,
+  },
+  railAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.burgundy[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railAvatarText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.white,
+  },
+
+  // ── Hover overlay (expanded sidebar over collapsed rail) ────────
+  hoverOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 240,
+    bottom: 0,
+    backgroundColor: colors.white,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+    borderRightWidth: 1,
+    borderRightColor: colors.gray[200],
   },
 });

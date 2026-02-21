@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
 
 interface DesktopShellProps {
@@ -11,6 +12,9 @@ interface DesktopShellProps {
 
 export function DesktopShell({ sidebar, children, playerBar }: DesktopShellProps) {
   const { sidebarWidth, playerBarHeight } = useDesktopLayout();
+
+  // Activate keyboard shortcuts for audio playback on web
+  useKeyboardShortcuts();
 
   return (
     <View
