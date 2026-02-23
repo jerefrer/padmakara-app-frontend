@@ -58,6 +58,8 @@ export function DesktopPlayerBar() {
     groupName,
     trackList,
     currentTrackIndex,
+    idleTrack,
+    resumeLastPlayed,
   } = useAudioPlayerContext();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -97,14 +99,25 @@ export function DesktopPlayerBar() {
     return () => window.removeEventListener('keydown', handler);
   }, [isExpanded, collapse]);
 
-  if (!currentTrack) {
-    return null;
-  }
+  const hasTrack = !!currentTrack;
+  const hasIdleTrack = !hasTrack && !!idleTrack;
 
-  const subtitle = [groupName, retreatName].filter(Boolean).join(' \u00B7 ');
+  // Display info: use active track, or fall back to idle track for display
+  const displayTitle = hasTrack
+    ? currentTrack.title
+    : hasIdleTrack
+      ? idleTrack.track.title
+      : null;
+  const displaySubtitle = hasTrack
+    ? [groupName, retreatName].filter(Boolean).join(' \u00B7 ')
+    : hasIdleTrack
+      ? [idleTrack.meta?.groupName, idleTrack.meta?.retreatName].filter(Boolean).join(' \u00B7 ')
+      : '';
+  const displayPosition = hasTrack ? position : hasIdleTrack ? idleTrack.position : 0;
+  const displayDuration = hasTrack ? duration : hasIdleTrack ? idleTrack.duration : 0;
 
   // Up next tracks: next 5 tracks after current
-  const upNextTracks = trackList.slice(currentTrackIndex + 1, currentTrackIndex + 6);
+  const upNextTracks = hasTrack ? trackList.slice(currentTrackIndex + 1, currentTrackIndex + 6) : [];
 
   // Animated height for expanded panel (60vh)
   const expandedHeight = slideAnim.interpolate({
@@ -117,10 +130,15 @@ export function DesktopPlayerBar() {
     outputRange: [0, 0.3],
   });
 
+  // All controls disabled when no track and no idle track
+  const allDisabled = !hasTrack && !hasIdleTrack;
+  // Only play button enabled for idle track (others need actual audio)
+  const controlsDisabled = !hasTrack;
+
   return (
     <>
       {/* Overlay behind expanded panel */}
-      {isExpanded && (
+      {isExpanded && hasTrack && (
         <Pressable
           style={[
             StyleSheet.absoluteFill,
@@ -140,7 +158,7 @@ export function DesktopPlayerBar() {
       )}
 
       {/* Expanded "Now Playing" panel */}
-      {isExpanded && (
+      {isExpanded && hasTrack && (
         <Animated.View
           style={[
             styles.expandedPanel,
@@ -188,9 +206,9 @@ export function DesktopPlayerBar() {
               <Text style={styles.expandedTrackTitle} numberOfLines={2}>
                 {currentTrack.title}
               </Text>
-              {subtitle ? (
+              {displaySubtitle ? (
                 <Text style={styles.expandedSubtitle} numberOfLines={1}>
-                  {subtitle}
+                  {displaySubtitle}
                 </Text>
               ) : null}
 
@@ -412,18 +430,18 @@ export function DesktopPlayerBar() {
         {/* Left zone: track info */}
         <View style={styles.leftZone}>
           <View style={styles.trackInfoRow}>
-            {isPlaying && (
+            {isPlaying && hasTrack && (
               <View style={styles.playingBarsContainer}>
                 <AnimatedPlayingBars isPlaying={isPlaying} size={16} color={colors.burgundy[500]} />
               </View>
             )}
             <View style={styles.trackTextContainer}>
-              <Text style={styles.trackTitle} numberOfLines={1}>
-                {currentTrack.title}
+              <Text style={[styles.trackTitle, allDisabled && styles.idleText]} numberOfLines={1}>
+                {displayTitle || (t('player.noTrack') || 'No track selected')}
               </Text>
-              {subtitle ? (
+              {displaySubtitle ? (
                 <Text style={styles.trackSubtitle} numberOfLines={1}>
-                  {subtitle}
+                  {displaySubtitle}
                 </Text>
               ) : null}
             </View>
@@ -436,37 +454,37 @@ export function DesktopPlayerBar() {
             {/* Previous */}
             <TouchableOpacity
               onPress={previousTrack}
-              style={[styles.transportButton, !hasPreviousTrack && styles.transportDisabled]}
-              disabled={!hasPreviousTrack}
+              style={[styles.transportButton, (controlsDisabled || !hasPreviousTrack) && styles.transportDisabled]}
+              disabled={controlsDisabled || !hasPreviousTrack}
             >
               <Ionicons
                 name="play-skip-back"
                 size={18}
-                color={hasPreviousTrack ? colors.gray[600] : colors.gray[400]}
+                color={!controlsDisabled && hasPreviousTrack ? colors.gray[600] : colors.gray[400]}
               />
             </TouchableOpacity>
 
             {/* Skip backward 15s */}
             <TouchableOpacity
               onPress={skipBackward}
-              style={[styles.skipButton, isPlayButtonDisabled && styles.transportDisabled]}
-              disabled={isPlayButtonDisabled}
+              style={[styles.skipButton, (controlsDisabled || isPlayButtonDisabled) && styles.transportDisabled]}
+              disabled={controlsDisabled || isPlayButtonDisabled}
             >
               <RotateLeftThinIcon
                 size={24}
-                color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[600]}
+                color={(controlsDisabled || isPlayButtonDisabled) ? colors.gray[400] : colors.gray[600]}
                 strokeWidth={1.5}
               />
-              <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>
+              <Text style={[styles.skipNumber, (controlsDisabled || isPlayButtonDisabled) && styles.skipNumberDisabled]}>
                 15
               </Text>
             </TouchableOpacity>
 
             {/* Play / Pause */}
             <TouchableOpacity
-              onPress={togglePlayPause}
-              style={[styles.playButton, isPlayButtonDisabled && styles.playButtonDisabled]}
-              disabled={isPlayButtonDisabled}
+              onPress={hasIdleTrack ? resumeLastPlayed : togglePlayPause}
+              style={[styles.playButton, (allDisabled || (!hasIdleTrack && isPlayButtonDisabled)) && styles.playButtonDisabled]}
+              disabled={allDisabled || (!hasIdleTrack && isPlayButtonDisabled)}
             >
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
@@ -479,15 +497,15 @@ export function DesktopPlayerBar() {
             {/* Skip forward 15s */}
             <TouchableOpacity
               onPress={skipForward}
-              style={[styles.skipButton, isPlayButtonDisabled && styles.transportDisabled]}
-              disabled={isPlayButtonDisabled}
+              style={[styles.skipButton, (controlsDisabled || isPlayButtonDisabled) && styles.transportDisabled]}
+              disabled={controlsDisabled || isPlayButtonDisabled}
             >
               <RotateRightThinIcon
                 size={24}
-                color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[600]}
+                color={(controlsDisabled || isPlayButtonDisabled) ? colors.gray[400] : colors.gray[600]}
                 strokeWidth={1.5}
               />
-              <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>
+              <Text style={[styles.skipNumber, (controlsDisabled || isPlayButtonDisabled) && styles.skipNumberDisabled]}>
                 15
               </Text>
             </TouchableOpacity>
@@ -495,33 +513,34 @@ export function DesktopPlayerBar() {
             {/* Next */}
             <TouchableOpacity
               onPress={nextTrack}
-              style={[styles.transportButton, !hasNextTrack && styles.transportDisabled]}
-              disabled={!hasNextTrack}
+              style={[styles.transportButton, (controlsDisabled || !hasNextTrack) && styles.transportDisabled]}
+              disabled={controlsDisabled || !hasNextTrack}
             >
               <Ionicons
                 name="play-skip-forward"
                 size={18}
-                color={hasNextTrack ? colors.gray[600] : colors.gray[400]}
+                color={!controlsDisabled && hasNextTrack ? colors.gray[600] : colors.gray[400]}
               />
             </TouchableOpacity>
           </View>
 
           {/* Slider + time */}
           <View style={styles.sliderRow}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
+            <Text style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}>{formatTime(displayPosition)}</Text>
             <Slider
               style={styles.slider}
               minimumValue={0}
-              maximumValue={Math.max(duration, 1)}
-              value={position}
+              maximumValue={Math.max(displayDuration, 1)}
+              value={displayPosition}
               onSlidingStart={onSlidingStart}
               onSlidingComplete={onSlidingComplete}
               onValueChange={onSliderValueChange}
-              minimumTrackTintColor={colors.burgundy[500]}
+              minimumTrackTintColor={controlsDisabled ? colors.gray[300] : colors.burgundy[500]}
               maximumTrackTintColor={colors.gray[300]}
-              thumbTintColor={colors.burgundy[500]}
+              thumbTintColor={controlsDisabled ? colors.gray[400] : colors.burgundy[500]}
+              disabled={controlsDisabled}
             />
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+            <Text style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}>{formatTime(displayDuration)}</Text>
           </View>
         </View>
 
@@ -529,17 +548,18 @@ export function DesktopPlayerBar() {
         <View style={styles.rightZone}>
           <TouchableOpacity
             onPress={changePlaybackSpeed}
-            style={[styles.speedButton, isPlayButtonDisabled && styles.speedButtonDisabled]}
-            disabled={isPlayButtonDisabled}
+            style={[styles.speedButton, (controlsDisabled || isPlayButtonDisabled) && styles.speedButtonDisabled]}
+            disabled={controlsDisabled || isPlayButtonDisabled}
           >
-            <Text style={[styles.speedText, isPlayButtonDisabled && styles.speedTextDisabled]}>
+            <Text style={[styles.speedText, (controlsDisabled || isPlayButtonDisabled) && styles.speedTextDisabled]}>
               {playbackSpeed}x
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.expandButton}
+            style={[styles.expandButton, controlsDisabled && styles.transportDisabled]}
             onPress={toggleExpanded}
+            disabled={controlsDisabled}
             accessibilityRole="button"
             accessibilityLabel={
               isExpanded
@@ -550,7 +570,7 @@ export function DesktopPlayerBar() {
             <Ionicons
               name={isExpanded ? 'chevron-down' : 'chevron-up'}
               size={20}
-              color={colors.gray[600]}
+              color={controlsDisabled ? colors.gray[400] : colors.gray[600]}
             />
           </TouchableOpacity>
         </View>
@@ -582,9 +602,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-  // Left zone
+  // Left zone — flex to use available space
   leftZone: {
-    width: 280,
+    flex: 1,
+    maxWidth: 400,
+    minWidth: 200,
     paddingRight: 16,
     justifyContent: 'center',
   },
@@ -607,6 +629,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.gray[500],
     marginTop: 2,
+  },
+  idleText: {
+    color: colors.gray[400],
+    fontWeight: '500',
   },
 
   // Center zone
@@ -674,10 +700,13 @@ const styles = StyleSheet.create({
     minWidth: 36,
     textAlign: 'center',
   },
+  timeTextDisabled: {
+    color: colors.gray[400],
+  },
 
   // Right zone
   rightZone: {
-    width: 180,
+    width: 120,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',

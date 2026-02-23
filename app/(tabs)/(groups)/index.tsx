@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,8 @@ const colors = {
     600: '#991b1b',
   },
   gray: {
+    100: '#f3f4f6',
+    200: '#e5e7eb',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
@@ -31,32 +33,19 @@ const colors = {
   white: '#ffffff',
 };
 
+// ── Mobile GroupCard (unchanged) ─────────────────────────────────────────────
+
 interface GroupCardProps {
   group: RetreatGroup;
   onPress: () => void;
-  isDesktopCard?: boolean;
 }
 
-function GroupCard({ group, onPress, t, language, isDesktopCard }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
+function GroupCard({ group, onPress, t, language }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
   const retreatCount = group.gatherings?.length || 0;
-  const [isHovered, setIsHovered] = useState(false);
-
-  const webHoverProps = Platform.OS === 'web' ? {
-    onMouseEnter: () => setIsHovered(true),
-    onMouseLeave: () => setIsHovered(false),
-  } : {};
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[styles.groupCard, isDesktopCard && styles.desktopGroupCard]}
-      {...webHoverProps}
-    >
-      <View style={[
-        styles.card,
-        isDesktopCard && styles.desktopCard,
-        isHovered && styles.cardHovered,
-      ]}>
+    <TouchableOpacity onPress={onPress} style={styles.groupCard}>
+      <View style={styles.card}>
         <View style={styles.cardContent}>
           <View style={styles.groupTitleRow}>
             <Text style={styles.groupTitle}>{getTranslatedName(group, language as 'en' | 'pt')}</Text>
@@ -73,6 +62,74 @@ function GroupCard({ group, onPress, t, language, isDesktopCard }: GroupCardProp
   );
 }
 
+// ── Desktop GroupRow ─────────────────────────────────────────────────────────
+
+function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
+  const retreatCount = group.gatherings?.length || 0;
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Find most recent gathering date
+  const lastRetreat = group.gatherings?.length
+    ? group.gatherings.reduce((latest, g) => {
+        const d = new Date(g.startDate);
+        return d > latest ? d : latest;
+      }, new Date(0))
+    : null;
+
+  const lastRetreatLabel = lastRetreat && lastRetreat.getTime() > 0
+    ? lastRetreat.toLocaleDateString(language === 'pt' ? 'pt-PT' : 'en-US', {
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
+
+  const webHoverProps = Platform.OS === 'web' ? {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+  } : {};
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
+      {...webHoverProps}
+    >
+      {/* Group icon */}
+      <View style={styles.desktopRowIcon}>
+        <Ionicons name="people" size={20} color={colors.burgundy[500]} />
+      </View>
+
+      {/* Group name */}
+      <View style={styles.desktopRowMain}>
+        <Text style={styles.desktopRowName} numberOfLines={1}>
+          {getTranslatedName(group, language as 'en' | 'pt')}
+        </Text>
+      </View>
+
+      {/* Retreat count */}
+      <View style={styles.desktopRowStat}>
+        <Text style={styles.desktopRowStatValue}>{retreatCount}</Text>
+        <Text style={styles.desktopRowStatLabel}>
+          {retreatCount === 1
+            ? (t('groups.retreatLabel') || 'retreat')
+            : (t('groups.retreatsLabel') || 'retreats')
+          }
+        </Text>
+      </View>
+
+      {/* Last retreat */}
+      <View style={styles.desktopRowDate}>
+        <Text style={styles.desktopRowDateText}>{lastRetreatLabel}</Text>
+      </View>
+
+      {/* Arrow */}
+      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+    </Pressable>
+  );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function getGreeting(t: (key: string, params?: Record<string, string>) => string): string {
   const hour = new Date().getHours();
   if (hour < 12) return t('home.greetingMorning') || 'Good morning';
@@ -85,10 +142,12 @@ function getFirstName(name: string | undefined): string {
   return name.split(' ')[0];
 }
 
+// ── Main Screen ─────────────────────────────────────────────────────────────
+
 export default function RetreatsScreen() {
   const { user, isAuthenticated, hasActiveSubscription } = useAuth();
   const { t, language } = useLanguage();
-  const { isDesktop, isWide } = useDesktopLayout();
+  const { isDesktop } = useDesktopLayout();
   const [retreatData, setRetreatData] = useState<{
     retreat_groups: RetreatGroup[];
     recent_gatherings: Gathering[];
@@ -272,20 +331,38 @@ export default function RetreatsScreen() {
             </View>
           )}
 
-          {/* Desktop: card grid; Mobile: stacked list */}
+          {/* Desktop: clean row-based list; Mobile: stacked cards */}
           {isDesktop ? (
-            <View style={[
-              styles.desktopCardGrid,
-              isWide && styles.desktopCardGridWide,
-            ]}>
+            <View style={styles.desktopListContainer}>
+              {/* Column headers */}
+              <View style={styles.desktopListHeader}>
+                <View style={styles.desktopRowIcon} />
+                <View style={styles.desktopRowMain}>
+                  <Text style={styles.desktopColumnLabel}>
+                    {t('groups.groupName') || 'Group'}
+                  </Text>
+                </View>
+                <View style={styles.desktopRowStat}>
+                  <Text style={styles.desktopColumnLabel}>
+                    {t('navigation.retreats') || 'Retreats'}
+                  </Text>
+                </View>
+                <View style={styles.desktopRowDate}>
+                  <Text style={styles.desktopColumnLabel}>
+                    {t('groups.lastRetreat') || 'Last retreat'}
+                  </Text>
+                </View>
+                <View style={{ width: 16 }} />
+              </View>
+
+              {/* Group rows */}
               {retreatData.retreat_groups.map(group => (
-                <GroupCard
+                <DesktopGroupRow
                   key={group.id}
                   group={group}
                   onPress={() => handleGroupPress(group.id)}
                   t={t}
                   language={language}
-                  isDesktopCard
                 />
               ))}
             </View>
@@ -355,6 +432,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.burgundy[500],
   },
+
+  // Mobile card styles
   card: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -423,6 +502,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
   // Desktop styles
   desktopScrollView: {
     paddingHorizontal: 40,
@@ -444,23 +524,79 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
   },
-  desktopCardGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 16,
-  },
-  desktopCardGridWide: {
-    gap: 20,
-  },
-  desktopGroupCard: {
-    width: '48%' as unknown as number,
-    marginBottom: 0,
-  },
-  desktopCard: {
+
+  // Desktop list
+  desktopListContainer: {
+    backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  cardHovered: {
+  desktopListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
     backgroundColor: colors.cream[50],
+  },
+  desktopColumnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  desktopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  desktopRowHovered: {
+    backgroundColor: colors.cream[50],
+  },
+  desktopRowIcon: {
+    width: 40,
+    alignItems: 'center',
+  },
+  desktopRowMain: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  desktopRowName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[800],
+  },
+  desktopRowStat: {
+    width: 100,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  desktopRowStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.burgundy[500],
+  },
+  desktopRowStatLabel: {
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+  desktopRowDate: {
+    width: 120,
+    paddingHorizontal: 12,
+  },
+  desktopRowDateText: {
+    fontSize: 14,
+    color: colors.gray[500],
   },
 });

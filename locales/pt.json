@@ -64,7 +64,7 @@
     "downloads": "Conteúdo Salvo",
     "profile": "Perfil",
     "settings": "Configurações",
-    "subscription": "Subscrever",
+    "subscription": "Subscrição",
     "events": "Eventos"
   },
   "groups": {
@@ -77,7 +77,18 @@
     "signInPrompt": "Os participantes de retiro podem iniciar sessão para aceder às suas gravações.",
     "signIn": "Iniciar Sessão",
     "noGroups": "Sem Grupos de Retiro",
-    "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador."
+    "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador.",
+    "groupName": "Grupo",
+    "lastRetreat": "Último retiro",
+    "retreatLabel": "retiro",
+    "retreatsLabel": "retiros"
+  },
+  "events": {
+    "eventName": "Evento",
+    "sessions": "Sessões",
+    "sessionLabel": "sessão",
+    "sessionsLabel": "sessões",
+    "date": "Data"
   },
   "home": {
     "greetingMorning": "Bom dia",
@@ -129,7 +140,9 @@
     "transcript": "Transcrição",
     "audio": "Áudio",
     "notFound": "Retiro não encontrado",
-    "offline": "Offline"
+    "offline": "Offline",
+    "tracksLabel": "faixas",
+    "trackLabel": "faixa"
   },
   "session": {
     "loadingSession": "Carregando sessão...",
@@ -154,7 +167,8 @@
     "completed": "Concluído",
     "upNext": "A Seguir",
     "trackMetadata": "Detalhes da Faixa",
-    "close": "Fechar"
+    "close": "Fechar",
+    "noTrack": "Nenhuma faixa selecionada"
   },
   "downloads": {
     "myDownloads": "Meu Conteúdo Salvo",
@@ -229,7 +243,7 @@
     "appDescription": "O App Padmakara oferece acesso aos ensinamentos de Jigme Khyentse Rinpoche sobre treinamento da mente e as 37 práticas dos bodhisattvas. Construído com amor para a comunidade budista tibetana.",
     "copyright": "© 2024 Associação Padmakara Portugal",
     "notifications": "Notificações",
-    "activeSubscription": "Ativa",
-    "inactiveSubscription": "Inativa"
+    "activeSubscription": "Subscrição ativa",
+    "inactiveSubscription": "Subscrição inativa"
   }
 }

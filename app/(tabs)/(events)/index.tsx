@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import retreatService from '@/services/retreatService';
 
 const colors = {
@@ -16,10 +18,18 @@ const colors = {
     500: '#b91c1c',
   },
   gray: {
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
   },
+  white: '#ffffff',
 };
+
+// ── Mobile card ──────────────────────────────────────────────────────────────
 
 interface PublicEventCardProps {
   event: any;
@@ -28,13 +38,11 @@ interface PublicEventCardProps {
 }
 
 function PublicEventCard({ event, onPress, language }: PublicEventCardProps) {
-  // Data comes through mapEvent() which produces name/name_translations
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
   const sessionCount = event.sessions?.length || 0;
 
-  // Format date nicely
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
@@ -61,8 +69,62 @@ function PublicEventCard({ event, onPress, language }: PublicEventCardProps) {
   );
 }
 
+// ── Desktop row ──────────────────────────────────────────────────────────────
+
+function DesktopEventRow({ event, onPress, language, t }: PublicEventCardProps & { t: (key: string) => string }) {
+  const title = (language === 'pt' && event.name_translations?.pt)
+    ? event.name_translations.pt
+    : event.name || event.name_translations?.en || '';
+  const sessionCount = event.sessions?.length || 0;
+  const [isHovered, setIsHovered] = useState(false);
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(language === 'pt' ? 'pt-PT' : 'en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      });
+    } catch { return dateStr; }
+  };
+
+  const webHoverProps = Platform.OS === 'web' ? {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+  } : {};
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
+      {...webHoverProps}
+    >
+      <View style={styles.desktopRowIcon}>
+        <Ionicons name="calendar" size={20} color={colors.burgundy[500]} />
+      </View>
+      <View style={styles.desktopRowMain}>
+        <Text style={styles.desktopRowName} numberOfLines={1}>{title}</Text>
+      </View>
+      <View style={styles.desktopRowStat}>
+        <Text style={styles.desktopRowStatValue}>{sessionCount}</Text>
+        <Text style={styles.desktopRowStatLabel}>
+          {sessionCount === 1 ? (t('events.sessionLabel') || 'session') : (t('events.sessionsLabel') || 'sessions')}
+        </Text>
+      </View>
+      <View style={styles.desktopRowDate}>
+        <Text style={styles.desktopRowDateText}>
+          {event.startDate ? formatDate(event.startDate) : '—'}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+    </Pressable>
+  );
+}
+
+// ── Main screen ──────────────────────────────────────────────────────────────
+
 export default function EventsScreen() {
   const { t, language } = useLanguage();
+  const { isDesktop } = useDesktopLayout();
   const [publicEvents, setPublicEvents] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +138,6 @@ export default function EventsScreen() {
       if (response.success && response.data) {
         setPublicEvents(response.data);
       } else if (response.error?.includes('404')) {
-        // Endpoint not available yet — show empty state instead of error
         setPublicEvents([]);
       } else {
         setError(response.error || 'Failed to load events');
@@ -141,20 +202,56 @@ export default function EventsScreen() {
     <>
       <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
       <View style={styles.container}>
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{t('groups.publicEvents') || 'Public Events'}</Text>
+        <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
+          <View style={[styles.header, isDesktop && styles.desktopHeader]}>
+            <Text style={[styles.title, isDesktop && styles.desktopTitle]}>
+              {t('groups.publicEvents') || 'Public Events'}
+            </Text>
           </View>
 
           {publicEvents && publicEvents.length > 0 ? (
-            publicEvents.map((event: any) => (
-              <PublicEventCard
-                key={event.id}
-                event={event}
-                onPress={() => handleEventPress(event.id)}
-                language={language}
-              />
-            ))
+            isDesktop ? (
+              <View style={styles.desktopListContainer}>
+                {/* Column headers */}
+                <View style={styles.desktopListHeader}>
+                  <View style={styles.desktopRowIcon} />
+                  <View style={styles.desktopRowMain}>
+                    <Text style={styles.desktopColumnLabel}>
+                      {t('events.eventName') || 'Event'}
+                    </Text>
+                  </View>
+                  <View style={styles.desktopRowStat}>
+                    <Text style={styles.desktopColumnLabel}>
+                      {t('events.sessions') || 'Sessions'}
+                    </Text>
+                  </View>
+                  <View style={styles.desktopRowDate}>
+                    <Text style={styles.desktopColumnLabel}>
+                      {t('events.date') || 'Date'}
+                    </Text>
+                  </View>
+                  <View style={{ width: 16 }} />
+                </View>
+                {publicEvents.map((event: any) => (
+                  <DesktopEventRow
+                    key={event.id}
+                    event={event}
+                    onPress={() => handleEventPress(event.id)}
+                    language={language}
+                    t={t}
+                  />
+                ))}
+              </View>
+            ) : (
+              publicEvents.map((event: any) => (
+                <PublicEventCard
+                  key={event.id}
+                  event={event}
+                  onPress={() => handleEventPress(event.id)}
+                  language={language}
+                />
+              ))
+            )
           ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
@@ -176,6 +273,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  desktopScrollView: {
+    paddingHorizontal: 40,
   },
   emptyState: {
     flex: 1,
@@ -205,11 +305,21 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 32,
   },
+  desktopHeader: {
+    paddingTop: 32,
+    paddingBottom: 24,
+  },
   title: {
     fontSize: 24,
     fontWeight: '600',
     color: colors.burgundy[500],
   },
+  desktopTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+
+  // Mobile card styles
   card: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -265,5 +375,80 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Desktop list styles
+  desktopListContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  desktopListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    backgroundColor: colors.cream[50],
+  },
+  desktopColumnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  desktopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  desktopRowHovered: {
+    backgroundColor: colors.cream[50],
+  },
+  desktopRowIcon: {
+    width: 40,
+    alignItems: 'center',
+  },
+  desktopRowMain: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  desktopRowName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[800],
+  },
+  desktopRowStat: {
+    width: 100,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  desktopRowStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.burgundy[500],
+  },
+  desktopRowStatLabel: {
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+  desktopRowDate: {
+    width: 140,
+    paddingHorizontal: 12,
+  },
+  desktopRowDateText: {
+    fontSize: 14,
+    color: colors.gray[500],
   },
 });

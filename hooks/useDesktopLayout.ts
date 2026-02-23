@@ -7,7 +7,6 @@ export interface DesktopLayout {
   isWide: boolean;
   showSidebar: boolean;
   showMasterDetail: boolean;
-  sidebarCollapsed: boolean;
   sidebarWidth: number;
   playerBarHeight: number;
 }
@@ -21,7 +20,6 @@ export function useDesktopLayout(): DesktopLayout {
   const isDesktop = isWeb && width >= 1025;
   const isWide = isWeb && width > 1440;
   const showSidebar = isWeb && width >= 768;
-  const sidebarCollapsed = isTablet;
 
   return {
     isMobile,
@@ -30,8 +28,8 @@ export function useDesktopLayout(): DesktopLayout {
     isWide,
     showSidebar,
     showMasterDetail: isDesktop,
-    sidebarCollapsed,
-    sidebarWidth: sidebarCollapsed ? 64 : 240,
+    // Always full sidebar, never collapsed
+    sidebarWidth: 240,
     playerBarHeight: 80,
   };
 }

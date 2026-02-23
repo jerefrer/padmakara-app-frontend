@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,13 +30,18 @@ const colors = {
     500: '#f59e0b',
   },
   gray: {
+    100: '#f3f4f6',
     200: '#e5e7eb',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#1f2937',
   },
+  white: '#ffffff',
 };
+
+// ── Mobile card ──────────────────────────────────────────────────────────────
 
 interface RetreatCardProps {
   retreat: Gathering;
@@ -48,29 +54,23 @@ interface RetreatCardProps {
 function RetreatCard({ retreat, onPress, isDownloaded, t, language }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
 
-  // Format date range like "March 2nd to 4th" or "May 28th to June 1st"
   const formatDateRange = (startDateStr: string, endDateStr: string) => {
     try {
       const startDate = new Date(startDateStr);
       const endDate = new Date(endDateStr);
-
       const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' });
       const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
       const startDay = startDate.getDate();
       const endDay = endDate.getDate();
-
-      // Add ordinal suffix
       const getOrdinal = (n: number) => {
         const s = ['th', 'st', 'nd', 'rd'];
         const v = n % 100;
         return n + (s[(v - 20) % 10] || s[v] || s[0]);
       };
-
       if (startMonth === endMonth) {
         return `${startMonth} ${getOrdinal(startDay)} to ${getOrdinal(endDay)}`;
-      } else {
-        return `${startMonth} ${getOrdinal(startDay)} to ${endMonth} ${getOrdinal(endDay)}`;
       }
+      return `${startMonth} ${getOrdinal(startDay)} to ${endMonth} ${getOrdinal(endDay)}`;
     } catch {
       return `${startDateStr} to ${endDateStr}`;
     }
@@ -103,6 +103,77 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language }: RetreatCar
   );
 }
 
+// ── Desktop row ──────────────────────────────────────────────────────────────
+
+function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language }: RetreatCardProps) {
+  const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
+  const sessionCount = retreat.sessions?.length || 0;
+  const [isHovered, setIsHovered] = useState(false);
+
+  const formatDateShort = (startDateStr: string, endDateStr: string) => {
+    try {
+      const locale = language === 'pt' ? 'pt-PT' : 'en-US';
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      const startMonth = startDate.toLocaleDateString(locale, { month: 'short' });
+      const endMonth = endDate.toLocaleDateString(locale, { month: 'short' });
+      const startDay = startDate.getDate();
+      const endDay = endDate.getDate();
+      if (startMonth === endMonth) {
+        return `${startMonth} ${startDay}–${endDay}`;
+      }
+      return `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
+    } catch {
+      return `${startDateStr}`;
+    }
+  };
+
+  const webHoverProps = Platform.OS === 'web' ? {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+  } : {};
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
+      {...webHoverProps}
+    >
+      <View style={styles.desktopRowIcon}>
+        <Ionicons name="albums" size={20} color={colors.burgundy[500]} />
+      </View>
+      <View style={styles.desktopRowMain}>
+        <Text style={styles.desktopRowName} numberOfLines={1}>
+          {getTranslatedName(retreat, language as 'en' | 'pt')}
+        </Text>
+      </View>
+      <View style={styles.desktopRowStat}>
+        <Text style={styles.desktopRowStatValue}>{sessionCount}</Text>
+        <Text style={styles.desktopRowStatLabel}>
+          {sessionCount === 1 ? (t('events.sessionLabel') || 'session') : (t('events.sessionsLabel') || 'sessions')}
+        </Text>
+      </View>
+      <View style={styles.desktopRowStat}>
+        <Text style={styles.desktopRowStatValue}>{totalTracks}</Text>
+        <Text style={styles.desktopRowStatLabel}>
+          {totalTracks === 1 ? (t('groups.retreatLabel') || 'track') : (t('retreats.tracksLabel') || 'tracks')}
+        </Text>
+      </View>
+      <View style={styles.desktopRowDate}>
+        <Text style={styles.desktopRowDateText}>
+          {formatDateShort(retreat.startDate, retreat.endDate)}
+        </Text>
+      </View>
+      <View style={styles.desktopRowBadges}>
+        {isDownloaded && <OfflineBadge />}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+    </Pressable>
+  );
+}
+
+// ── Main screen ──────────────────────────────────────────────────────────────
+
 export default function GroupDetailScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { t, language } = useLanguage();
@@ -113,7 +184,6 @@ export default function GroupDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [downloadedRetreatIds, setDownloadedRetreatIds] = useState<Set<string>>(new Set());
 
-  // Load downloaded retreat status
   const loadDownloadStatus = async () => {
     try {
       const downloaded = await downloadService.getDownloadedRetreats();
@@ -123,7 +193,6 @@ export default function GroupDetailScreen() {
     }
   };
 
-  // Refresh download status when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       loadDownloadStatus();
@@ -134,9 +203,7 @@ export default function GroupDetailScreen() {
     try {
       setLoading(true);
       setError(null);
-
       const response = await retreatService.getRetreatGroupDetails(groupId);
-
       if (response.success && response.data) {
         setGroupData(response.data);
       } else {
@@ -158,10 +225,6 @@ export default function GroupDetailScreen() {
 
   const handleRetreatPress = (retreatId: string) => {
     router.push(`/(tabs)/(groups)/retreat/${retreatId}`);
-  };
-
-  const handleRetryPress = () => {
-    loadGroupData();
   };
 
   // Loading state
@@ -208,7 +271,7 @@ export default function GroupDetailScreen() {
               {error || 'Could not load group data. Please try again.'}
             </Text>
             {error && error !== 'Group not found' && (
-              <TouchableOpacity style={styles.retryButton} onPress={handleRetryPress}>
+              <TouchableOpacity style={styles.retryButton} onPress={() => loadGroupData()}>
                 <Text style={styles.retryButtonText}>{t('common.retry') || 'Try Again'}</Text>
               </TouchableOpacity>
             )}
@@ -218,7 +281,7 @@ export default function GroupDetailScreen() {
     );
   }
 
-  // Empty state - no retreats in group
+  // Empty state
   if (!groupData.gatherings || groupData.gatherings.length === 0) {
     return (
       <>
@@ -245,65 +308,88 @@ export default function GroupDetailScreen() {
     );
   }
 
-  // Sort retreats by date (newest first) and group by year
+  // Sort and group by year
   const sortedRetreats = [...groupData.gatherings].sort(
     (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   );
 
-  // Group retreats by year
   const retreatsByYear = sortedRetreats.reduce((acc, retreat) => {
     const year = retreat.year || new Date(retreat.startDate).getFullYear();
-    if (!acc[year]) {
-      acc[year] = [];
-    }
+    if (!acc[year]) acc[year] = [];
     acc[year].push(retreat);
     return acc;
   }, {} as Record<number, Gathering[]>);
 
-  // Get years in descending order
   const years = Object.keys(retreatsByYear).map(Number).sort((a, b) => b - a);
+  const groupName = getTranslatedName(groupData, language);
 
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
-          header: () => <AppHeader showBackButton={true} title={getTranslatedName(groupData, language)} />
+          header: () => <AppHeader showBackButton={true} title={groupName} />
         }}
       />
       <View style={styles.container}>
-        <ScrollView style={styles.scrollView}>
-          {/* Group Description - groups no longer have main_topics */}
+        <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
+          {/* Desktop header */}
+          {isDesktop && (
+            <View style={styles.desktopPageHeader}>
+              <Text style={styles.desktopPageTitle}>{groupName}</Text>
+              <Text style={styles.statsText}>
+                {sortedRetreats.length === 1
+                  ? (t('groups.retreatAttended', { count: sortedRetreats.length }) || '1 retreat attended')
+                  : (t('groups.retreatsAttended', { count: sortedRetreats.length }) || `${sortedRetreats.length} retreats attended`)
+                }
+              </Text>
+            </View>
+          )}
 
-          {/* Retreats Count */}
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>
-              {sortedRetreats.length === 1
-                ? (t('groups.retreatAttended', { count: sortedRetreats.length }) || '1 retreat attended')
-                : (t('groups.retreatsAttended', { count: sortedRetreats.length }) || `${sortedRetreats.length} retreats attended`)
-              }
-            </Text>
-          </View>
+          {/* Mobile stats */}
+          {!isDesktop && (
+            <View style={styles.statsContainer}>
+              <Text style={styles.statsText}>
+                {sortedRetreats.length === 1
+                  ? (t('groups.retreatAttended', { count: sortedRetreats.length }) || '1 retreat attended')
+                  : (t('groups.retreatsAttended', { count: sortedRetreats.length }) || `${sortedRetreats.length} retreats attended`)
+                }
+              </Text>
+            </View>
+          )}
 
-          {/* Retreats List grouped by year */}
+          {/* Retreats grouped by year */}
           {years.map(year => (
             <View key={year}>
-              <View style={styles.yearHeader}>
-                <Text style={styles.yearHeaderText}>{year}</Text>
+              <View style={[styles.yearHeader, isDesktop && styles.desktopYearHeader]}>
+                <Text style={[styles.yearHeaderText, isDesktop && styles.desktopYearHeaderText]}>{year}</Text>
               </View>
-              <View style={isDesktop ? styles.desktopRetreatGrid : undefined}>
-                {retreatsByYear[year].map(retreat => (
-                  <View key={retreat.id} style={isDesktop ? styles.desktopRetreatCardWrapper : undefined}>
-                    <RetreatCard
+
+              {isDesktop ? (
+                <View style={styles.desktopListContainer}>
+                  {retreatsByYear[year].map(retreat => (
+                    <DesktopRetreatRow
+                      key={retreat.id}
                       retreat={retreat}
                       onPress={() => handleRetreatPress(retreat.id)}
                       isDownloaded={downloadedRetreatIds.has(retreat.id)}
                       t={t}
                       language={language}
                     />
-                  </View>
-                ))}
-              </View>
+                  ))}
+                </View>
+              ) : (
+                retreatsByYear[year].map(retreat => (
+                  <RetreatCard
+                    key={retreat.id}
+                    retreat={retreat}
+                    onPress={() => handleRetreatPress(retreat.id)}
+                    isDownloaded={downloadedRetreatIds.has(retreat.id)}
+                    t={t}
+                    language={language}
+                  />
+                ))
+              )}
             </View>
           ))}
         </ScrollView>
@@ -322,6 +408,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
   },
+  desktopScrollView: {
+    paddingHorizontal: 40,
+    paddingTop: 0,
+  },
   statsContainer: {
     marginBottom: 16,
   },
@@ -334,10 +424,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 8,
   },
+  desktopYearHeader: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
   yearHeaderText: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.gray[700],
+  },
+  desktopYearHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   emptyState: {
     flex: 1,
@@ -388,6 +489,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  // Mobile card styles
   retreatCard: {
     marginBottom: 16,
   },
@@ -398,16 +501,12 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colors.burgundy[500],
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
-  cardContent: {
-  },
+  cardContent: {},
   retreatTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -440,13 +539,78 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.burgundy[700],
   },
+
   // Desktop styles
-  desktopRetreatGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 16,
+  desktopPageHeader: {
+    paddingTop: 32,
+    paddingBottom: 24,
   },
-  desktopRetreatCardWrapper: {
-    width: '48%' as unknown as number,
+  desktopPageTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.burgundy[500],
+    marginBottom: 6,
+  },
+  desktopListContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  desktopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  desktopRowHovered: {
+    backgroundColor: colors.cream[50],
+  },
+  desktopRowIcon: {
+    width: 40,
+    alignItems: 'center',
+  },
+  desktopRowMain: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  desktopRowName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[800],
+  },
+  desktopRowStat: {
+    width: 90,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  desktopRowStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.burgundy[500],
+  },
+  desktopRowStatLabel: {
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+  desktopRowDate: {
+    width: 120,
+    paddingHorizontal: 12,
+  },
+  desktopRowDateText: {
+    fontSize: 14,
+    color: colors.gray[500],
+  },
+  desktopRowBadges: {
+    width: 32,
+    alignItems: 'center',
   },
 });

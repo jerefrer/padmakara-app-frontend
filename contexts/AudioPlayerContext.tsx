@@ -12,6 +12,13 @@ export type AudioPlayerState = 'LOADING' | 'READY' | 'RESTORED' | 'PLAYING' | 'S
 // Pre-cache lookahead duration: 1 hour (3600 seconds)
 const PRE_CACHE_DURATION_SECONDS = 3600;
 
+export interface IdleTrackInfo {
+  track: Track;
+  meta: { retreatId: string; retreatName: string; groupName: string } | null;
+  position: number;
+  duration: number;
+}
+
 export interface AudioPlayerContextType {
   // State
   currentTrack: Track | null;
@@ -29,9 +36,11 @@ export interface AudioPlayerContextType {
   isPlayButtonDisabled: boolean;
   hasNextTrack: boolean;
   hasPreviousTrack: boolean;
+  idleTrack: IdleTrackInfo | null;
 
   // Actions
   playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }) => void;
+  resumeLastPlayed: () => void;
   togglePlayPause: () => void;
   seekTo: (positionMs: number) => void;
   skipForward: () => void;
@@ -162,6 +171,43 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       interruptionModeAndroid: 'duckOthers',
       shouldRouteThroughEarpiece: false,
     });
+  }, []);
+
+  // --- Idle track state (display-only, no audio loaded) ---
+  const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
+
+  // --- Restore last played track info on mount (display only, no audio load) ---
+  useEffect(() => {
+    const restoreIdleTrack = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('last_played_track');
+        if (!saved) return;
+
+        const { track: savedTrack, meta } = JSON.parse(saved) as {
+          track: Track;
+          meta: { retreatId: string; retreatName: string; groupName: string } | null;
+        };
+
+        if (!savedTrack?.id) return;
+
+        // Read saved position from progress data
+        const progressKey = `progress_${savedTrack.id}`;
+        const progressData = await AsyncStorage.getItem(progressKey);
+        const position = progressData ? (JSON.parse(progressData).position || 0) : 0;
+
+        console.log(`Loaded idle track info: ${savedTrack.title} at ${position}s`);
+        setIdleTrack({
+          track: savedTrack,
+          meta,
+          position,
+          duration: savedTrack.duration || 0,
+        });
+      } catch (error) {
+        console.error('Error restoring idle track info:', error);
+      }
+    };
+
+    restoreIdleTrack();
   }, []);
 
   // --- Load new track effect ---
@@ -748,6 +794,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [playerState]);
 
+  // --- Persist last played track for restore on next launch ---
+  const saveLastPlayedTrack = useCallback(async (
+    savedTrack: Track,
+    meta?: { retreatId: string; retreatName: string; groupName: string }
+  ) => {
+    try {
+      const data = { track: savedTrack, meta: meta || null };
+      await AsyncStorage.setItem('last_played_track', JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving last played track:', error);
+    }
+  }, []);
+
   // --- Play a specific track ---
   const playTrack = useCallback((
     newTrack: Track,
@@ -755,6 +814,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     index: number,
     meta?: { retreatId: string; retreatName: string; groupName: string }
   ) => {
+    // Clear idle track display when a real track loads
+    setIdleTrack(null);
     setTrackListState(newTrackList);
     setCurrentTrackIndex(index);
     if (meta) {
@@ -764,7 +825,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
     // Setting track triggers the load effect
     setTrack(newTrack);
-  }, []);
+    // Persist for next launch
+    saveLastPlayedTrack(newTrack, meta);
+  }, [saveLastPlayedTrack]);
+
+  // --- Resume last played track (loads audio for idle track) ---
+  const resumeLastPlayed = useCallback(() => {
+    if (!idleTrack) return;
+    const { track: idleT, meta } = idleTrack;
+    playTrack(idleT, [idleT], 0, meta || undefined);
+  }, [idleTrack, playTrack]);
 
   // --- Next / previous track ---
   const nextTrackAction = useCallback(() => {
@@ -816,9 +886,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     isPlayButtonDisabled,
     hasNextTrack,
     hasPreviousTrack,
+    idleTrack,
 
     // Actions
     playTrack,
+    resumeLastPlayed,
     togglePlayPause,
     seekTo: seekToPosition,
     skipForward,

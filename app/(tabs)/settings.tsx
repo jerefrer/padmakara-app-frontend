@@ -331,8 +331,13 @@ export default function SettingsScreen() {
           ]}
           contentContainerStyle={{ paddingBottom: 100 }}
         >
+          {/* Desktop page title */}
+          {isDesktop && (
+            <Text style={styles.desktopPageTitle}>{t('navigation.settings') || 'Settings'}</Text>
+          )}
+
           {/* Language Settings */}
-          <Text style={styles.sectionTitleOutside}>{t('profile.languageSettings') || 'Language Settings'}</Text>
+          <Text style={[styles.sectionTitleOutside, isDesktop && styles.desktopSectionTitle]}>{t('profile.languageSettings') || 'Language Settings'}</Text>
           <View style={styles.section}>
             <Pressable
               style={({ pressed }) => [
@@ -624,6 +629,22 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     width: '100%' as unknown as number,
     alignSelf: 'center' as const,
+    paddingHorizontal: 40,
+  },
+  desktopPageTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.burgundy[500],
+    marginTop: 32,
+    marginBottom: 8,
+    marginHorizontal: 20,
+  },
+  desktopSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
   },
   accountUserInfo: {
     flexDirection: 'row',
@@ -658,6 +679,14 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: 'white',
     marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   settingItem: {
     flexDirection: 'row',
