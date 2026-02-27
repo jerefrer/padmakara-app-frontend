@@ -149,6 +149,7 @@ function mapTrack(backend: any): Track {
     isOriginal: backend.isTranslation != null ? !backend.isTranslation :
                 backend.is_translation != null ? !backend.is_translation : undefined,
     isPractice: backend.isPractice ?? backend.is_practice ?? undefined,
+    hasReadAlong: backend.hasReadAlong ?? backend.has_read_along ?? false,
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
   };
@@ -495,6 +496,29 @@ class RetreatService {
     } catch (error) {
       console.error('Get presigned URL error:', error);
       return { success: false, error: 'Failed to get audio URL' };
+    }
+  }
+
+  /**
+   * Fetch Read Along alignment data for a track.
+   * The API proxies the JSON from S3 to avoid CORS issues on web.
+   */
+  async getReadAlongData(trackId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }> {
+    try {
+      const response = await apiService.get<any>(
+        API_ENDPOINTS.READ_ALONG_URL(trackId)
+      );
+      if (response.success && response.data?.clean_segments) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: response.error || 'Read Along not available' };
+    } catch (error) {
+      console.error('Get Read Along data error:', error);
+      return { success: false, error: 'Failed to get Read Along data' };
     }
   }
 

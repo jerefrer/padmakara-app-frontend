@@ -172,7 +172,8 @@
     "loadingTranscript": "Loading transcript...",
     "loadError": "Failed to load transcript",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "pages": "pages"
   },
   "player": {
     "nowPlaying": "Now Playing",
@@ -236,6 +237,12 @@
     "matchedTracks": "Matching tracks",
     "searching": "Searching...",
     "minChars": "Type at least 2 characters"
+  },
+  "readAlong": {
+    "title": "Read Along",
+    "loading": "Loading transcript...",
+    "unavailable": "Read Along not available for this track",
+    "buttonLabel": "Read Along"
   },
   "profile": {
     "storage": "Storage",

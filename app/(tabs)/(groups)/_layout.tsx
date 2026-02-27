@@ -14,7 +14,6 @@ export default function GroupsLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="[groupId]" />
       <Stack.Screen name="retreat/[id]" />
-      <Stack.Screen name="session/[id]" />
       <Stack.Screen name="transcript/[id]" />
     </Stack>
   );

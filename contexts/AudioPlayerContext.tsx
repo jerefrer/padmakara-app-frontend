@@ -37,6 +37,7 @@ export interface AudioPlayerContextType {
   hasNextTrack: boolean;
   hasPreviousTrack: boolean;
   idleTrack: IdleTrackInfo | null;
+  player: ReturnType<typeof useAudioPlayer> | null;
 
   // Actions
   playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }) => void;
@@ -905,6 +906,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     hasNextTrack,
     hasPreviousTrack,
     idleTrack,
+    player: track ? player : null,
 
     // Actions
     playTrack,

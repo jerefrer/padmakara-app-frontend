@@ -53,6 +53,7 @@ export const API_ENDPOINTS = {
   
   // Audio & File Access (Media endpoints)
   PRESIGNED_URL: (trackId: string) => `/media/audio/${trackId}`,
+  READ_ALONG_URL: (trackId: string) => `/media/readalong/${trackId}`,
   TRANSCRIPT_URL: (transcriptId: string) => `/media/transcript/${transcriptId}`,
   
   // Payment / Subscription

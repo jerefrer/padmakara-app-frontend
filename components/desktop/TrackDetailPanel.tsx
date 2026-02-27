@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PDFViewer } from '@/components/PDFViewer';
+import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import retreatService from '@/services/retreatService';
 import { Track } from '@/types';
 import { colors } from '@/constants/colors';
@@ -26,7 +27,7 @@ interface RetreatInfo {
     id: string;
     tracks?: Track[];
   }[];
-  retreat_group: {
+  retreat_group?: {
     id: string;
     name: string;
     name_translations?: Record<string, string>;
@@ -34,33 +35,57 @@ interface RetreatInfo {
   transcripts?: TranscriptInfo[];
 }
 
+type DetailView = 'initial' | 'transcript' | 'readAlong';
+
 interface TrackDetailPanelProps {
   retreat: RetreatInfo;
+  currentTrack?: Track | null;
 }
 
-export function TrackDetailPanel({ retreat }: TrackDetailPanelProps) {
+export function TrackDetailPanel({ retreat, currentTrack }: TrackDetailPanelProps) {
   const { t, language } = useLanguage();
+  const [detailView, setDetailView] = useState<DetailView>('initial');
+
+  // Transcript state
   const [transcriptUrl, setTranscriptUrl] = useState<string | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
-  const [loadRequested, setLoadRequested] = useState(false);
-  const [hovered, setHovered] = useState(false);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
+  // Read Along state
+  const [readAlongData, setReadAlongData] = useState<any>(null);
+  const [readAlongLoading, setReadAlongLoading] = useState(false);
+  const [readAlongError, setReadAlongError] = useState<string | null>(null);
 
   // Find the best transcript for the current language
   const transcript = retreat.transcripts?.find(
     tr => tr.language === language
   ) || retreat.transcripts?.[0];
 
-  // Reset state when retreat/transcript changes
+  const hasReadAlong = currentTrack?.hasReadAlong ?? false;
+
+  // Reset read-along state when track changes
+  useEffect(() => {
+    setReadAlongData(null);
+    setReadAlongError(null);
+    if (detailView === 'readAlong') {
+      setDetailView('initial');
+    }
+  }, [currentTrack?.id]);
+
+  // Reset transcript state when retreat/transcript changes
   useEffect(() => {
     setTranscriptUrl(null);
     setTranscriptError(null);
-    setLoadRequested(false);
+    if (detailView === 'transcript') {
+      setDetailView('initial');
+    }
   }, [transcript?.id]);
 
-  // Load watermarked transcript PDF only when user requests it
+  // Load transcript when view switches to transcript
   useEffect(() => {
-    if (!transcript || !loadRequested) return;
+    if (detailView !== 'transcript' || !transcript) return;
+    if (transcriptUrl) return; // Already loaded
 
     let cancelled = false;
     setTranscriptLoading(true);
@@ -86,66 +111,175 @@ export function TrackDetailPanel({ retreat }: TrackDetailPanelProps) {
     });
 
     return () => { cancelled = true; };
-  }, [transcript?.id, transcript?.updatedAt, loadRequested]);
+  }, [detailView, transcript?.id, transcript?.updatedAt, transcriptUrl]);
 
-  const handleLoadTranscript = useCallback(() => {
-    setLoadRequested(true);
+  // Load read-along data when view switches to readAlong
+  useEffect(() => {
+    if (detailView !== 'readAlong' || !currentTrack) return;
+    if (readAlongData) return; // Already loaded
+
+    let cancelled = false;
+    setReadAlongLoading(true);
+    setReadAlongError(null);
+
+    retreatService.getReadAlongData(String(currentTrack.id)).then(result => {
+      if (cancelled) return;
+      if (result.success && result.data) {
+        setReadAlongData(result.data);
+      } else {
+        setReadAlongError(result.error || 'Failed to load Read Along data');
+      }
+      setReadAlongLoading(false);
+    }).catch(() => {
+      if (!cancelled) {
+        setReadAlongError('Failed to load Read Along data');
+        setReadAlongLoading(false);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [detailView, currentTrack?.id, readAlongData]);
+
+  const handleBack = useCallback(() => {
+    setDetailView('initial');
   }, []);
 
   const languageLabel = transcript?.language === 'pt' ? 'Português' : 'English';
 
-  return (
-    <View style={styles.container}>
-      {transcriptLoading ? (
+  // ─── Initial view: show action buttons ─────────────────────────────
+  if (detailView === 'initial') {
+    const hasTranscript = !!transcript;
+    const showBothButtons = hasTranscript && hasReadAlong;
+
+    return (
+      <View style={styles.container}>
         <View style={styles.placeholder}>
-          <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.placeholderText}>
-            {t('transcript.loadingTranscript') || 'Loading transcript...'}
-          </Text>
+          <View style={showBothButtons ? styles.buttonRow : undefined}>
+            {/* View Transcript button */}
+            {hasTranscript && (
+              <Pressable
+                style={[
+                  styles.loadButton,
+                  showBothButtons && styles.loadButtonHalf,
+                  hoveredButton === 'transcript' && styles.loadButtonHovered,
+                ]}
+                onPress={() => setDetailView('transcript')}
+                // @ts-ignore -- web-only
+                onMouseEnter={() => setHoveredButton('transcript')}
+                // @ts-ignore
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <Ionicons name="document-text-outline" size={32} color={colors.burgundy[500]} />
+                <Text style={styles.loadButtonTitle}>
+                  {t('transcript.viewTranscript') || 'View Transcript'}
+                </Text>
+                <Text style={styles.loadButtonMeta}>
+                  {languageLabel}
+                  {transcript.pageCount ? ` · ${transcript.pageCount} ${t('transcript.pages') || 'pages'}` : ''}
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Read Along button */}
+            {hasReadAlong && (
+              <Pressable
+                style={[
+                  styles.loadButton,
+                  showBothButtons && styles.loadButtonHalf,
+                  hoveredButton === 'readAlong' && styles.loadButtonHovered,
+                ]}
+                onPress={() => setDetailView('readAlong')}
+                // @ts-ignore -- web-only
+                onMouseEnter={() => setHoveredButton('readAlong')}
+                // @ts-ignore
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <Ionicons name="text-outline" size={32} color={colors.burgundy[500]} />
+                <Text style={styles.loadButtonTitle}>
+                  {t('readAlong.buttonLabel') || 'Read Along'}
+                </Text>
+                <Text style={styles.loadButtonMeta}>
+                  {currentTrack?.title || ''}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* No content at all */}
+          {!hasTranscript && !hasReadAlong && (
+            <View style={styles.noContentContainer}>
+              <Ionicons name="document-text-outline" size={48} color={colors.gray[300]} />
+              <Text style={styles.placeholderText}>
+                {t('transcript.noTranscript') || 'No transcript available for this event'}
+              </Text>
+            </View>
+          )}
         </View>
-      ) : transcriptError ? (
-        <View style={styles.placeholder}>
-          <Ionicons name="alert-circle-outline" size={40} color={colors.gray[400]} />
-          <Text style={styles.placeholderText}>{transcriptError}</Text>
-          <Pressable
-            style={styles.retryButton}
-            onPress={() => { setTranscriptError(null); setLoadRequested(false); setTimeout(handleLoadTranscript, 50); }}
-          >
-            <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
-          </Pressable>
-        </View>
-      ) : transcriptUrl ? (
-        <PDFViewer source={transcriptUrl} compact />
-      ) : transcript ? (
-        <View style={styles.placeholder}>
-          <Pressable
-            style={[styles.loadButton, hovered && styles.loadButtonHovered]}
-            onPress={handleLoadTranscript}
-            // @ts-ignore -- web-only
-            onMouseEnter={() => setHovered(true)}
-            // @ts-ignore
-            onMouseLeave={() => setHovered(false)}
-          >
-            <Ionicons name="document-text-outline" size={32} color={colors.burgundy[500]} />
-            <Text style={styles.loadButtonTitle}>
-              {t('transcript.viewTranscript') || 'View Transcript'}
+      </View>
+    );
+  }
+
+  // ─── Transcript view ───────────────────────────────────────────────
+  if (detailView === 'transcript') {
+    return (
+      <View style={styles.container}>
+        {transcriptLoading ? (
+          <View style={styles.placeholder}>
+            <ActivityIndicator size="large" color={colors.burgundy[500]} />
+            <Text style={styles.placeholderText}>
+              {t('transcript.loadingTranscript') || 'Loading transcript...'}
             </Text>
-            <Text style={styles.loadButtonMeta}>
-              {languageLabel}
-              {transcript.pageCount ? ` · ${transcript.pageCount} ${t('transcript.pages') || 'pages'}` : ''}
+          </View>
+        ) : transcriptError ? (
+          <View style={styles.placeholder}>
+            <Ionicons name="alert-circle-outline" size={40} color={colors.gray[400]} />
+            <Text style={styles.placeholderText}>{transcriptError}</Text>
+            <Pressable style={styles.retryButton} onPress={handleBack}>
+              <Text style={styles.retryButtonText}>{t('common.goBack') || 'Go Back'}</Text>
+            </Pressable>
+          </View>
+        ) : transcriptUrl ? (
+          <View style={styles.container}>
+            <View style={styles.viewHeader}>
+              <Pressable onPress={handleBack} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={20} color={colors.burgundy[500]} />
+                <Text style={styles.backButtonText}>{t('common.goBack') || 'Back'}</Text>
+              </Pressable>
+            </View>
+            <PDFViewer source={transcriptUrl} compact />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  // ─── Read Along view ───────────────────────────────────────────────
+  if (detailView === 'readAlong') {
+    return (
+      <View style={styles.container}>
+        {readAlongLoading ? (
+          <View style={styles.placeholder}>
+            <ActivityIndicator size="large" color={colors.burgundy[500]} />
+            <Text style={styles.placeholderText}>
+              {t('readAlong.loading') || 'Loading transcript...'}
             </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.placeholder}>
-          <Ionicons name="document-text-outline" size={48} color={colors.gray[300]} />
-          <Text style={styles.placeholderText}>
-            {t('transcript.noTranscript') || 'No transcript available for this event'}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+          </View>
+        ) : readAlongError ? (
+          <View style={styles.placeholder}>
+            <Ionicons name="alert-circle-outline" size={40} color={colors.gray[400]} />
+            <Text style={styles.placeholderText}>{readAlongError}</Text>
+            <Pressable style={styles.retryButton} onPress={handleBack}>
+              <Text style={styles.retryButtonText}>{t('common.goBack') || 'Go Back'}</Text>
+            </Pressable>
+          </View>
+        ) : readAlongData ? (
+          <ReadAlongViewer readAlongData={readAlongData} onClose={handleBack} />
+        ) : null}
+      </View>
+    );
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -165,6 +299,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  noContentContainer: {
+    alignItems: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 20,
+  },
   loadButton: {
     alignItems: 'center',
     paddingVertical: 28,
@@ -178,6 +319,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: colors.gray[200],
+  },
+  loadButtonHalf: {
+    flex: 1,
+    maxWidth: 220,
   },
   loadButtonHovered: {
     borderColor: colors.burgundy[500],
@@ -194,6 +339,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.gray[500],
     marginTop: 4,
+    textAlign: 'center',
+  },
+  viewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    backgroundColor: 'white',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    gap: 4,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.burgundy[500],
   },
   retryButton: {
     marginTop: 16,

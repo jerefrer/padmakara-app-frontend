@@ -14,6 +14,7 @@ import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
+import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -121,6 +122,11 @@ export default function RetreatDetailScreen() {
   const [allTracks, setAllTracks] = useState<TrackWithSession[]>([]);
   const [filteredTracks, setFilteredTracks] = useState<TrackWithSession[]>([]);
   const [currentLanguageMode, setCurrentLanguageMode] = useState<string>('en');
+
+  // Read Along state (mobile)
+  const [readAlongModalVisible, setReadAlongModalVisible] = useState(false);
+  const [readAlongData, setReadAlongData] = useState<any>(null);
+  const [readAlongLoading, setReadAlongLoading] = useState(false);
 
   // Overflow menu state
   const [menuVisible, setMenuVisible] = useState(false);
@@ -724,6 +730,36 @@ export default function RetreatDetailScreen() {
     }
   };
 
+  // Handle Read Along (mobile)
+  const handleOpenReadAlong = useCallback(async () => {
+    if (!currentTrack) return;
+    setReadAlongLoading(true);
+    setReadAlongModalVisible(true);
+    try {
+      const result = await retreatService.getReadAlongData(String(currentTrack.id));
+      if (result.success && result.data) {
+        setReadAlongData(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to load Read Along:', err);
+    } finally {
+      setReadAlongLoading(false);
+    }
+  }, [currentTrack]);
+
+  const handleCloseReadAlong = useCallback(() => {
+    setReadAlongModalVisible(false);
+    setReadAlongData(null);
+  }, []);
+
+  // Reset read along when track changes
+  useEffect(() => {
+    if (readAlongModalVisible) {
+      setReadAlongModalVisible(false);
+      setReadAlongData(null);
+    }
+  }, [currentTrack?.id]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -847,6 +883,15 @@ export default function RetreatDetailScreen() {
               {getTranslatedName(retreat, language)} {retreat.year}
             </Text>
           </View>
+          {/* Read Along button (mobile only — desktop shows in detail panel) */}
+          {!isDesktop && currentTrack?.hasReadAlong && (
+            <TouchableOpacity
+              onPress={handleOpenReadAlong}
+              style={styles.menuButton}
+            >
+              <Ionicons name="text-outline" size={22} color={colors.burgundy[500]} />
+            </TouchableOpacity>
+          )}
           {/* Transcript button (mobile only — desktop shows in detail panel) */}
           {!isDesktop && retreat.transcripts && retreat.transcripts.length > 0 && (
             <TouchableOpacity
@@ -933,7 +978,7 @@ export default function RetreatDetailScreen() {
           </View>
           {/* Detail panel (60%) */}
           <View style={styles.detailPanel}>
-            <TrackDetailPanel retreat={retreat} />
+            <TrackDetailPanel retreat={retreat} currentTrack={currentTrack} />
           </View>
         </View>
       ) : (
@@ -977,6 +1022,35 @@ export default function RetreatDetailScreen() {
             )}
           </View>
         </Pressable>
+      </Modal>
+
+      {/* Read Along Modal (mobile) */}
+      <Modal
+        visible={readAlongModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseReadAlong}
+      >
+        <SafeAreaView style={styles.readAlongModal}>
+          {readAlongLoading ? (
+            <View style={styles.readAlongModalLoading}>
+              <ActivityIndicator size="large" color={colors.burgundy[500]} />
+            </View>
+          ) : readAlongData ? (
+            <ReadAlongViewer readAlongData={readAlongData} onClose={handleCloseReadAlong} />
+          ) : (
+            <View style={styles.readAlongModalLoading}>
+              <Text style={{ color: colors.gray[500] }}>
+                {t('readAlong.unavailable') || 'Read Along not available for this track'}
+              </Text>
+              <TouchableOpacity onPress={handleCloseReadAlong} style={{ marginTop: 16 }}>
+                <Text style={{ color: colors.burgundy[500], fontWeight: '600' }}>
+                  {t('common.goBack') || 'Go Back'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </SafeAreaView>
       </Modal>
 
       {/* Confirmation Modal */}
@@ -1285,5 +1359,14 @@ const styles = StyleSheet.create({
   selectedTrackItem: {
     backgroundColor: colors.gray[100],
     borderLeftColor: colors.burgundy[500],
+  },
+  readAlongModal: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  readAlongModalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -75,6 +75,7 @@ export interface Track {
   speakerName?: string; // Teacher full name (e.g., 'Jigme Khyentse Rinpoche')
   isOriginal?: boolean; // True if original track, false if translation
   isPractice?: boolean; // True if practice/meditation track (displays first in session)
+  hasReadAlong?: boolean; // Whether Read Along alignment data exists for this track
   created_at: string;
   updated_at: string;
 }
@@ -94,6 +95,36 @@ export interface Bookmark {
   note?: string;
   createdAt: string;
 }
+
+// ─── Read Along ─────────────────────────────────────────────────────
+
+export interface ReadAlongWord {
+  word: string;
+  start: number; // seconds
+  end: number;   // seconds
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface ReadAlongSegment {
+  text: string;
+  start: number; // seconds
+  end: number;   // seconds
+  confidence: 'high' | 'medium' | 'low';
+  words: ReadAlongWord[];
+}
+
+export interface ReadAlongData {
+  clean_segments: ReadAlongSegment[];
+  stats: {
+    clean_words: number;
+    words_high: number;
+    words_medium: number;
+    words_low: number;
+    usable_pct: number;
+  };
+}
+
+// ─── Downloads ──────────────────────────────────────────────────────
 
 export interface DownloadedContent {
   id: string;

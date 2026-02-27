@@ -172,7 +172,8 @@
     "loadingTranscript": "A carregar transcrição...",
     "loadError": "Falha ao carregar transcrição",
     "expand": "Expandir",
-    "collapse": "Recolher"
+    "collapse": "Recolher",
+    "pages": "páginas"
   },
   "player": {
     "nowPlaying": "Tocando Agora",
@@ -236,6 +237,12 @@
     "matchedTracks": "Faixas correspondentes",
     "searching": "A pesquisar...",
     "minChars": "Escreva pelo menos 2 caracteres"
+  },
+  "readAlong": {
+    "title": "Ler em Conjunto",
+    "loading": "A carregar transcrição...",
+    "unavailable": "Ler em Conjunto não disponível para esta faixa",
+    "buttonLabel": "Ler em Conjunto"
   },
   "profile": {
     "storage": "Armazenamento",
