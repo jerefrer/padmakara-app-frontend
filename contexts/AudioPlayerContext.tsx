@@ -5,6 +5,7 @@ import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Audio player state machine
 export type AudioPlayerState = 'LOADING' | 'READY' | 'RESTORED' | 'PLAYING' | 'SEEKING';
@@ -175,6 +176,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
+  // --- Stop playback when auth is lost ---
+  const { isAuthenticated } = useAuth();
+  const wasAuthenticatedRef = useRef(isAuthenticated);
+
+  useEffect(() => {
+    if (wasAuthenticatedRef.current && !isAuthenticated) {
+      console.log('[AudioPlayer] Auth lost — stopping playback and clearing track');
+      try { player?.pause(); } catch {}
+      setTrack(null);
+      setTrackListState([]);
+      setCurrentTrackIndex(0);
+      setAudioSource(null);
+      setLoadedTrackId(null);
+      setMetaRetreatId(null);
+      setMetaRetreatName(null);
+      setMetaGroupName(null);
+      setIdleTrack(null);
+      setPlayerState('LOADING');
+      setDisplayPosition(0);
+      setPlayerPosition(0);
+    }
+    wasAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
   // --- Idle track state (display-only, no audio loaded) ---
   const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
 
@@ -220,6 +245,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     if (track) {
       console.log(`Loading new track: ${track.title} (${track.id})`);
+
+      // Stop any currently playing audio immediately before async loading
+      try { player?.pause(); } catch {}
 
       // Skip if same track already loaded and being restored
       if (loadedTrackId === track.id && isRestorationInProgress && restorationTrackId === track.id) {
