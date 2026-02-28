@@ -70,12 +70,14 @@
   },
   "groups": {
     "yourGroups": "Your groups",
+    "yourRetreatGroups": "Your retreat groups",
     "retreatAttended": "{{count}} retreat attended",
     "retreatsAttended": "{{count}} retreats attended",
     "publicEvents": "Public Events",
     "noPublicEvents": "No public events available at this time.",
-    "signInRequired": "Sign In Required",
-    "signInPrompt": "Retreat participants can sign in to access their recordings.",
+    "signInRequired": "Welcome to Padmakara",
+    "signInPrompt": "Access recordings and transcripts from your retreat group's gatherings.",
+    "signInSubtle": "A quiet space for your practice.",
     "signIn": "Sign In",
     "noGroups": "No Retreat Groups",
     "noGroupsDescription": "You haven't been assigned to any retreat groups yet. Please contact your administrator.",
@@ -93,7 +95,10 @@
     "sessions": "Sessions",
     "sessionLabel": "session",
     "sessionsLabel": "sessions",
-    "date": "Date"
+    "date": "Date",
+    "duration": "Duration",
+    "teachers": "Teachers",
+    "showAll": "Show all events"
   },
   "home": {
     "greetingMorning": "Good morning",

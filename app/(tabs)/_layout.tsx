@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -19,7 +19,7 @@ export default function TabLayout() {
   const tabsElement = (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#b91c1c', // Burgundy red
+        tabBarActiveTintColor: '#9b1b1b', // Deep muted red
         tabBarInactiveTintColor: '#6b7280',
         headerShown: false, // Let nested stacks handle headers
         tabBarButton: HapticTab,
@@ -41,14 +41,14 @@ export default function TabLayout() {
         name="(events)"
         options={{
           title: t('navigation.events') || 'Events',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="calendar-outline" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={24} name="account-group-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="(groups)"
         options={{
           title: t('navigation.retreats') || 'Retreats',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="list" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={24} name="meditation" color={color} />,
         }}
       />
       <Tabs.Screen

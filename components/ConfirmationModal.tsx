@@ -17,9 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 const colors = {
   burgundy: {
-    50: '#fef2f2',
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#f8f1f1',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   gray: {
     100: '#f3f4f6',
@@ -28,7 +28,7 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   white: '#ffffff',
 };
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 24,
     width: '100%',
     maxWidth: 340,
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 4,
     alignItems: 'center',
   },
   defaultButton: {

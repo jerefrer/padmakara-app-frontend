@@ -13,13 +13,13 @@ import { getTranslatedName } from '@/utils/i18n';
 
 const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
+    50: '#ffffff',
+    100: '#fefefe',
   },
   burgundy: {
-    50: '#fef2f2',
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#f8f1f1',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   gray: {
     100: '#f3f4f6',
@@ -28,7 +28,7 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   white: '#ffffff',
 };
@@ -68,20 +68,22 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
   const retreatCount = group.gatherings?.length || 0;
   const [isHovered, setIsHovered] = useState(false);
 
-  // Find most recent gathering date
-  const lastRetreat = group.gatherings?.length
+  // Find most recent gathering
+  const lastGathering = group.gatherings?.length
     ? group.gatherings.reduce((latest, g) => {
         const d = new Date(g.startDate);
-        return d > latest ? d : latest;
-      }, new Date(0))
+        return !latest || d > new Date(latest.startDate) ? g : latest;
+      }, null as Gathering | null)
     : null;
 
-  const lastRetreatLabel = lastRetreat && lastRetreat.getTime() > 0
-    ? lastRetreat.toLocaleDateString(language === 'pt' ? 'pt-PT' : 'en-US', {
-        month: 'short',
-        year: 'numeric',
-      })
-    : '—';
+  const lastRetreatLabel = lastGathering
+    ? getTranslatedName(lastGathering, language as 'en' | 'pt')
+    : null;
+
+  // Compute initials from group name
+  const groupName = getTranslatedName(group, language as 'en' | 'pt');
+  const abbr = group.abbreviation
+    || groupName.split(/\s+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
 
   const webHoverProps = Platform.OS === 'web' ? {
     onMouseEnter: () => setIsHovered(true),
@@ -94,16 +96,21 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
     >
-      {/* Group icon */}
-      <View style={styles.desktopRowIcon}>
-        <Ionicons name="people" size={20} color={colors.burgundy[500]} />
+      {/* Group initials circle */}
+      <View style={styles.desktopRowCircle}>
+        <Text style={styles.desktopRowCircleText}>{abbr}</Text>
       </View>
 
-      {/* Group name */}
+      {/* Group name + last retreat */}
       <View style={styles.desktopRowMain}>
         <Text style={styles.desktopRowName} numberOfLines={1}>
-          {getTranslatedName(group, language as 'en' | 'pt')}
+          {groupName}
         </Text>
+        {lastRetreatLabel && (
+          <Text style={styles.desktopRowSub} numberOfLines={1}>
+            {t('groups.lastRetreat') || 'Last retreat'}: {lastRetreatLabel}
+          </Text>
+        )}
       </View>
 
       {/* Retreat count */}
@@ -117,29 +124,10 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
         </Text>
       </View>
 
-      {/* Last retreat */}
-      <View style={styles.desktopRowDate}>
-        <Text style={styles.desktopRowDateText}>{lastRetreatLabel}</Text>
-      </View>
-
       {/* Arrow */}
       <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
     </Pressable>
   );
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function getGreeting(t: (key: string, params?: Record<string, string>) => string): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return t('home.greetingMorning') || 'Good morning';
-  if (hour < 18) return t('home.greetingAfternoon') || 'Good afternoon';
-  return t('home.greetingEvening') || 'Good evening';
-}
-
-function getFirstName(name: string | undefined): string {
-  if (!name) return '';
-  return name.split(' ')[0];
 }
 
 // ── Main Screen ─────────────────────────────────────────────────────────────
@@ -200,22 +188,27 @@ export default function RetreatsScreen() {
     router.push({ pathname: '/(auth)/magic-link', params: { returnTo: '/(tabs)/(groups)' } });
   };
 
-  // ─── Not authenticated: prompt to sign in ─────────────────────────────────
+  // ─── Not authenticated: welcoming sign-in prompt ────────────────────────────
   if (!isAuthenticated) {
     return (
       <>
         <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
         <View style={styles.container}>
-          <View style={styles.emptyState}>
-            <Ionicons name="lock-closed-outline" size={48} color={colors.gray[400]} />
-            <Text style={styles.emptyTitle}>
-              {t('groups.signInRequired') || 'Sign In Required'}
+          <View style={styles.welcomeState}>
+            <Image
+              source={require('@/assets/images/logo.png')}
+              style={styles.welcomeLogo}
+              contentFit="contain"
+            />
+            <Text style={styles.welcomeTitle}>
+              {t('groups.signInRequired') || 'Welcome to Padmakara'}
             </Text>
-            <Text style={styles.emptyText}>
-              {t('groups.signInPrompt') || 'Retreat participants can sign in to access their recordings.'}
+            <View style={styles.welcomeDivider} />
+            <Text style={styles.welcomeText}>
+              {t('groups.signInPrompt') || 'Access recordings and transcripts from your retreat group\'s gatherings.'}
             </Text>
-            <TouchableOpacity style={styles.signInButton} onPress={handleSignInPress}>
-              <Text style={styles.signInButtonText}>
+            <TouchableOpacity style={styles.welcomeButton} onPress={handleSignInPress}>
+              <Text style={styles.welcomeButtonText}>
                 {t('groups.signIn') || 'Sign In'}
               </Text>
             </TouchableOpacity>
@@ -337,22 +330,16 @@ export default function RetreatsScreen() {
   }
 
   // ─── Groups list ────────────────────────────────────────────────────────────
-  const firstName = getFirstName(user?.name);
-  const greeting = getGreeting(t);
-
   return (
     <>
       <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
       <View style={styles.container}>
         <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
-          {/* Desktop: greeting with name; Mobile: section title */}
+          {/* Page title */}
           {isDesktop ? (
             <View style={styles.desktopHeader}>
-              <Text style={styles.desktopGreeting}>
-                {greeting}{firstName ? `, ${firstName}` : ''}
-              </Text>
-              <Text style={styles.desktopSectionTitle}>
-                {t('groups.yourGroups') || 'Your groups'}
+              <Text style={styles.desktopPageTitle}>
+                {t('groups.yourRetreatGroups') || 'Your retreat groups'}
               </Text>
             </View>
           ) : (
@@ -364,28 +351,7 @@ export default function RetreatsScreen() {
           {/* Desktop: clean row-based list; Mobile: stacked cards */}
           {isDesktop ? (
             <View style={styles.desktopListContainer}>
-              {/* Column headers */}
-              <View style={styles.desktopListHeader}>
-                <View style={styles.desktopRowIcon} />
-                <View style={styles.desktopRowMain}>
-                  <Text style={styles.desktopColumnLabel}>
-                    {t('groups.groupName') || 'Group'}
-                  </Text>
-                </View>
-                <View style={styles.desktopRowStat}>
-                  <Text style={styles.desktopColumnLabel}>
-                    {t('navigation.retreats') || 'Retreats'}
-                  </Text>
-                </View>
-                <View style={styles.desktopRowDate}>
-                  <Text style={styles.desktopColumnLabel}>
-                    {t('groups.lastRetreat') || 'Last retreat'}
-                  </Text>
-                </View>
-                <View style={{ width: 16 }} />
-              </View>
-
-              {/* Group rows */}
+              {/* Group rows (no column headers) */}
               {retreatData.retreat_groups.map(group => (
                 <DesktopGroupRow
                   key={group.id}
@@ -429,6 +395,64 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 80,
   },
+  welcomeState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 60,
+  },
+  welcomeLogo: {
+    width: 80,
+    height: 80,
+    marginBottom: 32,
+    opacity: 0.6,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  welcomeDivider: {
+    width: 48,
+    height: 1,
+    backgroundColor: colors.burgundy[500],
+    marginBottom: 20,
+  },
+  welcomeText: {
+    fontSize: 17,
+    lineHeight: 26,
+    color: colors.gray[600],
+    textAlign: 'center',
+    maxWidth: 340,
+    marginBottom: 36,
+  },
+  welcomeSubtle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.gray[400],
+    textAlign: 'center',
+    fontStyle: 'italic',
+    fontFamily: 'EBGaramond_400Regular',
+    marginBottom: 32,
+  },
+  welcomeButton: {
+    backgroundColor: colors.burgundy[500],
+    paddingHorizontal: 44,
+    paddingVertical: 14,
+    borderRadius: 2,
+  },
+  welcomeButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
   emptyLogo: {
     width: 64,
     height: 64,
@@ -444,7 +468,8 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -460,25 +485,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
   },
 
   // Mobile card styles
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.burgundy[500],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingVertical: 20,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   groupCard: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   cardContent: {},
   groupTitleRow: {
@@ -489,7 +510,8 @@ const styles = StyleSheet.create({
   groupTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
     flex: 1,
   },
   retreatsText: {
@@ -512,7 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[500],
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 2,
     marginTop: 16,
   },
   retryButtonText: {
@@ -524,7 +546,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[500],
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 2,
     marginTop: 20,
   },
   signInButtonText: {
@@ -538,49 +560,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   desktopHeader: {
-    paddingTop: 32,
+    paddingTop: 36,
     paddingBottom: 24,
   },
-  desktopGreeting: {
+  desktopPageTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: colors.burgundy[500],
-    marginBottom: 24,
-  },
-  desktopSectionTitle: {
-    fontSize: 16,
     fontWeight: '600',
-    color: colors.gray[500],
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
   },
 
   // Desktop list
   desktopListContainer: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  desktopListHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-    backgroundColor: colors.cream[50],
-  },
-  desktopColumnLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.gray[500],
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    overflow: 'visible',
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
   },
   desktopRow: {
     flexDirection: 'row',
@@ -588,14 +584,25 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: colors.gray[200],
   },
   desktopRowHovered: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: '#fafafa',
   },
-  desktopRowIcon: {
-    width: 40,
+  desktopRowCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.gray[200],
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  desktopRowCircleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.gray[600],
+    letterSpacing: 0.3,
   },
   desktopRowMain: {
     flex: 1,
@@ -604,7 +611,13 @@ const styles = StyleSheet.create({
   desktopRowName: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
+  },
+  desktopRowSub: {
+    fontSize: 13,
+    color: colors.gray[500],
+    marginTop: 2,
   },
   desktopRowStat: {
     width: 100,
@@ -619,14 +632,6 @@ const styles = StyleSheet.create({
   },
   desktopRowStatLabel: {
     fontSize: 13,
-    color: colors.gray[500],
-  },
-  desktopRowDate: {
-    width: 120,
-    paddingHorizontal: 12,
-  },
-  desktopRowDateText: {
-    fontSize: 14,
     color: colors.gray[500],
   },
 });

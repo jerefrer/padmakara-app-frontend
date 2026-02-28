@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
@@ -15,15 +15,15 @@ import { getTranslatedName } from '@/utils/i18n';
 
 const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
+    50: '#ffffff',
+    100: '#fefefe',
   },
   burgundy: {
-    50: '#fef2f2',
-    100: '#fde6e6',
-    500: '#b91c1c',
-    600: '#991b1b',
-    700: '#7f1d1d',
+    50: '#f8f1f1',
+    100: '#f2e0e0',
+    500: '#9b1b1b',
+    600: '#7b1616',
+    700: '#5a1111',
   },
   saffron: {
     50: '#fffbeb',
@@ -36,10 +36,88 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   white: '#ffffff',
 };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Remove the group name suffix from event names, e.g. "Spring Retreat | Śamatha" → "Spring Retreat"
+ *  when viewing the Śamatha group page (since the group name is already the page title). */
+function cleanEventName(name: string, groupName: string | null): string {
+  if (!groupName) return name;
+  // Strip " | GroupName" suffix (case-insensitive)
+  const suffix = ` | ${groupName}`;
+  if (name.toLowerCase().endsWith(suffix.toLowerCase())) {
+    return name.slice(0, -suffix.length).trim();
+  }
+  return name;
+}
+
+function getOrdinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** Format a date range nicely: "April 18th" (single day), "November 1st–5th" (same month), etc. */
+function formatDateRangePretty(startDateStr: string, endDateStr: string, locale: string): string {
+  try {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    const isPt = locale === 'pt';
+    const localeStr = isPt ? 'pt-PT' : 'en-US';
+    const startMonth = startDate.toLocaleDateString(localeStr, { month: 'long' });
+    const endMonth = endDate.toLocaleDateString(localeStr, { month: 'long' });
+    const startDay = startDate.getDate();
+    const endDay = endDate.getDate();
+
+    if (isPt) {
+      // Portuguese: "18 de abril", "1–5 de novembro"
+      if (startDay === endDay && startMonth === endMonth) {
+        return `${startDay} de ${startMonth}`;
+      }
+      if (startMonth === endMonth) {
+        return `${startDay}–${endDay} de ${startMonth}`;
+      }
+      return `${startDay} de ${startMonth} – ${endDay} de ${endMonth}`;
+    }
+
+    // English: "April 18th", "November 1st–5th"
+    if (startDay === endDay && startMonth === endMonth) {
+      return `${startMonth} ${getOrdinal(startDay)}`;
+    }
+    if (startMonth === endMonth) {
+      return `${startMonth} ${getOrdinal(startDay)}–${getOrdinal(endDay)}`;
+    }
+    return `${startMonth} ${getOrdinal(startDay)} – ${endMonth} ${getOrdinal(endDay)}`;
+  } catch {
+    return `${startDateStr}`;
+  }
+}
+
+/** Format seconds into "Xh Ym" or "Ym" */
+function formatDuration(totalSeconds: number): string {
+  if (!totalSeconds || totalSeconds <= 0) return '—';
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.round((totalSeconds % 3600) / 60);
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
+/** Compute total duration of all tracks in a retreat */
+function getRetreatTotalDuration(retreat: Gathering): number {
+  let total = 0;
+  for (const session of retreat.sessions || []) {
+    for (const track of session.tracks || []) {
+      total += track.duration || 0;
+    }
+  }
+  return total;
+}
 
 // ── Mobile card ──────────────────────────────────────────────────────────────
 
@@ -49,44 +127,25 @@ interface RetreatCardProps {
   isDownloaded?: boolean;
   t: (key: string, params?: Record<string, unknown>) => string;
   language: string;
+  groupNameForStrip: string | null;
 }
 
-function RetreatCard({ retreat, onPress, isDownloaded, t, language }: RetreatCardProps) {
+function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameForStrip }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
-
-  const formatDateRange = (startDateStr: string, endDateStr: string) => {
-    try {
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
-      const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' });
-      const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
-      const startDay = startDate.getDate();
-      const endDay = endDate.getDate();
-      const getOrdinal = (n: number) => {
-        const s = ['th', 'st', 'nd', 'rd'];
-        const v = n % 100;
-        return n + (s[(v - 20) % 10] || s[v] || s[0]);
-      };
-      if (startMonth === endMonth) {
-        return `${startMonth} ${getOrdinal(startDay)} to ${getOrdinal(endDay)}`;
-      }
-      return `${startMonth} ${getOrdinal(startDay)} to ${endMonth} ${getOrdinal(endDay)}`;
-    } catch {
-      return `${startDateStr} to ${endDateStr}`;
-    }
-  };
+  const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
+  const displayName = cleanEventName(rawName, groupNameForStrip);
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.retreatCard}>
       <View style={styles.card}>
         <View style={styles.cardContent}>
           <View style={styles.retreatTitleRow}>
-            <Text style={styles.retreatTitle}>{getTranslatedName(retreat, language as 'en' | 'pt')}</Text>
+            <Text style={styles.retreatTitle}>{displayName}</Text>
             {isDownloaded && <OfflineBadge />}
           </View>
           <View style={styles.retreatInfo}>
             <Text style={styles.dateText}>
-              {formatDateRange(retreat.startDate, retreat.endDate)}
+              {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
             </Text>
             <View style={styles.tracksBadge}>
               <Text style={styles.tracksBadgeText}>
@@ -105,28 +164,12 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language }: RetreatCar
 
 // ── Desktop row ──────────────────────────────────────────────────────────────
 
-function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language }: RetreatCardProps) {
-  const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
+function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupNameForStrip }: RetreatCardProps) {
   const sessionCount = retreat.sessions?.length || 0;
+  const totalDuration = getRetreatTotalDuration(retreat);
   const [isHovered, setIsHovered] = useState(false);
-
-  const formatDateShort = (startDateStr: string, endDateStr: string) => {
-    try {
-      const locale = language === 'pt' ? 'pt-PT' : 'en-US';
-      const startDate = new Date(startDateStr);
-      const endDate = new Date(endDateStr);
-      const startMonth = startDate.toLocaleDateString(locale, { month: 'short' });
-      const endMonth = endDate.toLocaleDateString(locale, { month: 'short' });
-      const startDay = startDate.getDate();
-      const endDay = endDate.getDate();
-      if (startMonth === endMonth) {
-        return `${startMonth} ${startDay}–${endDay}`;
-      }
-      return `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
-    } catch {
-      return `${startDateStr}`;
-    }
-  };
+  const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
+  const displayName = cleanEventName(rawName, groupNameForStrip);
 
   const webHoverProps = Platform.OS === 'web' ? {
     onMouseEnter: () => setIsHovered(true),
@@ -144,7 +187,10 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language }: Retr
       </View>
       <View style={styles.desktopRowMain}>
         <Text style={styles.desktopRowName} numberOfLines={1}>
-          {getTranslatedName(retreat, language as 'en' | 'pt')}
+          {displayName}
+        </Text>
+        <Text style={styles.desktopRowSubDate} numberOfLines={1}>
+          {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
         </Text>
       </View>
       <View style={styles.desktopRowStat}>
@@ -154,15 +200,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language }: Retr
         </Text>
       </View>
       <View style={styles.desktopRowStat}>
-        <Text style={styles.desktopRowStatValue}>{totalTracks}</Text>
-        <Text style={styles.desktopRowStatLabel}>
-          {totalTracks === 1 ? (t('groups.retreatLabel') || 'track') : (t('retreats.tracksLabel') || 'tracks')}
-        </Text>
-      </View>
-      <View style={styles.desktopRowDate}>
-        <Text style={styles.desktopRowDateText}>
-          {formatDateShort(retreat.startDate, retreat.endDate)}
-        </Text>
+        <Text style={styles.desktopRowStatValue}>{formatDuration(totalDuration)}</Text>
       </View>
       <View style={styles.desktopRowBadges}>
         {isDownloaded && <OfflineBadge />}
@@ -226,6 +264,9 @@ export default function GroupDetailScreen() {
   const handleRetreatPress = (retreatId: string) => {
     router.push(`/(tabs)/(groups)/retreat/${retreatId}`);
   };
+
+  // Group name used to strip " | GroupName" suffix from event names
+  const groupNameForStrip = groupData ? getTranslatedName(groupData, language as 'en' | 'pt') : null;
 
   // Loading state
   if (loading) {
@@ -375,6 +416,7 @@ export default function GroupDetailScreen() {
                       isDownloaded={downloadedRetreatIds.has(retreat.id)}
                       t={t}
                       language={language}
+                      groupNameForStrip={groupNameForStrip}
                     />
                   ))}
                 </View>
@@ -387,6 +429,7 @@ export default function GroupDetailScreen() {
                     isDownloaded={downloadedRetreatIds.has(retreat.id)}
                     t={t}
                     language={language}
+                    groupNameForStrip={groupNameForStrip}
                   />
                 ))
               )}
@@ -429,9 +472,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   yearHeaderText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.gray[700],
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 1.0,
   },
   desktopYearHeaderText: {
     fontSize: 16,
@@ -455,7 +500,8 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -481,7 +527,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[500],
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 2,
     marginTop: 16,
   },
   retryButtonText: {
@@ -492,19 +538,15 @@ const styles = StyleSheet.create({
 
   // Mobile card styles
   retreatCard: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.burgundy[500],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingVertical: 20,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   cardContent: {},
   retreatTitleRow: {
@@ -516,7 +558,8 @@ const styles = StyleSheet.create({
   retreatTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
     flex: 1,
   },
   retreatInfo: {
@@ -529,37 +572,35 @@ const styles = StyleSheet.create({
     color: colors.gray[600],
   },
   tracksBadge: {
-    backgroundColor: colors.burgundy[100],
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   tracksBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.burgundy[700],
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.gray[500],
   },
 
   // Desktop styles
   desktopPageHeader: {
-    paddingTop: 32,
+    paddingTop: 36,
     paddingBottom: 24,
   },
   desktopPageTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
     marginBottom: 6,
   },
   desktopListContainer: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    overflow: 'visible',
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
     marginBottom: 8,
   },
   desktopRow: {
@@ -568,10 +609,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: colors.gray[200],
   },
   desktopRowHovered: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: '#fafafa',
   },
   desktopRowIcon: {
     width: 40,
@@ -584,7 +625,13 @@ const styles = StyleSheet.create({
   desktopRowName: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
+  },
+  desktopRowDate: {
+    fontSize: 13,
+    color: colors.gray[500],
+    marginTop: 2,
   },
   desktopRowStat: {
     width: 90,
@@ -601,13 +648,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.gray[500],
   },
-  desktopRowDate: {
-    width: 120,
-    paddingHorizontal: 12,
+  desktopRowDuration: {
+    width: 80,
+    paddingHorizontal: 4,
   },
-  desktopRowDateText: {
+  desktopRowDurationText: {
     fontSize: 14,
-    color: colors.gray[500],
+    fontWeight: '500',
+    color: colors.gray[600],
   },
   desktopRowBadges: {
     width: 32,

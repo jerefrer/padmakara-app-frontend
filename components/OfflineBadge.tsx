@@ -12,9 +12,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
   burgundy: {
-    50: '#fef2f2',
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#f8f1f1',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
 };
 
@@ -22,7 +22,7 @@ export function OfflineBadge() {
   const { t } = useLanguage();
   return (
     <View style={styles.badge}>
-      <Ionicons name="checkmark-circle" size={12} color={colors.burgundy[600]} />
+      <Ionicons name="checkmark-circle" size={12} color="#6b7280" />
       <Text style={styles.badgeText}>{t('retreats.offline') || 'Offline'}</Text>
     </View>
   );
@@ -32,17 +32,19 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.burgundy[50],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
     gap: 4,
     flexShrink: 0,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.burgundy[600],
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
 

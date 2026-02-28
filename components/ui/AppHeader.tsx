@@ -7,11 +7,11 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 
 const colors = {
   cream: {
-    100: '#fcf8f3',
+    100: '#fefefe',
   },
   burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   gray: {
     200: '#e5e7eb',
@@ -85,8 +85,8 @@ export function AppHeader({ showBackButton = false, onBackPress, title }: AppHea
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.cream[100],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: 2,
+    borderBottomColor: colors.burgundy[500],
   },
   content: {
     height: 60,
@@ -120,10 +120,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   appName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.burgundy[500],
-    letterSpacing: 0.5,
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
   },
   spacer: {
     position: 'absolute',

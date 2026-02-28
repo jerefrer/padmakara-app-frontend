@@ -10,28 +10,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
-    200: '#f7f0e4',
+    50: '#ffffff',
+    100: '#fefefe',
+    200: '#f5f4f2',
   },
   burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   saffron: {
     500: '#f59e0b',
     600: '#d97706',
   },
   gray: {
+    200: '#e5e7eb',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#2c2c2c',
   },
   green: {
     500: '#10b981',
@@ -40,15 +41,15 @@ const colors = {
 };
 
 export default function DeviceActivatedScreen() {
-  const { user_name, device_name } = useLocalSearchParams<{ 
-    user_name?: string; 
+  const { user_name, device_name } = useLocalSearchParams<{
+    user_name?: string;
     device_name?: string;
   }>();
-  
+
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('');
   const [settingUpBiometric, setSettingUpBiometric] = useState(false);
-  
+
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0.5)).current;
@@ -56,7 +57,7 @@ export default function DeviceActivatedScreen() {
 
   useEffect(() => {
     checkBiometricAvailability();
-    
+
     // Entrance animations
     Animated.sequence([
       Animated.parallel([
@@ -87,10 +88,10 @@ export default function DeviceActivatedScreen() {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      
+
       if (hasHardware && isEnrolled) {
         setBiometricAvailable(true);
-        
+
         // Determine biometric type for display
         if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
           setBiometricType('Face ID');
@@ -107,7 +108,7 @@ export default function DeviceActivatedScreen() {
 
   const handleSetupBiometric = async () => {
     setSettingUpBiometric(true);
-    
+
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Enable ${biometricType} for Padmakara`,
@@ -121,9 +122,9 @@ export default function DeviceActivatedScreen() {
           `${biometricType} Enabled!`,
           'You can now use biometric authentication to sign in quickly and securely.',
           [
-            { 
-              text: 'Continue to App', 
-              onPress: () => router.replace('/(tabs)') 
+            {
+              text: 'Continue to App',
+              onPress: () => router.replace('/(tabs)')
             }
           ]
         );
@@ -137,9 +138,9 @@ export default function DeviceActivatedScreen() {
         'Setup Failed',
         'Unable to set up biometric authentication. You can enable it later in settings.',
         [
-          { 
-            text: 'Continue', 
-            onPress: () => router.replace('/(tabs)') 
+          {
+            text: 'Continue',
+            onPress: () => router.replace('/(tabs)')
           }
         ]
       );
@@ -160,33 +161,30 @@ export default function DeviceActivatedScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[colors.cream[50], colors.cream[100]]}
-        style={styles.background}
-      >
-        <Animated.View 
+      <View style={styles.background}>
+        <Animated.View
           style={[
             styles.content,
             { opacity: fadeAnim }
           ]}
         >
           {/* Success Icon with Celebration */}
-          <Animated.View 
+          <Animated.View
             style={[
               styles.successContainer,
               { transform: [{ scale: successScale }] }
             ]}
           >
             <View style={styles.successIconBackground}>
-              <Ionicons 
-                name="checkmark-circle" 
-                size={64} 
-                color={colors.green[500]} 
+              <Ionicons
+                name="checkmark-circle"
+                size={64}
+                color={colors.green[500]}
               />
             </View>
-            
+
             {/* Celebration sparkles */}
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.celebrationContainer,
                 { transform: [{ scale: celebrationScale }] }
@@ -214,10 +212,10 @@ export default function DeviceActivatedScreen() {
 
           {/* Device Info */}
           <View style={styles.deviceCard}>
-            <Ionicons 
-              name="phone-portrait" 
-              size={20} 
-              color={colors.burgundy[500]} 
+            <Ionicons
+              name="phone-portrait"
+              size={20}
+              color={colors.gray[800]}
             />
             <View style={styles.deviceInfo}>
               <Text style={styles.deviceLabel}>Activated Device</Text>
@@ -234,18 +232,18 @@ export default function DeviceActivatedScreen() {
           {biometricAvailable && (
             <View style={styles.biometricSection}>
               <View style={styles.biometricHeader}>
-                <Ionicons 
-                  name={getBiometricIcon()} 
-                  size={24} 
-                  color={colors.saffron[500]} 
+                <Ionicons
+                  name={getBiometricIcon()}
+                  size={24}
+                  color={colors.saffron[500]}
                 />
                 <Text style={styles.biometricTitle}>
                   Secure Your Access
                 </Text>
               </View>
-              
+
               <Text style={styles.biometricDescription}>
-                Enable {biometricType} for quick and secure access to your retreat content. 
+                Enable {biometricType} for quick and secure access to your retreat content.
                 This makes signing in effortless while keeping your spiritual practice private.
               </Text>
 
@@ -277,25 +275,20 @@ export default function DeviceActivatedScreen() {
                   disabled={settingUpBiometric}
                   activeOpacity={0.8}
                 >
-                  <LinearGradient
-                    colors={[colors.saffron[500], colors.saffron[600]]}
-                    style={styles.buttonGradient}
-                  >
-                    {settingUpBiometric ? (
-                      <ActivityIndicator color="white" size="small" />
-                    ) : (
-                      <>
-                        <Ionicons 
-                          name={getBiometricIcon()} 
-                          size={20} 
-                          color="white" 
-                        />
-                        <Text style={styles.primaryButtonText}>
-                          Enable {biometricType}
-                        </Text>
-                      </>
-                    )}
-                  </LinearGradient>
+                  {settingUpBiometric ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name={getBiometricIcon()}
+                        size={20}
+                        color="white"
+                      />
+                      <Text style={styles.primaryButtonText}>
+                        Enable {biometricType}
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
 
                 {/* Skip Button */}
@@ -310,18 +303,13 @@ export default function DeviceActivatedScreen() {
             ) : (
               /* Continue Button (no biometric available) */
               <TouchableOpacity
-                style={styles.primaryButton}
+                style={[styles.primaryButton, styles.primaryButtonBurgundy]}
                 onPress={() => router.replace('/(tabs)')}
                 activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={[colors.burgundy[500], colors.burgundy[600]]}
-                  style={styles.buttonGradient}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    Continue to App
-                  </Text>
-                </LinearGradient>
+                <Text style={styles.primaryButtonText}>
+                  Continue to App
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -334,7 +322,7 @@ export default function DeviceActivatedScreen() {
             <Text style={styles.quoteAuthor}>— Buddhist Blessing</Text>
           </View>
         </Animated.View>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
@@ -345,6 +333,7 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
+    backgroundColor: '#fefefe',
   },
   content: {
     flex: 1,
@@ -365,13 +354,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.green[500],
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 12,
-    borderWidth: 4,
-    borderColor: colors.cream[200],
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   celebrationContainer: {
     position: 'absolute',
@@ -404,11 +388,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    color: colors.gray[800],
     textAlign: 'center',
     marginBottom: 12,
-    fontFamily: 'Georgia',
+    fontFamily: 'EBGaramond_600SemiBold',
   },
   subtitle: {
     fontSize: 16,
@@ -421,16 +405,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginBottom: 32,
     alignSelf: 'stretch',
-    shadowColor: colors.gray[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   deviceInfo: {
     flex: 1,
@@ -451,7 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.green[500],
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 2,
   },
   statusText: {
     color: 'white',
@@ -460,15 +441,12 @@ const styles = StyleSheet.create({
   },
   biometricSection: {
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 4,
     padding: 20,
     marginBottom: 32,
     alignSelf: 'stretch',
-    shadowColor: colors.saffron[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
     borderLeftWidth: 4,
     borderLeftColor: colors.saffron[500],
   },
@@ -480,6 +458,7 @@ const styles = StyleSheet.create({
   biometricTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'EBGaramond_700Bold',
     color: colors.gray[700],
     marginLeft: 8,
   },
@@ -507,22 +486,18 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   primaryButton: {
-    borderRadius: 50,
-    marginBottom: 16,
-    shadowColor: colors.saffron[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.saffron[500],
+    borderRadius: 2,
     paddingVertical: 18,
     paddingHorizontal: 24,
-    borderRadius: 50,
     minHeight: 56,
+    marginBottom: 16,
+  },
+  primaryButtonBurgundy: {
+    backgroundColor: colors.burgundy[500],
   },
   primaryButtonText: {
     color: 'white',
@@ -544,7 +519,7 @@ const styles = StyleSheet.create({
   },
   quoteContainer: {
     backgroundColor: colors.cream[200],
-    borderRadius: 12,
+    borderRadius: 4,
     paddingHorizontal: 20,
     paddingVertical: 16,
     alignSelf: 'stretch',

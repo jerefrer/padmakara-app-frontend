@@ -14,12 +14,12 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View 
 
 const colors = {
   cream: {
-    100: '#fcf8f3',
+    100: '#fefefe',
   },
   burgundy: {
-    50: '#fef2f2',
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#f8f1f1',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   saffron: {
     500: '#f59e0b',
@@ -32,7 +32,7 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
 };
 
@@ -637,18 +637,19 @@ const styles = StyleSheet.create({
   },
   desktopPageTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
     marginTop: 32,
     marginBottom: 8,
     marginHorizontal: 20,
   },
   desktopSectionTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.gray[500],
     textTransform: 'uppercase' as const,
-    letterSpacing: 0.4,
+    letterSpacing: 1.2,
   },
   accountUserInfo: {
     flexDirection: 'row',
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: colors.gray[200],
   },
   accountUserText: {
     marginLeft: 12,
@@ -665,6 +666,7 @@ const styles = StyleSheet.create({
   accountUserName: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
   },
   accountUserEmail: {
@@ -673,24 +675,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionTitleOutside: {
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    color: colors.gray[500],
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1.2,
     marginTop: 32,
     marginBottom: 8,
     marginHorizontal: 20,
   },
   section: {
-    backgroundColor: 'white',
-    marginBottom: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    marginBottom: 0,
+    borderRadius: 0,
+    overflow: 'visible',
     marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   settingItem: {
     flexDirection: 'row',
@@ -699,7 +700,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: colors.gray[200],
   },
   settingLeft: {
     flexDirection: 'row',
@@ -758,7 +759,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[500],
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 2,
   },
   signInButtonPressed: {
     backgroundColor: colors.burgundy[600],
@@ -767,5 +768,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
   },
 });

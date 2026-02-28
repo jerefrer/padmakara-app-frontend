@@ -9,8 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = {
   burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   gray: {
     100: '#f3f4f6',
@@ -19,7 +19,7 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   white: '#ffffff',
 };
@@ -182,10 +182,10 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.gray[400],
+    borderTopColor: colors.gray[200],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 8,
   },
@@ -214,6 +214,7 @@ const styles = StyleSheet.create({
   trackTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
     textAlign: 'center',
     marginBottom: 4,
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[100],
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: 4,
   },
   speedButtonDisabled: {
     opacity: 0.5,

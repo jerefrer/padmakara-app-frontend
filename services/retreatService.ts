@@ -105,6 +105,11 @@ function mapEvent(backend: any): Gathering {
     startDate,
     endDate,
     sessions: backend.sessions?.map(mapSession) || undefined,
+    teachers: backend.eventTeachers?.map((et: any) => ({
+      name: et.teacher?.name || '',
+      abbreviation: et.teacher?.abbreviation || '',
+      photoUrl: et.teacher?.photoUrl || null,
+    })).filter((t: any) => t.name) || undefined,
     status: mapEventStatus(backend.status || 'published', startDate, endDate),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',

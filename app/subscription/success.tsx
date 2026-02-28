@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
-  cream: { 100: '#fcf8f3' },
-  burgundy: { 500: '#b91c1c', 600: '#991b1b' },
+  cream: { 100: '#fefefe' },
+  burgundy: { 500: '#9b1b1b', 600: '#7b1616' },
   green: { 500: '#16a34a' },
   gray: { 600: '#4b5563' },
 };
@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
+    fontFamily: 'EBGaramond_600SemiBold',
     fontWeight: '600',
     color: colors.burgundy[500],
     marginTop: 16,

@@ -2,7 +2,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -21,25 +20,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
-    200: '#f7f0e4',
+    50: '#ffffff',
+    100: '#fefefe',
+    200: '#f5f4f2',
   },
   burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
-    700: '#7f1d1d',
+    500: '#9b1b1b',
+    600: '#7b1616',
+    700: '#5a1111',
   },
   saffron: {
     500: '#f59e0b',
     600: '#d97706',
   },
   gray: {
+    200: '#e5e7eb',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#2c2c2c',
   },
+  white: '#ffffff',
 };
 
 export default function MagicLinkScreen() {
@@ -311,16 +313,11 @@ export default function MagicLinkScreen() {
           disabled={isLoading}
           activeOpacity={0.8}
         >
-        <LinearGradient
-          colors={[colors.burgundy[500], colors.burgundy[600]]}
-          style={styles.buttonGradient}
-        >
           {isLoading ? (
             <ActivityIndicator color="white" size="small" />
           ) : (
             <Text style={styles.primaryButtonText}>{t('auth.magicLink.continueButton')}</Text>
           )}
-        </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -381,21 +378,16 @@ export default function MagicLinkScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          style={[styles.approvalButton, isLoading && styles.buttonDisabled]}
           onPress={handleApprovalSubmit}
           disabled={isLoading}
           activeOpacity={0.8}
         >
-          <LinearGradient
-            colors={[colors.saffron[500], colors.saffron[600]]}
-            style={styles.buttonGradient}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <Text style={styles.primaryButtonText}>{t('auth.magicLink.approval.requestAccessButton')}</Text>
-            )}
-          </LinearGradient>
+          {isLoading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.primaryButtonText}>{t('auth.magicLink.approval.requestAccessButton')}</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -411,12 +403,9 @@ export default function MagicLinkScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[colors.cream[50], colors.cream[100]]}
-        style={styles.background}
-      >
+      <View style={styles.background}>
         {showApprovalForm ? renderApprovalForm() : renderEmailForm()}
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
@@ -424,9 +413,11 @@ export default function MagicLinkScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.cream[100],
   },
   background: {
     flex: 1,
+    backgroundColor: colors.cream[100],
   },
   content: {
     flex: 1,
@@ -440,8 +431,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
   },
   headerContainer: {
     alignItems: 'center',
@@ -449,19 +440,18 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    color: colors.gray[800],
     textAlign: 'center',
-    marginBottom: 21,
-    fontFamily: 'Georgia',
+    marginBottom: 12,
+    fontFamily: 'EBGaramond_600SemiBold',
   },
   subtitle: {
-    marginTop: 12,
     fontSize: 16,
-    color: colors.gray[600],
+    color: colors.gray[500],
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
   },
   formContainer: {
     width: '100%',
@@ -469,68 +459,68 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.gray[700],
-    marginBottom: 8,
+    marginBottom: 6,
   },
   textInput: {
-    backgroundColor: 'white',
-    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderRadius: 4,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
     fontSize: 16,
     color: colors.gray[700],
     textAlign: 'center',
-    borderWidth: 2,
-    borderColor: colors.cream[200],
-    shadowColor: colors.gray[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
+    textAlign: 'left',
   },
   primaryButton: {
-    borderRadius: 50,
-    marginTop: 16,
-    marginBottom: 24,
-    shadowColor: colors.burgundy[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonGradient: {
-    paddingVertical: 18,
+    backgroundColor: colors.burgundy[500],
+    borderRadius: 2,
+    paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 56,
+    minHeight: 52,
+    marginTop: 12,
+    marginBottom: 24,
+  },
+  approvalButton: {
+    backgroundColor: colors.saffron[500],
+    borderRadius: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+    marginTop: 12,
+    marginBottom: 24,
   },
   primaryButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   secondaryButton: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     marginBottom: 16,
   },
   secondaryButtonText: {
     color: colors.gray[500],
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   backButton: {
@@ -538,23 +528,20 @@ const styles = StyleSheet.create({
     top: 20,
     left: 20,
     zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'white',
+    width: 36,
+    height: 36,
+    borderRadius: 4,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   backButtonText: {
-    fontSize: 28,
-    color: colors.burgundy[500],
-    fontWeight: '600',
-    marginTop: -2,
+    fontSize: 24,
+    color: colors.gray[600],
+    fontWeight: '400',
+    marginTop: -1,
   },
   languageSwitcherContainer: {
     position: 'absolute',
@@ -565,39 +552,34 @@ const styles = StyleSheet.create({
   languageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: colors.white,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 7,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: colors.cream[200],
-    shadowColor: colors.gray[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: colors.gray[200],
   },
   languageButtonText: {
-    fontSize: 14,
-    color: colors.gray[700],
+    fontSize: 13,
+    color: colors.gray[600],
     fontWeight: '500',
-    marginRight: 8,
+    marginRight: 6,
   },
   languageArrow: {
-    fontSize: 12,
-    color: colors.gray[500],
+    fontSize: 10,
+    color: colors.gray[400],
   },
   languageDropdown: {
     position: 'absolute',
     top: '100%',
     right: 0,
-    backgroundColor: 'white',
-    borderRadius: 8,
+    backgroundColor: colors.white,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: colors.cream[200],
-    shadowColor: colors.gray[500],
+    borderColor: colors.gray[200],
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
     minWidth: 120,
@@ -605,12 +587,12 @@ const styles = StyleSheet.create({
   },
   languageOption: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.cream[100],
+    borderBottomColor: colors.gray[200],
   },
   languageOptionSelected: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: colors.cream[100],
   },
   languageOptionText: {
     fontSize: 14,
@@ -618,7 +600,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   languageOptionTextSelected: {
-    color: colors.burgundy[600],
+    color: colors.burgundy[500],
     fontWeight: '600',
   },
 });

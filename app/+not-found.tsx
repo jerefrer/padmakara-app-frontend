@@ -3,10 +3,10 @@ import { StyleSheet, View, Text } from 'react-native';
 
 const colors = {
   cream: {
-    100: '#fcf8f3',
+    100: '#fefefe',
   },
   burgundy: {
-    500: '#b91c1c',
+    500: '#9b1b1b',
   },
   gray: {
     600: '#4b5563',
@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
+    fontFamily: 'EBGaramond_600SemiBold',
     fontWeight: '600',
     color: colors.gray[600],
   },

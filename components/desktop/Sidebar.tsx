@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { router, usePathname, useSegments, useGlobalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
@@ -18,13 +18,32 @@ import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import retreatService from '@/services/retreatService';
 import { RetreatGroup } from '@/types';
 
+/** Split a group name like "Preliminary Practices - Level 3 - Mandala"
+ *  into { main: "Preliminary Practices", sub: "Level 3 · Mandala" } */
+function splitGroupName(name: string): { main: string; sub?: string } {
+  const parts = name.split(/\s*-\s*/);
+  if (parts.length <= 1) return { main: name };
+  return {
+    main: parts[0],
+    sub: parts.slice(1).join(' · '),
+  };
+}
+
 interface NavItem {
   key: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   activeIcon: keyof typeof Ionicons.glyphMap;
+  renderIcon?: (active: boolean, color: string) => React.ReactNode;
   route: string;
-  segment: string; // The tab segment name to match against
+  segment: string;
+}
+
+interface TeacherCount {
+  name: string;
+  abbreviation: string;
+  photoUrl?: string | null;
+  eventCount: number;
 }
 
 export function Sidebar() {
@@ -36,48 +55,53 @@ export function Sidebar() {
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [hoveredGroupItem, setHoveredGroupItem] = useState<string | null>(null);
+  const [hoveredTeacherItem, setHoveredTeacherItem] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
 
   // Data states
   const [groups, setGroups] = useState<RetreatGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [teacherCounts, setTeacherCounts] = useState<TeacherCount[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
 
-  // Track active group from URL using global search params (actual values, not segment names)
-  const globalParams = useGlobalSearchParams<{ groupId?: string }>();
+  // Track active group from URL
+  const globalParams = useGlobalSearchParams<{ groupId?: string; teacher?: string }>();
   const activeGroupIdRef = useRef<string | null>(null);
   const isInGroupsSection = (segments as string[]).includes('(groups)');
+  const isInEventsSection = (segments as string[]).includes('(events)');
 
-  // Update ref when we have a direct groupId from the route
   useEffect(() => {
     if (globalParams.groupId) {
       activeGroupIdRef.current = globalParams.groupId;
     }
-    // Clear when navigating away from groups entirely
     if (!isInGroupsSection) {
       activeGroupIdRef.current = null;
     }
   }, [globalParams.groupId, isInGroupsSection]);
 
-  // Use direct groupId if available, otherwise fall back to ref (for sub-pages like retreat/[id])
   const activeGroupId = isInGroupsSection
     ? (globalParams.groupId || activeGroupIdRef.current)
     : null;
+
+  const activeTeacher = isInEventsSection ? (globalParams.teacher || null) : null;
 
   const navItems: NavItem[] = [
     {
       key: 'events',
       label: t('navigation.events') || 'Events',
-      icon: 'calendar-outline',
-      activeIcon: 'calendar',
+      icon: 'people-outline',
+      activeIcon: 'people',
+      renderIcon: (active, color) => <MaterialCommunityIcons name={active ? 'account-group' : 'account-group-outline'} size={22} color={color} />,
       route: '/(tabs)/(events)',
       segment: '(events)',
     },
     {
       key: 'home',
       label: t('navigation.retreats') || 'Retreats',
-      icon: 'library-outline',
-      activeIcon: 'library',
+      icon: 'body-outline',
+      activeIcon: 'body',
+      renderIcon: (active, color) => <MaterialCommunityIcons name="meditation" size={22} color={color} />,
       route: '/(tabs)/(groups)',
       segment: '(groups)',
     },
@@ -91,7 +115,6 @@ export function Sidebar() {
     },
   ];
 
-  // Use segments array to determine active state (more reliable than pathname for group routes)
   const isActive = useCallback(
     (item: NavItem): boolean => {
       return (segments as string[]).includes(item.segment);
@@ -120,6 +143,7 @@ export function Sidebar() {
 
   // ── Data fetching ──────────────────────────────────────────────────
 
+  // Fetch groups for authenticated users
   useEffect(() => {
     if (!isAuthenticated || !hasActiveSubscription) return;
 
@@ -139,11 +163,54 @@ export function Sidebar() {
     return () => { cancelled = true; };
   }, [isAuthenticated, hasActiveSubscription]);
 
+  // Fetch public events for teacher counts
+  useEffect(() => {
+    let cancelled = false;
+    setTeachersLoading(true);
+
+    retreatService.getPublicEvents().then((response) => {
+      if (cancelled) return;
+      if (response.success && response.data) {
+        // Count number of events per teacher (not tracks)
+        const countMap = new Map<string, { name: string; abbreviation: string; photoUrl?: string | null; eventCount: number }>();
+
+        for (const event of response.data) {
+          if (event.teachers) {
+            for (const teacher of event.teachers) {
+              const key = teacher.abbreviation || teacher.name;
+              const existing = countMap.get(key);
+              if (existing) {
+                existing.eventCount++;
+              } else {
+                countMap.set(key, {
+                  name: teacher.name,
+                  abbreviation: teacher.abbreviation,
+                  photoUrl: teacher.photoUrl,
+                  eventCount: 1,
+                });
+              }
+            }
+          }
+        }
+
+        const sorted = Array.from(countMap.values())
+          .filter(t => t.eventCount > 0)
+          .sort((a, b) => b.eventCount - a.eventCount);
+
+        setTeacherCounts(sorted);
+      }
+      setTeachersLoading(false);
+    }).catch(() => {
+      if (!cancelled) setTeachersLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, []);
+
   // Close menu on click outside (web)
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      // Close if clicking outside the menu area
       const target = e.target as HTMLElement;
       if (!target.closest('[data-user-menu]')) {
         setMenuOpen(false);
@@ -170,7 +237,9 @@ export function Sidebar() {
 
   const isSettingsActive = pathname.includes('/settings');
   const isSubscriptionActive = pathname.includes('/subscription');
-  const isMenuItemActive = isSettingsActive || isSubscriptionActive;
+
+  const showGroups = isInGroupsSection && isAuthenticated && hasActiveSubscription;
+  const showTeachers = isInEventsSection && teacherCounts.length > 0;
 
   return (
     <View style={styles.container}>
@@ -191,119 +260,172 @@ export function Sidebar() {
         </Pressable>
       </View>
 
-      {/* Navigation items (Retreats + Events only) */}
-      <View style={styles.navSection}>
-        {navItems.map((item) => {
-          const active = isActive(item);
-          const isHoveredNav = hoveredItem === item.key;
+      {/* Navigation items with nested sub-items */}
+      <ScrollView style={styles.navScrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.navSection}>
+          {navItems.map((item, index) => {
+            const active = isActive(item);
+            const isHoveredNav = hoveredItem === item.key;
 
-          return (
-            <Pressable
-              key={item.key}
-              style={[
-                styles.navItem,
-                active && styles.navItemActive,
-                isHoveredNav && !active && styles.navItemHover,
-              ]}
-              onPress={() => handleNavPress(item.route)}
-              // @ts-ignore -- web-only mouse events
-              onMouseEnter={() => setHoveredItem(item.key)}
-              // @ts-ignore
-              onMouseLeave={() => setHoveredItem(null)}
-              accessibilityRole="link"
-              accessibilityLabel={item.label}
-              accessibilityState={{ selected: active }}
-            >
-              <Ionicons
-                name={active ? item.activeIcon : item.icon}
-                size={20}
-                color={active ? colors.burgundy[500] : colors.gray[500]}
-              />
-              <Text
-                style={[
-                  styles.navLabel,
-                  active && styles.navLabelActive,
-                ]}
-              >
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Divider + Groups section — only for authenticated users with subscription */}
-      {isAuthenticated && hasActiveSubscription && (
-        <>
-        <View style={styles.divider} />
-
-        <View style={styles.groupsSection}>
-          <Text style={styles.sectionHeader}>
-            {(t('groups.yourGroups') || 'YOUR GROUPS').toUpperCase()}
-          </Text>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.burgundy[500]} />
-            </View>
-          ) : (
-            <ScrollView style={styles.groupsScrollView} showsVerticalScrollIndicator={false}>
-              {groups.map((group) => {
-              const isHoveredGroup = hoveredGroupItem === group.id;
-              const isGroupActive = activeGroupId === group.id;
-
-              const abbr = group.abbreviation
-                || getTranslatedName(group, language as 'en' | 'pt')
-                    .split(/\s+/)
-                    .map(w => w[0])
-                    .join('')
-                    .substring(0, 3)
-                    .toUpperCase();
-
-              return (
+            return (
+              <View key={item.key}>
+                {/* Nav item */}
                 <Pressable
-                  key={group.id}
                   style={[
-                    styles.groupItem,
-                    isGroupActive && styles.groupItemActive,
-                    isHoveredGroup && !isGroupActive && styles.groupItemHover,
+                    styles.navItem,
+                    active && styles.navItemActive,
+                    isHoveredNav && !active && styles.navItemHover,
                   ]}
-                  onPress={() => handleGroupPress(group)}
+                  onPress={() => handleNavPress(item.route)}
                   // @ts-ignore -- web-only mouse events
-                  onMouseEnter={() => setHoveredGroupItem(group.id)}
+                  onMouseEnter={() => setHoveredItem(item.key)}
                   // @ts-ignore
-                  onMouseLeave={() => setHoveredGroupItem(null)}
-                  accessibilityRole="button"
-                  accessibilityLabel={getTranslatedName(group, language as 'en' | 'pt')}
-                  accessibilityState={{ selected: isGroupActive }}
+                  onMouseLeave={() => setHoveredItem(null)}
+                  accessibilityRole="link"
+                  accessibilityLabel={item.label}
+                  accessibilityState={{ selected: active }}
                 >
-                  <View style={[
-                    styles.groupCircle,
-                    isGroupActive && styles.groupCircleActive,
-                  ]}>
-                    <Text style={[
-                      styles.groupCircleText,
-                      isGroupActive && styles.groupCircleTextActive,
-                    ]}>
-                      {abbr}
-                    </Text>
-                  </View>
+                  {item.renderIcon
+                    ? item.renderIcon(active, active ? colors.burgundy[500] : colors.gray[500])
+                    : <Ionicons
+                        name={active ? item.activeIcon : item.icon}
+                        size={20}
+                        color={active ? colors.burgundy[500] : colors.gray[500]}
+                      />
+                  }
                   <Text
                     style={[
-                      styles.groupItemText,
-                      isGroupActive && styles.groupItemTextActive,
+                      styles.navLabel,
+                      active && styles.navLabelActive,
                     ]}
-                    numberOfLines={2}
                   >
-                    {getTranslatedName(group, language as 'en' | 'pt')}
+                    {item.label}
                   </Text>
                 </Pressable>
-              );
-            })}
-            </ScrollView>
-          )}
+
+                {/* Teachers nested under Events */}
+                {item.key === 'events' && showTeachers && (
+                  <View style={styles.teachersContainer}>
+                    {teachersLoading ? (
+                      <View style={styles.subLoadingContainer}>
+                        <ActivityIndicator size="small" color={colors.burgundy[500]} />
+                      </View>
+                    ) : (
+                      teacherCounts.map((teacher) => {
+                        const isHovered = hoveredTeacherItem === teacher.abbreviation;
+                        const isTeacherActive = activeTeacher === teacher.abbreviation;
+                        return (
+                          <Pressable
+                            key={teacher.abbreviation}
+                            style={[
+                              styles.teacherItem,
+                              isTeacherActive && styles.teacherItemActive,
+                              isHovered && !isTeacherActive && styles.teacherItemHover,
+                            ]}
+                            onPress={() => router.push(`/(tabs)/(events)?teacher=${encodeURIComponent(teacher.abbreviation)}` as any)}
+                            // @ts-ignore
+                            onMouseEnter={() => setHoveredTeacherItem(teacher.abbreviation)}
+                            // @ts-ignore
+                            onMouseLeave={() => setHoveredTeacherItem(null)}
+                          >
+                            <Text style={[styles.teacherName, isTeacherActive && styles.teacherNameActive]} numberOfLines={1}>
+                              {teacher.name}
+                            </Text>
+                            <Text style={[styles.teacherCount, isTeacherActive && styles.teacherCountActive]}>
+                              {teacher.eventCount}
+                            </Text>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
+
+                {/* Groups nested under Retreats */}
+                {item.key === 'home' && showGroups && (
+                  <View style={styles.subItemsContainer}>
+                    {loading ? (
+                      <View style={styles.subLoadingContainer}>
+                        <ActivityIndicator size="small" color={colors.burgundy[500]} />
+                      </View>
+                    ) : (
+                      groups.map((group) => {
+                        const isHoveredGroup = hoveredGroupItem === group.id;
+                        const isGroupActive = activeGroupId === group.id;
+
+                        const abbr = group.abbreviation
+                          || getTranslatedName(group, language as 'en' | 'pt')
+                              .split(/\s+/)
+                              .map(w => w[0])
+                              .join('')
+                              .substring(0, 3)
+                              .toUpperCase();
+
+                        const { main, sub } = splitGroupName(
+                          getTranslatedName(group, language as 'en' | 'pt')
+                        );
+
+                        return (
+                          <Pressable
+                            key={group.id}
+                            style={[
+                              styles.groupItem,
+                              isGroupActive && styles.groupItemActive,
+                              isHoveredGroup && !isGroupActive && styles.groupItemHover,
+                            ]}
+                            onPress={() => handleGroupPress(group)}
+                            // @ts-ignore
+                            onMouseEnter={() => setHoveredGroupItem(group.id)}
+                            // @ts-ignore
+                            onMouseLeave={() => setHoveredGroupItem(null)}
+                            accessibilityRole="button"
+                            accessibilityLabel={getTranslatedName(group, language as 'en' | 'pt')}
+                            accessibilityState={{ selected: isGroupActive }}
+                          >
+                            <View style={[
+                              styles.groupCircle,
+                              isGroupActive && styles.groupCircleActive,
+                            ]}>
+                              <Text style={[
+                                styles.groupCircleText,
+                                isGroupActive && styles.groupCircleTextActive,
+                              ]}>
+                                {abbr}
+                              </Text>
+                            </View>
+                            <View style={styles.groupTextContainer}>
+                              <Text
+                                style={[
+                                  styles.groupItemText,
+                                  isGroupActive && styles.groupItemTextActive,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {main}
+                              </Text>
+                              {sub && (
+                                <Text
+                                  style={[
+                                    styles.groupItemSub,
+                                    isGroupActive && styles.groupItemSubActive,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {sub}
+                                </Text>
+                              )}
+                            </View>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
-        </>
-      )}
+      </ScrollView>
 
       {/* User footer with dropdown menu */}
       <View
@@ -448,13 +570,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
 
-  /* Logo section — aligned with main panel header (paddingTop: 32) */
+  /* Logo section */
   logoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 32,
-    paddingBottom: 16,
+    paddingLeft: 23,
+    paddingRight: 16,
+    paddingTop: 42,
+    paddingBottom: 36,
   },
   logoRow: {
     flexDirection: 'row',
@@ -466,13 +589,18 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   appName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.burgundy[500],
-    letterSpacing: 0.3,
+    fontSize: 20,
+    fontWeight: '400',
+    fontFamily: 'EBGaramond_400Regular',
+    color: colors.gray[600],
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
 
   /* Navigation */
+  navScrollView: {
+    flex: 1,
+  },
   navSection: {
     paddingHorizontal: 8,
     paddingTop: 4,
@@ -482,17 +610,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
-    marginBottom: 2,
+    borderRadius: 0,
+    marginTop: 8,
   },
   navItemActive: {
-    backgroundColor: colors.cream[100],
-    borderLeftColor: colors.burgundy[500],
+    backgroundColor: 'transparent',
   },
   navItemHover: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: '#f8f7f7',
   },
   navLabel: {
     fontSize: 14,
@@ -505,68 +630,51 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* Divider */
-  divider: {
-    height: 1,
-    backgroundColor: colors.gray[200],
-    marginHorizontal: 16,
-    marginTop: 12,
+  /* Sub-items container (groups under Retreats) */
+  subItemsContainer: {
+    paddingLeft: 0,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-
-  /* Groups section — flat list, same font size as nav */
-  groupsSection: {
-    paddingHorizontal: 8,
-    marginTop: 16,
-    flex: 1,
-  },
-  groupsScrollView: {
-    flex: 1,
-  },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.gray[500],
-    letterSpacing: 0.55,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    paddingHorizontal: 8,
-  },
-  placeholderText: {
-    fontSize: 13,
-    color: colors.gray[400],
-    paddingHorizontal: 8,
-  },
-  loadingContainer: {
-    paddingVertical: 24,
+  subLoadingContainer: {
+    paddingVertical: 12,
     alignItems: 'center',
   },
+
+  /* Teachers container (no header) */
+  teachersContainer: {
+    paddingLeft: 0,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+
+  /* Group sub-items */
   groupItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
-    marginBottom: 2,
+    paddingVertical: 7,
+    paddingLeft: 14,
+    paddingRight: 16,
+    borderRadius: 0,
+    marginBottom: 1,
   },
   groupItemHover: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: '#f8f7f7',
   },
   groupCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.gray[200],
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   groupCircleActive: {
     backgroundColor: colors.burgundy[500],
   },
   groupCircleText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: colors.gray[600],
     letterSpacing: 0.3,
@@ -574,20 +682,64 @@ const styles = StyleSheet.create({
   groupCircleTextActive: {
     color: colors.white,
   },
-  groupItemText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray[600],
+  groupTextContainer: {
     flex: 1,
   },
+  groupItemText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.gray[600],
+  },
+  groupItemSub: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: colors.gray[400],
+    marginTop: 1,
+  },
+  groupItemSubActive: {
+    color: colors.burgundy[500],
+    opacity: 0.7,
+  },
   groupItemActive: {
-    backgroundColor: colors.cream[100],
-    borderLeftWidth: 3,
-    borderLeftColor: colors.burgundy[500],
+    backgroundColor: 'transparent',
   },
   groupItemTextActive: {
     color: colors.burgundy[500],
     fontWeight: '600',
+  },
+
+  /* Teacher sub-items */
+  teacherItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 16,
+    marginBottom: 0,
+  },
+  teacherItemHover: {
+    backgroundColor: '#f8f7f7',
+  },
+  teacherItemActive: {
+    backgroundColor: 'transparent',
+  },
+  teacherName: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.gray[500],
+    flex: 1,
+  },
+  teacherNameActive: {
+    color: colors.burgundy[500],
+    fontWeight: '600',
+  },
+  teacherCount: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.gray[400],
+    marginLeft: 6,
+  },
+  teacherCountActive: {
+    color: colors.burgundy[500],
   },
 
   /* User footer */
@@ -610,7 +762,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   userRowActive: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: '#f8f7f7',
   },
   avatar: {
     width: 28,
@@ -649,14 +801,14 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 
-  /* Dropdown menu (opens upward from user footer) */
+  /* Dropdown menu */
   dropdownMenu: {
     position: 'absolute',
     bottom: '100%',
     left: 8,
     right: 8,
     backgroundColor: colors.white,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingVertical: 4,
     marginBottom: 4,
     shadowColor: '#000',
@@ -678,10 +830,10 @@ const styles = StyleSheet.create({
     marginVertical: 1,
   },
   menuItemActive: {
-    backgroundColor: colors.cream[100],
+    backgroundColor: 'transparent',
   },
   menuItemHover: {
-    backgroundColor: colors.cream[50],
+    backgroundColor: '#f8f7f7',
   },
   menuItemText: {
     fontSize: 14,

@@ -9,30 +9,30 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Tibetan Buddhist inspired colors from the website
+        // Refined palette aligned with padmakara.pt website
         cream: {
-          50: '#fefdfb',
-          100: '#fcf8f3',
-          200: '#f7f0e4',
-          300: '#f2e8d5',
-          400: '#ede0c6',
-          500: '#e8d8b7', // Main cream color
-          600: '#d4c4a6',
-          700: '#b8a68f',
-          800: '#9c8878',
-          900: '#806a61',
+          50: '#ffffff',
+          100: '#fefefe',
+          200: '#f5f4f2',
+          300: '#eeedeb',
+          400: '#e8e7e5',
+          500: '#e8e6e3', // Main neutral light
+          600: '#d4d2cf',
+          700: '#b8b6b3',
+          800: '#9c9a97',
+          900: '#807e7b',
         },
         burgundy: {
-          50: '#fef2f2',
-          100: '#fde6e6',
-          200: '#fbcccc',
-          300: '#f8b3b3',
-          400: '#f59999',
-          500: '#b91c1c', // Main burgundy red
-          600: '#991b1b',
-          700: '#7f1d1d',
-          800: '#651e1e',
-          900: '#4c1d1d',
+          50: '#f8f1f1',
+          100: '#f2e0e0',
+          200: '#e0bfbf',
+          300: '#d09f9f',
+          400: '#c08080',
+          500: '#9b1b1b', // Deep muted red
+          600: '#7b1616',
+          700: '#5a1111',
+          800: '#3a0c0c',
+          900: '#2a0808',
         },
         saffron: {
           50: '#fffbeb',
@@ -40,7 +40,7 @@ module.exports = {
           200: '#fde68a',
           300: '#fcd34d',
           400: '#fbbf24',
-          500: '#f59e0b', // Main saffron yellow
+          500: '#f59e0b',
           600: '#d97706',
           700: '#b45309',
           800: '#92400e',
@@ -49,7 +49,7 @@ module.exports = {
       },
       fontFamily: {
         'sans': ['Inter', 'system-ui', 'sans-serif'],
-        'serif': ['Georgia', 'serif'],
+        'serif': ['EBGaramond_400Regular', 'Georgia', 'serif'],
       },
       fontSize: {
         // Larger fonts for 40+ demographic

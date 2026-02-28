@@ -28,8 +28,8 @@ export function useDesktopLayout(): DesktopLayout {
     isWide,
     showSidebar,
     showMasterDetail: isDesktop,
-    // Always full sidebar, never collapsed
-    sidebarWidth: 240,
+    // Wider sidebar on wider screens to accommodate teacher names etc.
+    sidebarWidth: isWide ? 280 : 240,
     playerBarHeight: 80,
   };
 }

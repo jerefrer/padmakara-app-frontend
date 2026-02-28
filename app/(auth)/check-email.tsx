@@ -1,7 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import magicLinkService from '@/services/magicLinkService';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -18,22 +17,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
-    200: '#f7f0e4',
+    50: '#ffffff',
+    100: '#fefefe',
+    200: '#f5f4f2',
   },
   burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   saffron: {
     500: '#f59e0b',
     600: '#d97706',
   },
   gray: {
+    200: '#e5e7eb',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#2c2c2c',
   },
 };
 
@@ -46,7 +47,7 @@ export default function CheckEmailScreen() {
   const [isPolling, setIsPolling] = useState(true);
   const [pollCount, setPollCount] = useState(0);
   const [activationStatus, setActivationStatus] = useState<'checking' | 'pending' | 'activated' | 'error'>('checking');
-  
+
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -119,17 +120,17 @@ export default function CheckEmailScreen() {
       try {
         console.log(`🔍 Polling activation status (attempt ${pollCount + 1})`);
         const result = await magicLinkService.checkActivationStatus();
-        
+
         if (result.success && result.data) {
           if (result.data.isActivated) {
             console.log('🎉 Device activation detected via polling!');
             setActivationStatus('activated');
             setIsPolling(false);
-            
+
             // Refresh AuthContext to pick up the activation
             console.log('🔄 Refreshing AuthContext after activation detection');
             await refreshAuth();
-            
+
             // Give a moment for the user to see the success state
             setTimeout(() => {
               router.replace(redirectTarget);
@@ -176,17 +177,17 @@ export default function CheckEmailScreen() {
   // Manual activation status check
   const handleCheckStatus = async () => {
     if (isResending) return;
-    
+
     setIsResending(true);
     setActivationStatus('checking');
-    
+
     try {
       const result = await magicLinkService.checkActivationStatus();
-      
+
       if (result.success && result.data) {
         if (result.data.isActivated) {
           setActivationStatus('activated');
-          
+
           // Refresh AuthContext to pick up the activation
           console.log('🔄 Refreshing AuthContext after manual status check');
           await refreshAuth();
@@ -251,35 +252,32 @@ export default function CheckEmailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[colors.cream[50], colors.cream[100]]}
-        style={styles.background}
-      >
-        <ScrollView 
+      <View style={styles.background}>
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View 
+          <Animated.View
             style={[
               styles.content,
-              { 
+              {
                 opacity: fadeAnim,
                 transform: [{ scale: successScale }]
               }
             ]}
           >
           {/* Email Icon with Pulse Animation */}
-          <Animated.View 
+          <Animated.View
             style={[
               styles.iconContainer,
               { transform: [{ scale: pulseAnim }] }
             ]}
           >
             <View style={styles.iconBackground}>
-              <Ionicons 
-                name="mail" 
-                size={48} 
-                color={colors.burgundy[500]} 
+              <Ionicons
+                name="mail"
+                size={48}
+                color={colors.burgundy[500]}
               />
             </View>
           </Animated.View>
@@ -299,7 +297,7 @@ export default function CheckEmailScreen() {
             {activationStatus !== 'activated' && activationStatus !== 'checking' && (
               <Text style={styles.emailText}>{formatEmail(email || '')}</Text>
             )}
-            
+
             {/* Live Status Indicator */}
             {isPolling && activationStatus === 'pending' && (
               <View style={styles.statusIndicator}>
@@ -309,7 +307,7 @@ export default function CheckEmailScreen() {
                 </Text>
               </View>
             )}
-            
+
             {activationStatus === 'activated' && (
               <View style={styles.successIndicator}>
                 <Ionicons name="checkmark-circle" size={20} color={colors.burgundy[500]} />
@@ -352,10 +350,10 @@ export default function CheckEmailScreen() {
 
           {/* Security Notice */}
           <View style={styles.securityNotice}>
-            <Ionicons 
-              name="shield-checkmark" 
-              size={16} 
-              color={colors.saffron[500]} 
+            <Ionicons
+              name="shield-checkmark"
+              size={16}
+              color={colors.saffron[500]}
             />
             <Text style={styles.securityText}>
               The link expires in 1 hour for your security
@@ -368,58 +366,48 @@ export default function CheckEmailScreen() {
               {/* Check Status Button - More prominent than resend */}
               <TouchableOpacity
                 style={[
-                  styles.checkStatusButton, 
+                  styles.checkStatusButton,
                   isResending && styles.buttonDisabled
                 ]}
                 onPress={handleCheckStatus}
                 disabled={isResending}
                 activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={[colors.burgundy[500], colors.burgundy[600]]}
-                  style={styles.buttonGradient}
-                >
-                  {isResending && activationStatus === 'checking' ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="search" size={18} color="white" />
-                      <Text style={styles.checkStatusButtonText}>
-                        Check Status
-                      </Text>
-                    </>
-                  )}
-                </LinearGradient>
+                {isResending && activationStatus === 'checking' ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="search" size={18} color="white" />
+                    <Text style={styles.checkStatusButtonText}>
+                      Check Status
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               {/* Resend Button - Secondary */}
               <TouchableOpacity
                 style={[
-                  styles.resendButton, 
+                  styles.resendButton,
                   (isResending || resendCooldown > 0) && styles.buttonDisabled
                 ]}
                 onPress={handleResend}
                 disabled={isResending || resendCooldown > 0}
                 activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={[colors.saffron[500], colors.saffron[600]]}
-                  style={styles.buttonGradient}
-                >
-                  {isResending && activationStatus !== 'checking' ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="refresh" size={18} color="white" />
-                      <Text style={styles.resendButtonText}>
-                        {resendCooldown > 0 
-                          ? `Resend in ${resendCooldown}s`
-                          : 'Resend email'
-                        }
-                      </Text>
-                    </>
-                  )}
-                </LinearGradient>
+                {isResending && activationStatus !== 'checking' ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="refresh" size={18} color="white" />
+                    <Text style={styles.resendButtonText}>
+                      {resendCooldown > 0
+                        ? `Resend in ${resendCooldown}s`
+                        : 'Resend email'
+                      }
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               {/* Change Email Button */}
@@ -436,13 +424,13 @@ export default function CheckEmailScreen() {
           {/* Helpful Tip */}
           <View style={styles.tipContainer}>
             <Text style={styles.tipText}>
-              💡 <Text style={styles.tipBold}>Tip:</Text> If you don't see the email, 
+              💡 <Text style={styles.tipBold}>Tip:</Text> If you don't see the email,
               check your spam or junk folder, or try adding our domain to your safe sender list.
             </Text>
           </View>
         </Animated.View>
         </ScrollView>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
@@ -453,6 +441,7 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
+    backgroundColor: '#fefefe',
   },
   scrollContent: {
     flexGrow: 1,
@@ -476,13 +465,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.burgundy[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: colors.cream[200],
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   messageContainer: {
     alignItems: 'center',
@@ -490,11 +474,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    color: colors.gray[800],
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: 'Georgia',
+    fontFamily: 'EBGaramond_600SemiBold',
   },
   subtitle: {
     fontSize: 16,
@@ -548,7 +532,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream[200],
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 4,
     marginBottom: 20,
     borderLeftWidth: 3,
     borderLeftColor: colors.saffron[500],
@@ -563,22 +547,32 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginBottom: 16,
   },
-  resendButton: {
-    borderRadius: 50,
-    marginBottom: 16,
-    shadowColor: colors.saffron[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buttonGradient: {
+  checkStatusButton: {
+    borderRadius: 2,
+    marginBottom: 12,
+    backgroundColor: colors.burgundy[500],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 50,
+    minHeight: 52,
+  },
+  checkStatusButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  resendButton: {
+    borderRadius: 2,
+    marginBottom: 16,
+    backgroundColor: colors.saffron[500],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     minHeight: 52,
   },
   resendButtonText: {
@@ -601,11 +595,11 @@ const styles = StyleSheet.create({
   },
   tipContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 4,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: colors.cream[200],
+    borderColor: colors.gray[200],
   },
   tipText: {
     fontSize: 13,
@@ -624,7 +618,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: colors.cream[200],
-    borderRadius: 12,
+    borderRadius: 4,
     borderLeftWidth: 3,
     borderLeftColor: colors.saffron[500],
   },
@@ -641,34 +635,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 4,
     borderLeftWidth: 3,
     borderLeftColor: colors.burgundy[500],
-    shadowColor: colors.burgundy[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   successStatusText: {
     fontSize: 14,
     color: colors.burgundy[500],
     marginLeft: 8,
     fontWeight: '600',
-  },
-  checkStatusButton: {
-    borderRadius: 50,
-    marginBottom: 12,
-    shadowColor: colors.burgundy[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  checkStatusButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 8,
   },
 });

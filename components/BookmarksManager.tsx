@@ -7,8 +7,8 @@ import i18n from '@/utils/i18n';
 
 const colors = {
   burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   saffron: {
     500: '#f59e0b',
@@ -273,6 +273,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    fontFamily: 'EBGaramond_700Bold',
     color: colors.burgundy[500],
   },
   emptyState: {
@@ -350,6 +351,7 @@ const styles = StyleSheet.create({
   addModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    fontFamily: 'EBGaramond_700Bold',
     color: colors.burgundy[500],
     marginBottom: 8,
   },

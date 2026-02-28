@@ -31,12 +31,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
   cream: {
-    100: '#fcf8f3',
+    100: '#fefefe',
   },
   burgundy: {
-    50: '#fef2f2',
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#f8f1f1',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   saffron: {
     500: '#f59e0b',
@@ -49,7 +49,7 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   success: '#10b981',
   error: '#ef4444',
@@ -558,30 +558,24 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
-    marginBottom: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    marginBottom: 0,
+    borderRadius: 0,
+    overflow: 'visible',
     marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   loadingContainer: {
-    backgroundColor: 'white',
+    backgroundColor: 'transparent',
     padding: 24,
     alignItems: 'center',
-    marginBottom: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
+    marginBottom: 0,
+    borderRadius: 0,
+    overflow: 'visible',
     marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   loadingText: {
     fontSize: 14,
@@ -753,7 +747,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 8,
     width: '80%',
     maxWidth: 320,
     maxHeight: '70%',

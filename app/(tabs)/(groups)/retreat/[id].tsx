@@ -24,14 +24,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const colors = {
   cream: {
-    100: '#fcf8f3',
+    100: '#fefefe',
   },
   burgundy: {
-    50: '#fef2f2',
-    100: '#fde6e6',
-    500: '#b91c1c',
-    600: '#991b1b',
-    700: '#7f1d1d',
+    50: '#f8f1f1',
+    100: '#f2e0e0',
+    500: '#9b1b1b',
+    600: '#7b1616',
+    700: '#5a1111',
   },
   saffron: {
     50: '#fffbeb',
@@ -49,12 +49,12 @@ const colors = {
 };
 
 const LANG_COLORS: Record<string, { bg: string; text: string }> = {
-  en: { bg: '#eff6ff', text: '#1d4ed8' },
-  pt: { bg: '#f0fdf4', text: '#15803d' },
-  fr: { bg: '#faf5ff', text: '#7e22ce' },
-  tib: { bg: '#fffbeb', text: '#b45309' },
+  en: { bg: 'transparent', text: '#6b7fad' },
+  pt: { bg: 'transparent', text: '#5a8a6a' },
+  fr: { bg: 'transparent', text: '#8a6aad' },
+  tib: { bg: 'transparent', text: '#9a7a4a' },
 };
-const DEFAULT_LANG_COLOR = { bg: colors.gray[100], text: colors.gray[500] };
+const DEFAULT_LANG_COLOR = { bg: 'transparent', text: colors.gray[500] };
 
 const langBadgeColor = (lang: string) => ({
   backgroundColor: (LANG_COLORS[lang.toLowerCase()] || DEFAULT_LANG_COLOR).bg,
@@ -787,6 +787,7 @@ export default function RetreatDetailScreen() {
   // Render the track list (shared between desktop master panel and mobile)
   const renderTrackList = (paddingBottom: number) => {
     let trackSessionId: string | null = null;
+    let isFirstSession = true;
 
     return (
       <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom }]}>
@@ -794,13 +795,18 @@ export default function RetreatDetailScreen() {
           const isActive = currentTrack?.id === track.id;
           const isSelected = selectedTrack?.id === track.id;
           const showSessionHeader = track.sessionId !== trackSessionId;
+          let wasFirstSession = false;
+          if (showSessionHeader) {
+            wasFirstSession = isFirstSession;
+            isFirstSession = false;
+          }
           trackSessionId = track.sessionId;
 
           return (
             <React.Fragment key={track.id}>
               {/* Session Header */}
               {showSessionHeader && (
-                <View style={styles.sessionHeader}>
+                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track)}
                   </Text>
@@ -870,10 +876,12 @@ export default function RetreatDetailScreen() {
       {/* Fixed Header Section */}
       <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
         {/* Navigation Header with Overflow Menu */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
-          </TouchableOpacity>
+        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
+          {!isDesktop && (
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
+            </TouchableOpacity>
+          )}
           <View style={styles.headerText}>
             <View style={styles.headerTitleRow}>
               <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''}</Text>
@@ -883,6 +891,19 @@ export default function RetreatDetailScreen() {
               {getTranslatedName(retreat, language)} {retreat.year}
             </Text>
           </View>
+          {/* Language toggle (inline in header) */}
+          {currentLanguageMode && (
+            <TouchableOpacity
+              style={styles.languageButton}
+              onPress={toggleLanguageMode}
+            >
+              <Text style={styles.languageButtonText}>
+                {getLanguageLabel(currentLanguageMode)}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={colors.gray[600]} />
+            </TouchableOpacity>
+          )}
+
           {/* Read Along button (mobile only — desktop shows in detail panel) */}
           {!isDesktop && currentTrack?.hasReadAlong && (
             <TouchableOpacity
@@ -946,24 +967,6 @@ export default function RetreatDetailScreen() {
             <TouchableOpacity onPress={handleDownloadRetreatZip}>
               <Ionicons name="close" size={20} color={colors.gray[600]} />
             </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Language Toggle */}
-        {currentLanguageMode && (
-          <View style={styles.languageSection}>
-            <View style={styles.languageToggle}>
-              <Text style={styles.languageLabel}>{t('session.tracksLanguage') || 'Tracks Language:'}</Text>
-              <TouchableOpacity
-                style={styles.languageButton}
-                onPress={toggleLanguageMode}
-              >
-                <Text style={styles.languageButtonText}>
-                  {getLanguageLabel(currentLanguageMode)}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color={colors.gray[600]} />
-              </TouchableOpacity>
-            </View>
           </View>
         )}
 
@@ -1083,6 +1086,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'white',
   },
+  headerDesktop: {
+    paddingLeft: 23,
+    paddingRight: 40,
+    paddingTop: 42,
+    paddingBottom: 16,
+  },
   backButton: {
     padding: 8,
     marginRight: 8,
@@ -1091,7 +1100,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[500],
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 2,
   },
   backButtonText: {
     color: 'white',
@@ -1109,8 +1118,9 @@ const styles = StyleSheet.create({
   headerTitle: {
     flexShrink: 1,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[700],
   },
   headerSubtitle: {
     fontSize: 14,
@@ -1163,33 +1173,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burgundy[500],
     borderRadius: 3,
   },
-  languageSection: {
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  languageToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  languageLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.gray[700],
-  },
   languageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.gray[100],
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    marginLeft: 8,
   },
   languageButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: colors.gray[700],
     marginRight: 4,
@@ -1202,38 +1198,45 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sessionHeader: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    marginTop: 8,
-    marginBottom: 4,
+    paddingTop: 16,
+    paddingBottom: 8,
+    paddingHorizontal: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  sessionHeaderSubsequent: {
+    marginTop: 32,
   },
   sessionHeaderText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.burgundy[600],
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   trackItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    paddingLeft: 4,
+    marginBottom: 0,
+    borderRadius: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
   },
   currentTrackItem: {
     backgroundColor: colors.burgundy[50],
+    borderLeftColor: colors.burgundy[500],
   },
   trackNumberContainer: {
-    width: 24,
-    alignItems: 'flex-start',
+    minWidth: 32,
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: -1,
-    marginRight: 4,
+    marginRight: 20,
   },
   trackNumber: {
     fontSize: 16,
@@ -1247,13 +1250,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   trackTitle: {
-    fontSize: 14,
+    fontSize: 15,
+    fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[700],
     marginBottom: 4,
   },
   currentTrackTitle: {
     color: colors.burgundy[600],
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
   },
   trackSubtitleRow: {
     flexDirection: 'row',
@@ -1265,9 +1270,10 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
   },
   langBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
+    marginRight: 4,
   },
   langBadgeText: {
     fontSize: 10,
@@ -1318,7 +1324,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 8,
     minWidth: 220,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

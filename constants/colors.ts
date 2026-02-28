@@ -1,24 +1,24 @@
 /**
  * Shared color palette for the Padmakara app.
  *
- * Buddhist-inspired color scheme: warm cream backgrounds, burgundy accents,
- * saffron highlights, and neutral grays. This is the single source of truth
- * for color values used across the application.
+ * Refined palette aligned with padmakara.pt website aesthetic:
+ * white/near-white backgrounds, deep muted red accents, neutral grays.
+ * This is the single source of truth for color values used across the application.
  */
 
 export const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
-    200: '#f7f0e4',
-    500: '#e8d8b7',
+    50: '#ffffff',
+    100: '#fefefe',
+    200: '#f5f4f2',
+    500: '#e8e6e3',
   },
   burgundy: {
-    50: '#fef2f2',
-    100: '#fde6e6',
-    500: '#b91c1c',
-    600: '#991b1b',
-    700: '#7f1d1d',
+    50: '#f8f1f1',
+    100: '#f2e0e0',
+    500: '#9b1b1b',
+    600: '#7b1616',
+    700: '#5a1111',
   },
   saffron: {
     50: '#fffbeb',
@@ -33,7 +33,7 @@ export const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   green: {
     50: '#f0fdf4',

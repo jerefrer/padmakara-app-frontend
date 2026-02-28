@@ -16,10 +16,10 @@ import {
 
 const colors = {
   burgundy: {
-    50: '#fef2f2',
-    100: '#fde6e6',
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#f8f1f1',
+    100: '#f2e0e0',
+    500: '#9b1b1b',
+    600: '#7b1616',
   },
   gray: {
     100: '#f3f4f6',
@@ -28,7 +28,7 @@ const colors = {
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
-    800: '#1f2937',
+    800: '#2c2c2c',
   },
   white: '#ffffff',
 };
@@ -131,24 +131,32 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     setLoading(true);
     setError(false);
 
-    readAlongService.loadAlignment(readAlongUrl).then((result) => {
-      if (cancelled) return;
-      if (result) {
-        setData(result);
-      } else {
-        setError(true);
-      }
-      setLoading(false);
-    });
+    readAlongService
+      .loadAlignment(readAlongUrl, (updated) => {
+        // Background revalidation found newer data
+        if (!cancelled) setData(updated);
+      })
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setData(result);
+        } else {
+          setError(true);
+        }
+        setLoading(false);
+      });
 
     return () => { cancelled = true; };
   }, [preloadedData, readAlongUrl]);
 
-  // Merge Whisper segments into visual paragraphs based on time gaps.
-  // Segments often contain just 1-2 words; rendering each as a block
-  // creates ugly line breaks. Instead, merge into flowing paragraphs
-  // and only break on significant pauses (> PARAGRAPH_GAP seconds).
-  const PARAGRAPH_GAP = 4; // seconds of silence → new paragraph
+  // Merge Whisper segments into visual paragraphs.
+  // Segments are often just 1-2 words; rendering each as a block creates
+  // ugly line breaks. Instead, merge into flowing paragraphs and only
+  // break when the previous text ends with sentence-ending punctuation
+  // AND there's a pause. For very long pauses (teacher changing topic),
+  // break regardless to avoid wall-of-text paragraphs.
+  const PARAGRAPH_GAP = 4;      // seconds — break if sentence ended
+  const FORCE_BREAK_GAP = 10;   // seconds — break regardless
 
   interface ParaWord {
     word: ReadAlongWord;
@@ -164,7 +172,11 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     data.clean_segments.forEach((seg, segIdx) => {
       if (current.length > 0) {
         const lastWord = current[current.length - 1].word;
-        if (seg.start - lastWord.end > PARAGRAPH_GAP) {
+        const gap = seg.start - lastWord.end;
+        const prevText = lastWord.word.trim();
+        const endsSentence = /[.!?…»]$/.test(prevText);
+
+        if (gap > FORCE_BREAK_GAP || (gap > PARAGRAPH_GAP && endsSentence)) {
           paras.push(current);
           current = [];
         }
@@ -385,6 +397,24 @@ const ParagraphRow = React.memo(function ParagraphRow({
   onWordPress,
   onLayout,
 }: ParagraphRowProps) {
+  // Find the active word's position within this paragraph for graduated fade
+  let activeIdxInPara = -1;
+  if (activeSegmentIndex >= 0) {
+    activeIdxInPara = words.findIndex(
+      pw => pw.segIdx === activeSegmentIndex && pw.wordIdx === activeWordIndex,
+    );
+  }
+
+  // Is this entire paragraph before the active word?
+  const isAllPast =
+    activeSegmentIndex >= 0 &&
+    activeIdxInPara === -1 &&
+    words.length > 0 &&
+    (words[words.length - 1].segIdx < activeSegmentIndex ||
+      (words[words.length - 1].segIdx === activeSegmentIndex &&
+        activeWordIndex >= 0 &&
+        words[words.length - 1].wordIdx < activeWordIndex));
+
   return (
     <View
       style={styles.paragraph}
@@ -393,16 +423,30 @@ const ParagraphRow = React.memo(function ParagraphRow({
       <Text style={styles.paragraphText}>
         {words.map((pw, idx) => {
           const isActive = pw.segIdx === activeSegmentIndex && pw.wordIdx === activeWordIndex;
-          const isPast =
-            activeSegmentIndex >= 0 &&
-            (pw.segIdx < activeSegmentIndex ||
-              (pw.segIdx === activeSegmentIndex && activeWordIndex >= 0 && pw.wordIdx < activeWordIndex));
+
+          // Graduated fade: tier determines how faded a past word appears.
+          // 0=future (dark), 1=just passed, 2=medium past, 3=far past (faded)
+          let fadeTier: 0 | 1 | 2 | 3;
+          if (isActive) {
+            fadeTier = 0;
+          } else if (activeIdxInPara >= 0) {
+            const dist = activeIdxInPara - idx; // positive = past
+            if (dist <= 0) fadeTier = 0;
+            else if (dist <= 3) fadeTier = 1;
+            else if (dist <= 12) fadeTier = 2;
+            else fadeTier = 3;
+          } else if (isAllPast) {
+            fadeTier = 3;
+          } else {
+            fadeTier = 0;
+          }
+
           return (
             <WordSpan
               key={idx}
               word={pw.word}
               isActive={isActive}
-              isPast={isPast}
+              fadeTier={fadeTier}
               onPress={onWordPress}
             />
           );
@@ -417,11 +461,19 @@ const ParagraphRow = React.memo(function ParagraphRow({
 interface WordSpanProps {
   word: ReadAlongWord;
   isActive: boolean;
-  isPast: boolean;
+  fadeTier: 0 | 1 | 2 | 3;
   onPress: (word: ReadAlongWord) => void;
 }
 
-const WordSpan = React.memo(function WordSpan({ word, isActive, isPast, onPress }: WordSpanProps) {
+// Graduated fade colors: future → just passed → medium past → far past
+const FADE_COLORS = [
+  '#2c2c2c', // 0: future — full darkness
+  '#6b7280', // 1: just passed (1-3 words) — still readable
+  '#9ca3af', // 2: medium past (4-12 words) — fading
+  '#c9cdd3', // 3: far past (13+ words) — faded
+] as const;
+
+const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPress }: WordSpanProps) {
   const isLowConfidence = word.confidence === 'low';
 
   return (
@@ -429,8 +481,8 @@ const WordSpan = React.memo(function WordSpan({ word, isActive, isPast, onPress 
       onPress={() => onPress(word)}
       style={[
         styles.word,
+        { color: FADE_COLORS[fadeTier] },
         isLowConfidence && styles.wordLowConfidence,
-        isPast && styles.wordPast,
         isActive && styles.wordActive,
       ]}
     >
@@ -458,6 +510,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.burgundy[500],
   },
   headerControls: {
@@ -513,19 +566,18 @@ const styles = StyleSheet.create({
   paragraphText: {
     fontSize: 18,
     lineHeight: 30,
+    fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[800],
   },
   word: {
+    fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[800],
   },
   wordLowConfidence: {
-    opacity: 0.5,
-  },
-  wordPast: {
-    color: colors.gray[500],
+    opacity: 0.7,
   },
   wordActive: {
-    backgroundColor: colors.burgundy[500],
-    color: colors.white,
+    color: colors.burgundy[500],
+    fontFamily: 'EBGaramond_600SemiBold',
   },
 });

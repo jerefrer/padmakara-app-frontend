@@ -31,6 +31,12 @@ export interface RetreatGroup {
   updated_at: string;
 }
 
+export interface GatheringTeacher {
+  name: string;
+  abbreviation: string;
+  photoUrl?: string | null;
+}
+
 export interface Gathering {
   id: string;
   name: string;
@@ -41,6 +47,7 @@ export interface Gathering {
   startDate: string;
   endDate: string;
   sessions?: Session[];
+  teachers?: GatheringTeacher[];
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;

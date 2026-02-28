@@ -8,33 +8,30 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 const colors = {
   cream: {
-    50: '#fefdfb',
-    100: '#fcf8f3',
-    200: '#f7f0e4',
-  },
-  burgundy: {
-    500: '#b91c1c',
-    600: '#991b1b',
+    50: '#ffffff',
+    100: '#fefefe',
+    200: '#f5f4f2',
   },
   saffron: {
     500: '#f59e0b',
     600: '#d97706',
   },
   gray: {
+    200: '#e5e7eb',
     500: '#6b7280',
     600: '#4b5563',
     700: '#374151',
+    800: '#2c2c2c',
   },
 };
 
 export default function ApprovalPendingScreen() {
   const { email, name } = useLocalSearchParams<{ email: string; name: string }>();
-  
+
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -82,31 +79,28 @@ export default function ApprovalPendingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[colors.cream[50], colors.cream[100]]}
-        style={styles.background}
-      >
-        <Animated.View 
+      <View style={styles.background}>
+        <Animated.View
           style={[
             styles.content,
-            { 
+            {
               opacity: fadeAnim,
               transform: [{ scale: successScale }]
             }
           ]}
         >
           {/* Floating Hourglass Icon */}
-          <Animated.View 
+          <Animated.View
             style={[
               styles.iconContainer,
               { transform: [{ translateY: floatAnim }] }
             ]}
           >
             <View style={styles.iconBackground}>
-              <Ionicons 
-                name="hourglass-outline" 
-                size={48} 
-                color={colors.saffron[500]} 
+              <Ionicons
+                name="hourglass-outline"
+                size={48}
+                color={colors.saffron[500]}
               />
             </View>
           </Animated.View>
@@ -122,14 +116,14 @@ export default function ApprovalPendingScreen() {
           {/* Status Card */}
           <View style={styles.statusCard}>
             <View style={styles.statusHeader}>
-              <Ionicons 
-                name="time-outline" 
-                size={20} 
-                color={colors.saffron[500]} 
+              <Ionicons
+                name="time-outline"
+                size={20}
+                color={colors.saffron[500]}
               />
               <Text style={styles.statusTitle}>What happens next?</Text>
             </View>
-            
+
             <View style={styles.statusSteps}>
               <View style={styles.step}>
                 <View style={styles.stepDot} />
@@ -137,14 +131,14 @@ export default function ApprovalPendingScreen() {
                   Our team will review your request within 24-48 hours
                 </Text>
               </View>
-              
+
               <View style={styles.step}>
                 <View style={styles.stepDot} />
                 <Text style={styles.stepText}>
                   You'll receive an email once your access is approved
                 </Text>
               </View>
-              
+
               <View style={styles.step}>
                 <View style={styles.stepDot} />
                 <Text style={styles.stepText}>
@@ -156,13 +150,13 @@ export default function ApprovalPendingScreen() {
 
           {/* Contact Info */}
           <View style={styles.contactCard}>
-            <Ionicons 
-              name="heart" 
-              size={16} 
-              color={colors.burgundy[500]} 
+            <Ionicons
+              name="heart"
+              size={16}
+              color={colors.gray[600]}
             />
             <Text style={styles.contactText}>
-              We appreciate your interest in joining our dharma community. 
+              We appreciate your interest in joining our dharma community.
               If you have any questions, please feel free to contact us.
             </Text>
           </View>
@@ -179,13 +173,8 @@ export default function ApprovalPendingScreen() {
             onPress={handleBackToHome}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={[colors.gray[500], colors.gray[600]]}
-              style={styles.buttonGradient}
-            >
-              <Ionicons name="arrow-back" size={18} color="white" />
-              <Text style={styles.backButtonText}>Back to Login</Text>
-            </LinearGradient>
+            <Ionicons name="arrow-back" size={18} color="white" />
+            <Text style={styles.backButtonText}>Back to Login</Text>
           </TouchableOpacity>
 
           {/* Peaceful Message */}
@@ -195,7 +184,7 @@ export default function ApprovalPendingScreen() {
             </Text>
           </View>
         </Animated.View>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
@@ -206,6 +195,7 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
+    backgroundColor: '#fefefe',
   },
   content: {
     flex: 1,
@@ -225,13 +215,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.saffron[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: colors.cream[200],
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   messageContainer: {
     alignItems: 'center',
@@ -239,11 +224,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: colors.burgundy[500],
+    fontWeight: '600',
+    color: colors.gray[800],
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: 'Georgia',
+    fontFamily: 'EBGaramond_600SemiBold',
   },
   subtitle: {
     fontSize: 16,
@@ -254,15 +239,12 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 4,
     padding: 20,
     marginBottom: 24,
     alignSelf: 'stretch',
-    shadowColor: colors.gray[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
     borderLeftWidth: 4,
     borderLeftColor: colors.saffron[500],
   },
@@ -277,9 +259,7 @@ const styles = StyleSheet.create({
     color: colors.gray[700],
     marginLeft: 8,
   },
-  statusSteps: {
-    space: 12,
-  },
+  statusSteps: {},
   step: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -303,11 +283,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: colors.cream[200],
-    borderRadius: 12,
+    borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginBottom: 24,
     alignSelf: 'stretch',
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   contactText: {
     flex: 1,
@@ -328,26 +310,19 @@ const styles = StyleSheet.create({
   emailText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.burgundy[500],
+    color: colors.gray[800],
   },
   backButton: {
-    borderRadius: 50,
+    borderRadius: 2,
     marginBottom: 20,
-    shadowColor: colors.gray[500],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
     alignSelf: 'stretch',
-  },
-  buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 50,
     minHeight: 52,
+    backgroundColor: colors.gray[600],
   },
   backButtonText: {
     color: 'white',

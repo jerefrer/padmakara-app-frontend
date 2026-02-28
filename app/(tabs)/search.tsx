@@ -18,12 +18,12 @@ import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 
 const colors = {
-  cream: { 50: '#fefdfb', 100: '#fcf8f3' },
-  burgundy: { 50: '#fef2f2', 100: '#fee2e2', 500: '#b91c1c', 600: '#991b1b' },
+  cream: { 50: '#ffffff', 100: '#fefefe' },
+  burgundy: { 50: '#f8f1f1', 100: '#fee2e2', 500: '#9b1b1b', 600: '#7b1616' },
   gray: {
     100: '#f3f4f6', 200: '#e5e7eb', 300: '#d1d5db',
     400: '#9ca3af', 500: '#6b7280', 600: '#4b5563',
-    700: '#374151', 800: '#1f2937',
+    700: '#374151', 800: '#2c2c2c',
   },
   white: '#ffffff',
 };
@@ -338,12 +338,15 @@ const styles = StyleSheet.create({
   },
   searchBarDesktop: {
     paddingHorizontal: 40,
+    paddingTop: 36,
+    backgroundColor: colors.cream[100],
+    borderBottomWidth: 0,
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.gray[100],
-    borderRadius: 10,
+    borderRadius: 4,
     paddingHorizontal: 12,
   },
   searchIcon: {
@@ -354,6 +357,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     color: colors.gray[800],
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
   },
   clearButton: {
     padding: 4,
@@ -393,6 +397,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[700],
     marginTop: 8,
   },
@@ -404,17 +409,13 @@ const styles = StyleSheet.create({
 
   // Result card
   resultCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.burgundy[500],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingVertical: 20,
+    paddingHorizontal: 0,
+    marginBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
   resultCardHeader: {
     marginBottom: 10,
@@ -428,6 +429,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
   },
   resultTeachers: {
@@ -449,7 +451,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
+    borderTopColor: colors.gray[200],
   },
   snippetRow: {
     gap: 2,
@@ -472,7 +474,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
+    borderTopColor: colors.gray[200],
   },
   matchedTracksLabel: {
     fontSize: 11,

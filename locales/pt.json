@@ -70,12 +70,14 @@
   },
   "groups": {
     "yourGroups": "Os seus grupos",
+    "yourRetreatGroups": "Os seus grupos de retiro",
     "retreatAttended": "{{count}} retiro frequentado",
     "retreatsAttended": "{{count}} retiros frequentados",
     "publicEvents": "Eventos Públicos",
     "noPublicEvents": "Nenhum evento público disponível neste momento.",
-    "signInRequired": "Início de Sessão Necessário",
-    "signInPrompt": "Os participantes de retiro podem iniciar sessão para aceder às suas gravações.",
+    "signInRequired": "Bem-vindo à Padmakara",
+    "signInPrompt": "Aceda às gravações e transcrições dos encontros do seu grupo de retiro.",
+    "signInSubtle": "Um espaço tranquilo para a sua prática.",
     "signIn": "Iniciar Sessão",
     "noGroups": "Sem Grupos de Retiro",
     "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador.",
@@ -93,7 +95,10 @@
     "sessions": "Sessões",
     "sessionLabel": "sessão",
     "sessionsLabel": "sessões",
-    "date": "Data"
+    "date": "Data",
+    "duration": "Duração",
+    "teachers": "Professores",
+    "showAll": "Mostrar todos os eventos"
   },
   "home": {
     "greetingMorning": "Bom dia",

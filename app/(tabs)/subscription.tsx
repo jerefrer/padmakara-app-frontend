@@ -9,10 +9,10 @@ import { API_ENDPOINTS } from '@/services/apiConfig';
 import { router, useFocusEffect } from 'expo-router';
 
 const colors = {
-  cream: { 100: '#fcf8f3' },
-  burgundy: { 50: '#fef2f2', 500: '#b91c1c', 600: '#991b1b' },
+  cream: { 100: '#fefefe' },
+  burgundy: { 50: '#f8f1f1', 500: '#9b1b1b', 600: '#7b1616' },
   green: { 500: '#16a34a', 50: '#f0fdf4' },
-  gray: { 400: '#9ca3af', 500: '#6b7280', 600: '#4b5563', 700: '#374151', 800: '#1f2937' },
+  gray: { 400: '#9ca3af', 500: '#6b7280', 600: '#4b5563', 700: '#374151', 800: '#2c2c2c' },
 };
 
 export default function SubscriptionScreen() {
@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
     color: colors.burgundy[500],
     marginTop: 16,
     marginBottom: 8,
@@ -207,6 +208,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 28,
     fontWeight: '700',
+    fontFamily: 'EBGaramond_700Bold',
     color: colors.gray[800],
     marginVertical: 16,
   },

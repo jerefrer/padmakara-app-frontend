@@ -6,10 +6,10 @@ import magicLinkService from '@/services/magicLinkService';
 
 const colors = {
   cream: {
-    100: '#fcf8f3',
+    100: '#fefefe',
   },
   burgundy: {
-    500: '#b91c1c',
+    500: '#9b1b1b',
   },
 };
 
