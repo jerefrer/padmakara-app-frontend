@@ -29,15 +29,13 @@ const colors = {
   white: '#ffffff',
 };
 
-/** Format seconds into "Xh Ym" or "Ym" */
-function formatDuration(totalSeconds: number): string {
-  if (!totalSeconds || totalSeconds <= 0) return '—';
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.round((totalSeconds % 3600) / 60);
-  if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
-  return `${minutes}m`;
+/** Parse seconds into { hours, minutes } */
+function parseDuration(totalSeconds: number): { hours: number; minutes: number } | null {
+  if (!totalSeconds || totalSeconds <= 0) return null;
+  return {
+    hours: Math.floor(totalSeconds / 3600),
+    minutes: Math.round((totalSeconds % 3600) / 60),
+  };
 }
 
 /** Compute total duration of all tracks in an event */
@@ -194,7 +192,16 @@ function DesktopEventRow({ event, onPress, language, t }: PublicEventCardProps &
         </View>
       )}
       <View style={styles.desktopRowStat}>
-        <Text style={styles.desktopRowStatValue}>{formatDuration(totalDuration)}</Text>
+        {(() => {
+          const d = parseDuration(totalDuration);
+          if (!d) return <Text style={styles.desktopRowStatValue}>—</Text>;
+          return (
+            <Text style={styles.desktopRowStatValue}>
+              {d.hours > 0 && <>{d.hours}<Text style={styles.desktopRowStatUnit}>h</Text> </>}
+              {(d.minutes > 0 || d.hours === 0) && <>{d.minutes}<Text style={styles.desktopRowStatUnit}>m</Text></>}
+            </Text>
+          );
+        })()}
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
     </Pressable>
@@ -622,6 +629,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.burgundy[500],
+  },
+  desktopRowStatUnit: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.gray[500],
+    marginLeft: 2,
   },
   desktopRowStatLabel: {
     fontSize: 13,

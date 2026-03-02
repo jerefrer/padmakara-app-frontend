@@ -1,36 +1,45 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
-import { Stack, router, useFocusEffect } from 'expo-router';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { AppHeader } from '@/components/ui/AppHeader';
-import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useDesktopLayout } from '@/hooks/useDesktopLayout';
-import retreatService from '@/services/retreatService';
-import { RetreatGroup, Gathering } from '@/types';
-import { getTranslatedName } from '@/utils/i18n';
+import { AppHeader } from "@/components/ui/AppHeader";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useDesktopLayout } from "@/hooks/useDesktopLayout";
+import retreatService from "@/services/retreatService";
+import { Gathering, RetreatGroup } from "@/types";
+import { getTranslatedName } from "@/utils/i18n";
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { Stack, router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const colors = {
   cream: {
-    50: '#ffffff',
-    100: '#fefefe',
+    50: "#ffffff",
+    100: "#fefefe",
   },
   burgundy: {
-    50: '#f8f1f1',
-    500: '#9b1b1b',
-    600: '#7b1616',
+    50: "#f8f1f1",
+    500: "#9b1b1b",
+    600: "#7b1616",
   },
   gray: {
-    100: '#f3f4f6',
-    200: '#e5e7eb',
-    400: '#9ca3af',
-    500: '#6b7280',
-    600: '#4b5563',
-    700: '#374151',
-    800: '#2c2c2c',
+    100: "#f3f4f6",
+    200: "#e5e7eb",
+    400: "#9ca3af",
+    500: "#6b7280",
+    600: "#4b5563",
+    700: "#374151",
+    800: "#2c2c2c",
   },
-  white: '#ffffff',
+  white: "#ffffff",
 };
 
 // ── Mobile GroupCard (unchanged) ─────────────────────────────────────────────
@@ -40,7 +49,15 @@ interface GroupCardProps {
   onPress: () => void;
 }
 
-function GroupCard({ group, onPress, t, language }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
+function GroupCard({
+  group,
+  onPress,
+  t,
+  language,
+}: GroupCardProps & {
+  t: (key: string, params?: Record<string, unknown>) => string;
+  language: string;
+}) {
   const retreatCount = group.gatherings?.length || 0;
 
   return (
@@ -48,13 +65,16 @@ function GroupCard({ group, onPress, t, language }: GroupCardProps & { t: (key: 
       <View style={styles.card}>
         <View style={styles.cardContent}>
           <View style={styles.groupTitleRow}>
-            <Text style={styles.groupTitle}>{getTranslatedName(group, language as 'en' | 'pt')}</Text>
+            <Text style={styles.groupTitle}>
+              {getTranslatedName(group, language as "en" | "pt")}
+            </Text>
           </View>
           <Text style={styles.retreatsText}>
             {retreatCount === 1
-              ? (t('groups.retreatAttended', { count: retreatCount }) || '1 retreat attended')
-              : (t('groups.retreatsAttended', { count: retreatCount }) || `${retreatCount} retreats attended`)
-            }
+              ? t("groups.retreatAttended", { count: retreatCount }) ||
+                "1 retreat attended"
+              : t("groups.retreatsAttended", { count: retreatCount }) ||
+                `${retreatCount} retreats attended`}
           </Text>
         </View>
       </View>
@@ -62,33 +82,87 @@ function GroupCard({ group, onPress, t, language }: GroupCardProps & { t: (key: 
   );
 }
 
+// ── Group Avatar Images ──────────────────────────────────────────────────────
+
+const GROUP_IMAGES: Record<string, ReturnType<typeof require>> = {
+  shine: require("@/assets/images/groups/shine.jpeg"),
+  mandala: require("@/assets/images/groups/mandala.jpeg"),
+  vajrasattva: require("@/assets/images/groups/vajrasattva.jpeg"),
+  shakyamuni: require("@/assets/images/groups/shakyamuni.jpeg"),
+  "guru-yoga": require("@/assets/images/groups/guru-yoga.jpeg"),
+  "ngulchu-thogme": require("@/assets/images/groups/ngulchu-thogme.jpeg"),
+  "three-jewels": require("@/assets/images/groups/chenrezi.jpeg"),
+};
+
+function getGroupImage(groupName: string): ReturnType<typeof require> | null {
+  const name = groupName.toLowerCase();
+  if (name.includes("shamatha") || name.includes("śamatha"))
+    return GROUP_IMAGES["shine"];
+  if (name.includes("mandala")) return GROUP_IMAGES["mandala"];
+  if (name.includes("vajrasattva")) return GROUP_IMAGES["vajrasattva"];
+  if (name.includes("shakyamuni") || name.includes("śākyamuni"))
+    return GROUP_IMAGES["shakyamuni"];
+  if (
+    name.includes("guru yoga") ||
+    name.includes("tsikdun") ||
+    name.includes("tsik dün")
+  )
+    return GROUP_IMAGES["guru-yoga"];
+  if (
+    name.includes("mind training") ||
+    name.includes("bodhisattva") ||
+    name.includes("lojong") ||
+    name.includes("37 practices")
+  )
+    return GROUP_IMAGES["ngulchu-thogme"];
+  if (
+    name.includes("refuge") ||
+    name.includes("three jewels") ||
+    name.includes("refúgio")
+  )
+    return GROUP_IMAGES["three-jewels"];
+  return null;
+}
+
 // ── Desktop GroupRow ─────────────────────────────────────────────────────────
 
-function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: (key: string, params?: Record<string, unknown>) => string; language: string }) {
+function DesktopGroupRow({
+  group,
+  onPress,
+  t,
+  language,
+}: GroupCardProps & {
+  t: (key: string, params?: Record<string, unknown>) => string;
+  language: string;
+}) {
   const retreatCount = group.gatherings?.length || 0;
   const [isHovered, setIsHovered] = useState(false);
 
   // Find most recent gathering
   const lastGathering = group.gatherings?.length
-    ? group.gatherings.reduce((latest, g) => {
-        const d = new Date(g.startDate);
-        return !latest || d > new Date(latest.startDate) ? g : latest;
-      }, null as Gathering | null)
+    ? group.gatherings.reduce(
+        (latest, g) => {
+          const d = new Date(g.startDate);
+          return !latest || d > new Date(latest.startDate) ? g : latest;
+        },
+        null as Gathering | null,
+      )
     : null;
 
   const lastRetreatLabel = lastGathering
-    ? getTranslatedName(lastGathering, language as 'en' | 'pt')
+    ? `${lastGathering.season === "spring" ? t("groups.spring") || "Spring" : t("groups.fall") || "Fall"} ${lastGathering.year}`
     : null;
 
-  // Compute initials from group name
-  const groupName = getTranslatedName(group, language as 'en' | 'pt');
-  const abbr = group.abbreviation
-    || groupName.split(/\s+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
+  const groupName = getTranslatedName(group, language as "en" | "pt");
+  const groupImage = getGroupImage(groupName);
 
-  const webHoverProps = Platform.OS === 'web' ? {
-    onMouseEnter: () => setIsHovered(true),
-    onMouseLeave: () => setIsHovered(false),
-  } : {};
+  const webHoverProps =
+    Platform.OS === "web"
+      ? {
+          onMouseEnter: () => setIsHovered(true),
+          onMouseLeave: () => setIsHovered(false),
+        }
+      : {};
 
   return (
     <Pressable
@@ -96,10 +170,14 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
     >
-      {/* Group initials circle */}
-      <View style={styles.desktopRowCircle}>
-        <Text style={styles.desktopRowCircleText}>{abbr}</Text>
-      </View>
+      {/* Group avatar */}
+      {groupImage && (
+        <Image
+          source={groupImage}
+          style={styles.groupAvatar}
+          contentFit="cover"
+        />
+      )}
 
       {/* Group name + last retreat */}
       <View style={styles.desktopRowMain}>
@@ -108,7 +186,7 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
         </Text>
         {lastRetreatLabel && (
           <Text style={styles.desktopRowSub} numberOfLines={1}>
-            {t('groups.lastRetreat') || 'Last retreat'}: {lastRetreatLabel}
+            {t("groups.lastRetreat") || "Last retreat"}: {lastRetreatLabel}
           </Text>
         )}
       </View>
@@ -118,9 +196,8 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
         <Text style={styles.desktopRowStatValue}>{retreatCount}</Text>
         <Text style={styles.desktopRowStatLabel}>
           {retreatCount === 1
-            ? (t('groups.retreatLabel') || 'retreat')
-            : (t('groups.retreatsLabel') || 'retreats')
-          }
+            ? t("groups.retreatLabel") || "retreat"
+            : t("groups.retreatsLabel") || "retreats"}
         </Text>
       </View>
 
@@ -133,7 +210,8 @@ function DesktopGroupRow({ group, onPress, t, language }: GroupCardProps & { t: 
 // ── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function RetreatsScreen() {
-  const { user, isAuthenticated, hasActiveSubscription, refreshUserData } = useAuth();
+  const { user, isAuthenticated, hasActiveSubscription, refreshUserData } =
+    useAuth();
   const { t, language } = useLanguage();
   const { isDesktop } = useDesktopLayout();
   const [retreatData, setRetreatData] = useState<{
@@ -157,11 +235,11 @@ export default function RetreatsScreen() {
       if (response.success && response.data) {
         setRetreatData(response.data);
       } else {
-        setError(response.error || 'Failed to load retreats');
+        setError(response.error || "Failed to load retreats");
       }
     } catch (err) {
-      console.error('Error loading retreats:', err);
-      setError('Failed to load retreats');
+      console.error("Error loading retreats:", err);
+      setError("Failed to load retreats");
     } finally {
       setLoading(false);
     }
@@ -177,7 +255,7 @@ export default function RetreatsScreen() {
       if (isAuthenticated) {
         refreshUserData();
       }
-    }, [isAuthenticated])
+    }, [isAuthenticated]),
   );
 
   const handleGroupPress = (groupId: string) => {
@@ -185,31 +263,40 @@ export default function RetreatsScreen() {
   };
 
   const handleSignInPress = () => {
-    router.push({ pathname: '/(auth)/magic-link', params: { returnTo: '/(tabs)/(groups)' } });
+    router.push({
+      pathname: "/(auth)/magic-link",
+      params: { returnTo: "/(tabs)/(groups)" },
+    });
   };
 
   // ─── Not authenticated: welcoming sign-in prompt ────────────────────────────
   if (!isAuthenticated) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
+        <Stack.Screen
+          options={{ headerShown: true, header: () => <AppHeader /> }}
+        />
         <View style={styles.container}>
           <View style={styles.welcomeState}>
             <Image
-              source={require('@/assets/images/logo.png')}
+              source={require("@/assets/images/logo.png")}
               style={styles.welcomeLogo}
               contentFit="contain"
             />
             <Text style={styles.welcomeTitle}>
-              {t('groups.signInRequired') || 'Welcome to Padmakara'}
+              {t("groups.signInRequired") || "Welcome to Padmakara"}
             </Text>
             <View style={styles.welcomeDivider} />
             <Text style={styles.welcomeText}>
-              {t('groups.signInPrompt') || 'Access recordings and transcripts from your retreat group\'s gatherings.'}
+              {t("groups.signInPrompt") ||
+                "Access recordings and transcripts from your retreat group's gatherings."}
             </Text>
-            <TouchableOpacity style={styles.welcomeButton} onPress={handleSignInPress}>
+            <TouchableOpacity
+              style={styles.welcomeButton}
+              onPress={handleSignInPress}
+            >
               <Text style={styles.welcomeButtonText}>
-                {t('groups.signIn') || 'Sign In'}
+                {t("groups.signIn") || "Sign In"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -222,38 +309,49 @@ export default function RetreatsScreen() {
   if (!hasActiveSubscription) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
+        <Stack.Screen
+          options={{ headerShown: true, header: () => <AppHeader /> }}
+        />
         <View style={styles.container}>
           <View style={styles.emptyState}>
             <Image
-              source={require('@/assets/images/logo.png')}
+              source={require("@/assets/images/logo.png")}
               style={styles.heroLogo}
               contentFit="contain"
             />
             <Text style={styles.emptyTitle}>
-              {t('groups.accountRequired') || 'Access to Retreat Recordings'}
+              {t("groups.accountRequired") || "Access to Retreat Recordings"}
             </Text>
-            {Platform.OS === 'web' ? (
+            {Platform.OS === "web" ? (
               <>
                 <Text style={styles.emptyText}>
-                  {t('groups.accountRequiredDesktop') || 'Subscribe to listen to your retreat group\'s recordings.'}
+                  {t("groups.accountRequiredDesktop") ||
+                    "Subscribe to listen to your retreat group's recordings."}
                 </Text>
                 <TouchableOpacity
                   style={styles.signInButton}
-                  onPress={() => router.push('/(tabs)/subscription')}
+                  onPress={() => router.push("/(tabs)/subscription")}
                 >
                   <Text style={styles.signInButtonText}>
-                    {t('subscription.subscribe') || 'Subscribe'} — {t('subscription.price') || '€5/month'}
+                    {t("subscription.subscribe") || "Subscribe"} —{" "}
+                    {t("subscription.price") || "€5/month"}
                   </Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
                 <Text style={styles.emptyText}>
-                  {t('groups.accountRequiredMobile') || 'An active account is needed to access your retreat recordings.'}
+                  {t("groups.accountRequiredMobile") ||
+                    "An active account is needed to access your retreat recordings."}
                 </Text>
-                <Text style={[styles.emptyText, { marginTop: 8, fontStyle: 'italic' }]}>
-                  {t('groups.setupAccount') || 'Visit app.padmakara.pt to set up your account'}
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { marginTop: 8, fontStyle: "italic" },
+                  ]}
+                >
+                  {t("groups.setupAccount") ||
+                    "Visit app.padmakara.pt to set up your account"}
                 </Text>
               </>
             )}
@@ -267,12 +365,14 @@ export default function RetreatsScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
+        <Stack.Screen
+          options={{ headerShown: true, header: () => <AppHeader /> }}
+        />
         <View style={styles.container}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.burgundy[500]} />
             <Text style={styles.loadingText}>
-              {t('common.loading') || 'Loading...'}
+              {t("common.loading") || "Loading..."}
             </Text>
           </View>
         </View>
@@ -284,20 +384,24 @@ export default function RetreatsScreen() {
   if (error) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
+        <Stack.Screen
+          options={{ headerShown: true, header: () => <AppHeader /> }}
+        />
         <View style={styles.container}>
           <View style={styles.emptyState}>
             <Image
-              source={require('@/assets/images/logo.png')}
+              source={require("@/assets/images/logo.png")}
               style={styles.emptyLogo}
               contentFit="contain"
             />
             <Text style={styles.emptyTitle}>
-              {t('common.connectionError') || 'Connection Error'}
+              {t("common.connectionError") || "Connection Error"}
             </Text>
             <Text style={styles.emptyText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadContent}>
-              <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
+              <Text style={styles.retryButtonText}>
+                {t("common.retry") || "Retry"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -309,19 +413,22 @@ export default function RetreatsScreen() {
   if (!retreatData?.retreat_groups || retreatData.retreat_groups.length === 0) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
+        <Stack.Screen
+          options={{ headerShown: true, header: () => <AppHeader /> }}
+        />
         <View style={styles.container}>
           <View style={styles.emptyState}>
             <Image
-              source={require('@/assets/images/logo.png')}
+              source={require("@/assets/images/logo.png")}
               style={styles.emptyLogo}
               contentFit="contain"
             />
             <Text style={styles.emptyTitle}>
-              {t('groups.noGroups') || 'No Retreat Groups'}
+              {t("groups.noGroups") || "No Retreat Groups"}
             </Text>
             <Text style={styles.emptyText}>
-              {t('groups.noGroupsDescription') || "You haven't been assigned to any retreat groups yet. Please contact your administrator."}
+              {t("groups.noGroupsDescription") ||
+                "You haven't been assigned to any retreat groups yet. Please contact your administrator."}
             </Text>
           </View>
         </View>
@@ -332,19 +439,25 @@ export default function RetreatsScreen() {
   // ─── Groups list ────────────────────────────────────────────────────────────
   return (
     <>
-      <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
+      <Stack.Screen
+        options={{ headerShown: true, header: () => <AppHeader /> }}
+      />
       <View style={styles.container}>
-        <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
+        <ScrollView
+          style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
+        >
           {/* Page title */}
           {isDesktop ? (
             <View style={styles.desktopHeader}>
               <Text style={styles.desktopPageTitle}>
-                {t('groups.yourRetreatGroups') || 'Your retreat groups'}
+                {t("groups.yourRetreatGroups") || "Your retreat groups"}
               </Text>
             </View>
           ) : (
             <View style={styles.header}>
-              <Text style={styles.title}>{t('groups.yourGroups') || 'Your groups'}</Text>
+              <Text style={styles.title}>
+                {t("groups.yourGroups") || "Your groups"}
+              </Text>
             </View>
           )}
 
@@ -352,7 +465,7 @@ export default function RetreatsScreen() {
           {isDesktop ? (
             <View style={styles.desktopListContainer}>
               {/* Group rows (no column headers) */}
-              {retreatData.retreat_groups.map(group => (
+              {retreatData.retreat_groups.map((group) => (
                 <DesktopGroupRow
                   key={group.id}
                   group={group}
@@ -363,7 +476,7 @@ export default function RetreatsScreen() {
               ))}
             </View>
           ) : (
-            retreatData.retreat_groups.map(group => (
+            retreatData.retreat_groups.map((group) => (
               <GroupCard
                 key={group.id}
                 group={group}
@@ -390,15 +503,15 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingBottom: 80,
   },
   welcomeState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 40,
     paddingBottom: 60,
   },
@@ -410,11 +523,11 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontSize: 28,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontWeight: "600",
+    fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
     letterSpacing: 0.5,
   },
   welcomeDivider: {
@@ -427,7 +540,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 26,
     color: colors.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 340,
     marginBottom: 36,
   },
@@ -435,9 +548,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: colors.gray[400],
-    textAlign: 'center',
-    fontStyle: 'italic',
-    fontFamily: 'EBGaramond_400Regular',
+    textAlign: "center",
+    fontStyle: "italic",
+    fontFamily: "EBGaramond_400Regular",
     marginBottom: 32,
   },
   welcomeButton: {
@@ -449,9 +562,9 @@ const styles = StyleSheet.create({
   welcomeButtonText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   emptyLogo: {
     width: 64,
@@ -467,16 +580,16 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontWeight: "600",
+    fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 16,
     color: colors.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
   },
   header: {
     paddingTop: 24,
@@ -484,14 +597,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontWeight: "600",
+    fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
   },
 
   // Mobile card styles
   card: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderRadius: 0,
     paddingVertical: 20,
     paddingHorizontal: 0,
@@ -503,14 +616,14 @@ const styles = StyleSheet.create({
   },
   cardContent: {},
   groupTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   groupTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontWeight: "600",
+    fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
     flex: 1,
   },
@@ -520,15 +633,15 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
   },
   loadingText: {
     fontSize: 16,
     color: colors.gray[600],
     marginTop: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   retryButton: {
     backgroundColor: colors.burgundy[500],
@@ -538,9 +651,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   retryButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   signInButton: {
     backgroundColor: colors.burgundy[500],
@@ -550,9 +663,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   signInButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // Desktop styles
@@ -565,44 +678,35 @@ const styles = StyleSheet.create({
   },
   desktopPageTitle: {
     fontSize: 28,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontWeight: "600",
+    fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
   },
 
   // Desktop list
   desktopListContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderRadius: 0,
-    overflow: 'visible',
+    overflow: "visible",
     borderTopWidth: 1,
     borderTopColor: colors.gray[200],
   },
   desktopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
   },
   desktopRowHovered: {
-    backgroundColor: '#fafafa',
+    backgroundColor: "#fafafa",
   },
-  desktopRowCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.gray[200],
-    alignItems: 'center',
-    justifyContent: 'center',
+  groupAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 14,
-  },
-  desktopRowCircleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.gray[600],
-    letterSpacing: 0.3,
   },
   desktopRowMain: {
     flex: 1,
@@ -610,8 +714,8 @@ const styles = StyleSheet.create({
   },
   desktopRowName: {
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontWeight: "600",
+    fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
   },
   desktopRowSub: {
@@ -621,13 +725,13 @@ const styles = StyleSheet.create({
   },
   desktopRowStat: {
     width: 100,
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: 4,
   },
   desktopRowStatValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.burgundy[500],
   },
   desktopRowStatLabel: {

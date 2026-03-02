@@ -83,6 +83,8 @@
     "noGroupsDescription": "You haven't been assigned to any retreat groups yet. Please contact your administrator.",
     "groupName": "Group",
     "lastRetreat": "Last retreat",
+    "spring": "Spring",
+    "fall": "Fall",
     "retreatLabel": "retreat",
     "retreatsLabel": "retreats",
     "accountRequired": "Access to Retreat Recordings",

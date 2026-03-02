@@ -1,11 +1,9 @@
 // API Configuration for Padmakara Backend Integration
 
-// Check for local development override
-const USE_LOCAL_BACKEND = process.env.EXPO_PUBLIC_USE_LOCAL_BACKEND === 'true';
-
-const API_BASE_URL = USE_LOCAL_BACKEND
-  ? 'http://localhost:3000/api'  // Local Hono development server
-  : 'https://padmakara-backend.frerejeremy.me/api'; // Production API server
+// API base URL — MUST be set via EXPO_PUBLIC_API_URL in .env
+// Development: http://localhost:3000/api
+// Production:  https://api.your-domain.com/api
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,

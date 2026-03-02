@@ -353,14 +353,6 @@ export function Sidebar() {
                         const isHoveredGroup = hoveredGroupItem === group.id;
                         const isGroupActive = activeGroupId === group.id;
 
-                        const abbr = group.abbreviation
-                          || getTranslatedName(group, language as 'en' | 'pt')
-                              .split(/\s+/)
-                              .map(w => w[0])
-                              .join('')
-                              .substring(0, 3)
-                              .toUpperCase();
-
                         const { main, sub } = splitGroupName(
                           getTranslatedName(group, language as 'en' | 'pt')
                         );
@@ -382,39 +374,26 @@ export function Sidebar() {
                             accessibilityLabel={getTranslatedName(group, language as 'en' | 'pt')}
                             accessibilityState={{ selected: isGroupActive }}
                           >
-                            <View style={[
-                              styles.groupCircle,
-                              isGroupActive && styles.groupCircleActive,
-                            ]}>
-                              <Text style={[
-                                styles.groupCircleText,
-                                isGroupActive && styles.groupCircleTextActive,
-                              ]}>
-                                {abbr}
-                              </Text>
-                            </View>
-                            <View style={styles.groupTextContainer}>
+                            <Text
+                              style={[
+                                styles.groupItemText,
+                                isGroupActive && styles.groupItemTextActive,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {main}
+                            </Text>
+                            {sub && (
                               <Text
                                 style={[
-                                  styles.groupItemText,
-                                  isGroupActive && styles.groupItemTextActive,
+                                  styles.groupItemSub,
+                                  isGroupActive && styles.groupItemSubActive,
                                 ]}
                                 numberOfLines={1}
                               >
-                                {main}
+                                {sub}
                               </Text>
-                              {sub && (
-                                <Text
-                                  style={[
-                                    styles.groupItemSub,
-                                    isGroupActive && styles.groupItemSubActive,
-                                  ]}
-                                  numberOfLines={1}
-                                >
-                                  {sub}
-                                </Text>
-                              )}
-                            </View>
+                            )}
                           </Pressable>
                         );
                       })
@@ -650,45 +629,19 @@ const styles = StyleSheet.create({
 
   /* Group sub-items */
   groupItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingLeft: 14,
+    paddingVertical: 5,
+    paddingLeft: 16,
     paddingRight: 16,
     borderRadius: 0,
-    marginBottom: 1,
+    marginBottom: 0,
   },
   groupItemHover: {
     backgroundColor: '#f8f7f7',
   },
-  groupCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.gray[200],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  groupCircleActive: {
-    backgroundColor: colors.burgundy[500],
-  },
-  groupCircleText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.gray[600],
-    letterSpacing: 0.3,
-  },
-  groupCircleTextActive: {
-    color: colors.white,
-  },
-  groupTextContainer: {
-    flex: 1,
-  },
   groupItemText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: colors.gray[600],
+    fontWeight: '400',
+    color: colors.gray[500],
   },
   groupItemSub: {
     fontSize: 11,

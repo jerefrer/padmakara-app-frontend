@@ -83,6 +83,8 @@
     "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador.",
     "groupName": "Grupo",
     "lastRetreat": "Último retiro",
+    "spring": "Primavera",
+    "fall": "Outono",
     "retreatLabel": "retiro",
     "retreatsLabel": "retiros",
     "accountRequired": "Acesso às Gravações de Retiro",

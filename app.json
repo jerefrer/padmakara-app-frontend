@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "padmakara-app-claude-code",
-    "slug": "padmakara-app-claude-code",
+    "name": "Padmakara",
+    "slug": "padmakara",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "padmakaraappclaudecode",
+    "scheme": "padmakara",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "linking": {
       "prefixes": [
-        "padmakaraappclaudecode://",
+        "padmakara://",
         "https://padmakara.app",
         "http://localhost:3000"
       ],
@@ -32,12 +32,19 @@
       }
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "org.padmakara.app",
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png"
+      }
     },
     "android": {
+      "package": "org.padmakara.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "monochromeImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#C4423E"
       },
       "edgeToEdgeEnabled": true
     },
@@ -55,7 +62,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#C4423E"
         }
       ]
     ],
