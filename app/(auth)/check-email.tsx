@@ -174,47 +174,6 @@ export default function CheckEmailScreen() {
     };
   }, [isPolling, pollCount]);
 
-  // Manual activation status check
-  const handleCheckStatus = async () => {
-    if (isResending) return;
-
-    setIsResending(true);
-    setActivationStatus('checking');
-
-    try {
-      const result = await magicLinkService.checkActivationStatus();
-
-      if (result.success && result.data) {
-        if (result.data.isActivated) {
-          setActivationStatus('activated');
-
-          // Refresh AuthContext to pick up the activation
-          console.log('🔄 Refreshing AuthContext after manual status check');
-          await refreshAuth();
-
-          setTimeout(() => {
-            router.replace(redirectTarget);
-          }, 1500);
-        } else {
-          setActivationStatus('pending');
-          Alert.alert(
-            'Not Activated Yet',
-            'Your device hasn\'t been activated yet. Please check your email and click the activation link.',
-            [{ text: 'OK' }]
-          );
-        }
-      } else {
-        setActivationStatus('error');
-        Alert.alert('Error', result.error || 'Failed to check activation status');
-      }
-    } catch (error) {
-      setActivationStatus('error');
-      Alert.alert('Error', 'Network error checking activation status');
-    } finally {
-      setIsResending(false);
-    }
-  };
-
   const handleResend = async () => {
     if (!email || resendCooldown > 0) return;
 
@@ -363,29 +322,6 @@ export default function CheckEmailScreen() {
           {/* Action Buttons */}
           {activationStatus !== 'activated' && (
             <View style={styles.actionContainer}>
-              {/* Check Status Button - More prominent than resend */}
-              <TouchableOpacity
-                style={[
-                  styles.checkStatusButton,
-                  isResending && styles.buttonDisabled
-                ]}
-                onPress={handleCheckStatus}
-                disabled={isResending}
-                activeOpacity={0.8}
-              >
-                {isResending && activationStatus === 'checking' ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="search" size={18} color="white" />
-                    <Text style={styles.checkStatusButtonText}>
-                      Check Status
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Resend Button - Secondary */}
               <TouchableOpacity
                 style={[
                   styles.resendButton,
@@ -395,7 +331,7 @@ export default function CheckEmailScreen() {
                 disabled={isResending || resendCooldown > 0}
                 activeOpacity={0.8}
               >
-                {isResending && activationStatus !== 'checking' ? (
+                {isResending ? (
                   <ActivityIndicator color="white" size="small" />
                 ) : (
                   <>
@@ -410,13 +346,12 @@ export default function CheckEmailScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Change Email Button */}
               <TouchableOpacity
-                style={styles.changeEmailButton}
+                style={styles.backButton}
                 onPress={handleBackToEmail}
                 activeOpacity={0.7}
               >
-                <Text style={styles.changeEmailText}>Change email address</Text>
+                <Text style={styles.backButtonText}>Back</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -454,6 +389,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 480,
   },
   iconContainer: {
     marginBottom: 16,
@@ -547,23 +485,6 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginBottom: 16,
   },
-  checkStatusButton: {
-    borderRadius: 2,
-    marginBottom: 12,
-    backgroundColor: colors.burgundy[500],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    minHeight: 52,
-  },
-  checkStatusButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 8,
-  },
   resendButton: {
     borderRadius: 2,
     marginBottom: 16,
@@ -584,11 +505,11 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  changeEmailButton: {
+  backButton: {
     alignItems: 'center',
     paddingVertical: 16,
   },
-  changeEmailText: {
+  backButtonText: {
     color: colors.gray[500],
     fontSize: 16,
     fontWeight: '600',
