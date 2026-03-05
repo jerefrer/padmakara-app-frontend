@@ -1,13 +1,28 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming,
-  interpolate,
-  Easing
-} from 'react-native-reanimated';
+
+let Animated: any;
+let useSharedValue: any;
+let useAnimatedStyle: any;
+let withRepeat: any;
+let withTiming: any;
+let interpolate: any;
+let Easing: any;
+let reanimatedAvailable = false;
+
+try {
+  const reanimated = require('react-native-reanimated');
+  Animated = reanimated.default;
+  useSharedValue = reanimated.useSharedValue;
+  useAnimatedStyle = reanimated.useAnimatedStyle;
+  withRepeat = reanimated.withRepeat;
+  withTiming = reanimated.withTiming;
+  interpolate = reanimated.interpolate;
+  Easing = reanimated.Easing;
+  reanimatedAvailable = true;
+} catch {
+  // Reanimated not available (e.g. Expo Go with mismatched native modules)
+}
 
 const colors = {
   burgundy: {
@@ -26,13 +41,33 @@ interface AnimatedPlayingBarsProps {
   style?: any;
 }
 
-export function AnimatedPlayingBars({ 
-  isPlaying, 
-  size = 16, 
+// Static fallback when reanimated isn't available
+function StaticPlayingBars({ size = 16, color = colors.burgundy[500], style }: AnimatedPlayingBarsProps) {
+  const barWidth = Math.max(2, size * 0.15);
+  const heights = [size * 0.5, size * 0.7, size * 0.6, size * 0.4];
+  return (
+    <View style={[styles.container, { height: size }, style]}>
+      {heights.map((h, i) => (
+        <View key={i} style={[styles.bar, { width: barWidth, height: h, backgroundColor: color }]} />
+      ))}
+    </View>
+  );
+}
+
+export function AnimatedPlayingBars(props: AnimatedPlayingBarsProps) {
+  if (!reanimatedAvailable) {
+    return <StaticPlayingBars {...props} />;
+  }
+
+  return <AnimatedPlayingBarsInner {...props} />;
+}
+
+function AnimatedPlayingBarsInner({
+  isPlaying,
+  size = 16,
   color = colors.burgundy[500],
-  style 
+  style
 }: AnimatedPlayingBarsProps) {
-  // Create animation values for each bar
   const bar1 = useSharedValue(0);
   const bar2 = useSharedValue(0);
   const bar3 = useSharedValue(0);
@@ -40,44 +75,19 @@ export function AnimatedPlayingBars({
 
   useEffect(() => {
     if (isPlaying) {
-      // Start animations with different phases for each bar
       bar1.value = withRepeat(
-        withTiming(1, { 
-          duration: 300, 
-          easing: Easing.inOut(Easing.ease) 
-        }), 
-        -1, 
-        true
+        withTiming(1, { duration: 300, easing: Easing.inOut(Easing.ease) }), -1, true
       );
-      
       bar2.value = withRepeat(
-        withTiming(1, { 
-          duration: 400, 
-          easing: Easing.inOut(Easing.ease) 
-        }), 
-        -1, 
-        true
+        withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) }), -1, true
       );
-      
       bar3.value = withRepeat(
-        withTiming(1, { 
-          duration: 350, 
-          easing: Easing.inOut(Easing.ease) 
-        }), 
-        -1, 
-        true
+        withTiming(1, { duration: 350, easing: Easing.inOut(Easing.ease) }), -1, true
       );
-      
       bar4.value = withRepeat(
-        withTiming(1, { 
-          duration: 450, 
-          easing: Easing.inOut(Easing.ease) 
-        }), 
-        -1, 
-        true
+        withTiming(1, { duration: 450, easing: Easing.inOut(Easing.ease) }), -1, true
       );
     } else {
-      // Stop animations and return to baseline
       bar1.value = withTiming(0, { duration: 200 });
       bar2.value = withTiming(0, { duration: 200 });
       bar3.value = withTiming(0, { duration: 200 });
@@ -85,80 +95,27 @@ export function AnimatedPlayingBars({
     }
   }, [isPlaying]);
 
-  // Create animated styles for each bar
-  const bar1Style = useAnimatedStyle(() => {
-    const height = interpolate(bar1.value, [0, 1], [size * 0.3, size]);
-    return {
-      height,
-    };
-  });
-
-  const bar2Style = useAnimatedStyle(() => {
-    const height = interpolate(bar2.value, [0, 1], [size * 0.5, size * 0.8]);
-    return {
-      height,
-    };
-  });
-
-  const bar3Style = useAnimatedStyle(() => {
-    const height = interpolate(bar3.value, [0, 1], [size * 0.4, size * 0.9]);
-    return {
-      height,
-    };
-  });
-
-  const bar4Style = useAnimatedStyle(() => {
-    const height = interpolate(bar4.value, [0, 1], [size * 0.2, size * 0.7]);
-    return {
-      height,
-    };
-  });
+  const bar1Style = useAnimatedStyle(() => ({
+    height: interpolate(bar1.value, [0, 1], [size * 0.3, size]),
+  }));
+  const bar2Style = useAnimatedStyle(() => ({
+    height: interpolate(bar2.value, [0, 1], [size * 0.5, size * 0.8]),
+  }));
+  const bar3Style = useAnimatedStyle(() => ({
+    height: interpolate(bar3.value, [0, 1], [size * 0.4, size * 0.9]),
+  }));
+  const bar4Style = useAnimatedStyle(() => ({
+    height: interpolate(bar4.value, [0, 1], [size * 0.2, size * 0.7]),
+  }));
 
   const barWidth = Math.max(2, size * 0.15);
-  const containerHeight = size;
 
   return (
-    <View style={[styles.container, { height: containerHeight }, style]}>
-      <Animated.View 
-        style={[
-          styles.bar, 
-          { 
-            width: barWidth, 
-            backgroundColor: color 
-          }, 
-          bar1Style
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          styles.bar, 
-          { 
-            width: barWidth, 
-            backgroundColor: color 
-          }, 
-          bar2Style
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          styles.bar, 
-          { 
-            width: barWidth, 
-            backgroundColor: color 
-          }, 
-          bar3Style
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          styles.bar, 
-          { 
-            width: barWidth, 
-            backgroundColor: color 
-          }, 
-          bar4Style
-        ]} 
-      />
+    <View style={[styles.container, { height: size }, style]}>
+      <Animated.View style={[styles.bar, { width: barWidth, backgroundColor: color }, bar1Style]} />
+      <Animated.View style={[styles.bar, { width: barWidth, backgroundColor: color }, bar2Style]} />
+      <Animated.View style={[styles.bar, { width: barWidth, backgroundColor: color }, bar3Style]} />
+      <Animated.View style={[styles.bar, { width: barWidth, backgroundColor: color }, bar4Style]} />
     </View>
   );
 }

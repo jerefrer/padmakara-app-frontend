@@ -89,10 +89,20 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   );
 }
 
+const fallback: LanguageContextType = {
+  language: 'en' as Language,
+  contentLanguage: 'both' as ContentLanguage,
+  setLanguage: async () => {},
+  setContentLanguage: async () => {},
+  t: (key: string) => key,
+};
+
 export function useLanguage(): LanguageContextType {
   const context = useContext(LanguageContext);
+  // Return fallback during expo-router's initial route evaluation
+  // (before providers are mounted)
   if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
+    return fallback;
   }
   return context;
 }
