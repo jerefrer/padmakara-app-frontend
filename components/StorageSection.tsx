@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import cacheService, { CacheStats } from '@/services/cacheService';
 import downloadService, { DownloadedRetreat } from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';

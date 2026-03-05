@@ -46,7 +46,7 @@ class TranscriptCacheService {
 
     // Native
     try {
-      const FileSystem = await import('expo-file-system');
+      const FileSystem = await import('expo-file-system/legacy');
       const metadata = await this.getMetadata();
       const entry = metadata[transcriptId];
 
@@ -100,7 +100,7 @@ class TranscriptCacheService {
 
     // Native
     try {
-      const FileSystem = await import('expo-file-system');
+      const FileSystem = await import('expo-file-system/legacy');
       const cacheDir = `${FileSystem.cacheDirectory}transcripts/`;
 
       // Ensure directory exists
@@ -149,7 +149,7 @@ class TranscriptCacheService {
       const entry = metadata[transcriptId];
       if (!entry) return null;
 
-      const FileSystem = await import('expo-file-system');
+      const FileSystem = await import('expo-file-system/legacy');
       const info = await FileSystem.getInfoAsync(entry.filePath);
       return info.exists ? entry.filePath : null;
     } catch {
@@ -170,7 +170,7 @@ class TranscriptCacheService {
     }
 
     try {
-      const FileSystem = await import('expo-file-system');
+      const FileSystem = await import('expo-file-system/legacy');
       const cacheDir = `${FileSystem.cacheDirectory}transcripts/`;
       await FileSystem.deleteAsync(cacheDir, { idempotent: true }).catch(() => {});
       await AsyncStorage.removeItem(STORAGE_KEY);

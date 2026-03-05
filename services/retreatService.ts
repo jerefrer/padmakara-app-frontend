@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
 import apiService from './apiService';
 
