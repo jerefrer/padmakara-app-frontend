@@ -5,12 +5,20 @@ export const mockUser: User = {
   id: '1',
   name: 'João Silva',
   email: 'joao@example.com',
-  retreatGroups: ['group-1'],
+  retreat_groups: ['group-1'],
   preferences: {
     language: 'pt',
     contentLanguage: 'en-pt',
     biometricEnabled: true,
+    notifications: true,
   },
+  subscription: {
+    status: 'active',
+    source: null,
+    expiresAt: null,
+  },
+  created_at: '2024-01-01T00:00:00Z',
+  last_login: '2024-01-15T14:30:00Z',
 };
 
 // Create tracks from the sample data structure
@@ -33,9 +41,12 @@ function createTracks(basePath: string, fileList: string[], isEnglishPortuguese 
       id: `track-${order}`,
       title: title || fileName,
       duration: Math.floor(Math.random() * 3600) + 600, // Random duration between 10-70 minutes
-      audioUrl: `${basePath}/${file}`,
-      transcriptUrl: '', // Will be added when we have transcripts
+      audio_file: `${basePath}/${file}`,
+      transcript_file: '',
       order: order++,
+      session_id: 'mock',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
     });
   });
   
@@ -55,9 +66,12 @@ function createTracks(basePath: string, fileList: string[], isEnglishPortuguese 
         id: `track-pt-${order}`,
         title: title || fileName,
         duration: Math.floor(Math.random() * 3600) + 600,
-        audioUrl: `${basePath}/${file}`,
-        transcriptUrl: '',
+        audio_file: `${basePath}/${file}`,
+        transcript_file: '',
         order: order++,
+        session_id: 'mock',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       });
     });
   }
@@ -94,8 +108,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
   {
     id: 'group-1',
     name: 'Mind Training Retreats',
-    description: 'Jigme Khyentse Rinpoche teachings on mind training and the 37 practices of bodhisattvas',
     members: ['1'],
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
     gatherings: [
       {
         id: 'gathering-1',
@@ -104,6 +119,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
         year: 2023,
         startDate: '2023-10-26',
         endDate: '2023-10-27',
+        status: 'completed',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
         sessions: [
           {
             id: 'session-1',
@@ -111,6 +129,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'morning',
             date: '2023-10-26',
             tracks: createTracks('/samples/2023-10-26_27-MIND TRAINING 2 [ENG]', mindTraining2Oct2023Tracks.slice(0, 12)),
+            gathering_id: 'gathering-1',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
           {
             id: 'session-2',
@@ -118,6 +139,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'evening',
             date: '2023-10-26',
             tracks: createTracks('/samples/2023-10-26_27-MIND TRAINING 2 [ENG]', mindTraining2Oct2023Tracks.slice(12, 24)),
+            gathering_id: 'gathering-1',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
           {
             id: 'session-3',
@@ -125,6 +149,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'morning',
             date: '2023-10-27',
             tracks: createTracks('/samples/2023-10-26_27-MIND TRAINING 2 [ENG]', mindTraining2Oct2023Tracks.slice(24, 36)),
+            gathering_id: 'gathering-1',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
           {
             id: 'session-4',
@@ -132,6 +159,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'evening',
             date: '2023-10-27',
             tracks: createTracks('/samples/2023-10-26_27-MIND TRAINING 2 [ENG]', mindTraining2Oct2023Tracks.slice(36, 62)),
+            gathering_id: 'gathering-1',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
         ],
       },
@@ -142,6 +172,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
         year: 2024,
         startDate: '2024-04-11',
         endDate: '2024-04-12',
+        status: 'completed',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
         sessions: [
           {
             id: 'session-5',
@@ -149,6 +182,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'morning',
             date: '2024-04-11',
             tracks: createTracks('/samples/2024-04-11_12-JKR-Mind_Training_2 [ENG]', mindTraining2Apr2024Tracks.slice(0, 12)),
+            gathering_id: 'gathering-2',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
           {
             id: 'session-6',
@@ -156,6 +192,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'morning',
             date: '2024-04-11',
             tracks: createTracks('/samples/2024-04-11_12-JKR-Mind_Training_2 [ENG]', mindTraining2Apr2024Tracks.slice(12, 20)),
+            gathering_id: 'gathering-2',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
           {
             id: 'session-7',
@@ -163,6 +202,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'evening',
             date: '2024-04-11',
             tracks: createTracks('/samples/2024-04-11_12-JKR-Mind_Training_2 [ENG]', mindTraining2Apr2024Tracks.slice(20, 33)),
+            gathering_id: 'gathering-2',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
           {
             id: 'session-8',
@@ -170,6 +212,9 @@ export const mockRetreatGroups: RetreatGroup[] = [
             type: 'morning',
             date: '2024-04-12',
             tracks: createTracks('/samples/2024-04-11_12-JKR-Mind_Training_2 [ENG]', mindTraining2Apr2024Tracks.slice(33)),
+            gathering_id: 'gathering-2',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
         ],
       },
