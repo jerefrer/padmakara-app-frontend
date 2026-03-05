@@ -12,7 +12,7 @@
       "prefixes": [
         "padmakara://",
         "https://padmakara.app",
-        "http://localhost:3000"
+        "https://app.padmakara.pt"
       ],
       "config": {
         "screens": {
@@ -34,10 +34,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.padmakara.app",
-      "icon": {
-        "light": "./assets/images/icon.png",
-        "dark": "./assets/images/icon-dark.png"
-      }
+      "icon": "./assets/images/iOS.icon"
     },
     "android": {
       "package": "org.padmakara.app",
