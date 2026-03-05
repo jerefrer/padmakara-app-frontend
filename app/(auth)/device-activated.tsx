@@ -112,7 +112,6 @@ export default function DeviceActivatedScreen() {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Enable ${biometricType} for Padmakara`,
-        subPromptMessage: 'This will make signing in faster and more secure',
         cancelLabel: 'Not now',
       });
 
