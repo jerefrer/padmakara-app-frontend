@@ -84,7 +84,7 @@ function GroupCard({
 
 // ── Group Avatar Images ──────────────────────────────────────────────────────
 
-const GROUP_IMAGES: Record<string, ReturnType<typeof require>> = {
+const GROUP_IMAGES: Record<string, any> = {
   shine: require("@/assets/images/groups/shine.jpeg"),
   mandala: require("@/assets/images/groups/mandala.jpeg"),
   vajrasattva: require("@/assets/images/groups/vajrasattva.jpeg"),
@@ -94,7 +94,7 @@ const GROUP_IMAGES: Record<string, ReturnType<typeof require>> = {
   "three-jewels": require("@/assets/images/groups/chenrezi.jpeg"),
 };
 
-function getGroupImage(groupName: string): ReturnType<typeof require> | null {
+function getGroupImage(groupName: string): any | null {
   const name = groupName.toLowerCase();
   if (name.includes("shamatha") || name.includes("śamatha"))
     return GROUP_IMAGES["shine"];

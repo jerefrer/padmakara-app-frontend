@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     color: colors.gray[800],
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
   clearButton: {
     padding: 4,

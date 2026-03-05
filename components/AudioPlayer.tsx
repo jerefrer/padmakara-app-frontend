@@ -74,7 +74,6 @@ export function AudioPlayer() {
           onValueChange={onSliderValueChange}
           minimumTrackTintColor={colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[400]}
-          thumbStyle={styles.progressThumb}
         />
       </View>
 

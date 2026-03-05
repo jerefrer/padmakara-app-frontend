@@ -189,7 +189,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
         <Text style={styles.desktopRowName} numberOfLines={1}>
           {displayName}
         </Text>
-        <Text style={styles.desktopRowSubDate} numberOfLines={1}>
+        <Text style={styles.desktopRowDate} numberOfLines={1}>
           {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
         </Text>
       </View>

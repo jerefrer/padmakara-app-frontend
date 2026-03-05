@@ -131,7 +131,6 @@ class ApiService {
           ...headers,
           ...options.headers,
         },
-        timeout: API_CONFIG.timeout,
       });
 
       // Handle authentication errors
@@ -267,7 +266,6 @@ class ApiService {
         method: 'POST',
         headers,
         body: formData,
-        timeout: API_CONFIG.timeout * 2, // Double timeout for uploads
       });
 
       if (response.status === 401) {

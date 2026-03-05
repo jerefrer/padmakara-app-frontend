@@ -16,7 +16,7 @@ const colors = {
 export default function RootIndex() {
   const { isAuthenticated, isLoading, isDeviceActivated, refreshAuth } = useAuth();
   const [hasRedirected, setHasRedirected] = useState(false);
-  const [redirectTimeout, setRedirectTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [redirectTimeout, setRedirectTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [isAutoActivating, setIsAutoActivating] = useState(false);
   const params = useGlobalSearchParams();
 

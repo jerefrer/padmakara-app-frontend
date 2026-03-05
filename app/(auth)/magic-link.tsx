@@ -50,7 +50,7 @@ export default function MagicLinkScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
-  const redirectTarget = (returnTo as string) || '/(tabs)';
+  const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(false);

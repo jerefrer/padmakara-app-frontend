@@ -86,7 +86,7 @@ class I18n {
     return this.currentContentLanguage;
   }
 
-  t(key: string, params?: Record<string, string>): string {
+  t(key: string, params?: Record<string, unknown>): string {
     const keys = key.split('.');
     let value: any = translations[this.currentLanguage];
     

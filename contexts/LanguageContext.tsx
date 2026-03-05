@@ -7,7 +7,7 @@ interface LanguageContextType {
   contentLanguage: ContentLanguage;
   setLanguage: (language: Language) => Promise<void>;
   setContentLanguage: (contentLanguage: ContentLanguage) => Promise<void>;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: string, params?: Record<string, unknown>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -66,7 +66,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     }
   };
 
-  const translate = (key: string, params?: Record<string, string>) => {
+  const translate = (key: string, params?: Record<string, unknown>) => {
     return i18n.t(key, params);
   };
 

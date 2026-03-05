@@ -652,7 +652,7 @@ export default function RetreatDetailScreen() {
         throw new Error(requestResponse.error || 'Failed to prepare download');
       }
 
-      const requestId = requestResponse.data?.request_id;
+      const requestId = (requestResponse.data as any)?.request_id;
       if (!requestId) {
         throw new Error('No request ID received');
       }
@@ -683,13 +683,13 @@ export default function RetreatDetailScreen() {
           throw new Error(statusResponse.error || 'Failed to check ZIP status');
         }
 
-        if (statusResponse.data?.status === 'ready') {
+        if ((statusResponse.data as any)?.status === 'ready') {
           isComplete = true;
           setZipDownloadProgress('ZIP ready! Starting download...');
-        } else if (statusResponse.data?.status === 'failed') {
-          throw new Error(statusResponse.data?.error_message || 'ZIP generation failed');
-        } else if (statusResponse.data?.status === 'processing') {
-          const progressPercent = statusResponse.data.progress_percent;
+        } else if ((statusResponse.data as any)?.status === 'failed') {
+          throw new Error((statusResponse.data as any)?.error_message || 'ZIP generation failed');
+        } else if ((statusResponse.data as any)?.status === 'processing') {
+          const progressPercent = (statusResponse.data as any)?.progress_percent;
           const progressMsg = progressPercent !== undefined
             ? `Generating ZIP... ${progressPercent}%`
             : 'Generating ZIP file...';
@@ -705,12 +705,12 @@ export default function RetreatDetailScreen() {
 
       const downloadResponse = await apiService.get(API_ENDPOINTS.DOWNLOAD_FILE(requestId));
 
-      if (!downloadResponse.data?.success || !downloadResponse.data?.download_url) {
+      if (!(downloadResponse.data as any)?.success || !(downloadResponse.data as any)?.download_url) {
         throw new Error('Failed to get download URL');
       }
 
       const { Linking } = require('react-native');
-      await Linking.openURL(downloadResponse.data.download_url);
+      await Linking.openURL((downloadResponse.data as any).download_url);
 
       await downloadStateService.removeDownloadState(retreat.id);
 

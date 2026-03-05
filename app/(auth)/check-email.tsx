@@ -41,7 +41,7 @@ const colors = {
 export default function CheckEmailScreen() {
   const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
-  const redirectTarget = (returnTo as string) || '/(tabs)';
+  const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isPolling, setIsPolling] = useState(true);
