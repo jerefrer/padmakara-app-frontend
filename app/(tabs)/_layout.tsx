@@ -28,10 +28,10 @@ export default function TabLayout() {
           ? Platform.select({
               ios: {
                 position: 'absolute' as const,
-                backgroundColor: '#f8f8f8',
+                backgroundColor: '#ffffff',
               },
               default: {
-                backgroundColor: '#f8f8f8',
+                backgroundColor: '#ffffff',
               },
             })
           : { display: 'none' as const },
