@@ -44,10 +44,11 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <AudioPlayerProvider>
-          <Stack>
+    <Sentry.ErrorBoundary>
+      <AuthProvider>
+        <LanguageProvider>
+          <AudioPlayerProvider>
+            <Stack>
             <Stack.Screen name="index" options={{ headerShown: false, title: "Padmakara" }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -56,9 +57,10 @@ export default function RootLayout() {
             <Stack.Screen name="delete-account" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
-          <StatusBar style="dark" backgroundColor="#e8e6e3" />
-        </AudioPlayerProvider>
-      </LanguageProvider>
-    </AuthProvider>
+            <StatusBar style="dark" backgroundColor="#e8e6e3" />
+          </AudioPlayerProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </Sentry.ErrorBoundary>
   );
 }
