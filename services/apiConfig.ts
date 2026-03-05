@@ -54,6 +54,9 @@ export const API_ENDPOINTS = {
   READ_ALONG_URL: (trackId: string) => `/media/readalong/${trackId}`,
   TRANSCRIPT_URL: (transcriptId: string) => `/media/transcript/${transcriptId}`,
   
+  // Account Management
+  DELETE_ACCOUNT: '/auth/user/delete',
+
   // Payment / Subscription
   PAYMENT_SUBSCRIBE: '/payment/subscribe',
   PAYMENT_CANCEL: '/payment/cancel',

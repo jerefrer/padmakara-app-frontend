@@ -63,7 +63,7 @@ export default function SettingsScreen() {
 
 
   // Cross-platform alert system (only the UI implementation differs by platform)
-  const showAlert = (title: string, message: string, buttons?: {text: string, onPress?: () => void, style?: string}[]) => {
+  const showAlert = (title: string, message: string, buttons?: {text: string, onPress?: () => void, style?: 'default' | 'cancel' | 'destructive'}[]) => {
     if (Platform.OS === 'web') {
       // Use browser confirm dialog for web (technical limitation - React Native Alert doesn't work on web)
       const confirmed = window.confirm(`${title}\n\n${message}`);
@@ -178,7 +178,7 @@ export default function SettingsScreen() {
     if (isAuthenticated && user) {
       const updatedPreferences = {
         ...(user.preferences || {}),
-        language: newLanguage,
+        language: newLanguage as 'en' | 'pt',
       };
       await updateUser({ preferences: updatedPreferences });
     }
@@ -205,7 +205,7 @@ export default function SettingsScreen() {
     if (isAuthenticated && user) {
       const updatedPreferences = {
         ...(user.preferences || {}),
-        contentLanguage: newContentLanguage,
+        contentLanguage: newContentLanguage as 'en' | 'en-pt',
       };
       await updateUser({ preferences: updatedPreferences });
     }
@@ -602,6 +602,23 @@ export default function SettingsScreen() {
                   )}
                 </Pressable>
               </View>
+
+              {isDesktop && (
+                <View style={styles.section}>
+                  <Pressable
+                    style={styles.settingItem}
+                    onPress={() => router.push('/delete-account' as any)}
+                  >
+                    <View style={styles.settingLeft}>
+                      <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                      <Text style={[styles.settingTitle, { color: '#dc2626' }]}>
+                        {t('deleteAccount.title') || 'Delete Account'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+                  </Pressable>
+                </View>
+              )}
             </>
           )}
 
@@ -615,6 +632,13 @@ export default function SettingsScreen() {
               </View>
               <Text style={styles.settingValue}>1.0.0 (Beta)</Text>
             </View>
+            <Pressable style={styles.settingItem} onPress={() => router.push('/privacy-policy' as any)}>
+              <View style={styles.settingLeft}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={colors.burgundy[500]} />
+                <Text style={styles.settingTitle}>{t('privacy.title') || 'Privacy Policy'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+            </Pressable>
           </View>
         </ScrollView>
       </View>
