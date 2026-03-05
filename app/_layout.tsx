@@ -7,11 +7,28 @@ import {
 } from '@expo-google-fonts/eb-garamond';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Sentry from '@sentry/react-native';
+import Constants from 'expo-constants';
 import 'react-native-reanimated';
 import '../global.css';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
+
+Sentry.init({
+  dsn: Constants.expoConfig?.extra?.sentryDsn ?? '',
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+  sendDefaultPii: false,
+  beforeSend(event) {
+    // Strip any email addresses that might leak through
+    if (event.user) {
+      delete event.user.email;
+      delete event.user.ip_address;
+    }
+    return event;
+  },
+});
 
 export default function RootLayout() {
   const [loaded] = useFonts({

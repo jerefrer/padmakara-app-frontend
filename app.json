@@ -34,7 +34,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.padmakara.app",
-      "icon": "./assets/images/iOS.icon"
+      "icon": "./assets/images/iOS.icon",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "org.padmakara.app",
@@ -61,10 +64,25 @@
           "resizeMode": "contain",
           "backgroundColor": "#C4423E"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "padmakarapt",
+          "project": "react-native"
+        }
       ]
     ],
+    "extra": {
+      "sentryDsn": "https://a0c5633e88bc9febe3d131bd356303e6@o4510993302618112.ingest.de.sentry.io/4510993304256592",
+      "router": {},
+      "eas": {
+        "projectId": "44f66aec-5dc0-409f-88bc-bb467caea177"
+      }
+    },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "frere-jeremy"
   }
 }

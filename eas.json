@@ -24,12 +24,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "",
-        "ascAppId": "",
-        "appleTeamId": ""
-      },
-      "android": {
-        "serviceAccountKeyPath": ""
+        "appleId": "frere.jeremy@gmail.com",
+        "appleTeamId": "3J4HCZ8V25"
       }
     }
   }
