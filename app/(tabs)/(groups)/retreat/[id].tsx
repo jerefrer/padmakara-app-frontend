@@ -528,8 +528,10 @@ export default function RetreatDetailScreen() {
     }
   }, [currentTrackIndex, filteredTracks, currentTrack]);
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
+  const formatDuration = (seconds: number): string | null => {
+    if (!seconds || seconds <= 0) return null;
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 1) return '<1m';
     return `${minutes}m`;
   };
 
