@@ -61,35 +61,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     apiService.addAuthStateListener(handleAuthStateChange);
     
-    // Set up session health monitoring with platform-specific intervals
+    // Set up session health monitoring — only checks periodically.
+    // If the token is expired, the apiService 401 handler will auto-refresh it.
     const setupSessionMonitoring = () => {
-      // Platform-specific monitoring intervals
-      const getMonitoringInterval = () => {
-        if (Platform.OS === 'web') {
-          return 3 * 60 * 1000; // 3 minutes for web (more frequent due to tab switching)
-        } else {
-          return 5 * 60 * 1000; // 5 minutes for native apps
-        }
-      };
-      
-      // Check session health periodically
+      const monitoringInterval = 30 * 60 * 1000; // 30 minutes
+
       return setInterval(async () => {
         if (isAuthenticated && !isLoading) {
-          logDebugInfo('Performing periodic session health check', {
-            platform: Platform.OS,
-            interval: getMonitoringInterval() / 1000 / 60 + ' minutes'
-          });
-          
+          logDebugInfo('Performing periodic session health check');
+
           try {
-            // Validate the current authentication token
+            // This API call goes through makeRequest which handles 401 + refresh
             const tokenValid = await apiService.validateAuthToken();
-            if (!tokenValid) {
-              logDebugInfo('Token validation failed, session is invalid');
-              // This will trigger a 401 handler which will clear auth state
-              handleAuthStateChange();
-            } else {
+            if (tokenValid) {
               logDebugInfo('Session health check passed');
             }
+            // If token was expired, makeRequest already attempted refresh.
+            // If refresh failed, handleAuthFailure already notified listeners.
           } catch (error) {
             logDebugInfo('Session health check error', {
               error: error instanceof Error ? error.message : 'Unknown error',
@@ -97,7 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             });
           }
         }
-      }, getMonitoringInterval());
+      }, monitoringInterval);
     };
     
     const sessionMonitorInterval = setupSessionMonitoring();

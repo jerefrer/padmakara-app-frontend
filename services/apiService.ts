@@ -94,6 +94,51 @@ class ApiService {
     }
   }
 
+  // Attempt to refresh the access token using the stored refresh token
+  private isRefreshing = false;
+  private async attemptTokenRefresh(): Promise<boolean> {
+    if (this.isRefreshing) return false;
+    this.isRefreshing = true;
+
+    try {
+      const refreshToken = await AsyncStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        console.log('🔐 No refresh token available');
+        return false;
+      }
+
+      console.log('🔄 Attempting token refresh...');
+      const fullUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.REFRESH_TOKEN}`;
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        console.log('❌ Token refresh failed:', response.status);
+        return false;
+      }
+
+      const data = await response.json();
+      if (data.accessToken) {
+        await AsyncStorage.setItem('auth_token', data.accessToken);
+        if (data.refreshToken) {
+          await AsyncStorage.setItem('refresh_token', data.refreshToken);
+        }
+        console.log('✅ Token refreshed successfully');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ Token refresh error:', error);
+      return false;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -133,13 +178,31 @@ class ApiService {
         },
       });
 
-      // Handle authentication errors
+      // Handle authentication errors — try refreshing the token first
       if (response.status === 401) {
         const token = await this.getAuthToken();
 
-        // Only redirect to login if user was previously authenticated (had a token)
-        // Unauthenticated users hitting a 401 endpoint should just get an error, not a redirect
         if (token) {
+          // Try to refresh the access token before giving up
+          const refreshed = await this.attemptTokenRefresh();
+          if (refreshed) {
+            // Retry the original request with the new token
+            const newHeaders = await getAuthHeaders();
+            const retryResponse = await fetch(fullUrl, {
+              ...options,
+              headers: { ...newHeaders, ...options.headers },
+            });
+
+            if (retryResponse.ok) {
+              const contentType = retryResponse.headers.get('content-type');
+              const retryData = contentType?.includes('application/json')
+                ? await retryResponse.json()
+                : await retryResponse.text();
+              return { success: true, data: retryData as T };
+            }
+          }
+
+          // Refresh failed or retry failed — session is truly expired
           await this.handleAuthFailure();
         }
         return {

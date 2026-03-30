@@ -275,28 +275,31 @@ class AuthService {
     }
   }
 
-  // Session Management - Magic Link Only (No Refresh Tokens)
+  // Session Management - refresh access token if a refresh token is available
   async refreshSession(): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      console.log('🔄 Magic Link session check...');
-      
-      // In magic link auth, we don't refresh tokens - we validate current session
+      console.log('🔄 Checking session...');
+
       const authState = await this.getAuthState();
       if (!authState.isAuthenticated || !authState.user) {
         console.log('❌ No valid session found');
         return { success: false, error: 'No valid session' };
       }
 
-      
-      // For magic link auth, the session is either valid or not - no refresh needed
-      // The device activation status determines session validity
-      console.log('✅ Magic link session valid');
+      // Validate current token by making a lightweight API call
+      const tokenValid = await apiService.validateAuthToken();
+      if (tokenValid) {
+        console.log('✅ Session still valid');
+        return { success: true, user: authState.user };
+      }
+
+      // Token expired — the apiService 401 handler will attempt refresh automatically
+      // on the next real API call, so just report the current user
+      console.log('⚠️ Token may be expired, will refresh on next API call');
       return { success: true, user: authState.user };
 
     } catch (error) {
       console.error('Session check error:', error);
-      
-      
       return { success: false, error: 'Session check failed' };
     }
   }
