@@ -523,6 +523,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const currentTrackId = track.id;
     const restorationSessionId = `${currentTrackId}-${Date.now()}`;
+    let restorationSucceeded = false;
 
     try {
       console.log(`Starting position restoration for ${track.title} (session: ${restorationSessionId})`);
@@ -622,6 +623,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
               if (track && track.id === currentTrackId) {
                 setPlayerPosition(positionSeconds);
                 setRestorationProtection(true);
+                restorationSucceeded = true;
                 console.log(`Position restoration completed: ${positionSeconds}s (session: ${restorationSessionId})`);
               }
             } catch (seekOperationError: any) {
@@ -685,6 +687,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIsRestorationInProgress(false);
 
       if (track && track.id === currentTrackId && currentRestorationSessionIdRef.current === restorationSessionId) {
+        // If restoration didn't succeed (early return from cancelled/failed seek),
+        // reset display position to avoid showing stale time while audio plays from 0
+        if (!restorationSucceeded) {
+          console.log(`Restoration did not succeed, resetting display position (session: ${restorationSessionId})`);
+          setDisplayPosition(0);
+          setPlayerPosition(0);
+          setExpectedPosition(0);
+          setRestorationProtection(false);
+        }
         setPlayerState('RESTORED');
         setIsTrackLoading(false);
         console.log(`Position restoration complete (session: ${restorationSessionId})`);
