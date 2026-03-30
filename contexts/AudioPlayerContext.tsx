@@ -120,6 +120,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Pre-caching state
   const hasPreCachedForTrackRef = useRef<string | null>(null);
 
+  // Track completion guard - prevents firing multiple times per track
+  const hasCompletedCurrentTrackRef = useRef(false);
+
   // --- expo-audio hooks ---
   const player = useAudioPlayer(audioSource);
   const status = useAudioPlayerStatus(player);
@@ -283,6 +286,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         setIsStreamLoading(false);
         setStreamLoadedTrackId(null);
         hasPreCachedForTrackRef.current = null;
+        hasCompletedCurrentTrackRef.current = false;
         safeClearSessionId("track loading reset", false);
 
         loadTrack(track);
@@ -389,8 +393,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
     }
 
-    // Check for completion
-    if (status.didJustFinish || (status.currentTime >= status.duration && status.duration > 0)) {
+    // Check for completion (fire once per track)
+    if (!hasCompletedCurrentTrackRef.current &&
+        (status.didJustFinish || (status.currentTime >= status.duration && status.duration > 0))) {
+      hasCompletedCurrentTrackRef.current = true;
       console.log('Track completed');
       saveProgress(status.duration * 1000);
       onTrackCompleteRef.current?.();
