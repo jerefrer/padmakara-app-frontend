@@ -55,6 +55,12 @@
       "name": "Padmakara"
     },
     "plugins": [
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",

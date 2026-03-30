@@ -5,6 +5,7 @@ import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Audio player state machine
@@ -178,6 +179,31 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       shouldRouteThroughEarpiece: false,
     });
   }, []);
+
+  // --- Activate lock screen / Now Playing controls (iOS & Android) ---
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    if (track && player && loadedTrackId === track.id && playerState !== 'LOADING') {
+      try {
+        const metadata: Record<string, string> = {
+          title: track.title,
+        };
+        if (track.speakerName) metadata.artist = track.speakerName;
+        if (metaRetreatName) metadata.albumTitle = metaRetreatName;
+
+        player.setActiveForLockScreen(true, metadata);
+      } catch (error) {
+        console.warn('Failed to set lock screen metadata:', error);
+      }
+    } else if (!track && player) {
+      try {
+        player.setActiveForLockScreen(false);
+      } catch (error) {
+        // Player may already be inactive
+      }
+    }
+  }, [track, player, loadedTrackId, playerState, metaRetreatName]);
 
   // --- Stop playback when auth is lost ---
   const { isAuthenticated } = useAuth();
