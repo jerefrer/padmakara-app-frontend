@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,6 +86,12 @@ interface RetreatDetails {
     name_translations?: Record<string, string>;
   };
   transcripts?: TranscriptInfo[];
+  relatedPublications?: Array<{
+    id: number;
+    titlePt: string;
+    titleEn?: string | null;
+    coverImageUrl?: string | null;
+  }>;
 }
 
 // Flat track with session info for display
@@ -108,7 +114,7 @@ export default function RetreatDetailScreen() {
 
   const handleBack = useCallback(() => {
     if (from === 'events') {
-      router.replace('/(tabs)/(events)');
+      router.replace('/(tabs)/(groups)/events');
     } else {
       router.back();
     }
@@ -633,8 +639,12 @@ export default function RetreatDetailScreen() {
     setZipDownloadProgress('Preparing download...');
 
     try {
-      const downloadEndpoint = API_ENDPOINTS.EVENT_DOWNLOAD_REQUEST(retreat.id);
-      const requestResponse = await apiService.post(downloadEndpoint);
+      // Try authenticated endpoint first, fall back to public for unauthenticated users
+      let requestResponse = await apiService.post(API_ENDPOINTS.EVENT_DOWNLOAD_REQUEST(retreat.id));
+
+      if (!requestResponse.success) {
+        requestResponse = await apiService.post(API_ENDPOINTS.PUBLIC_EVENT_DOWNLOAD_REQUEST(retreat.id));
+      }
 
       if (!requestResponse.success) {
         throw new Error(requestResponse.error || 'Failed to prepare download');
@@ -855,6 +865,31 @@ export default function RetreatDetailScreen() {
             </React.Fragment>
           );
         })}
+        {retreat?.relatedPublications && retreat.relatedPublications.length > 0 && (
+          <View style={styles.relatedPublicationsSection}>
+            <Text style={styles.relatedPublicationsTitle}>
+              {t('publications.relatedTitle') || 'Related Publications'}
+            </Text>
+            {retreat.relatedPublications.map((pub) => (
+              <TouchableOpacity
+                key={pub.id}
+                style={styles.relatedPublicationItem}
+                onPress={() => router.push('/(tabs)/(groups)/publications' as any)}
+              >
+                {pub.coverImageUrl ? (
+                  <Image source={{ uri: pub.coverImageUrl }} style={styles.relatedPubCover} />
+                ) : (
+                  <View style={[styles.relatedPubCover, styles.relatedPubCoverPlaceholder]}>
+                    <Ionicons name="book-outline" size={16} color={colors.gray[400]} />
+                  </View>
+                )}
+                <Text style={styles.relatedPubTitle} numberOfLines={1}>
+                  {language === 'en' && pub.titleEn ? pub.titleEn : pub.titlePt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     );
   };
@@ -1434,5 +1469,40 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  relatedPublicationsSection: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.gray[200],
+  },
+  relatedPublicationsTitle: {
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 18,
+    color: colors.gray[700],
+    marginBottom: 12,
+  },
+  relatedPublicationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  relatedPubCover: {
+    width: 40,
+    height: 56,
+    borderRadius: 3,
+    backgroundColor: colors.gray[100],
+  },
+  relatedPubCoverPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  relatedPubTitle: {
+    fontFamily: 'EBGaramond_500Medium',
+    fontSize: 15,
+    color: colors.gray[700],
+    marginLeft: 12,
+    flex: 1,
   },
 });
