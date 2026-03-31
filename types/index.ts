@@ -157,6 +157,25 @@ export interface PDFHighlight {
   createdAt: string;
 }
 
+// ─── Publications ───────────────────────────────────────────────────
+
+export interface Publication {
+  id: string;
+  titlePt: string;
+  titleEn: string | null;
+  subtitle: string | null;
+  description: string | null;
+  authors: string[];
+  language: string;
+  pageCount: number | null;
+  publicationDate: string | null;
+  fileSizeBytes: number | null;
+  accessLevel: 'public' | 'subscribers';
+  sortOrder: number;
+  updatedAt: string;
+  coverImageUrl: string | null;
+}
+
 // ─── Search ──────────────────────────────────────────────────────────
 
 export interface SearchResultSession {

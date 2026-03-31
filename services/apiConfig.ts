@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
   // Public Events (no auth required)
   PUBLIC_EVENTS: '/events/public',
   PUBLIC_EVENT_DETAILS: (id: string) => `/events/public/${id}`,
+  FEATURED_EVENT: '/events/featured',
 
   // Groups & Events
   GROUPS: '/groups',
@@ -65,7 +66,12 @@ export const API_ENDPOINTS = {
   // Search
   SEARCH: (query: string, lang?: string) => `/search?q=${encodeURIComponent(query)}${lang ? `&lang=${lang}` : ''}`,
 
+  // Publications
+  PUBLICATIONS: '/publications',
+  PUBLICATION_PDF: (id: string) => `/publications/${id}/pdf`,
+
   // ZIP Download Endpoints
+  PUBLIC_EVENT_DOWNLOAD_REQUEST: (eventId: string) => `/events/public/${eventId}/request-download`,
   EVENT_DOWNLOAD_REQUEST: (eventId: string) => `/events/${eventId}/request-download`,
   DOWNLOAD_STATUS: (requestId: string) => `/download-requests/${requestId}/status`,
   DOWNLOAD_FILE: (requestId: string) => `/download-requests/${requestId}/download`,
