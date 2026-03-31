@@ -24,7 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const colors = {
   cream: {
-    100: '#fefefe',
+    100: '#ffffff',
   },
   burgundy: {
     50: '#f8f1f1',
@@ -130,6 +130,9 @@ export default function RetreatDetailScreen() {
 
   // Overflow menu state
   const [menuVisible, setMenuVisible] = useState(false);
+
+  // Language dropdown state
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   // Download for offline state
   const [isRetreatDownloaded, setIsRetreatDownloaded] = useState(false);
@@ -430,24 +433,6 @@ export default function RetreatDetailScreen() {
     }
   };
 
-  const toggleLanguageMode = () => {
-    let newMode: string;
-    switch (currentLanguageMode) {
-      case 'en':
-        newMode = 'en-pt';
-        break;
-      case 'en-pt':
-        newMode = 'pt';
-        break;
-      case 'pt':
-        newMode = 'en';
-        break;
-      default:
-        newMode = 'en';
-    }
-    updateLanguagePreference(newMode);
-  };
-
   const getLanguageLabel = (languageMode?: string) => {
     switch (languageMode) {
       case 'en': return t('profile.englishOnly') || 'English Only';
@@ -459,6 +444,7 @@ export default function RetreatDetailScreen() {
 
   // Track selection - updates both local UI state and audio context
   const selectTrack = (track: TrackWithSession, trackIndex: number) => {
+    setShowLanguageDropdown(false);
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
     setSelectedTrack(track);
@@ -893,17 +879,46 @@ export default function RetreatDetailScreen() {
               {getTranslatedName(retreat, language)} {retreat.year}
             </Text>
           </View>
-          {/* Language toggle (inline in header) */}
+          {/* Language selector dropdown */}
           {currentLanguageMode && (
-            <TouchableOpacity
-              style={styles.languageButton}
-              onPress={toggleLanguageMode}
-            >
-              <Text style={styles.languageButtonText}>
-                {getLanguageLabel(currentLanguageMode)}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={colors.gray[600]} />
-            </TouchableOpacity>
+            <View style={styles.languageDropdownContainer}>
+              <TouchableOpacity
+                style={styles.languageButton}
+                onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
+              >
+                <Text style={styles.languageButtonText}>
+                  {getLanguageLabel(currentLanguageMode)}
+                </Text>
+                <Ionicons name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'} size={14} color={colors.gray[600]} />
+              </TouchableOpacity>
+              {showLanguageDropdown && (
+                <View style={styles.languageDropdown}>
+                  {(['en', 'en-pt', 'pt'] as const).map((mode) => (
+                    <TouchableOpacity
+                      key={mode}
+                      style={[
+                        styles.languageDropdownItem,
+                        currentLanguageMode === mode && styles.languageDropdownItemActive,
+                      ]}
+                      onPress={() => {
+                        updateLanguagePreference(mode);
+                        setShowLanguageDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.languageDropdownItemText,
+                        currentLanguageMode === mode && styles.languageDropdownItemTextActive,
+                      ]}>
+                        {getLanguageLabel(mode)}
+                      </Text>
+                      {currentLanguageMode === mode && (
+                        <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           )}
 
           {/* Read Along button (mobile only — desktop shows in detail panel) */}
@@ -1080,6 +1095,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
+    zIndex: 10,
   },
   header: {
     flexDirection: 'row',
@@ -1119,10 +1135,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flexShrink: 1,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
     fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[700],
+    color: colors.burgundy[500],
+    fontVariant: ['small-caps'] as any,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -1184,7 +1201,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     borderWidth: 1,
     borderColor: colors.gray[200],
-    marginLeft: 8,
   },
   languageButtonText: {
     fontSize: 13,
@@ -1192,9 +1208,51 @@ const styles = StyleSheet.create({
     color: colors.gray[700],
     marginRight: 4,
   },
+  languageDropdownContainer: {
+    position: 'relative',
+    marginLeft: 8,
+    zIndex: 100,
+  },
+  languageDropdown: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 4,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minWidth: 200,
+    overflow: 'hidden',
+  },
+  languageDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[100],
+  },
+  languageDropdownItemActive: {
+    backgroundColor: colors.burgundy[50],
+  },
+  languageDropdownItemText: {
+    fontSize: 14,
+    color: colors.gray[700],
+  },
+  languageDropdownItemTextActive: {
+    fontWeight: '600',
+    color: colors.burgundy[500],
+  },
   content: {
     flex: 1,
-    backgroundColor: colors.cream[100],
+    backgroundColor: colors.white,
   },
   scrollContent: {
     padding: 16,
