@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Server Management
-- **DO NOT** start or stop servers yourself (Django backend, npm start, etc.)
+- **DO NOT** start or stop servers yourself (backend, npm start, etc.)
 - User will manage all servers
 - If you need to check server logs or status, ASK the user first
 
@@ -51,13 +51,19 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 
 **Main User Flow:**
 ```
-(tabs)/(groups)/index.tsx (Groups Tab)  →  Shows list of RetreatGroups
+(tabs)/(groups)/index.tsx (Home)         →  Home screen (categories, featured, recently added)
+        ↓ tap "Teachings & Talks"
+(tabs)/(groups)/events.tsx              →  Public events list (re-exports (events)/index)
+        ↓ tap event
+(tabs)/(groups)/retreat/[id].tsx        →  Sessions list for an event
+        ↓ tap "Retreats"
+(tabs)/(groups)/retreats-list.tsx       →  Retreat groups list (auth required)
         ↓ tap group
-(tabs)/(groups)/[groupId].tsx           →  Shows list of Retreats for that group
-        ↓ tap retreat
-(tabs)/(groups)/retreat/[id].tsx        →  Shows list of Sessions
+(tabs)/(groups)/[groupId].tsx           →  Events for that group
+        ↓ tap event
+(tabs)/(groups)/retreat/[id].tsx        →  Sessions list
         ↓ tap session
-(tabs)/(groups)/session/[id].tsx        →  Shows tracks with audio player
+(tabs)/(groups)/session/[id].tsx        →  Tracks with audio player
         ↓ tap transcript
 (tabs)/(groups)/transcript/[id].tsx     →  PDF transcript viewer
 ```
@@ -65,12 +71,16 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 ### Active Screens (Used in Navigation)
 | File | Purpose | Navigation From |
 |------|---------|-----------------|
-| `(tabs)/(groups)/index.tsx` | Home/Groups list | Tab bar (Groups tab) |
-| `(tabs)/settings.tsx` | Settings (formerly Profile) | Tab bar (Settings tab) |
-| `(tabs)/(groups)/[groupId].tsx` | **Retreats list for a group** | Groups list |
-| `(tabs)/(groups)/retreat/[id].tsx` | Sessions list | Retreats list |
+| `(tabs)/(groups)/index.tsx` | Home screen (categories, featured event, recently added) | Tab bar (Home tab) |
+| `(tabs)/(groups)/events.tsx` | Public events list (re-exports `(events)/index`) | Home → "Teachings & Talks" |
+| `(tabs)/(groups)/retreats-list.tsx` | Retreat groups list (auth required) | Home → "Retreats" |
+| `(tabs)/(groups)/[groupId].tsx` | Events for a retreat group | Retreats list |
+| `(tabs)/(groups)/retreat/[id].tsx` | Sessions list for an event | Events list or home featured/recent |
 | `(tabs)/(groups)/session/[id].tsx` | Tracks with audio player | Sessions list |
 | `(tabs)/(groups)/transcript/[id].tsx` | PDF transcript viewer | Track actions |
+| `(tabs)/settings.tsx` | Settings | Tab bar (Settings tab) |
+
+**IMPORTANT — Navigation within Home tab:** All navigation from the home screen (Teachings & Talks, Retreats, featured event, recently added events) must stay within the `(groups)` stack. Never navigate to a different tab like `(events)` — this causes the app to open on the wrong screen when resumed from background.
 
 ### Terminology Clarification
 **IMPORTANT:** The codebase uses "Gathering" and "Retreat" interchangeably:
@@ -93,11 +103,13 @@ app/
 │   └── device-activated.tsx # Device activation success
 ├── (tabs)/                 # Main app (authenticated, tab navigation)
 │   ├── _layout.tsx         # Tab bar configuration (Groups + Settings tabs)
-│   ├── (groups)/           # Stack navigator for Groups tab content
+│   ├── (groups)/           # Stack navigator for Home tab content
 │   │   ├── _layout.tsx     # Stack configuration
-│   │   ├── index.tsx       # Groups list (home)
-│   │   ├── [groupId].tsx   # Retreats list for a group
-│   │   ├── retreat/[id].tsx    # Sessions list
+│   │   ├── index.tsx       # Home screen (categories, featured, recently added)
+│   │   ├── events.tsx      # Public events list (re-exports (events)/index)
+│   │   ├── retreats-list.tsx   # Retreat groups list (auth required)
+│   │   ├── [groupId].tsx   # Events for a retreat group
+│   │   ├── retreat/[id].tsx    # Sessions list for an event
 │   │   ├── session/[id].tsx    # Tracks with audio player
 │   │   └── transcript/[id].tsx # PDF transcript viewer
 │   └── settings.tsx        # Settings tab (formerly profile)
@@ -128,18 +140,18 @@ Located in `types/index.ts`:
 - **DownloadedContent** - Offline content management
 
 ### Services
+- **apiConfig** (`services/apiConfig.ts`) - API base URL and endpoint definitions
 - **authService** (`services/authService.ts`) - Authentication operations including biometric
+- **retreatService** (`services/retreatService.ts`) - Events, sessions, tracks, public/featured events
 - **progressService** (`services/progressService.ts`) - User progress tracking
 
 ### Styling System
-- **NativeWind v4** - Tailwind CSS for React Native
-- **Custom Theme** (`tailwind.config.js`):
-  - **Tibetan Buddhist color palette**: burgundy red (#b91c1c), saffron yellow (#f59e0b), light cream (#e8d8b7)
-  - **Accessibility-focused design**: Larger font sizes for 40+ demographic (14-30px range)
-  - **Typography**: Inter (sans-serif), Georgia (serif)
-  - **Design philosophy**: Warm, elegant, practical, and respectful aesthetic
-  - **Visual reference**: Based on existing website design (docs/screenshot.jpeg)
-  - **Light theme only**: No dark mode implementation
+- **React Native StyleSheet** — inline `StyleSheet.create()` per component
+- **Color palette**: Burgundy (#9b1b1b), white backgrounds, gray scale
+- **Typography**: EBGaramond serif font with `fontVariant: ['small-caps']` for headings
+- **Accessibility-focused**: Larger font sizes for 40+ demographic
+- **Design philosophy**: Warm, elegant, minimal — Buddhist-inspired aesthetic
+- **Light theme only**: No dark mode implementation
 
 ### Internationalization
 - **Multi-language UI**: Designed for easy addition of new languages (currently English/Portuguese)
@@ -180,15 +192,16 @@ Sample audio files organized in `samples/` directory by retreat dates with bilin
 ### Key Dependencies
 - **Expo SDK 53** with Router, AV, File System, Local Authentication
 - **React Native 0.79** with React 19
-- **NativeWind 4** for styling  
-- **React Navigation 7** (tabs/stack)
-- **Audio/PDF libraries**: react-native-pdf, expo-av
+- **expo-router v5** — file-based routing with typed routes
+- **expo-image** — optimized image loading
+- **expo-av** — audio playback
+- **react-native-safe-area-context** — safe area insets
 - **Storage**: AsyncStorage for local data
 
 ## Common Development Tasks
 
 ### Authentication & Security
-The app starts with an authentication guard at `app/index.tsx` that redirects to either `/(tabs)` for authenticated users or `/(auth)/login` for guests.
+The app starts with an authentication guard at `app/index.tsx` that redirects to `/(tabs)/(groups)` for authenticated users or `/(auth)/magic-link` for guests. Public content (featured event, recently added) is visible without authentication.
 
 **Security Requirements:**
 - **Private Content**: Highly sensitive spiritual content requires secure access
@@ -199,8 +212,8 @@ The app starts with an authentication guard at `app/index.tsx` that redirects to
 ### Adding New Routes
 Create files in the `app/` directory following Expo Router conventions. Dynamic routes use square brackets `[id].tsx`.
 
-### Styling Components  
-Use NativeWind classes with the custom color palette (cream, burgundy, saffron) and larger font sizes for accessibility.
+### Styling Components
+Use `StyleSheet.create()` with the burgundy/white/gray color palette and EBGaramond font for headings.
 
 ### Working with Audio
 Use the `AudioPlayer` component for consistent playback experience with progress tracking and bookmark support.
@@ -217,29 +230,30 @@ Access translation functions via `useLanguage()` hook. UI language and content l
 ## Backend Integration
 
 ### Current State
-- **Production Backend**: App now connects to production Django server by default (212.227.131.117)
-- **Local Development Override**: Option to use local Django backend when needed
-- **API Configuration**: Located in `services/apiConfig.ts` with environment-based switching
+- **Backend**: Hono + Drizzle ORM + Bun runtime (in `padmakara-api/`)
+- **Production**: `https://api.padmakara.pt/api`
+- **Local development**: `http://localhost:3000/api`
+- **API Configuration**: `services/apiConfig.ts` reads `EXPO_PUBLIC_API_URL` from `.env`
 
 ### Server Configuration
-**Default (Production):**
-```typescript
-// Uses production server: http://212.227.131.117/api
+The `.env` file controls which backend the app connects to via `EXPO_PUBLIC_API_URL`:
+
+```bash
+# Production (default in committed .env):
+EXPO_PUBLIC_API_URL=https://api.padmakara.pt/api
+
+# Local development:
+EXPO_PUBLIC_API_URL=http://localhost:3000/api
 ```
 
-**Local Development Override:**
-```bash
-# Create .env file with:
-EXPO_PUBLIC_USE_LOCAL_BACKEND=true
-# This switches to: http://localhost:8000/api
-```
+**NOTE:** The old `EXPO_PUBLIC_USE_LOCAL_BACKEND` env var is no longer used. Change `EXPO_PUBLIC_API_URL` directly.
 
 ### Environment Setup
-1. **Production Mode (Default)**: No configuration needed - uses production server
-2. **Local Development Mode**: 
-   - Copy `.env.example` to `.env`
-   - Set `EXPO_PUBLIC_USE_LOCAL_BACKEND=true`
-   - Ensure Django backend is running on `localhost:8000`
+1. **Production Mode**: Set `EXPO_PUBLIC_API_URL=https://api.padmakara.pt/api` in `.env`
+2. **Local Development Mode**:
+   - Set `EXPO_PUBLIC_API_URL=http://localhost:3000/api` in `.env`
+   - Start backend: `cd padmakara-api && bun run dev`
+   - Start app: `npx expo start --clear` (clear cache after env change)
 3. **Backend Features**: PostgreSQL database, S3 file storage, JWT authentication, ZIP download generation
 
 ### Visual Assets

@@ -161,8 +161,7 @@ export interface PDFHighlight {
 
 export interface Publication {
   id: string;
-  titlePt: string;
-  titleEn: string | null;
+  title: string;
   subtitle: string | null;
   description: string | null;
   authors: string[];
@@ -171,7 +170,6 @@ export interface Publication {
   publicationDate: string | null;
   fileSizeBytes: number | null;
   accessLevel: 'public' | 'subscribers';
-  sortOrder: number;
   updatedAt: string;
   coverImageUrl: string | null;
 }

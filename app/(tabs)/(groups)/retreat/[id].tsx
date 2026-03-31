@@ -88,8 +88,7 @@ interface RetreatDetails {
   transcripts?: TranscriptInfo[];
   relatedPublications?: Array<{
     id: number;
-    titlePt: string;
-    titleEn?: string | null;
+    title: string;
     coverImageUrl?: string | null;
   }>;
 }
@@ -884,7 +883,7 @@ export default function RetreatDetailScreen() {
                   </View>
                 )}
                 <Text style={styles.relatedPubTitle} numberOfLines={1}>
-                  {language === 'en' && pub.titleEn ? pub.titleEn : pub.titlePt}
+                  {pub.title}
                 </Text>
               </TouchableOpacity>
             ))}

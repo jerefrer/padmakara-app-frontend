@@ -12,16 +12,21 @@ import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
 import { SidebarNavigationProvider } from '@/contexts/SidebarNavigationContext';
 
+export const unstable_settings = {
+  initialRouteName: '(groups)',
+};
+
 export default function TabLayout() {
   const { t } = useLanguage();
   const { isMobile } = useDesktopLayout();
 
   const tabsElement = (
     <Tabs
+      initialRouteName="(groups)"
       screenOptions={{
-        tabBarActiveTintColor: '#9b1b1b', // Deep muted red
+        tabBarActiveTintColor: '#9b1b1b',
         tabBarInactiveTintColor: '#6b7280',
-        headerShown: false, // Let nested stacks handle headers
+        headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: isMobile
@@ -38,17 +43,10 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="(events)"
-        options={{
-          title: t('navigation.events') || 'Events',
-          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={24} name="account-group-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="(groups)"
         options={{
-          title: t('navigation.retreats') || 'Retreats',
-          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={24} name="meditation" color={color} />,
+          title: t('navigation.home') || 'Home',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="home-outline" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -59,19 +57,34 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="subscription"
+        name="bookmarks"
         options={{
-          title: t('navigation.subscription') || 'Subscribe',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="card-outline" color={color} />,
-          // Hide on mobile — Apple Reader App rules: no subscription language
-          ...(Platform.OS !== 'web' ? { href: null } : {}),
+          title: t('navigation.bookmarks') || 'Bookmarks',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="bookmark-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: t('navigation.settings') || 'Settings',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="settings" color={color} />,
+          title: t('navigation.account') || 'Account',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="person-circle-outline" color={color} />,
+        }}
+      />
+      {/* Hidden tabs - accessible via navigation but not shown in tab bar */}
+      <Tabs.Screen
+        name="(events)"
+        options={{
+          href: null,
+          title: t('navigation.events') || 'Events',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={24} name="account-group-outline" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="subscription"
+        options={{
+          href: null,
+          title: t('navigation.subscription') || 'Subscribe',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="card-outline" color={color} />,
         }}
       />
     </Tabs>

@@ -96,7 +96,7 @@ export default function RootIndex() {
           authenticated: isAuthenticated,
           deviceActivated: isDeviceActivated,
         });
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/(groups)');
       }
     }, 200); // 200ms delay to let state settle
 

@@ -234,6 +234,20 @@ class RetreatService {
     }
   }
 
+  // Get the featured event (no auth required)
+  async getFeaturedEvent(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await apiService.get<any>(API_ENDPOINTS.FEATURED_EVENT);
+      if (response.success && response.data) {
+        return { success: true, data: mapEvent(response.data) };
+      }
+      return { success: true, data: null };
+    } catch (error) {
+      console.error('Error loading featured event:', error);
+      return { success: false, error: 'Failed to load featured event' };
+    }
+  }
+
   // Get user's retreat groups and recent activity (backend-first with offline fallback)
   async getUserRetreats(): Promise<{ success: boolean; data?: UserRetreatData; error?: string }> {
     try {

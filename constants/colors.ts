@@ -9,7 +9,7 @@
 export const colors = {
   cream: {
     50: '#ffffff',
-    100: '#fefefe',
+    100: '#ffffff',
     200: '#f5f4f2',
     500: '#e8e6e3',
   },

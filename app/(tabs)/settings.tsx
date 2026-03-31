@@ -272,7 +272,7 @@ export default function SettingsScreen() {
               clearTrack();
               await logout(); // Same logout logic for all platforms
               console.log(`✅ [${Platform.OS}] Sign out completed successfully`);
-              router.replace('/(tabs)/(events)');
+              router.replace('/(tabs)/(groups)');
             } catch (error) {
               console.error(`💥 [${Platform.OS}] Sign out error:`, error);
               const errorMessage = getStorageErrorMessage(error);
@@ -309,7 +309,7 @@ export default function SettingsScreen() {
               clearTrack();
               await forgetDevice(); // Same forgetDevice logic for all platforms
               console.log(`✅ [${Platform.OS}] Device forgotten successfully`);
-              router.replace('/(tabs)/(events)');
+              router.replace('/(tabs)/(groups)');
             } catch (error) {
               console.error(`💥 [${Platform.OS}] Forget device error:`, error);
               const errorMessage = getStorageErrorMessage(error);

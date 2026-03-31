@@ -29,7 +29,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
           isDeviceActivated,
           isLoading
         });
-        router.replace('/(tabs)/(events)');
+        router.replace('/(tabs)/(groups)');
       }
     }, 100); // Small delay to let root index handle initial routing
 

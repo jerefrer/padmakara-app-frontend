@@ -1,6 +1,7 @@
 import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React from 'react';
@@ -30,8 +31,14 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+const formatTimeRemaining = (position: number, duration: number) => {
+  const remaining = Math.max(duration - position, 0);
+  return `- ${formatTime(remaining)}`;
+};
+
 export function AudioPlayer() {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const TAB_BAR_HEIGHT = 49;
   const bottomOffset = Platform.OS === 'ios' ? TAB_BAR_HEIGHT + insets.bottom : TAB_BAR_HEIGHT;
 
@@ -73,94 +80,111 @@ export function AudioPlayer() {
           onSlidingComplete={onSlidingComplete}
           onValueChange={onSliderValueChange}
           minimumTrackTintColor={colors.burgundy[500]}
-          maximumTrackTintColor={colors.gray[400]}
+          maximumTrackTintColor={colors.gray[200]}
+          thumbTintColor={colors.burgundy[500]}
         />
       </View>
 
-      {/* Player content */}
-      <View style={styles.playerContent}>
-        {/* Track info */}
-        <View style={styles.trackInfo}>
-          <Text style={styles.trackTitle} numberOfLines={2}>
-            {currentTrack.title}
-          </Text>
-          <Text style={styles.trackTime}>
-            {formatTime(position)} / {formatTime(duration)}
-          </Text>
-        </View>
+      {/* Transport row: time | controls | time */}
+      <View style={styles.transportRow}>
+        <Text style={styles.timeText}>{formatTime(position)}</Text>
 
-        {/* Controls */}
-        <View style={styles.controlsContainer}>
-          <View style={styles.controls}>
-            {/* Previous track */}
-            <TouchableOpacity
-              onPress={previousTrack}
-              style={[styles.controlButton, !hasPreviousTrack && styles.controlDisabled]}
-              disabled={!hasPreviousTrack}
-            >
-              <Ionicons name="play-skip-back" size={22} color={hasPreviousTrack ? colors.gray[700] : colors.gray[400]} />
-            </TouchableOpacity>
-
-            {/* -15s button */}
-            <TouchableOpacity
-              onPress={skipBackward}
-              style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
-              disabled={isPlayButtonDisabled}
-            >
-              <RotateLeftThinIcon
-                size={32}
-                color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-                strokeWidth={1.5}
-              />
-              <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
-            </TouchableOpacity>
-
-            {/* Play/Pause button */}
-            <TouchableOpacity
-              onPress={togglePlayPause}
-              style={[styles.playButton, isPlayButtonDisabled && styles.playButtonDisabled]}
-              disabled={isPlayButtonDisabled}
-            >
-              <Ionicons
-                name={isPlaying ? "pause" : "play"}
-                size={26}
-                color={colors.white}
-              />
-            </TouchableOpacity>
-
-            {/* +15s button */}
-            <TouchableOpacity
-              onPress={skipForward}
-              style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
-              disabled={isPlayButtonDisabled}
-            >
-              <RotateRightThinIcon
-                size={32}
-                color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-                strokeWidth={1.5}
-              />
-              <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>15</Text>
-            </TouchableOpacity>
-
-            {/* Next track */}
-            <TouchableOpacity
-              onPress={nextTrack}
-              style={[styles.controlButton, !hasNextTrack && styles.controlDisabled]}
-              disabled={!hasNextTrack}
-            >
-              <Ionicons name="play-skip-forward" size={22} color={hasNextTrack ? colors.gray[700] : colors.gray[400]} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Speed control */}
+        <View style={styles.controls}>
+          {/* Previous track */}
           <TouchableOpacity
-            onPress={changePlaybackSpeed}
-            style={[styles.speedButton, isPlayButtonDisabled && styles.speedButtonDisabled]}
+            onPress={previousTrack}
+            style={[styles.controlButton, !hasPreviousTrack && styles.controlDisabled]}
+            disabled={!hasPreviousTrack}
+          >
+            <Ionicons name="play-skip-back" size={20} color={hasPreviousTrack ? colors.gray[700] : colors.gray[400]} />
+          </TouchableOpacity>
+
+          {/* -10s button */}
+          <TouchableOpacity
+            onPress={skipBackward}
+            style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
             disabled={isPlayButtonDisabled}
           >
-            <Text style={[styles.speedText, isPlayButtonDisabled && styles.speedTextDisabled]}>{playbackSpeed}x</Text>
+            <RotateLeftThinIcon
+              size={28}
+              color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
+              strokeWidth={1.5}
+            />
+            <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>10</Text>
+          </TouchableOpacity>
+
+          {/* Play/Pause button */}
+          <TouchableOpacity
+            onPress={togglePlayPause}
+            style={[styles.playButton, isPlayButtonDisabled && styles.playButtonDisabled]}
+            disabled={isPlayButtonDisabled}
+          >
+            <Ionicons
+              name={isPlaying ? 'pause' : 'play'}
+              size={28}
+              color={colors.gray[800]}
+            />
+          </TouchableOpacity>
+
+          {/* +10s button */}
+          <TouchableOpacity
+            onPress={skipForward}
+            style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
+            disabled={isPlayButtonDisabled}
+          >
+            <RotateRightThinIcon
+              size={28}
+              color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
+              strokeWidth={1.5}
+            />
+            <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>10</Text>
+          </TouchableOpacity>
+
+          {/* Next track */}
+          <TouchableOpacity
+            onPress={nextTrack}
+            style={[styles.controlButton, !hasNextTrack && styles.controlDisabled]}
+            disabled={!hasNextTrack}
+          >
+            <Ionicons name="play-skip-forward" size={20} color={hasNextTrack ? colors.gray[700] : colors.gray[400]} />
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.timeText}>{formatTimeRemaining(position, duration)}</Text>
+      </View>
+
+      {/* Track info */}
+      <Text style={styles.trackTitle} numberOfLines={1}>
+        {currentTrack.title}
+      </Text>
+
+      {/* Bottom toolbar */}
+      <View style={styles.toolbar}>
+        <TouchableOpacity style={styles.toolbarButton}>
+          <Ionicons name="bookmark-outline" size={20} color={colors.gray[600]} />
+          <Text style={styles.toolbarLabel}>{t('player.bookmark') || 'bookmark'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={changePlaybackSpeed}
+          style={styles.toolbarButton}
+          disabled={isPlayButtonDisabled}
+        >
+          <Text style={[styles.speedValue, isPlayButtonDisabled && styles.toolbarLabelDisabled]}>x{playbackSpeed}</Text>
+          <Text style={[styles.toolbarLabel, isPlayButtonDisabled && styles.toolbarLabelDisabled]}>
+            {t('player.speed') || 'speed'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.toolbarButton}>
+          <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
+          <Text style={styles.toolbarLabel}>{t('player.read') || 'read'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.toolbarButton}>
+          <Ionicons name="globe-outline" size={20} color={colors.gray[600]} />
+          <Text style={styles.toolbarLabel}>{t('player.language') || 'En + Pt'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Loading Overlay */}
@@ -189,76 +213,57 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   progressContainer: {
-    height: 4,
+    height: 6,
   },
   progressBar: {
-    height: 4,
-    marginHorizontal: 0,
+    height: 6,
+    marginHorizontal: -2,
   },
-  progressThumb: {
-    width: 12,
-    height: 12,
-    backgroundColor: colors.burgundy[500],
-  },
-  playerContent: {
+
+  // Transport row: time – controls – time
+  transportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
-    minHeight: 88,
+    paddingTop: 8,
   },
-  trackInfo: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  trackTitle: {
-    fontSize: 16,
+  timeText: {
+    fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
+    color: colors.burgundy[500],
+    minWidth: 52,
     textAlign: 'center',
-    marginBottom: 4,
-  },
-  trackTime: {
-    fontSize: 13,
-    color: colors.gray[500],
-    textAlign: 'center',
-  },
-  controlsContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     justifyContent: 'center',
   },
   controlButton: {
-    padding: 10,
+    padding: 8,
   },
   controlDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   playButton: {
-    backgroundColor: colors.burgundy[500],
-    borderRadius: 24,
-    padding: 10,
-    marginHorizontal: 8,
+    padding: 6,
+    marginHorizontal: 4,
   },
   playButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   circularSkipButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   skipNumber: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     color: colors.gray[700],
     textAlign: 'center',
@@ -267,28 +272,46 @@ const styles = StyleSheet.create({
   skipNumberDisabled: {
     color: colors.gray[400],
   },
-  speedButton: {
-    position: 'absolute',
-    right: 0,
-    top: '50%',
-    transform: [{ translateY: -14 }],
-    backgroundColor: colors.gray[100],
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  speedButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: colors.gray[200],
-  },
-  speedText: {
+
+  // Track info
+  trackTitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.burgundy[500],
+    color: colors.gray[500],
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  speedTextDisabled: {
-    color: colors.gray[400],
+
+  // Bottom toolbar
+  toolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.gray[200],
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
+  toolbarButton: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  toolbarLabel: {
+    fontSize: 10,
+    color: colors.gray[500],
+    marginTop: 2,
+  },
+  toolbarLabelDisabled: {
+    opacity: 0.4,
+  },
+  speedValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.gray[700],
+  },
+
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -296,10 +319,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-start',
-    paddingBottom: 28,
-    paddingLeft: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 1000,
   },
 });

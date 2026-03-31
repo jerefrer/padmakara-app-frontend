@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { AppHeader } from '@/components/ui/AppHeader';
+import { Image } from 'expo-image';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -12,11 +11,12 @@ import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = {
   cream: {
     50: '#ffffff',
-    100: '#fefefe',
+    100: '#ffffff',
   },
   burgundy: {
     50: '#f8f1f1',
@@ -134,28 +134,54 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameFor
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
   const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
   const displayName = cleanEventName(rawName, groupNameForStrip);
+  const teachers = retreat.teachers || [];
+  const teacherNames = teachers.map((t) => t.name).filter(Boolean).join(', ') || '';
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.retreatCard}>
-      <View style={styles.card}>
-        <View style={styles.cardContent}>
+      <View style={styles.retreatCardRow}>
+        {/* Teacher avatars (stacked/overlapping) */}
+        <View style={styles.retreatAvatarContainer}>
+          {teachers.length > 0 ? (
+            teachers.slice(0, 3).map((teacher, i, arr) => (
+              <View
+                key={teacher.abbreviation || i}
+                style={[
+                  styles.retreatAvatarWrapper,
+                  i > 0 && { marginLeft: -16 },
+                  { zIndex: arr.length - i },
+                ]}
+              >
+                {teacher.photoUrl ? (
+                  <Image source={{ uri: teacher.photoUrl }} style={styles.retreatAvatar} contentFit="cover" />
+                ) : (
+                  <View style={[styles.retreatAvatar, styles.retreatAvatarFallback]}>
+                    <Text style={styles.retreatAvatarFallbackText}>
+                      {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))
+          ) : (
+            <View style={[styles.retreatAvatar, styles.retreatAvatarFallback]}>
+              <Ionicons name="people-outline" size={20} color={colors.gray[400]} />
+            </View>
+          )}
+        </View>
+        {/* Info */}
+        <View style={styles.retreatCardInfo}>
           <View style={styles.retreatTitleRow}>
-            <Text style={styles.retreatTitle}>{displayName}</Text>
+            <Text style={styles.retreatTitle} numberOfLines={2}>{displayName}</Text>
             {isDownloaded && <OfflineBadge />}
           </View>
-          <View style={styles.retreatInfo}>
-            <Text style={styles.dateText}>
-              {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
-            </Text>
-            <View style={styles.tracksBadge}>
-              <Text style={styles.tracksBadgeText}>
-                {totalTracks === 1
-                  ? (t('retreats.track', { count: totalTracks }) || '1 track')
-                  : (t('retreats.tracksPlural', { count: totalTracks }) || `${totalTracks} tracks`)
-                }
-              </Text>
-            </View>
-          </View>
+          {teacherNames ? (
+            <Text style={styles.retreatTeacherNames} numberOfLines={1}>{teacherNames}</Text>
+          ) : null}
+          <Text style={styles.dateText}>
+            {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
+            {totalTracks > 0 ? ` · ${totalTracks} ${totalTracks === 1 ? 'track' : 'tracks'}` : ''}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -170,6 +196,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
   const [isHovered, setIsHovered] = useState(false);
   const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
   const displayName = cleanEventName(rawName, groupNameForStrip);
+  const teachers = retreat.teachers || [];
 
   const webHoverProps = Platform.OS === 'web' ? {
     onMouseEnter: () => setIsHovered(true),
@@ -182,8 +209,26 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
     >
-      <View style={styles.desktopRowIcon}>
-        <Ionicons name="albums" size={20} color={colors.burgundy[500]} />
+      {/* Teacher avatars (stacked) */}
+      <View style={styles.desktopAvatarGroup}>
+        {teachers.slice(0, 3).map((teacher, i) => (
+          <View key={teacher.abbreviation || i} style={[styles.desktopAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
+            {teacher.photoUrl ? (
+              <Image source={{ uri: teacher.photoUrl }} style={styles.desktopAvatarImg} contentFit="cover" />
+            ) : (
+              <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
+                <Text style={styles.desktopAvatarFallbackText}>
+                  {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+        ))}
+        {teachers.length === 0 && (
+          <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
+            <Ionicons name="people-outline" size={18} color={colors.gray[400]} />
+          </View>
+        )}
       </View>
       <View style={styles.desktopRowMain}>
         <Text style={styles.desktopRowName} numberOfLines={1}>
@@ -191,6 +236,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
         </Text>
         <Text style={styles.desktopRowDate} numberOfLines={1}>
           {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
+          {teachers.length > 0 && ` · ${teachers.map((t) => t.name).filter(Boolean).join(', ')}`}
         </Text>
       </View>
       <View style={styles.desktopRowStat}>
@@ -217,6 +263,7 @@ export default function GroupDetailScreen() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { isDesktop } = useDesktopLayout();
+  const insets = useSafeAreaInsets();
   const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -272,16 +319,15 @@ export default function GroupDetailScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            header: () => <AppHeader showBackButton={true} title={t('common.loading') || 'Loading...'} />
-          }}
-        />
-        <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.inlineHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.burgundy[500]} />
-            <Text style={styles.loadingText}>{t('common.loading') || 'Loading...'}</Text>
           </View>
         </View>
       </>
@@ -292,19 +338,14 @@ export default function GroupDetailScreen() {
   if (error || !groupData) {
     return (
       <>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            header: () => <AppHeader showBackButton={true} title={t('common.error') || 'Error'} />
-          }}
-        />
-        <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.inlineHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.emptyState}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.emptyLogo}
-              contentFit="contain"
-            />
             <Text style={styles.emptyTitle}>
               {error === 'Group not found' ? 'Group Not Found' : 'Connection Error'}
             </Text>
@@ -326,22 +367,19 @@ export default function GroupDetailScreen() {
   if (!groupData.gatherings || groupData.gatherings.length === 0) {
     return (
       <>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            header: () => <AppHeader showBackButton={true} title={getTranslatedName(groupData, language)} />
-          }}
-        />
-        <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.inlineHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.pageTitleSmallCaps, { paddingHorizontal: 24 }]}>
+            {getTranslatedName(groupData, language)}
+          </Text>
           <View style={styles.emptyState}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.emptyLogo}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>No Retreats Available</Text>
             <Text style={styles.emptyText}>
-              You haven't attended any retreats in {getTranslatedName(groupData, language)} yet.
+              {t('groups.noRetreats') || 'No retreats available yet.'}
             </Text>
           </View>
         </View>
@@ -366,38 +404,29 @@ export default function GroupDetailScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          header: () => <AppHeader showBackButton={true} title={groupName} />
-        }}
-      />
-      <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
-          {/* Desktop header */}
-          {isDesktop && (
-            <View style={styles.desktopPageHeader}>
-              <Text style={styles.desktopPageTitle}>{groupName}</Text>
-              <Text style={styles.statsText}>
-                {sortedRetreats.length === 1
-                  ? (t('groups.retreatAttended', { count: sortedRetreats.length }) || '1 retreat attended')
-                  : (t('groups.retreatsAttended', { count: sortedRetreats.length }) || `${sortedRetreats.length} retreats attended`)
-                }
-              </Text>
+          {/* Inline back button */}
+          {!isDesktop && (
+            <View style={styles.inlineHeader}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+                <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* Mobile stats */}
-          {!isDesktop && (
-            <View style={styles.statsContainer}>
-              <Text style={styles.statsText}>
-                {sortedRetreats.length === 1
-                  ? (t('groups.retreatAttended', { count: sortedRetreats.length }) || '1 retreat attended')
-                  : (t('groups.retreatsAttended', { count: sortedRetreats.length }) || `${sortedRetreats.length} retreats attended`)
-                }
-              </Text>
-            </View>
-          )}
+          {/* Page title in burgundy small-caps */}
+          <View style={isDesktop ? styles.desktopPageHeader : styles.mobileTitleHeader}>
+            <Text style={styles.pageTitleSmallCaps}>{groupName}</Text>
+            <Text style={styles.statsText}>
+              {sortedRetreats.length}{' '}
+              {sortedRetreats.length === 1
+                ? (t('groups.retreatLabel') || 'Retreat')
+                : (t('groups.retreatsLabel') || 'Retreats')
+              }
+            </Text>
+          </View>
 
           {/* Retreats grouped by year */}
           {years.map(year => (
@@ -444,19 +473,40 @@ export default function GroupDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream[100],
+    backgroundColor: colors.white,
   },
   scrollView: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 0,
   },
   desktopScrollView: {
     paddingHorizontal: 40,
     paddingTop: 0,
   },
-  statsContainer: {
-    marginBottom: 16,
+  inlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  inlineBackButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: -8,
+  },
+  mobileTitleHeader: {
+    paddingBottom: 16,
+  },
+  pageTitleSmallCaps: {
+    fontSize: 30,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.burgundy[500],
+    fontVariant: ['small-caps'] as any,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   statsText: {
     fontSize: 14,
@@ -538,48 +588,62 @@ const styles = StyleSheet.create({
 
   // Mobile card styles
   retreatCard: {
-    marginBottom: 0,
-  },
-  card: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    paddingVertical: 20,
-    paddingHorizontal: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
-  cardContent: {},
+  retreatCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  retreatAvatarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  retreatAvatarWrapper: {
+    borderWidth: 3,
+    borderColor: colors.white,
+    borderRadius: 27,
+  },
+  retreatAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  retreatAvatarFallback: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retreatAvatarFallbackText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gray[600],
+  },
+  retreatCardInfo: {
+    flex: 1,
+  },
   retreatTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 2,
   },
   retreatTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '600',
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
     flex: 1,
   },
-  retreatInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  retreatTeacherNames: {
+    fontSize: 14,
+    color: colors.burgundy[500],
+    marginBottom: 2,
   },
   dateText: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  tracksBadge: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  tracksBadgeText: {
     fontSize: 13,
-    fontWeight: '400',
     color: colors.gray[500],
   },
 
@@ -589,10 +653,12 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   desktopPageTitle: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '600',
     fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
+    color: colors.burgundy[500],
+    fontVariant: ['small-caps'] as any,
+    letterSpacing: 0.5,
     marginBottom: 6,
   },
   desktopListContainer: {
@@ -614,9 +680,27 @@ const styles = StyleSheet.create({
   desktopRowHovered: {
     backgroundColor: '#fafafa',
   },
-  desktopRowIcon: {
-    width: 40,
+  desktopAvatarGroup: {
+    width: 64,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginRight: 20,
+  },
+  desktopAvatarWrapper: {
+    borderWidth: 2,
+    borderColor: colors.white,
+    borderRadius: 20,
+  },
+  desktopAvatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  desktopAvatarFallbackText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.gray[600],
   },
   desktopRowMain: {
     flex: 1,

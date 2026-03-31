@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
-import { Stack, router, useGlobalSearchParams } from 'expo-router';
+import { Stack, router, useGlobalSearchParams, useSegments } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { AppHeader } from '@/components/ui/AppHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 
 const colors = {
-  cream: {
-    50: '#ffffff',
-    100: '#fefefe',
-  },
   burgundy: {
-    50: '#f8f1f1',
     500: '#9b1b1b',
   },
   gray: {
@@ -29,39 +24,49 @@ const colors = {
   white: '#ffffff',
 };
 
-/** Parse seconds into { hours, minutes } */
-function parseDuration(totalSeconds: number): { hours: number; minutes: number } | null {
-  if (!totalSeconds || totalSeconds <= 0) return null;
-  return {
-    hours: Math.floor(totalSeconds / 3600),
-    minutes: Math.round((totalSeconds % 3600) / 60),
-  };
+type ViewMode = 'teachers' | 'date';
+
+// ── Teacher row (for "by teacher" view) ─────────────────────────────────────
+
+interface TeacherGroup {
+  name: string;
+  abbreviation: string;
+  photoUrl: string | null;
+  eventCount: number;
 }
 
-/** Compute total duration of all tracks in an event */
-function getEventTotalDuration(event: any): number {
-  let total = 0;
-  for (const session of event.sessions || []) {
-    for (const track of session.tracks || []) {
-      total += track.duration || 0;
-    }
-  }
-  return total;
+function TeacherRow({ teacher, onPress }: { teacher: TeacherGroup; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.teacherRow}>
+      <View style={styles.teacherAvatarLarge}>
+        {teacher.photoUrl ? (
+          <Image source={{ uri: teacher.photoUrl }} style={styles.teacherAvatarLargeImg} contentFit="cover" />
+        ) : (
+          <View style={[styles.teacherAvatarLargeImg, styles.teacherAvatarFallback]}>
+            <Text style={styles.teacherAvatarFallbackText}>
+              {teacher.name.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
+            </Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.teacherRowInfo}>
+        <Text style={styles.teacherRowName}>{teacher.name}</Text>
+        <Text style={styles.teacherRowCount}>
+          {teacher.eventCount === 1 ? '1 Teaching' : `${teacher.eventCount} Teachings`}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
-// ── Mobile card ──────────────────────────────────────────────────────────────
+// ── Event card (for "by date" view) ─────────────────────────────────────────
 
-interface PublicEventCardProps {
-  event: any;
-  onPress: () => void;
-  language: string;
-}
-
-function PublicEventCard({ event, onPress, language }: PublicEventCardProps) {
+function EventCard({ event, onPress, language }: { event: any; onPress: () => void; language: string }) {
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
   const sessionCount = event.sessions?.length || 0;
+  const teacherNames = event.teachers?.map((t: any) => t.name).filter(Boolean).join(', ') || '';
 
   const formatDate = (dateStr: string) => {
     try {
@@ -72,24 +77,52 @@ function PublicEventCard({ event, onPress, language }: PublicEventCardProps) {
     } catch { return dateStr; }
   };
 
+  const teacherPhoto = event.teachers?.[0]?.photoUrl || null;
+
   return (
-    <TouchableOpacity onPress={onPress} style={styles.groupCard}>
-      <View style={styles.card}>
-        <View style={styles.cardContent}>
-          <Text style={styles.groupTitle}>{title}</Text>
-          {event.startDate && (
-            <Text style={styles.eventDate}>{formatDate(event.startDate)}</Text>
-          )}
-          <Text style={styles.retreatsText}>
-            {sessionCount === 1 ? '1 session' : `${sessionCount} sessions`}
-          </Text>
-        </View>
+    <TouchableOpacity onPress={onPress} style={styles.eventCard}>
+      <View style={styles.eventCardAvatar}>
+        {teacherPhoto ? (
+          <Image source={{ uri: teacherPhoto }} style={styles.eventCardAvatarImg} contentFit="cover" />
+        ) : (
+          <View style={[styles.eventCardAvatarImg, styles.teacherAvatarFallback]}>
+            <Ionicons name="musical-notes-outline" size={20} color={colors.gray[400]} />
+          </View>
+        )}
+      </View>
+      <View style={styles.eventCardInfo}>
+        <Text style={styles.eventCardTitle} numberOfLines={2}>{title}</Text>
+        {teacherNames ? (
+          <Text style={styles.eventCardTeacher} numberOfLines={1}>{teacherNames}</Text>
+        ) : null}
+        <Text style={styles.eventCardMeta}>
+          {event.startDate ? formatDate(event.startDate) : ''}
+          {sessionCount > 0 ? ` · ${sessionCount} sessions` : ''}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 }
 
-// ── Desktop row ──────────────────────────────────────────────────────────────
+// ── Desktop event row ────────────────────────────────────────────────────────
+
+function parseDuration(totalSeconds: number): { hours: number; minutes: number } | null {
+  if (!totalSeconds || totalSeconds <= 0) return null;
+  return {
+    hours: Math.floor(totalSeconds / 3600),
+    minutes: Math.round((totalSeconds % 3600) / 60),
+  };
+}
+
+function getEventTotalDuration(event: any): number {
+  let total = 0;
+  for (const session of event.sessions || []) {
+    for (const track of session.tracks || []) {
+      total += track.duration || 0;
+    }
+  }
+  return total;
+}
 
 function getOrdinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -124,17 +157,16 @@ function formatDateRangePretty(startDateStr: string, endDateStr: string, locale:
 
 function TeacherAvatars({ teachers }: { teachers?: any[] }) {
   if (!teachers || teachers.length === 0) return null;
-  // Show up to 3 teacher photos, stacked/overlapping
   const shown = teachers.slice(0, 3);
   return (
-    <View style={styles.teacherAvatars}>
+    <View style={styles.desktopTeacherAvatars}>
       {shown.map((teacher: any, i: number) => (
-        <View key={teacher.abbreviation || i} style={[styles.teacherAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
+        <View key={teacher.abbreviation || i} style={[styles.desktopAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
           {teacher.photoUrl ? (
-            <Image source={{ uri: teacher.photoUrl }} style={styles.teacherAvatar} contentFit="cover" />
+            <Image source={{ uri: teacher.photoUrl }} style={styles.desktopAvatar} contentFit="cover" />
           ) : (
-            <View style={[styles.teacherAvatar, styles.teacherAvatarFallback]}>
-              <Text style={styles.teacherAvatarText}>
+            <View style={[styles.desktopAvatar, styles.teacherAvatarFallback]}>
+              <Text style={styles.desktopAvatarFallbackText}>
                 {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
               </Text>
             </View>
@@ -145,18 +177,7 @@ function TeacherAvatars({ teachers }: { teachers?: any[] }) {
   );
 }
 
-function TeacherNames({ teachers, language }: { teachers?: any[]; language: string }) {
-  if (!teachers || teachers.length === 0) return null;
-  const names = teachers.map((t: any) => t.name).filter(Boolean);
-  if (names.length === 0) return null;
-  return (
-    <Text style={styles.desktopRowTeacherNames} numberOfLines={1}>
-      {names.join(', ')}
-    </Text>
-  );
-}
-
-function DesktopEventRow({ event, onPress, language, t }: PublicEventCardProps & { t: (key: string) => string }) {
+function DesktopEventRow({ event, onPress, language }: { event: any; onPress: () => void; language: string }) {
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
@@ -213,16 +234,19 @@ function DesktopEventRow({ event, onPress, language, t }: PublicEventCardProps &
 export default function EventsScreen() {
   const { t, language } = useLanguage();
   const { isDesktop } = useDesktopLayout();
+  const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  const isInGroupsStack = (segments as string[]).includes('(groups)');
   const { teacher: teacherFilter } = useGlobalSearchParams<{ teacher?: string }>();
   const [publicEvents, setPublicEvents] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('teachers');
 
   const loadEvents = async () => {
     try {
       setLoading(true);
       setError(null);
-
       const response = await retreatService.getPublicEvents();
       if (response.success && response.data) {
         setPublicEvents(response.data);
@@ -243,6 +267,36 @@ export default function EventsScreen() {
     loadEvents();
   }, []);
 
+  // If a teacher filter param is passed, switch to date view filtered by that teacher
+  useEffect(() => {
+    if (teacherFilter) setViewMode('date');
+  }, [teacherFilter]);
+
+  // Build teacher groups from events
+  const teacherGroups = useMemo(() => {
+    if (!publicEvents) return [];
+    const map = new Map<string, TeacherGroup>();
+    for (const event of publicEvents) {
+      for (const teacher of event.teachers || []) {
+        const key = teacher.abbreviation || teacher.name;
+        if (!key) continue;
+        const existing = map.get(key);
+        if (existing) {
+          existing.eventCount++;
+        } else {
+          map.set(key, {
+            name: teacher.name || '',
+            abbreviation: teacher.abbreviation || '',
+            photoUrl: teacher.photoUrl || null,
+            eventCount: 1,
+          });
+        }
+      }
+    }
+    // Sort by event count descending
+    return Array.from(map.values()).sort((a, b) => b.eventCount - a.eventCount);
+  }, [publicEvents]);
+
   // Filter events by teacher if a teacher filter is active
   const filteredEvents = useMemo(() => {
     if (!publicEvents) return null;
@@ -252,7 +306,6 @@ export default function EventsScreen() {
     );
   }, [publicEvents, teacherFilter]);
 
-  // Get the teacher name for display when filtering
   const filterTeacherName = useMemo(() => {
     if (!teacherFilter || !publicEvents) return null;
     for (const event of publicEvents) {
@@ -263,14 +316,26 @@ export default function EventsScreen() {
   }, [teacherFilter, publicEvents]);
 
   const handleEventPress = (eventId: number) => {
-    router.push({ pathname: '/(tabs)/(events)/event/[id]', params: { id: String(eventId), from: 'events' } } as any);
+    if (isInGroupsStack) {
+      router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: String(eventId), from: 'events' } } as any);
+    } else {
+      router.push({ pathname: '/(tabs)/(events)/event/[id]', params: { id: String(eventId), from: 'events' } } as any);
+    }
+  };
+
+  const handleTeacherPress = (abbreviation: string) => {
+    if (isInGroupsStack) {
+      router.push({ pathname: '/(tabs)/(groups)/events', params: { teacher: abbreviation } } as any);
+    } else {
+      router.push({ pathname: '/(tabs)/(events)', params: { teacher: abbreviation } } as any);
+    }
   };
 
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
-        <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.burgundy[500]} />
             <Text style={styles.loadingText}>
@@ -285,8 +350,8 @@ export default function EventsScreen() {
   if (error) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
-        <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.emptyState}>
             <Image
               source={require('@/assets/images/logo.png')}
@@ -306,18 +371,106 @@ export default function EventsScreen() {
     );
   }
 
+  // ── Date view: events grouped by year ──
+
+  const renderDateView = () => {
+    if (!filteredEvents || filteredEvents.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>
+            {t('groups.noPublicEvents') || 'No public events available at this time.'}
+          </Text>
+        </View>
+      );
+    }
+
+    const eventsByYear: Record<number, any[]> = {};
+    for (const event of filteredEvents) {
+      const year = event.startDate ? new Date(event.startDate).getFullYear() : 0;
+      if (!eventsByYear[year]) eventsByYear[year] = [];
+      eventsByYear[year].push(event);
+    }
+    const years = Object.keys(eventsByYear).map(Number).sort((a, b) => b - a);
+
+    if (isDesktop) {
+      return years.map((year, yearIndex) => (
+        <View key={year}>
+          <View style={[styles.yearHeader, yearIndex === 0 ? styles.yearHeaderFirst : styles.yearHeaderSubsequent]}>
+            <Text style={styles.yearHeaderText}>{year}</Text>
+          </View>
+          <View style={styles.desktopListContainer}>
+            {eventsByYear[year].map((event: any) => (
+              <DesktopEventRow
+                key={event.id}
+                event={event}
+                onPress={() => handleEventPress(event.id)}
+                language={language}
+              />
+            ))}
+          </View>
+        </View>
+      ));
+    }
+
+    return years.map((year, yearIndex) => (
+      <View key={year}>
+        <View style={[styles.yearHeaderMobile, yearIndex > 0 && styles.yearHeaderMobileSubsequent]}>
+          <Text style={styles.yearHeaderTextMobile}>{year}</Text>
+        </View>
+        {eventsByYear[year].map((event: any) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            onPress={() => handleEventPress(event.id)}
+            language={language}
+          />
+        ))}
+      </View>
+    ));
+  };
+
+  // ── Teachers view ──
+
+  const renderTeachersView = () => {
+    if (teacherGroups.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>
+            {t('groups.noPublicEvents') || 'No public events available at this time.'}
+          </Text>
+        </View>
+      );
+    }
+
+    return teacherGroups.map((teacher) => (
+      <TeacherRow
+        key={teacher.abbreviation}
+        teacher={teacher}
+        onPress={() => handleTeacherPress(teacher.abbreviation)}
+      />
+    ));
+  };
+
   return (
     <>
-      <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
-      <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
+          {/* Inline back button */}
+          <View style={styles.inlineHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Title */}
           <View style={[styles.header, isDesktop && styles.desktopHeader]}>
             <Text style={[styles.title, isDesktop && styles.desktopTitle]}>
-              {filterTeacherName || t('groups.publicEvents') || 'Public Events'}
+              {filterTeacherName || t('home.teachingsAndTalks') || 'Teachings & Talks'}
             </Text>
             {teacherFilter && (
               <Pressable
-                onPress={() => router.push('/(tabs)/(events)' as any)}
+                onPress={() => router.push(isInGroupsStack ? '/(tabs)/(groups)/events' : '/(tabs)/(events)' as any)}
                 style={styles.clearFilterRow}
               >
                 <Text style={styles.clearFilterText}>
@@ -328,65 +481,32 @@ export default function EventsScreen() {
             )}
           </View>
 
-          {filteredEvents && filteredEvents.length > 0 ? (
-            (() => {
-              // Group events by year
-              const eventsByYear: Record<number, any[]> = {};
-              for (const event of filteredEvents) {
-                const year = event.startDate ? new Date(event.startDate).getFullYear() : 0;
-                if (!eventsByYear[year]) eventsByYear[year] = [];
-                eventsByYear[year].push(event);
-              }
-              const years = Object.keys(eventsByYear).map(Number).sort((a, b) => b - a);
-
-              return isDesktop ? (
-                <>
-                  {years.map((year, yearIndex) => (
-                    <View key={year}>
-                      <View style={[styles.yearHeader, yearIndex === 0 ? styles.yearHeaderFirst : styles.yearHeaderSubsequent]}>
-                        <Text style={styles.yearHeaderText}>{year}</Text>
-                      </View>
-                      <View style={styles.desktopListContainer}>
-                        {eventsByYear[year].map((event: any) => (
-                          <DesktopEventRow
-                            key={event.id}
-                            event={event}
-                            onPress={() => handleEventPress(event.id)}
-                            language={language}
-                            t={t}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-                </>
-              ) : (
-                <>
-                  {years.map((year, yearIndex) => (
-                    <View key={year}>
-                      <View style={[styles.yearHeaderMobile, yearIndex > 0 && styles.yearHeaderMobileSubsequent]}>
-                        <Text style={styles.yearHeaderTextMobile}>{year}</Text>
-                      </View>
-                      {eventsByYear[year].map((event: any) => (
-                        <PublicEventCard
-                          key={event.id}
-                          event={event}
-                          onPress={() => handleEventPress(event.id)}
-                          language={language}
-                        />
-                      ))}
-                    </View>
-                  ))}
-                </>
-              );
-            })()
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {t('groups.noPublicEvents') || 'No public events available at this time.'}
-              </Text>
+          {/* View mode tabs — only show when not filtering by a specific teacher */}
+          {!teacherFilter && (
+            <View style={styles.viewTabs}>
+              <TouchableOpacity
+                onPress={() => setViewMode('teachers')}
+                style={[styles.viewTab, viewMode === 'teachers' && styles.viewTabActive]}
+              >
+                <Text style={[styles.viewTabText, viewMode === 'teachers' && styles.viewTabTextActive]}>
+                  {t('events.teachers') || 'teachers'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setViewMode('date')}
+                style={[styles.viewTab, viewMode === 'date' && styles.viewTabActive]}
+              >
+                <Text style={[styles.viewTabText, viewMode === 'date' && styles.viewTabTextActive]}>
+                  {t('events.date') || 'date'}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
+
+          {/* Content */}
+          {viewMode === 'teachers' && !teacherFilter ? renderTeachersView() : renderDateView()}
+
+          <View style={{ height: 120 }} />
         </ScrollView>
       </View>
     </>
@@ -396,7 +516,7 @@ export default function EventsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream[100],
+    backgroundColor: colors.white,
   },
   scrollView: {
     flex: 1,
@@ -405,11 +525,170 @@ const styles = StyleSheet.create({
   desktopScrollView: {
     paddingHorizontal: 40,
   },
+  inlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  inlineBackButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: -8,
+  },
+  header: {
+    paddingBottom: 8,
+  },
+  desktopHeader: {
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  title: {
+    fontSize: 30,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.burgundy[500],
+    fontVariant: ['small-caps'],
+    letterSpacing: 0.5,
+  },
+  desktopTitle: {
+    fontSize: 28,
+    color: colors.gray[800],
+  },
+  clearFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  clearFilterText: {
+    fontSize: 13,
+    color: colors.gray[400],
+  },
+
+  // View mode tabs
+  viewTabs: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+    marginBottom: 8,
+  },
+  viewTab: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginRight: 24,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  viewTabActive: {
+    borderBottomColor: colors.burgundy[500],
+  },
+  viewTabText: {
+    fontSize: 15,
+    color: colors.gray[400],
+    fontVariant: ['small-caps'],
+    letterSpacing: 0.3,
+  },
+  viewTabTextActive: {
+    color: colors.burgundy[500],
+    fontWeight: '600',
+  },
+
+  // Teacher row
+  teacherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+  },
+  teacherAvatarLarge: {
+    marginRight: 16,
+  },
+  teacherAvatarLargeImg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  teacherAvatarFallback: {
+    backgroundColor: colors.gray[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teacherAvatarFallbackText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[600],
+  },
+  teacherRowInfo: {
+    flex: 1,
+  },
+  teacherRowName: {
+    fontSize: 18,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
+    marginBottom: 2,
+  },
+  teacherRowCount: {
+    fontSize: 14,
+    color: colors.gray[500],
+  },
+
+  // Event card (date view, mobile)
+  eventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+  },
+  eventCardAvatar: {
+    marginRight: 14,
+  },
+  eventCardAvatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  eventCardInfo: {
+    flex: 1,
+  },
+  eventCardTitle: {
+    fontSize: 17,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.gray[800],
+    marginBottom: 2,
+  },
+  eventCardTeacher: {
+    fontSize: 14,
+    color: colors.burgundy[500],
+    marginBottom: 2,
+  },
+  eventCardMeta: {
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+
+  // Loading / empty / error
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.gray[600],
+    marginTop: 16,
+    textAlign: 'center',
+  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 40,
   },
   emptyLogo: {
     width: 64,
@@ -430,80 +709,6 @@ const styles = StyleSheet.create({
     color: colors.gray[600],
     textAlign: 'center',
   },
-  header: {
-    paddingTop: 24,
-    paddingBottom: 32,
-  },
-  desktopHeader: {
-    paddingTop: 36,
-    paddingBottom: 0,
-  },
-  desktopTitle: {
-    fontSize: 28,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
-  },
-  clearFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  clearFilterText: {
-    fontSize: 13,
-    color: colors.gray[400],
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
-  },
-
-  // Mobile card styles
-  card: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    padding: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 0,
-    marginBottom: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  groupCard: {
-    marginBottom: 16,
-  },
-  cardContent: {},
-  groupTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
-    marginBottom: 8,
-  },
-  eventDate: {
-    fontSize: 14,
-    color: colors.gray[500],
-    marginBottom: 4,
-  },
-  retreatsText: {
-    fontSize: 14,
-    color: colors.gray[600],
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.gray[600],
-    marginTop: 16,
-    textAlign: 'center',
-  },
   retryButton: {
     backgroundColor: colors.burgundy[500],
     paddingHorizontal: 24,
@@ -522,7 +727,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   yearHeaderFirst: {
-    paddingTop: 52,
+    paddingTop: 16,
   },
   yearHeaderSubsequent: {
     marginTop: 28,
@@ -536,7 +741,7 @@ const styles = StyleSheet.create({
   },
   yearHeaderMobile: {
     paddingVertical: 8,
-    marginBottom: 8,
+    marginBottom: 0,
   },
   yearHeaderMobileSubsequent: {
     marginTop: 16,
@@ -551,9 +756,6 @@ const styles = StyleSheet.create({
 
   // Desktop list styles
   desktopListContainer: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    overflow: 'visible',
     borderTopWidth: 1,
     borderTopColor: colors.gray[200],
   },
@@ -561,16 +763,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
   },
   desktopRowHovered: {
     backgroundColor: '#fafafa',
-  },
-  desktopRowIcon: {
-    width: 40,
-    alignItems: 'center',
   },
   desktopRowMain: {
     flex: 1,
@@ -587,37 +784,27 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     marginTop: 2,
   },
-  teacherAvatars: {
+  desktopTeacherAvatars: {
     width: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     marginRight: 28,
   },
-  teacherAvatarWrapper: {
+  desktopAvatarWrapper: {
     borderWidth: 2,
     borderColor: colors.white,
     borderRadius: 20,
   },
-  teacherAvatar: {
+  desktopAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
   },
-  teacherAvatarFallback: {
-    backgroundColor: colors.gray[200],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  teacherAvatarText: {
+  desktopAvatarFallbackText: {
     fontSize: 10,
     fontWeight: '600',
     color: colors.gray[600],
-  },
-  desktopRowTeacherNames: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginTop: 2,
   },
   desktopRowStat: {
     width: 90,

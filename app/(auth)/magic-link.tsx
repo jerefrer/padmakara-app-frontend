@@ -246,7 +246,7 @@ export default function MagicLinkScreen() {
           if (canGoBack) {
             router.back();
           } else {
-            router.replace('/(tabs)/(events)');
+            router.replace('/(tabs)/(groups)');
           }
         }}
         disabled={isLoading}

@@ -22,7 +22,7 @@ import type { Publication } from '@/types';
 type SortMode = 'title' | 'author' | 'recent';
 
 export default function PublicationsScreen() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { hasActiveSubscription } = useAuth();
   const insets = useSafeAreaInsets();
 
@@ -84,13 +84,7 @@ export default function PublicationsScreen() {
     // Sort
     switch (sortMode) {
       case 'title': {
-        list.sort((a, b) => {
-          const titleA =
-            language === 'pt' ? a.titlePt || a.titleEn || '' : a.titleEn || a.titlePt || '';
-          const titleB =
-            language === 'pt' ? b.titlePt || b.titleEn || '' : b.titleEn || b.titlePt || '';
-          return titleA.localeCompare(titleB);
-        });
+        list.sort((a, b) => a.title.localeCompare(b.title));
         break;
       }
       case 'author': {
@@ -112,7 +106,7 @@ export default function PublicationsScreen() {
     }
 
     return list;
-  }, [publications, sortMode, languageFilter, language]);
+  }, [publications, sortMode, languageFilter]);
 
   // Sections grouped by author (for author sort mode)
   const authorSections = useMemo(() => {
@@ -188,11 +182,8 @@ export default function PublicationsScreen() {
 
   // Get display title for a publication
   const getTitle = useCallback(
-    (pub: Publication) => {
-      if (language === 'pt') return pub.titlePt || pub.titleEn || '';
-      return pub.titleEn || pub.titlePt || '';
-    },
-    [language]
+    (pub: Publication) => pub.title,
+    []
   );
 
   // Render a publication item

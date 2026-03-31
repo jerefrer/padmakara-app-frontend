@@ -11,9 +11,9 @@ import {
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AppHeader } from '@/components/ui/AppHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 
@@ -144,6 +144,7 @@ function ResultEventCard({
 export default function SearchScreen() {
   const { t, language } = useLanguage();
   const { isDesktop } = useDesktopLayout();
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResultEvent[] | null>(null);
   const [totalResults, setTotalResults] = useState(0);
@@ -198,8 +199,8 @@ export default function SearchScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: true, header: () => <AppHeader /> }} />
-      <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Search input */}
         <View style={[styles.searchBar, isDesktop && styles.searchBarDesktop]}>
           <View style={styles.searchInputWrapper}>
@@ -327,7 +328,7 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream[100],
+    backgroundColor: colors.white,
   },
   searchBar: {
     paddingHorizontal: 16,
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
   searchBarDesktop: {
     paddingHorizontal: 40,
     paddingTop: 36,
-    backgroundColor: colors.cream[100],
+    backgroundColor: colors.white,
     borderBottomWidth: 0,
   },
   searchInputWrapper: {
