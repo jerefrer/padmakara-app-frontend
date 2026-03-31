@@ -66,7 +66,9 @@
     "settings": "Configurações",
     "subscription": "Subscrição",
     "events": "Eventos",
-    "search": "Pesquisar"
+    "search": "Pesquisar",
+    "bookmarks": "Marcadores",
+    "account": "Conta"
   },
   "groups": {
     "yourGroups": "Os seus grupos",
@@ -105,7 +107,18 @@
   "home": {
     "greetingMorning": "Bom dia",
     "greetingAfternoon": "Boa tarde",
-    "greetingEvening": "Boa noite"
+    "greetingEvening": "Boa noite",
+    "teachingsAndTalks": "Ensinamentos & Palestras",
+    "teachingsSubtitle": "Eventos da Fund. Kangyur Rinpoche, Songtsen Pt e outros",
+    "retreats": "Retiros",
+    "retreatsSubtitle": "Organizados pela Fundação Kangyur Rinpoche",
+    "publications": "Publicações",
+    "publicationsSubtitle": "Edições Padmakara",
+    "monthlyHighlight": "O nosso destaque mensal",
+    "recentlyAdded": "Adicionados recentemente",
+    "recordings": "Gravações",
+    "publicTalk": "Palestra pública",
+    "noHighlight": "Nenhum conteúdo em destaque disponível"
   },
   "trackDetail": {
     "retreatOverview": "Resumo do Retiro",
@@ -192,7 +205,10 @@
     "upNext": "A Seguir",
     "trackMetadata": "Detalhes da Faixa",
     "close": "Fechar",
-    "noTrack": "Nenhuma faixa selecionada"
+    "noTrack": "Nenhuma faixa selecionada",
+    "speed": "velocidade",
+    "read": "ler",
+    "language": "En + Pt"
   },
   "downloads": {
     "myDownloads": "Meu Conteúdo Salvo",
@@ -250,6 +266,27 @@
     "loading": "A carregar transcrição...",
     "unavailable": "Ler em Conjunto não disponível para esta faixa",
     "buttonLabel": "Ler em Conjunto"
+  },
+  "publications": {
+    "title": "Publicações",
+    "tabs": {
+      "title": "título",
+      "author": "autor",
+      "recent": "recentes"
+    },
+    "filters": {
+      "all": "Todos",
+      "language": "Idioma"
+    },
+    "activateBanner": "Ative a sua conta para aceder à biblioteca completa",
+    "downloading": "A transferir...",
+    "cached": "Disponível offline",
+    "openError": "Não foi possível abrir a publicação",
+    "relatedTitle": "Publicações Relacionadas",
+    "pageCount": "{count} páginas",
+    "noPublications": "Sem publicações disponíveis",
+    "open": "Abrir",
+    "authors": "Autores"
   },
   "privacy": {
     "title": "Política de Privacidade",

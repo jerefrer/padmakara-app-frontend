@@ -66,7 +66,9 @@
     "settings": "Settings",
     "subscription": "Subscription",
     "events": "Events",
-    "search": "Search"
+    "search": "Search",
+    "bookmarks": "Bookmarks",
+    "account": "Account"
   },
   "groups": {
     "yourGroups": "Your groups",
@@ -105,7 +107,18 @@
   "home": {
     "greetingMorning": "Good morning",
     "greetingAfternoon": "Good afternoon",
-    "greetingEvening": "Good evening"
+    "greetingEvening": "Good evening",
+    "teachingsAndTalks": "Teachings & Talks",
+    "teachingsSubtitle": "Events by Kangyur Rinpoche Found., Songtsen Pt & others",
+    "retreats": "Retreats",
+    "retreatsSubtitle": "Organized by Kangyur Rinpoche Foundation",
+    "publications": "Publications",
+    "publicationsSubtitle": "By Padmakara in Portuguese Language",
+    "monthlyHighlight": "Our monthly highlight",
+    "recentlyAdded": "Recently added",
+    "recordings": "Recordings",
+    "publicTalk": "Public talk",
+    "noHighlight": "No featured content available"
   },
   "trackDetail": {
     "retreatOverview": "Retreat Overview",
@@ -192,7 +205,10 @@
     "upNext": "Up Next",
     "trackMetadata": "Track Details",
     "close": "Close",
-    "noTrack": "No track selected"
+    "noTrack": "No track selected",
+    "speed": "speed",
+    "read": "read",
+    "language": "En + Pt"
   },
   "downloads": {
     "myDownloads": "My Saved Content",
@@ -250,6 +266,27 @@
     "loading": "Loading transcript...",
     "unavailable": "Read Along not available for this track",
     "buttonLabel": "Read Along"
+  },
+  "publications": {
+    "title": "Publications",
+    "tabs": {
+      "title": "title",
+      "author": "author",
+      "recent": "recent"
+    },
+    "filters": {
+      "all": "All",
+      "language": "Language"
+    },
+    "activateBanner": "Activate your account to access the full library",
+    "downloading": "Downloading...",
+    "cached": "Available offline",
+    "openError": "Failed to open publication",
+    "relatedTitle": "Related Publications",
+    "pageCount": "{count} pages",
+    "noPublications": "No publications available",
+    "open": "Open",
+    "authors": "Authors"
   },
   "privacy": {
     "title": "Privacy Policy",
