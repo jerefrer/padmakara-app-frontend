@@ -32,9 +32,14 @@ export interface RetreatGroup {
 }
 
 export interface GatheringTeacher {
+  id?: number;
   name: string;
   abbreviation: string;
   photoUrl?: string | null;
+  avatarUrl?: string | null;
+  heroUrl?: string | null;
+  avatarUpdatedAt?: string | null;
+  heroUpdatedAt?: string | null;
 }
 
 export interface Gathering {

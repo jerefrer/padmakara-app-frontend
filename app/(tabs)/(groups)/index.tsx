@@ -82,7 +82,7 @@ function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
     }
   };
 
-  const teacherImage = event.teachers?.[0]?.photoUrl || null;
+  const teacherImage = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.featuredCard}>
@@ -90,6 +90,7 @@ function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage }}
+            cacheKey={event.teachers?.[0]?.avatarUpdatedAt ? `teacher-avatar-${event.teachers[0].abbreviation}-${event.teachers[0].avatarUpdatedAt}` : undefined}
             style={styles.featuredImage}
             contentFit="cover"
           />
@@ -135,7 +136,7 @@ function RecentEventCard({
   const teacherNames =
     event.teachers?.map((t: any) => t.name || t.nameEn || "").join(", ") || "";
 
-  const teacherImage = event.teachers?.[0]?.photoUrl || null;
+  const teacherImage = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   const formatDate = (dateStr: string) => {
     try {
@@ -156,6 +157,7 @@ function RecentEventCard({
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage }}
+            cacheKey={event.teachers?.[0]?.avatarUpdatedAt ? `teacher-avatar-${event.teachers[0].abbreviation}-${event.teachers[0].avatarUpdatedAt}` : undefined}
             style={styles.recentImage}
             contentFit="cover"
           />

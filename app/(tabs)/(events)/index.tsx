@@ -32,6 +32,8 @@ interface TeacherGroup {
   name: string;
   abbreviation: string;
   photoUrl: string | null;
+  avatarUrl?: string | null;
+  avatarUpdatedAt?: string | null;
   eventCount: number;
 }
 
@@ -39,8 +41,13 @@ function TeacherRow({ teacher, onPress }: { teacher: TeacherGroup; onPress: () =
   return (
     <TouchableOpacity onPress={onPress} style={styles.teacherRow}>
       <View style={styles.teacherAvatarLarge}>
-        {teacher.photoUrl ? (
-          <Image source={{ uri: teacher.photoUrl }} style={styles.teacherAvatarLargeImg} contentFit="cover" />
+        {(teacher.avatarUrl || teacher.photoUrl) ? (
+          <Image
+            source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }}
+            cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined}
+            style={styles.teacherAvatarLargeImg}
+            contentFit="cover"
+          />
         ) : (
           <View style={[styles.teacherAvatarLargeImg, styles.teacherAvatarFallback]}>
             <Text style={styles.teacherAvatarFallbackText}>
@@ -77,7 +84,7 @@ function EventCard({ event, onPress, language }: { event: any; onPress: () => vo
     } catch { return dateStr; }
   };
 
-  const teacherPhoto = event.teachers?.[0]?.photoUrl || null;
+  const teacherPhoto = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.eventCard}>
@@ -162,8 +169,8 @@ function TeacherAvatars({ teachers }: { teachers?: any[] }) {
     <View style={styles.desktopTeacherAvatars}>
       {shown.map((teacher: any, i: number) => (
         <View key={teacher.abbreviation || i} style={[styles.desktopAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
-          {teacher.photoUrl ? (
-            <Image source={{ uri: teacher.photoUrl }} style={styles.desktopAvatar} contentFit="cover" />
+          {(teacher.avatarUrl || teacher.photoUrl) ? (
+            <Image source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }} style={styles.desktopAvatar} contentFit="cover" />
           ) : (
             <View style={[styles.desktopAvatar, styles.teacherAvatarFallback]}>
               <Text style={styles.desktopAvatarFallbackText}>
@@ -288,6 +295,8 @@ export default function EventsScreen() {
             name: teacher.name || '',
             abbreviation: teacher.abbreviation || '',
             photoUrl: teacher.photoUrl || null,
+            avatarUrl: teacher.avatarUrl || null,
+            avatarUpdatedAt: teacher.avatarUpdatedAt || null,
             eventCount: 1,
           });
         }
@@ -324,11 +333,7 @@ export default function EventsScreen() {
   };
 
   const handleTeacherPress = (abbreviation: string) => {
-    if (isInGroupsStack) {
-      router.push({ pathname: '/(tabs)/(groups)/events', params: { teacher: abbreviation } } as any);
-    } else {
-      router.push({ pathname: '/(tabs)/(events)', params: { teacher: abbreviation } } as any);
-    }
+    router.push(`/(tabs)/(groups)/teacher/${abbreviation}` as any);
   };
 
   if (loading) {

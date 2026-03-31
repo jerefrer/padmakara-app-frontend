@@ -152,8 +152,8 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameFor
                   { zIndex: arr.length - i },
                 ]}
               >
-                {teacher.photoUrl ? (
-                  <Image source={{ uri: teacher.photoUrl }} style={styles.retreatAvatar} contentFit="cover" />
+                {(teacher.avatarUrl || teacher.photoUrl) ? (
+                  <Image source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }} cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined} style={styles.retreatAvatar} contentFit="cover" />
                 ) : (
                   <View style={[styles.retreatAvatar, styles.retreatAvatarFallback]}>
                     <Text style={styles.retreatAvatarFallbackText}>
@@ -213,8 +213,8 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
       <View style={styles.desktopAvatarGroup}>
         {teachers.slice(0, 3).map((teacher, i) => (
           <View key={teacher.abbreviation || i} style={[styles.desktopAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
-            {teacher.photoUrl ? (
-              <Image source={{ uri: teacher.photoUrl }} style={styles.desktopAvatarImg} contentFit="cover" />
+            {(teacher.avatarUrl || teacher.photoUrl) ? (
+              <Image source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }} cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined} style={styles.desktopAvatarImg} contentFit="cover" />
             ) : (
               <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
                 <Text style={styles.desktopAvatarFallbackText}>
