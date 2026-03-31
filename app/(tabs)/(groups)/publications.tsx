@@ -23,7 +23,7 @@ type SortMode = 'title' | 'author' | 'recent';
 
 export default function PublicationsScreen() {
   const { t, language } = useLanguage();
-  const { isAuthenticated, hasActiveSubscription } = useAuth();
+  const { hasActiveSubscription } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [publications, setPublications] = useState<Publication[]>([]);

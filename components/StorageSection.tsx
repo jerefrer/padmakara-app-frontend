@@ -26,6 +26,7 @@ import { useFocusEffect } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import cacheService, { CacheStats } from '@/services/cacheService';
 import downloadService, { DownloadedRetreat } from '@/services/downloadService';
+import { publicationService } from '@/services/publicationService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -102,6 +103,8 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
   const [isClearingDownloads, setIsClearingDownloads] = useState(false);
   const [showLimitPicker, setShowLimitPicker] = useState(false);
   const [removingRetreatId, setRemovingRetreatId] = useState<string | null>(null);
+  const [publicationCacheStats, setPublicationCacheStats] = useState<{ totalSize: number; count: number } | null>(null);
+  const [isClearingPublications, setIsClearingPublications] = useState(false);
 
   // Confirmation modal state
   const [modalState, setModalState] = useState<{
@@ -145,6 +148,14 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
       // Calculate total download size
       const downloadSize = await downloadService.getTotalDownloadSize();
       setTotalDownloadSize(downloadSize);
+
+      // Load publication cache stats
+      try {
+        const pubStats = await publicationService.getCacheStats();
+        setPublicationCacheStats(pubStats);
+      } catch (err) {
+        console.warn('Could not load publication cache stats:', err);
+      }
 
       // Get device free space (only works on native platforms)
       if (Platform.OS !== 'web') {
@@ -265,6 +276,43 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
               showModal('Error', 'Failed to clear downloads', [{ text: 'OK' }], 'alert-circle-outline');
             } finally {
               setIsClearingDownloads(false);
+            }
+          },
+        },
+      ],
+      'trash-outline'
+    );
+  };
+
+  // Handle clear publication cache
+  const handleClearPublicationCache = () => {
+    if (isClearingPublications) return;
+
+    showModal(
+      t('storage.clearPublicationsTitle') || 'Clear Publications Cache',
+      t('storage.clearPublicationsMessage') || 'This will remove all cached publication PDFs. They will be re-downloaded when you open them again.',
+      [
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: t('storage.clearPublicationsAction') || 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            setIsClearingPublications(true);
+            try {
+              await publicationService.clearCache();
+              showModal(
+                t('storage.publicationsCacheCleared') || 'Publications Cache Cleared',
+                t('storage.publicationsCacheClearedMessage') || 'All cached publication PDFs have been removed.',
+                [{ text: 'OK' }],
+                'checkmark-circle-outline'
+              );
+              await loadStorageData();
+              onStorageChange?.();
+            } catch (error) {
+              console.error('Failed to clear publication cache:', error);
+              showModal('Error', 'Failed to clear publication cache', [{ text: 'OK' }], 'alert-circle-outline');
+            } finally {
+              setIsClearingPublications(false);
             }
           },
         },
@@ -449,6 +497,35 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
               </Text>
               <Text style={styles.settingSubtitle}>
                 {t('storage.clearDownloadsDescription') || 'Remove all downloaded retreats'}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      )}
+
+      {/* Clear Publications Cache Button */}
+      {(publicationCacheStats?.count || 0) > 0 && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingItem,
+            isClearingPublications && styles.disabledSetting,
+            pressed && Platform.OS === 'web' && styles.webPressed,
+          ]}
+          onPress={handleClearPublicationCache}
+          disabled={isClearingPublications}
+        >
+          <View style={styles.settingLeft}>
+            {isClearingPublications ? (
+              <ActivityIndicator size="small" color={colors.burgundy[500]} />
+            ) : (
+              <Ionicons name="book-outline" size={20} color={colors.burgundy[500]} />
+            )}
+            <View style={styles.textContainer}>
+              <Text style={[styles.settingTitle, isClearingPublications && styles.disabledText]}>
+                {t('storage.clearPublications') || 'Clear Publications Cache'}
+              </Text>
+              <Text style={styles.settingSubtitle}>
+                {(t('storage.publicationsCacheInfo') || '{count} publications ({size})').replace('{count}', String(publicationCacheStats?.count || 0)).replace('{size}', formatBytes(publicationCacheStats?.totalSize || 0))}
               </Text>
             </View>
           </View>
