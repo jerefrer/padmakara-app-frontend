@@ -1,37 +1,28 @@
-import { AppHeader } from "@/components/ui/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import retreatService from "@/services/retreatService";
-import { Gathering, RetreatGroup } from "@/types";
-import { getTranslatedName } from "@/utils/i18n";
+import { Gathering } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const colors = {
-  cream: {
-    50: "#ffffff",
-    100: "#fefefe",
-  },
   burgundy: {
-    50: "#f8f1f1",
     500: "#9b1b1b",
     600: "#7b1616",
+    700: "#5a1111",
   },
   gray: {
-    100: "#f3f4f6",
     200: "#e5e7eb",
     400: "#9ca3af",
     500: "#6b7280",
@@ -42,214 +33,205 @@ const colors = {
   white: "#ffffff",
 };
 
-// ── Mobile GroupCard (unchanged) ─────────────────────────────────────────────
+// ── Category Row ─────────────────────────────────────────────────────────────
 
-interface GroupCardProps {
-  group: RetreatGroup;
+interface CategoryRowProps {
+  title: string;
+  subtitle: string;
   onPress: () => void;
 }
 
-function GroupCard({
-  group,
-  onPress,
-  t,
-  language,
-}: GroupCardProps & {
-  t: (key: string, params?: Record<string, unknown>) => string;
+function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.categoryRow}>
+      <Text style={styles.categoryTitle}>{title}</Text>
+      <Text style={styles.categorySubtitle}>{subtitle}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ── Featured Event Card ──────────────────────────────────────────────────────
+
+interface FeaturedEventProps {
+  event: Gathering;
+  onPress: () => void;
   language: string;
-}) {
-  const retreatCount = group.gatherings?.length || 0;
+}
+
+function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
+  const title =
+    language === "pt" && event.name_translations?.pt
+      ? event.name_translations.pt
+      : event.name || event.name_translations?.en || "";
+
+  const teacherNames =
+    event.teachers?.map((t: any) => t.name || t.nameEn || "").join(", ") || "";
+
+  const sessionCount = event.sessions?.length || 0;
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(language === "pt" ? "pt-PT" : "en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const teacherImage = event.teachers?.[0]?.photoUrl || null;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.groupCard}>
-      <View style={styles.card}>
-        <View style={styles.cardContent}>
-          <View style={styles.groupTitleRow}>
-            <Text style={styles.groupTitle}>
-              {getTranslatedName(group, language as "en" | "pt")}
-            </Text>
+    <TouchableOpacity onPress={onPress} style={styles.featuredCard}>
+      <View style={styles.featuredImageContainer}>
+        {teacherImage ? (
+          <Image
+            source={{ uri: teacherImage }}
+            style={styles.featuredImage}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={styles.featuredImagePlaceholder}>
+            <Ionicons
+              name="musical-notes-outline"
+              size={48}
+              color={colors.gray[400]}
+            />
           </View>
-          <Text style={styles.retreatsText}>
-            {retreatCount === 1
-              ? t("groups.retreatAttended", { count: retreatCount }) ||
-                "1 retreat attended"
-              : t("groups.retreatsAttended", { count: retreatCount }) ||
-                `${retreatCount} retreats attended`}
-          </Text>
-        </View>
+        )}
+      </View>
+
+      <View style={styles.featuredInfo}>
+        {teacherNames ? (
+          <Text style={styles.featuredTeacher}>{teacherNames}</Text>
+        ) : null}
+        <Text style={styles.featuredTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.featuredMeta}>
+          {event.startDate ? formatDate(event.startDate) : ""}
+          {sessionCount > 0 ? ` · ${sessionCount} sessions` : ""}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 }
 
-// ── Group Avatar Images ──────────────────────────────────────────────────────
+// ── Recent Event Card ────────────────────────────────────────────────────────
 
-const GROUP_IMAGES: Record<string, any> = {
-  shine: require("@/assets/images/groups/shine.jpeg"),
-  mandala: require("@/assets/images/groups/mandala.jpeg"),
-  vajrasattva: require("@/assets/images/groups/vajrasattva.jpeg"),
-  shakyamuni: require("@/assets/images/groups/shakyamuni.jpeg"),
-  "guru-yoga": require("@/assets/images/groups/guru-yoga.jpeg"),
-  "ngulchu-thogme": require("@/assets/images/groups/ngulchu-thogme.jpeg"),
-  "three-jewels": require("@/assets/images/groups/chenrezi.jpeg"),
-};
-
-function getGroupImage(groupName: string): any | null {
-  const name = groupName.toLowerCase();
-  if (name.includes("shamatha") || name.includes("śamatha"))
-    return GROUP_IMAGES["shine"];
-  if (name.includes("mandala")) return GROUP_IMAGES["mandala"];
-  if (name.includes("vajrasattva")) return GROUP_IMAGES["vajrasattva"];
-  if (name.includes("shakyamuni") || name.includes("śākyamuni"))
-    return GROUP_IMAGES["shakyamuni"];
-  if (
-    name.includes("guru yoga") ||
-    name.includes("tsikdun") ||
-    name.includes("tsik dün")
-  )
-    return GROUP_IMAGES["guru-yoga"];
-  if (
-    name.includes("mind training") ||
-    name.includes("bodhisattva") ||
-    name.includes("lojong") ||
-    name.includes("37 practices")
-  )
-    return GROUP_IMAGES["ngulchu-thogme"];
-  if (
-    name.includes("refuge") ||
-    name.includes("three jewels") ||
-    name.includes("refúgio")
-  )
-    return GROUP_IMAGES["three-jewels"];
-  return null;
-}
-
-// ── Desktop GroupRow ─────────────────────────────────────────────────────────
-
-function DesktopGroupRow({
-  group,
+function RecentEventCard({
+  event,
   onPress,
-  t,
   language,
-}: GroupCardProps & {
-  t: (key: string, params?: Record<string, unknown>) => string;
-  language: string;
-}) {
-  const retreatCount = group.gatherings?.length || 0;
-  const [isHovered, setIsHovered] = useState(false);
+}: FeaturedEventProps) {
+  const title =
+    language === "pt" && event.name_translations?.pt
+      ? event.name_translations.pt
+      : event.name || event.name_translations?.en || "";
 
-  // Find most recent gathering
-  const lastGathering = group.gatherings?.length
-    ? group.gatherings.reduce(
-        (latest, g) => {
-          const d = new Date(g.startDate);
-          return !latest || d > new Date(latest.startDate) ? g : latest;
-        },
-        null as Gathering | null,
-      )
-    : null;
+  const teacherNames =
+    event.teachers?.map((t: any) => t.name || t.nameEn || "").join(", ") || "";
 
-  const lastRetreatLabel = lastGathering
-    ? `${lastGathering.season === "spring" ? t("groups.spring") || "Spring" : t("groups.fall") || "Fall"} ${lastGathering.year}`
-    : null;
+  const teacherImage = event.teachers?.[0]?.photoUrl || null;
 
-  const groupName = getTranslatedName(group, language as "en" | "pt");
-  const groupImage = getGroupImage(groupName);
-
-  const webHoverProps =
-    Platform.OS === "web"
-      ? {
-          onMouseEnter: () => setIsHovered(true),
-          onMouseLeave: () => setIsHovered(false),
-        }
-      : {};
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(language === "pt" ? "pt-PT" : "en-US", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
-      {...webHoverProps}
-    >
-      {/* Group avatar */}
-      {groupImage && (
-        <Image
-          source={groupImage}
-          style={styles.groupAvatar}
-          contentFit="cover"
-        />
-      )}
-
-      {/* Group name + last retreat */}
-      <View style={styles.desktopRowMain}>
-        <Text style={styles.desktopRowName} numberOfLines={1}>
-          {groupName}
-        </Text>
-        {lastRetreatLabel && (
-          <Text style={styles.desktopRowSub} numberOfLines={1}>
-            {t("groups.lastRetreat") || "Last retreat"}: {lastRetreatLabel}
-          </Text>
+    <TouchableOpacity onPress={onPress} style={styles.recentCard}>
+      <View style={styles.recentImageContainer}>
+        {teacherImage ? (
+          <Image
+            source={{ uri: teacherImage }}
+            style={styles.recentImage}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={styles.recentImagePlaceholder}>
+            <Ionicons
+              name="musical-notes-outline"
+              size={28}
+              color={colors.gray[400]}
+            />
+          </View>
         )}
       </View>
-
-      {/* Retreat count */}
-      <View style={styles.desktopRowStat}>
-        <Text style={styles.desktopRowStatValue}>{retreatCount}</Text>
-        <Text style={styles.desktopRowStatLabel}>
-          {retreatCount === 1
-            ? t("groups.retreatLabel") || "retreat"
-            : t("groups.retreatsLabel") || "retreats"}
+      <View style={styles.recentInfo}>
+        <Text style={styles.recentTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        {teacherNames ? (
+          <Text style={styles.recentTeacher} numberOfLines={1}>
+            {teacherNames}
+          </Text>
+        ) : null}
+        <Text style={styles.recentMeta} numberOfLines={1}>
+          {event.startDate ? formatDate(event.startDate) : ""}
         </Text>
       </View>
-
-      {/* Arrow */}
-      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
 // ── Main Screen ─────────────────────────────────────────────────────────────
 
-export default function RetreatsScreen() {
-  const { user, isAuthenticated, hasActiveSubscription, refreshUserData } =
-    useAuth();
+export default function HomeScreen() {
+  const { isAuthenticated, refreshUserData } = useAuth();
   const { t, language } = useLanguage();
-  const { isDesktop } = useDesktopLayout();
-  const [retreatData, setRetreatData] = useState<{
-    retreat_groups: RetreatGroup[];
-    recent_gatherings: Gathering[];
-    total_stats: any;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
-  const loadContent = async () => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
+  // Featured event — loaded for everyone (no auth needed)
+  const [featuredEvent, setFeaturedEvent] = useState<Gathering | null>(null);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+  // Recently added events
+  const [recentEvents, setRecentEvents] = useState<Gathering[]>([]);
 
+  const loadHomeData = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const response = await retreatService.getUserRetreats();
-      if (response.success && response.data) {
-        setRetreatData(response.data);
-      } else {
-        setError(response.error || "Failed to load retreats");
+      setFeaturedLoading(true);
+      const [featuredRes, publicRes] = await Promise.all([
+        retreatService.getFeaturedEvent(),
+        retreatService.getPublicEvents(),
+      ]);
+      if (featuredRes.success && featuredRes.data) {
+        setFeaturedEvent(featuredRes.data);
+      }
+      if (publicRes.success && publicRes.data) {
+        // Sort by start date descending, exclude featured, take top 5
+        const featuredId = featuredRes.data?.id;
+        const sorted = [...publicRes.data]
+          .sort(
+            (a, b) =>
+              new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+          )
+          .filter((e) => e.id !== featuredId)
+          .slice(0, 5);
+        setRecentEvents(sorted);
       }
     } catch (err) {
-      console.error("Error loading retreats:", err);
-      setError("Failed to load retreats");
+      console.error("Error loading home data:", err);
     } finally {
-      setLoading(false);
+      setFeaturedLoading(false);
     }
   };
 
   useEffect(() => {
-    loadContent();
-  }, [isAuthenticated, user]);
+    loadHomeData();
+  }, []);
 
-  // Refresh user data (including subscription status) when screen gains focus
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated) {
@@ -258,10 +240,6 @@ export default function RetreatsScreen() {
     }, [isAuthenticated]),
   );
 
-  const handleGroupPress = (groupId: string) => {
-    router.push(`/(tabs)/(groups)/${groupId}`);
-  };
-
   const handleSignInPress = () => {
     router.push({
       pathname: "/(auth)/magic-link",
@@ -269,222 +247,122 @@ export default function RetreatsScreen() {
     });
   };
 
-  // ─── Not authenticated: welcoming sign-in prompt ────────────────────────────
-  if (!isAuthenticated) {
-    return (
-      <>
-        <Stack.Screen
-          options={{ headerShown: true, header: () => <AppHeader /> }}
-        />
-        <View style={styles.container}>
-          <View style={styles.welcomeState}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.welcomeLogo}
-              contentFit="contain"
-            />
-            <Text style={styles.welcomeTitle}>
-              {t("groups.signInRequired") || "Welcome to Padmakara"}
-            </Text>
-            <View style={styles.welcomeDivider} />
-            <Text style={styles.welcomeText}>
-              {t("groups.signInPrompt") ||
-                "Access recordings and transcripts from your retreat group's gatherings."}
-            </Text>
-            <TouchableOpacity
-              style={styles.welcomeButton}
-              onPress={handleSignInPress}
-            >
-              <Text style={styles.welcomeButtonText}>
-                {t("groups.signIn") || "Sign In"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </>
-    );
-  }
+  const handleTeachingsPress = () => {
+    // Public events — navigate within (groups) stack so the home tab stays active
+    router.push("/(tabs)/(groups)/events");
+  };
 
-  // ─── Authenticated but no subscription: platform-aware prompt ────────────
-  if (!hasActiveSubscription) {
-    return (
-      <>
-        <Stack.Screen
-          options={{ headerShown: true, header: () => <AppHeader /> }}
-        />
-        <View style={styles.container}>
-          <View style={styles.emptyState}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.heroLogo}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>
-              {t("groups.accountRequired") || "Access to Retreat Recordings"}
-            </Text>
-            {Platform.OS === "web" ? (
-              <>
-                <Text style={styles.emptyText}>
-                  {t("groups.accountRequiredDesktop") ||
-                    "Subscribe to listen to your retreat group's recordings."}
-                </Text>
-                <TouchableOpacity
-                  style={styles.signInButton}
-                  onPress={() => router.push("/(tabs)/subscription")}
-                >
-                  <Text style={styles.signInButtonText}>
-                    {t("subscription.subscribe") || "Subscribe"} —{" "}
-                    {t("subscription.price") || "€5/month"}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={styles.emptyText}>
-                  {t("groups.accountRequiredMobile") ||
-                    "An active account is needed to access your retreat recordings."}
-                </Text>
-                <Text
-                  style={[
-                    styles.emptyText,
-                    { marginTop: 8, fontStyle: "italic" },
-                  ]}
-                >
-                  {t("groups.setupAccount") ||
-                    "Visit app.padmakara.pt to set up your account"}
-                </Text>
-              </>
-            )}
-          </View>
-        </View>
-      </>
-    );
-  }
+  const handleRetreatsPress = () => {
+    if (!isAuthenticated) {
+      handleSignInPress();
+      return;
+    }
+    router.push("/(tabs)/(groups)/retreats-list");
+  };
 
-  // Loading state
-  if (loading) {
-    return (
-      <>
-        <Stack.Screen
-          options={{ headerShown: true, header: () => <AppHeader /> }}
-        />
-        <View style={styles.container}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.burgundy[500]} />
-            <Text style={styles.loadingText}>
-              {t("common.loading") || "Loading..."}
-            </Text>
-          </View>
-        </View>
-      </>
-    );
-  }
+  const handlePublicationsPress = () => {
+    router.push("/(tabs)/(groups)/publications");
+  };
 
-  // Error state
-  if (error) {
-    return (
-      <>
-        <Stack.Screen
-          options={{ headerShown: true, header: () => <AppHeader /> }}
-        />
-        <View style={styles.container}>
-          <View style={styles.emptyState}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.emptyLogo}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>
-              {t("common.connectionError") || "Connection Error"}
-            </Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadContent}>
-              <Text style={styles.retryButtonText}>
-                {t("common.retry") || "Retry"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </>
-    );
-  }
+  const handleFeaturedPress = () => {
+    if (featuredEvent) {
+      router.push({
+        pathname: "/(tabs)/(groups)/retreat/[id]",
+        params: { id: String(featuredEvent.id), from: "events" },
+      } as any);
+    }
+  };
 
-  // ─── No groups ──────────────────────────────────────────────────────────────
-  if (!retreatData?.retreat_groups || retreatData.retreat_groups.length === 0) {
-    return (
-      <>
-        <Stack.Screen
-          options={{ headerShown: true, header: () => <AppHeader /> }}
-        />
-        <View style={styles.container}>
-          <View style={styles.emptyState}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.emptyLogo}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>
-              {t("groups.noGroups") || "No Retreat Groups"}
-            </Text>
-            <Text style={styles.emptyText}>
-              {t("groups.noGroupsDescription") ||
-                "You haven't been assigned to any retreat groups yet. Please contact your administrator."}
-            </Text>
-          </View>
-        </View>
-      </>
-    );
-  }
-
-  // ─── Groups list ────────────────────────────────────────────────────────────
   return (
     <>
-      <Stack.Screen
-        options={{ headerShown: true, header: () => <AppHeader /> }}
-      />
-      <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
-          style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
         >
-          {/* Page title */}
-          {isDesktop ? (
-            <View style={styles.desktopHeader}>
-              <Text style={styles.desktopPageTitle}>
-                {t("groups.yourRetreatGroups") || "Your retreat groups"}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.header}>
-              <Text style={styles.title}>
-                {t("groups.yourGroups") || "Your groups"}
-              </Text>
-            </View>
-          )}
+          {/* Category navigation */}
+          <CategoryRow
+            title={t("home.teachingsAndTalks") || "Teachings & Talks"}
+            subtitle={
+              t("home.teachingsSubtitle") ||
+              "Events by Kangyur Rinpoche Found., Songtsen Pt & others"
+            }
+            onPress={handleTeachingsPress}
+          />
+          <CategoryRow
+            title={t("home.retreats") || "Retreats"}
+            subtitle={
+              t("home.retreatsSubtitle") ||
+              "Organized by Kangyur Rinpoche Foundation"
+            }
+            onPress={handleRetreatsPress}
+          />
+          <CategoryRow
+            title={t("home.publications") || "Publications"}
+            subtitle={
+              t("home.publicationsSubtitle") ||
+              "By Padmakara in Portuguese Language"
+            }
+            onPress={handlePublicationsPress}
+          />
 
-          {/* Desktop: clean row-based list; Mobile: stacked cards */}
-          {isDesktop ? (
-            <View style={styles.desktopListContainer}>
-              {/* Group rows (no column headers) */}
-              {retreatData.retreat_groups.map((group) => (
-                <DesktopGroupRow
-                  key={group.id}
-                  group={group}
-                  onPress={() => handleGroupPress(group.id)}
-                  t={t}
+          {/* Monthly highlight — shown for everyone */}
+          {featuredLoading ? (
+            <View style={styles.featuredLoadingContainer}>
+              <ActivityIndicator size="small" color={colors.burgundy[500]} />
+            </View>
+          ) : featuredEvent ? (
+            <View style={styles.highlightSection}>
+              <Text style={styles.highlightLabel}>
+                {t("home.monthlyHighlight") || "Our monthly highlight"}
+              </Text>
+              <FeaturedEventCard
+                event={featuredEvent}
+                language={language}
+                onPress={handleFeaturedPress}
+              />
+            </View>
+          ) : null}
+
+          {/* Recently added */}
+          {recentEvents.length > 0 && (
+            <View style={styles.recentSection}>
+              <Text style={styles.highlightLabel}>
+                {t("home.recentlyAdded") || "Recently added"}
+              </Text>
+              {recentEvents.map((event) => (
+                <RecentEventCard
+                  key={event.id}
+                  event={event}
                   language={language}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/(groups)/retreat/[id]",
+                      params: { id: String(event.id), from: "events" },
+                    } as any)
+                  }
                 />
               ))}
             </View>
-          ) : (
-            retreatData.retreat_groups.map((group) => (
-              <GroupCard
-                key={group.id}
-                group={group}
-                onPress={() => handleGroupPress(group.id)}
-                t={t}
-                language={language}
-              />
-            ))
+          )}
+
+          {/* Sign in prompt — shown subtly at the bottom when not authenticated */}
+          {!isAuthenticated && (
+            <View style={styles.signInSection}>
+              <Text style={styles.signInText}>
+                {t("groups.signInPrompt") ||
+                  "Sign in to access retreat recordings and transcripts."}
+              </Text>
+              <TouchableOpacity
+                style={styles.signInButton}
+                onPress={handleSignInPress}
+              >
+                <Text style={styles.signInButtonText}>
+                  {t("groups.signIn") || "Sign In"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -495,247 +373,172 @@ export default function RetreatsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream[100],
+    backgroundColor: colors.white,
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 80,
-  },
-  welcomeState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-    paddingBottom: 60,
-  },
-  welcomeLogo: {
-    width: 80,
-    height: 80,
-    marginBottom: 32,
-    opacity: 0.6,
-  },
-  welcomeTitle: {
-    fontSize: 28,
-    fontWeight: "600",
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.gray[800],
-    marginBottom: 16,
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
-  welcomeDivider: {
-    width: 48,
-    height: 1,
-    backgroundColor: colors.burgundy[500],
-    marginBottom: 20,
-  },
-  welcomeText: {
-    fontSize: 17,
-    lineHeight: 26,
-    color: colors.gray[600],
-    textAlign: "center",
-    maxWidth: 340,
-    marginBottom: 36,
-  },
-  welcomeSubtle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.gray[400],
-    textAlign: "center",
-    fontStyle: "italic",
-    fontFamily: "EBGaramond_400Regular",
-    marginBottom: 32,
-  },
-  welcomeButton: {
-    backgroundColor: colors.burgundy[500],
-    paddingHorizontal: 44,
-    paddingVertical: 14,
-    borderRadius: 2,
-  },
-  welcomeButtonText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: "600",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  emptyLogo: {
-    width: 64,
-    height: 64,
-    marginBottom: 16,
-    opacity: 0.5,
-  },
-  heroLogo: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    opacity: 0.7,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.gray[800],
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.gray[600],
-    textAlign: "center",
-  },
-  header: {
     paddingTop: 24,
-    paddingBottom: 32,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "600",
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.gray[800],
+    paddingBottom: 120,
   },
 
-  // Mobile card styles
-  card: {
-    backgroundColor: "transparent",
-    borderRadius: 0,
+  // Category rows
+  categoryRow: {
     paddingVertical: 20,
-    paddingHorizontal: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
-  groupCard: {
-    marginBottom: 0,
-  },
-  cardContent: {},
-  groupTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  groupTitle: {
-    fontSize: 20,
-    fontWeight: "600",
+  categoryTitle: {
+    fontSize: 26,
     fontFamily: "EBGaramond_600SemiBold",
     color: colors.gray[800],
-    flex: 1,
+    fontVariant: ["small-caps"],
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  retreatsText: {
+  categorySubtitle: {
     fontSize: 14,
-    color: colors.gray[600],
+    color: colors.gray[500],
+    fontVariant: ["small-caps"],
+    letterSpacing: 0.3,
   },
-  loadingContainer: {
-    flex: 1,
+
+  // Monthly highlight
+  highlightSection: {
+    marginTop: 28,
+  },
+  highlightLabel: {
+    fontSize: 22,
+    fontFamily: "EBGaramond_600SemiBold",
+    fontStyle: "italic",
+    color: colors.burgundy[500],
+    marginBottom: 16,
+  },
+  featuredLoadingContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+
+  // Featured event card
+  featuredCard: {
+    overflow: "hidden",
+  },
+  featuredImageContainer: {
+    width: "100%",
+    aspectRatio: 16 / 10,
+    backgroundColor: "#f0f0f0",
+    overflow: "hidden",
+  },
+  featuredImage: {
+    width: "100%",
+    height: "100%",
+  },
+  featuredImagePlaceholder: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 24,
+    backgroundColor: "#f5f5f5",
   },
-  loadingText: {
-    fontSize: 16,
-    color: colors.gray[600],
-    marginTop: 16,
-    textAlign: "center",
+  featuredInfo: {
+    paddingTop: 14,
+    paddingBottom: 8,
   },
-  retryButton: {
-    backgroundColor: colors.burgundy[500],
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 2,
-    marginTop: 16,
+  featuredTeacher: {
+    fontSize: 20,
+    fontFamily: "EBGaramond_600SemiBold",
+    color: colors.burgundy[500],
+    marginBottom: 2,
   },
-  retryButtonText: {
-    color: "white",
-    fontSize: 16,
+  featuredTitle: {
+    fontSize: 17,
     fontWeight: "600",
+    color: colors.gray[800],
+    marginBottom: 4,
+  },
+  featuredMeta: {
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+
+  // Recently added section
+  recentSection: {
+    marginTop: 28,
+  },
+  recentCard: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+  },
+  recentImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "#f0f0f0",
+    marginRight: 14,
+  },
+  recentImage: {
+    width: "100%",
+    height: "100%",
+  },
+  recentImagePlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+  },
+  recentInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  recentTitle: {
+    fontSize: 18,
+    fontFamily: "EBGaramond_600SemiBold",
+    color: colors.burgundy[500],
+    marginBottom: 2,
+  },
+  recentTeacher: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.gray[800],
+    marginBottom: 2,
+  },
+  recentMeta: {
+    fontSize: 13,
+    color: colors.gray[500],
+  },
+
+  // Sign in section — subtle, at the bottom
+  signInSection: {
+    alignItems: "center",
+    paddingTop: 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  signInText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.gray[500],
+    textAlign: "center",
+    maxWidth: 300,
+    marginBottom: 16,
   },
   signInButton: {
     backgroundColor: colors.burgundy[500],
-    paddingHorizontal: 32,
+    paddingHorizontal: 36,
     paddingVertical: 12,
     borderRadius: 2,
-    marginTop: 20,
   },
   signInButtonText: {
-    color: "white",
-    fontSize: 16,
+    color: colors.white,
+    fontSize: 14,
     fontWeight: "600",
-  },
-
-  // Desktop styles
-  desktopScrollView: {
-    paddingHorizontal: 40,
-  },
-  desktopHeader: {
-    paddingTop: 36,
-    paddingBottom: 24,
-  },
-  desktopPageTitle: {
-    fontSize: 28,
-    fontWeight: "600",
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.gray[800],
-  },
-
-  // Desktop list
-  desktopListContainer: {
-    backgroundColor: "transparent",
-    borderRadius: 0,
-    overflow: "visible",
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  desktopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  desktopRowHovered: {
-    backgroundColor: "#fafafa",
-  },
-  groupAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 14,
-  },
-  desktopRowMain: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  desktopRowName: {
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.gray[800],
-  },
-  desktopRowSub: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginTop: 2,
-  },
-  desktopRowStat: {
-    width: 100,
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  desktopRowStatValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.burgundy[500],
-  },
-  desktopRowStatLabel: {
-    fontSize: 13,
-    color: colors.gray[500],
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
 });

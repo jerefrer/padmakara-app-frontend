@@ -69,7 +69,7 @@ export function Sidebar() {
   const globalParams = useGlobalSearchParams<{ groupId?: string; teacher?: string }>();
   const activeGroupIdRef = useRef<string | null>(null);
   const isInGroupsSection = (segments as string[]).includes('(groups)');
-  const isInEventsSection = (segments as string[]).includes('(events)');
+  const isInEventsSection = (segments as string[]).includes('(events)') || pathname.includes('/events');
 
   useEffect(() => {
     if (globalParams.groupId) {
@@ -89,12 +89,12 @@ export function Sidebar() {
   const navItems: NavItem[] = [
     {
       key: 'events',
-      label: t('navigation.events') || 'Events',
+      label: t('home.teachingsAndTalks') || 'Teachings & Talks',
       icon: 'people-outline',
       activeIcon: 'people',
       renderIcon: (active, color) => <MaterialCommunityIcons name={active ? 'account-group' : 'account-group-outline'} size={22} color={color} />,
-      route: '/(tabs)/(events)',
-      segment: '(events)',
+      route: '/(tabs)/(groups)/events',
+      segment: '(groups)',
     },
     {
       key: 'home',
@@ -103,6 +103,15 @@ export function Sidebar() {
       activeIcon: 'body',
       renderIcon: (active, color) => <MaterialCommunityIcons name="meditation" size={22} color={color} />,
       route: '/(tabs)/(groups)',
+      segment: '(groups)',
+    },
+    {
+      key: 'publications',
+      label: t('publications.title') || 'Publications',
+      icon: 'book-outline',
+      activeIcon: 'book',
+      renderIcon: (active, color) => <MaterialCommunityIcons name={active ? 'book-open-page-variant' : 'book-open-page-variant-outline'} size={22} color={color} />,
+      route: '/(tabs)/(groups)/publications',
       segment: '(groups)',
     },
     {
@@ -117,9 +126,21 @@ export function Sidebar() {
 
   const isActive = useCallback(
     (item: NavItem): boolean => {
-      return (segments as string[]).includes(item.segment);
+      const segs = segments as string[];
+      if (item.key === 'events') {
+        // Active when viewing the events list within groups stack
+        return segs.includes('(groups)') && pathname.includes('/events');
+      }
+      if (item.key === 'publications') {
+        return segs.includes('(groups)') && pathname.includes('/publications');
+      }
+      if (item.key === 'home') {
+        // Active when in groups stack but NOT on events or publications sub-route
+        return segs.includes('(groups)') && !pathname.includes('/events') && !pathname.includes('/publications');
+      }
+      return segs.includes(item.segment);
     },
-    [segments]
+    [segments, pathname]
   );
 
   const handleNavPress = useCallback((route: string) => {
@@ -230,7 +251,7 @@ export function Sidebar() {
     setMenuOpen(false);
     clearTrack();
     await logout();
-    router.replace('/(tabs)/(events)' as any);
+    router.replace('/(tabs)/(groups)' as any);
   }, [logout, clearTrack]);
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -247,7 +268,7 @@ export function Sidebar() {
       <View style={styles.logoSection}>
         <Pressable
           style={styles.logoRow}
-          onPress={() => handleNavPress(isAuthenticated ? '/(tabs)/(groups)' : '/(tabs)/(events)')}
+          onPress={() => handleNavPress('/(tabs)/(groups)')}
           accessibilityRole="link"
           accessibilityLabel="Padmakara home"
         >
@@ -322,7 +343,7 @@ export function Sidebar() {
                               isTeacherActive && styles.teacherItemActive,
                               isHovered && !isTeacherActive && styles.teacherItemHover,
                             ]}
-                            onPress={() => router.push(`/(tabs)/(events)?teacher=${encodeURIComponent(teacher.abbreviation)}` as any)}
+                            onPress={() => router.push(`/(tabs)/(groups)/events?teacher=${encodeURIComponent(teacher.abbreviation)}` as any)}
                             // @ts-ignore
                             onMouseEnter={() => setHoveredTeacherItem(teacher.abbreviation)}
                             // @ts-ignore
