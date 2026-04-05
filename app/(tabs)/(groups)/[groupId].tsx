@@ -321,9 +321,9 @@ export default function GroupDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
-          <View style={styles.inlineHeader}>
+          <View style={styles.standaloneBackRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
             </TouchableOpacity>
           </View>
           <View style={styles.loadingContainer}>
@@ -340,9 +340,9 @@ export default function GroupDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
-          <View style={styles.inlineHeader}>
+          <View style={styles.standaloneBackRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
             </TouchableOpacity>
           </View>
           <View style={styles.emptyState}>
@@ -369,9 +369,9 @@ export default function GroupDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
-          <View style={styles.inlineHeader}>
+          <View style={styles.standaloneBackRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
             </TouchableOpacity>
           </View>
           <Text style={[styles.pageTitleSmallCaps, { paddingHorizontal: 24 }]}>
@@ -407,25 +407,23 @@ export default function GroupDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
-          {/* Inline back button */}
-          {!isDesktop && (
-            <View style={styles.inlineHeader}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-                <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Page title in burgundy small-caps */}
+          {/* Page title with back button */}
           <View style={isDesktop ? styles.desktopPageHeader : styles.mobileTitleHeader}>
-            <Text style={styles.pageTitleSmallCaps}>{groupName}</Text>
-            <Text style={styles.statsText}>
-              {sortedRetreats.length}{' '}
-              {sortedRetreats.length === 1
-                ? (t('groups.retreatLabel') || 'Retreat')
-                : (t('groups.retreatsLabel') || 'Retreats')
-              }
-            </Text>
+            {!isDesktop && (
+              <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+                <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
+              </TouchableOpacity>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pageTitleSmallCaps}>{groupName}</Text>
+              <Text style={styles.statsText}>
+                {sortedRetreats.length}{' '}
+                {sortedRetreats.length === 1
+                  ? (t('groups.retreatLabel') || 'Retreat')
+                  : (t('groups.retreatsLabel') || 'Retreats')
+                }
+              </Text>
+            </View>
           </View>
 
           {/* Retreats grouped by year */}
@@ -484,11 +482,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingTop: 0,
   },
-  inlineHeader: {
+  standaloneBackRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 8,
     paddingBottom: 4,
+    paddingHorizontal: 24,
   },
   inlineBackButton: {
     width: 36,
@@ -496,13 +495,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: -8,
+    marginRight: 4,
   },
   mobileTitleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
     paddingBottom: 16,
   },
   pageTitleSmallCaps: {
     fontSize: 30,
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     fontVariant: ['small-caps'] as any,
     letterSpacing: 0.5,
@@ -632,8 +635,7 @@ const styles = StyleSheet.create({
   },
   retreatTitle: {
     fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
     flex: 1,
   },
@@ -654,8 +656,7 @@ const styles = StyleSheet.create({
   },
   desktopPageTitle: {
     fontSize: 30,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     fontVariant: ['small-caps'] as any,
     letterSpacing: 0.5,
@@ -708,8 +709,7 @@ const styles = StyleSheet.create({
   },
   desktopRowName: {
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
   },
   desktopRowDate: {

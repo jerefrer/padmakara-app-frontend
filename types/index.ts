@@ -38,8 +38,18 @@ export interface GatheringTeacher {
   photoUrl?: string | null;
   avatarUrl?: string | null;
   heroUrl?: string | null;
+  heroFocalX?: number;
+  heroFocalY?: number;
   avatarUpdatedAt?: string | null;
   heroUpdatedAt?: string | null;
+}
+
+export interface EventType {
+  id: number;
+  nameEn: string;
+  namePt?: string;
+  abbreviation: string;
+  slug: string;
 }
 
 export interface Gathering {
@@ -53,6 +63,8 @@ export interface Gathering {
   endDate: string;
   sessions?: Session[];
   teachers?: GatheringTeacher[];
+  eventType?: EventType;
+  transcripts?: { id: number }[];
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;

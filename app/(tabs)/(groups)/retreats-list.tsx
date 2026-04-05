@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 
 const colors = {
   burgundy: { 500: "#9b1b1b", 600: "#7b1616" },
@@ -125,6 +126,7 @@ export default function RetreatsListScreen() {
   const { isAuthenticated } = useAuth();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { isDesktop } = useDesktopLayout();
   const [retreatData, setRetreatData] = useState<{
     retreat_groups: RetreatGroup[];
     recent_gatherings: Gathering[];
@@ -184,7 +186,7 @@ export default function RetreatsListScreen() {
               onPress={() => router.back()}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
             </TouchableOpacity>
           </View>
           <View style={styles.centerContent}>
@@ -223,20 +225,18 @@ export default function RetreatsListScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Header with back button */}
-          <View style={styles.header}>
+          {/* Title with back button */}
+          <View style={[styles.titleRow, isDesktop && styles.desktopTitleRow]}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => router.navigate('/(tabs)/(groups)' as any)}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
+              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
             </TouchableOpacity>
+            <Text style={styles.pageTitle}>
+              {t("home.retreats") || "Retreats"}
+            </Text>
           </View>
-
-          {/* Title */}
-          <Text style={styles.pageTitle}>
-            {t("home.retreats") || "Retreats"}
-          </Text>
 
           {/* Subtitle info */}
           {teachersList ? (
@@ -296,22 +296,32 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  desktopTitleRow: {
+    paddingTop: 32,
+  },
   backButton: {
     width: 36,
     height: 36,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: -8,
+    marginRight: 4,
   },
 
   // Title area
   pageTitle: {
+    flex: 1,
     fontSize: 30,
-    fontFamily: "EBGaramond_600SemiBold",
+    fontFamily: "MinionPro",
     color: colors.burgundy[500],
     fontVariant: ["small-caps"],
     letterSpacing: 0.5,
-    marginBottom: 6,
   },
   pageSubtitle: {
     fontSize: 15,
@@ -354,7 +364,7 @@ const styles = StyleSheet.create({
   },
   groupName: {
     fontSize: 17,
-    fontFamily: "EBGaramond_600SemiBold",
+    fontFamily: "EBGaramond_500Medium",
     color: colors.gray[800],
     marginBottom: 2,
   },

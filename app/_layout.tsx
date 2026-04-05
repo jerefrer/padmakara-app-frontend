@@ -33,6 +33,8 @@ Sentry.init({
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    MinionPro: require('../assets/fonts/MinionPro-Regular.otf'),
+    Avenir: require('../assets/fonts/Avenir-Book.ttf'),
     EBGaramond_400Regular,
     EBGaramond_500Medium,
     EBGaramond_600SemiBold,

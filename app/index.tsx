@@ -110,17 +110,9 @@ export default function RootIndex() {
     };
   }, [isAuthenticated, isLoading, isDeviceActivated, hasRedirected]);
 
-  // Reset redirect flag when auth states change (for re-evaluation)
-  useEffect(() => {
-    if (hasRedirected && !isLoading) {
-      // If we've already redirected but auth state changed, allow re-evaluation
-      const resetTimeout = setTimeout(() => {
-        setHasRedirected(false);
-      }, 500);
-      
-      return () => clearTimeout(resetTimeout);
-    }
-  }, [isAuthenticated, isDeviceActivated]);
+  // Note: Previously had a hasRedirected reset effect here that caused an infinite
+  // redirect loop on web (reset every 500ms → repeated router.replace calls).
+  // Removed because the single redirect to /(tabs)/(groups) is sufficient.
 
   // Show loading screen while checking authentication
   return (

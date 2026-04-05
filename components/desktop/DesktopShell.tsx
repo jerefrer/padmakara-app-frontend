@@ -6,15 +6,21 @@ import { colors } from '@/constants/colors';
 
 interface DesktopShellProps {
   sidebar: ReactNode;
+  rightSidebar?: ReactNode;
   children: ReactNode;
   playerBar?: ReactNode;
 }
 
-export function DesktopShell({ sidebar, children, playerBar }: DesktopShellProps) {
+export function DesktopShell({ sidebar, rightSidebar, children, playerBar }: DesktopShellProps) {
   const { sidebarWidth, playerBarHeight } = useDesktopLayout();
+  const rightSidebarWidth = 220;
 
   // Activate keyboard shortcuts for audio playback on web
   useKeyboardShortcuts();
+
+  const gridColumns = rightSidebar
+    ? `${sidebarWidth}px 1fr ${rightSidebarWidth}px`
+    : `${sidebarWidth}px 1fr`;
 
   return (
     <View
@@ -22,7 +28,7 @@ export function DesktopShell({ sidebar, children, playerBar }: DesktopShellProps
         styles.shell,
         Platform.OS === 'web' && ({
           display: 'grid' as any,
-          gridTemplateColumns: `${sidebarWidth}px 1fr`,
+          gridTemplateColumns: gridColumns,
           gridTemplateRows: playerBar ? `1fr ${playerBarHeight}px` : '1fr',
           height: '100vh',
           overflow: 'hidden',
@@ -56,6 +62,22 @@ export function DesktopShell({ sidebar, children, playerBar }: DesktopShellProps
         {children}
       </View>
 
+      {rightSidebar && (
+        <View
+          style={[
+            styles.rightSidebarContainer,
+            { width: rightSidebarWidth },
+            Platform.OS === 'web' && ({
+              gridColumn: '3',
+              gridRow: '1',
+              overflow: 'auto' as any,
+            } as any),
+          ]}
+        >
+          {rightSidebar}
+        </View>
+      )}
+
       {playerBar && (
         <View
           style={[
@@ -86,6 +108,9 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     backgroundColor: colors.cream[100],
+  },
+  rightSidebarContainer: {
+    backgroundColor: colors.burgundy[500],
   },
   playerBar: {
     backgroundColor: colors.white,

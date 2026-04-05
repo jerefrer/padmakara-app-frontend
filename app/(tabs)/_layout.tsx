@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -10,6 +10,7 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { DesktopPlayerBar } from '@/components/desktop/DesktopPlayerBar';
 import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
+import { RightSidebar } from '@/components/desktop/RightSidebar';
 import { SidebarNavigationProvider } from '@/contexts/SidebarNavigationContext';
 
 export const unstable_settings = {
@@ -72,14 +73,6 @@ export default function TabLayout() {
       />
       {/* Hidden tabs - accessible via navigation but not shown in tab bar */}
       <Tabs.Screen
-        name="(events)"
-        options={{
-          href: null,
-          title: t('navigation.events') || 'Events',
-          tabBarIcon: ({ color }) => <MaterialCommunityIcons size={24} name="account-group-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="subscription"
         options={{
           href: null,
@@ -96,7 +89,7 @@ export default function TabLayout() {
 
   return (
     <SidebarNavigationProvider>
-      <DesktopShell sidebar={<Sidebar />} playerBar={<DesktopPlayerBar />}>
+      <DesktopShell sidebar={<Sidebar />} rightSidebar={<RightSidebar />} playerBar={<DesktopPlayerBar />}>
         {tabsElement}
       </DesktopShell>
     </SidebarNavigationProvider>

@@ -103,16 +103,8 @@ export default function TeacherDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
-
-      {/* Back button (overlaid on hero) */}
-      <TouchableOpacity
-        style={[styles.backButton, { top: insets.top + 8 }]}
-        onPress={() => router.back()}
-      >
-        <Ionicons name="chevron-back" size={24} color={colors.white} />
-      </TouchableOpacity>
 
       <Animated.ScrollView
         onScroll={scrollHandler}
@@ -131,13 +123,25 @@ export default function TeacherDetailScreen() {
               }
               style={StyleSheet.absoluteFillObject}
               contentFit="cover"
+              contentPosition={{
+                left: `${teacher.heroFocalX ?? 50}%`,
+                top: `${teacher.heroFocalY ?? 50}%`,
+              }}
             />
           </Animated.View>
         )}
 
-        {/* Teacher info */}
-        <View style={[styles.infoSection, !hasHero && { paddingTop: insets.top + 48 }]}>
+        {/* Header with back button + teacher name */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.gray800} />
+          </TouchableOpacity>
           <Text style={styles.teacherName}>{teacher.name}</Text>
+        </View>
+        <View style={styles.infoSection}>
           <Text style={styles.eventCount}>
             {events.length} {events.length === 1
               ? (t('events.teaching') || 'Teaching')
@@ -152,6 +156,10 @@ export default function TeacherDetailScreen() {
               ? event.name_translations.pt
               : event.name;
             const sessionCount = event.sessions?.length || 0;
+            const otherTeachers = event.teachers
+              ?.filter((t: any) => t.abbreviation !== abbreviation)
+              .map((t: any) => t.name)
+              .filter(Boolean) || [];
 
             return (
               <TouchableOpacity
@@ -161,8 +169,11 @@ export default function TeacherDetailScreen() {
               >
                 <Text style={styles.eventTitle}>{eventTitle}</Text>
                 <Text style={styles.eventMeta}>
-                  {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}
+                  {sessionCount} {sessionCount === 1
+                    ? (t('events.sessionLabel') || 'session')
+                    : (t('events.sessionsLabel') || 'sessions')}
                   {event.startDate ? `  ·  ${new Date(event.startDate).getFullYear()}` : ''}
+                  {otherTeachers.length > 0 ? `  ·  ${otherTeachers.join(', ')}` : ''}
                 </Text>
               </TouchableOpacity>
             );
@@ -189,16 +200,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.gray500,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   backButton: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 10,
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: -8,
+    marginRight: 4,
   },
   heroContainer: {
     width: '100%',
@@ -207,11 +222,11 @@ const styles = StyleSheet.create({
   },
   infoSection: {
     paddingHorizontal: 20,
-    paddingTop: 16,
     paddingBottom: 12,
   },
   teacherName: {
-    fontFamily: 'EBGaramond_600SemiBold',
+    flex: 1,
+    fontFamily: 'MinionPro',
     fontSize: 28,
     fontVariant: ['small-caps'],
     color: colors.burgundy500,
@@ -232,7 +247,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.gray200,
   },
   eventTitle: {
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'EBGaramond_500Medium',
     fontSize: 18,
     color: colors.gray800,
   },

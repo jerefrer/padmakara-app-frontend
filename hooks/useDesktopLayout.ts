@@ -28,8 +28,7 @@ export function useDesktopLayout(): DesktopLayout {
     isWide,
     showSidebar,
     showMasterDetail: isDesktop,
-    // Wider sidebar on wider screens to accommodate teacher names etc.
-    sidebarWidth: isWide ? 280 : 240,
+    sidebarWidth: 280,
     playerBarHeight: 80,
   };
 }

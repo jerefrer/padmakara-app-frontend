@@ -661,9 +661,9 @@ const styles = StyleSheet.create({
   },
   desktopPageTitle: {
     fontSize: 28,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
+    fontFamily: 'MinionPro',
+    color: colors.burgundy[500],
+    fontVariant: ['small-caps'],
     marginTop: 32,
     marginBottom: 8,
     marginHorizontal: 20,

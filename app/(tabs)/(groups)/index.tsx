@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 
 const colors = {
   burgundy: {
@@ -56,9 +57,11 @@ interface FeaturedEventProps {
   event: Gathering;
   onPress: () => void;
   language: string;
+  isDesktop?: boolean;
+  highlightLabel?: string;
 }
 
-function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
+function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel }: FeaturedEventProps) {
   const title =
     language === "pt" && event.name_translations?.pt
       ? event.name_translations.pt
@@ -67,14 +70,18 @@ function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
   const teacherNames =
     event.teachers?.map((t: any) => t.name || t.nameEn || "").join(", ") || "";
 
-  const sessionCount = event.sessions?.length || 0;
+  const eventTypeName = event.eventType
+    ? (language === "pt" && event.eventType.namePt
+        ? event.eventType.namePt
+        : event.eventType.nameEn)
+    : null;
 
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
       return d.toLocaleDateString(language === "pt" ? "pt-PT" : "en-US", {
-        month: "long",
         day: "numeric",
+        month: "long",
         year: "numeric",
       });
     } catch {
@@ -82,11 +89,25 @@ function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
     }
   };
 
-  const teacherImage = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
+  const hasTranscripts =
+    (event.transcripts && event.transcripts.length > 0) ||
+    event.sessions?.some((s) =>
+      s.tracks?.some((t) => !!t.transcript_file)
+    );
+
+  const metaParts: string[] = [];
+  if (eventTypeName) metaParts.push(eventTypeName);
+  if (event.startDate) metaParts.push(formatDate(event.startDate));
+  const metaLine = metaParts.join(" | ");
+
+  const teacherImage = event.teachers?.[0]?.heroUrl || event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.featuredCard}>
-      <View style={styles.featuredImageContainer}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.featuredCard, isDesktop && styles.featuredCardDesktop]}
+    >
+      <View style={[styles.featuredImageContainer, isDesktop && styles.featuredImageContainerDesktop]}>
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage }}
@@ -105,17 +126,37 @@ function FeaturedEventCard({ event, onPress, language }: FeaturedEventProps) {
         )}
       </View>
 
-      <View style={styles.featuredInfo}>
-        {teacherNames ? (
-          <Text style={styles.featuredTeacher}>{teacherNames}</Text>
+      <View style={[styles.featuredInfo, isDesktop && styles.featuredInfoDesktop]}>
+        {/* On desktop, the highlight label sits at top, info pushed to bottom */}
+        {isDesktop && highlightLabel ? (
+          <Text style={styles.highlightLabelInCard}>{highlightLabel}</Text>
         ) : null}
-        <Text style={styles.featuredTitle} numberOfLines={2}>
+
+        {isDesktop && <View style={{ flex: 1 }} />}
+
+        {teacherNames ? (
+          <Text style={[styles.featuredTeacher, isDesktop && styles.featuredTeacherDesktop]}>
+            {teacherNames}
+          </Text>
+        ) : null}
+        <Text style={[styles.featuredTitle, isDesktop && styles.featuredTitleDesktop]} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={styles.featuredMeta}>
-          {event.startDate ? formatDate(event.startDate) : ""}
-          {sessionCount > 0 ? ` · ${sessionCount} sessions` : ""}
-        </Text>
+        {metaLine ? (
+          <Text style={styles.featuredMeta}>{metaLine}</Text>
+        ) : null}
+
+        <View style={styles.featuredIcons}>
+          <Ionicons name="musical-notes-outline" size={18} color={colors.gray[500]} />
+          {hasTranscripts && (
+            <Ionicons
+              name="book-outline"
+              size={18}
+              color={colors.gray[500]}
+              style={{ marginLeft: 12 }}
+            />
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -138,6 +179,10 @@ function RecentEventCard({
 
   const teacherImage = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
+  const eventTypeName = language === "pt" && event.eventType?.namePt
+    ? event.eventType.namePt
+    : event.eventType?.nameEn || "";
+
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
@@ -150,6 +195,10 @@ function RecentEventCard({
       return dateStr;
     }
   };
+
+  const hasTranscripts = (event.transcripts?.length ?? 0) > 0;
+
+  const metaParts = [eventTypeName, event.startDate ? formatDate(event.startDate) : ""].filter(Boolean);
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.recentCard}>
@@ -181,8 +230,14 @@ function RecentEventCard({
           </Text>
         ) : null}
         <Text style={styles.recentMeta} numberOfLines={1}>
-          {event.startDate ? formatDate(event.startDate) : ""}
+          {metaParts.join("  |  ")}
         </Text>
+        <View style={styles.recentIcons}>
+          <Ionicons name="musical-notes-outline" size={14} color={colors.gray[400]} />
+          {hasTranscripts && (
+            <Ionicons name="book-outline" size={14} color={colors.gray[400]} style={{ marginLeft: 8 }} />
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -194,6 +249,7 @@ export default function HomeScreen() {
   const { isAuthenticated, refreshUserData } = useAuth();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { isDesktop } = useDesktopLayout();
 
   // Featured event — loaded for everyone (no auth needed)
   const [featuredEvent, setFeaturedEvent] = useState<Gathering | null>(null);
@@ -283,31 +339,35 @@ export default function HomeScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Category navigation */}
-          <CategoryRow
-            title={t("home.teachingsAndTalks") || "Teachings & Talks"}
-            subtitle={
-              t("home.teachingsSubtitle") ||
-              "Events by Kangyur Rinpoche Found., Songtsen Pt & others"
-            }
-            onPress={handleTeachingsPress}
-          />
-          <CategoryRow
-            title={t("home.retreats") || "Retreats"}
-            subtitle={
-              t("home.retreatsSubtitle") ||
-              "Organized by Kangyur Rinpoche Foundation"
-            }
-            onPress={handleRetreatsPress}
-          />
-          <CategoryRow
-            title={t("home.publications") || "Publications"}
-            subtitle={
-              t("home.publicationsSubtitle") ||
-              "By Padmakara in Portuguese Language"
-            }
-            onPress={handlePublicationsPress}
-          />
+          {/* Category navigation — mobile only (desktop has sidebar) */}
+          {!isDesktop && (
+            <>
+              <CategoryRow
+                title={t("home.teachingsAndTalks") || "Teachings & Talks"}
+                subtitle={
+                  t("home.teachingsSubtitle") ||
+                  "Events by Kangyur Rinpoche Found., Songtsen Pt & others"
+                }
+                onPress={handleTeachingsPress}
+              />
+              <CategoryRow
+                title={t("home.retreats") || "Retreats"}
+                subtitle={
+                  t("home.retreatsSubtitle") ||
+                  "Organized by Kangyur Rinpoche Foundation"
+                }
+                onPress={handleRetreatsPress}
+              />
+              <CategoryRow
+                title={t("home.publications") || "Publications"}
+                subtitle={
+                  t("home.publicationsSubtitle") ||
+                  "By Padmakara in Portuguese Language"
+                }
+                onPress={handlePublicationsPress}
+              />
+            </>
+          )}
 
           {/* Monthly highlight — shown for everyone */}
           {featuredLoading ? (
@@ -315,14 +375,19 @@ export default function HomeScreen() {
               <ActivityIndicator size="small" color={colors.burgundy[500]} />
             </View>
           ) : featuredEvent ? (
-            <View style={styles.highlightSection}>
-              <Text style={styles.highlightLabel}>
-                {t("home.monthlyHighlight") || "Our monthly highlight"}
-              </Text>
+            <View style={[styles.highlightSection, isDesktop && styles.highlightSectionDesktop]}>
+              {/* On mobile, label is above the card. On desktop, it's inside the card. */}
+              {!isDesktop && (
+                <Text style={styles.highlightLabel}>
+                  {t("home.monthlyHighlight") || "Our monthly highlight"}
+                </Text>
+              )}
               <FeaturedEventCard
                 event={featuredEvent}
                 language={language}
                 onPress={handleFeaturedPress}
+                isDesktop={isDesktop}
+                highlightLabel={t("home.monthlyHighlight") || "Our monthly highlight"}
               />
             </View>
           ) : null}
@@ -333,6 +398,7 @@ export default function HomeScreen() {
               <Text style={styles.highlightLabel}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
+              <View style={styles.recentDivider} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}
@@ -349,8 +415,8 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Sign in prompt — shown subtly at the bottom when not authenticated */}
-          {!isAuthenticated && (
+          {/* Sign in prompt — mobile only (desktop has login in right sidebar) */}
+          {!isAuthenticated && !isDesktop && (
             <View style={styles.signInSection}>
               <Text style={styles.signInText}>
                 {t("groups.signInPrompt") ||
@@ -394,16 +460,16 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 26,
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.gray[800],
+    fontFamily: "MinionPro",
+    color: colors.burgundy[500],
     fontVariant: ["small-caps"],
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   categorySubtitle: {
     fontSize: 14,
+    fontFamily: "Avenir",
     color: colors.gray[500],
-    fontVariant: ["small-caps"],
     letterSpacing: 0.3,
   },
 
@@ -411,9 +477,19 @@ const styles = StyleSheet.create({
   highlightSection: {
     marginTop: 28,
   },
+  highlightSectionDesktop: {
+    marginTop: 32,
+  },
   highlightLabel: {
     fontSize: 22,
-    fontFamily: "EBGaramond_600SemiBold",
+    fontFamily: "EBGaramond_400Regular",
+    fontStyle: "italic",
+    color: colors.burgundy[500],
+    marginBottom: 6,
+  },
+  highlightLabelInCard: {
+    fontSize: 22,
+    fontFamily: "EBGaramond_400Regular",
     fontStyle: "italic",
     color: colors.burgundy[500],
     marginBottom: 16,
@@ -427,11 +503,22 @@ const styles = StyleSheet.create({
   featuredCard: {
     overflow: "hidden",
   },
+  featuredCardDesktop: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 24,
+  },
   featuredImageContainer: {
     width: "100%",
     aspectRatio: 16 / 10,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
+    borderRadius: 4,
+  },
+  featuredImageContainerDesktop: {
+    width: "45%",
+    aspectRatio: undefined,
+    minHeight: 280,
   },
   featuredImage: {
     width: "100%",
@@ -448,26 +535,50 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
   },
+  featuredInfoDesktop: {
+    flex: 1,
+    paddingTop: 0,
+  },
   featuredTeacher: {
-    fontSize: 20,
-    fontFamily: "EBGaramond_600SemiBold",
-    color: colors.burgundy[500],
+    fontSize: 22,
+    fontFamily: "EBGaramond_400Regular",
+    color: colors.gray[800],
     marginBottom: 2,
   },
+  featuredTeacherDesktop: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
   featuredTitle: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 16,
+    fontFamily: "EBGaramond_500Medium",
     color: colors.gray[800],
     marginBottom: 4,
   },
+  featuredTitleDesktop: {
+    fontSize: 20,
+    marginBottom: 8,
+  },
   featuredMeta: {
     fontSize: 13,
+    fontFamily: "Avenir",
     color: colors.gray[500],
+    letterSpacing: 0.2,
+  },
+  featuredIcons: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    marginTop: 10,
   },
 
   // Recently added section
   recentSection: {
     marginTop: 28,
+  },
+  recentDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.burgundy[500],
+    marginBottom: 4,
   },
   recentCard: {
     flexDirection: "row",
@@ -500,19 +611,25 @@ const styles = StyleSheet.create({
   },
   recentTitle: {
     fontSize: 18,
-    fontFamily: "EBGaramond_600SemiBold",
+    fontFamily: "EBGaramond_500Medium",
     color: colors.burgundy[500],
     marginBottom: 2,
   },
   recentTeacher: {
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: "EBGaramond_400Regular",
     color: colors.gray[800],
     marginBottom: 2,
   },
   recentMeta: {
-    fontSize: 13,
+    fontSize: 12,
+    fontFamily: "Avenir",
     color: colors.gray[500],
+  },
+  recentIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
 
   // Sign in section — subtle, at the bottom

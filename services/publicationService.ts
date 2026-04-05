@@ -54,7 +54,7 @@ class PublicationService {
     }
 
     const data = await response.json();
-    return data.data ?? data;
+    return data.publications ?? data.data ?? data;
   }
 
   /**

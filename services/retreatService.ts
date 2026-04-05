@@ -112,6 +112,8 @@ function mapEvent(backend: any): Gathering {
       photoUrl: et.teacher?.photoUrl || null,
       avatarUrl: et.teacher?.avatarUrl || null,
       heroUrl: et.teacher?.heroUrl || null,
+      heroFocalX: et.teacher?.heroFocalX ?? 50,
+      heroFocalY: et.teacher?.heroFocalY ?? 50,
       avatarUpdatedAt: et.teacher?.avatarUpdatedAt || null,
       heroUpdatedAt: et.teacher?.heroUpdatedAt || null,
     })).filter((t: any) => t.name) || undefined,

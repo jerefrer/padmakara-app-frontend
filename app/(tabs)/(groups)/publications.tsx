@@ -17,18 +17,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { publicationService } from '@/services/publicationService';
 import { PDFViewer } from '@/components/PDFViewer';
 import { colors } from '@/constants/colors';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { Publication } from '@/types';
 
-type SortMode = 'title' | 'author' | 'recent';
+type SortMode = 'title' | 'author' | 'latest';
 
 export default function PublicationsScreen() {
   const { t } = useLanguage();
   const { hasActiveSubscription } = useAuth();
   const insets = useSafeAreaInsets();
+  const { isDesktop } = useDesktopLayout();
 
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortMode, setSortMode] = useState<SortMode>('title');
+  const [sortMode, setSortMode] = useState<SortMode>('latest');
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
 
   // PDF viewer state
@@ -95,7 +97,7 @@ export default function PublicationsScreen() {
         });
         break;
       }
-      case 'recent': {
+      case 'latest': {
         list.sort((a, b) => {
           const dateA = a.publicationDate || a.updatedAt || '';
           const dateB = b.publicationDate || b.updatedAt || '';
@@ -229,14 +231,6 @@ export default function PublicationsScreen() {
                 {authorLine}
               </Text>
             ) : null}
-            {item.language ? (
-              <Text style={styles.publicationLang}>
-                {item.language.toUpperCase()}
-                {item.pageCount
-                  ? ` · ${(t('publications.pageCount') || '{count} pages').replace('{count}', String(item.pageCount))}`
-                  : ''}
-              </Text>
-            ) : null}
           </View>
 
           {/* Download indicator */}
@@ -297,10 +291,10 @@ export default function PublicationsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, isDesktop && styles.desktopHeader]}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.navigate('/(tabs)/(groups)' as any)}
           >
             <Ionicons
               name="arrow-back"
@@ -315,7 +309,7 @@ export default function PublicationsScreen() {
 
         {/* Sort tabs */}
         <View style={styles.sortTabs}>
-          {(['title', 'author', 'recent'] as SortMode[]).map((mode) => {
+          {(['latest', 'author', 'title'] as SortMode[]).map((mode) => {
             const isActive = sortMode === mode;
             return (
               <TouchableOpacity
@@ -458,13 +452,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  desktopHeader: {
+    paddingTop: 32,
+  },
   backButton: {
     padding: 4,
     marginRight: 12,
   },
   headerTitle: {
     fontSize: 26,
-    fontFamily: 'EBGaramond_700Bold',
+    fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     fontVariant: ['small-caps'],
     letterSpacing: 0.5,
@@ -557,10 +554,13 @@ const styles = StyleSheet.create({
   coverContainer: {
     width: 60,
     height: 80,
-    borderRadius: 4,
-    overflow: 'hidden',
     backgroundColor: colors.gray[100],
     marginRight: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   coverImage: {
     width: '100%',
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   },
   publicationTitle: {
     fontSize: 17,
-    fontFamily: 'EBGaramond_700Bold',
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
     marginBottom: 3,
   },

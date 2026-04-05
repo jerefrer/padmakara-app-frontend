@@ -1170,8 +1170,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     flexShrink: 1,
     fontSize: 22,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     fontVariant: ['small-caps'] as any,
   },

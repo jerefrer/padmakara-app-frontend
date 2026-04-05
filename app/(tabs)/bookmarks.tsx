@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontFamily: "EBGaramond_600SemiBold",
+    fontFamily: "MinionPro",
     color: colors.burgundy[500],
     marginBottom: 32,
     fontVariant: ["small-caps"],

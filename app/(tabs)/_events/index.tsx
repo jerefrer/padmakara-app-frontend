@@ -37,7 +37,7 @@ interface TeacherGroup {
   eventCount: number;
 }
 
-function TeacherRow({ teacher, onPress }: { teacher: TeacherGroup; onPress: () => void }) {
+function TeacherRow({ teacher, onPress, t }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined }) {
   return (
     <TouchableOpacity onPress={onPress} style={styles.teacherRow}>
       <View style={styles.teacherAvatarLarge}>
@@ -59,7 +59,9 @@ function TeacherRow({ teacher, onPress }: { teacher: TeacherGroup; onPress: () =
       <View style={styles.teacherRowInfo}>
         <Text style={styles.teacherRowName}>{teacher.name}</Text>
         <Text style={styles.teacherRowCount}>
-          {teacher.eventCount === 1 ? '1 Teaching' : `${teacher.eventCount} Teachings`}
+          {teacher.eventCount === 1
+            ? `1 ${t('events.teaching') || 'Teaching'}`
+            : `${teacher.eventCount} ${t('events.teachings') || 'Teachings'}`}
         </Text>
       </View>
     </TouchableOpacity>
@@ -452,6 +454,7 @@ export default function EventsScreen() {
         key={teacher.abbreviation}
         teacher={teacher}
         onPress={() => handleTeacherPress(teacher.abbreviation)}
+        t={t}
       />
     ));
   };
@@ -461,15 +464,11 @@ export default function EventsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
-          {/* Inline back button */}
-          <View style={styles.inlineHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="chevron-back" size={24} color={colors.gray[800]} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Title */}
+          {/* Title with back button */}
           <View style={[styles.header, isDesktop && styles.desktopHeader]}>
+            <TouchableOpacity onPress={() => router.navigate('/(tabs)/(groups)' as any)} style={styles.inlineBackButton}>
+              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
+            </TouchableOpacity>
             <Text style={[styles.title, isDesktop && styles.desktopTitle]}>
               {filterTeacherName || t('home.teachingsAndTalks') || 'Teachings & Talks'}
             </Text>
@@ -494,7 +493,7 @@ export default function EventsScreen() {
                 style={[styles.viewTab, viewMode === 'teachers' && styles.viewTabActive]}
               >
                 <Text style={[styles.viewTabText, viewMode === 'teachers' && styles.viewTabTextActive]}>
-                  {t('events.teachers') || 'teachers'}
+                  {t('events.teachers') || 'by teachers'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -502,7 +501,7 @@ export default function EventsScreen() {
                 style={[styles.viewTab, viewMode === 'date' && styles.viewTabActive]}
               >
                 <Text style={[styles.viewTabText, viewMode === 'date' && styles.viewTabTextActive]}>
-                  {t('events.date') || 'date'}
+                  {t('events.date') || 'latest'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -530,36 +529,34 @@ const styles = StyleSheet.create({
   desktopScrollView: {
     paddingHorizontal: 40,
   },
-  inlineHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
   inlineBackButton: {
     width: 36,
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: -8,
+    marginRight: 4,
   },
   header: {
-    paddingBottom: 8,
-  },
-  desktopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingTop: 12,
     paddingBottom: 8,
   },
+  desktopHeader: {
+    paddingTop: 32,
+    paddingBottom: 8,
+  },
   title: {
+    flex: 1,
     fontSize: 30,
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     fontVariant: ['small-caps'],
     letterSpacing: 0.5,
   },
   desktopTitle: {
     fontSize: 28,
-    color: colors.gray[800],
   },
   clearFilterRow: {
     flexDirection: 'row',
@@ -575,14 +572,11 @@ const styles = StyleSheet.create({
   // View mode tabs
   viewTabs: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
     marginBottom: 8,
+    gap: 20,
   },
   viewTab: {
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginRight: 24,
+    paddingVertical: 8,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
@@ -591,13 +585,14 @@ const styles = StyleSheet.create({
   },
   viewTabText: {
     fontSize: 15,
+    fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[400],
     fontVariant: ['small-caps'],
     letterSpacing: 0.3,
   },
   viewTabTextActive: {
     color: colors.burgundy[500],
-    fontWeight: '600',
+    fontFamily: 'EBGaramond_600SemiBold',
   },
 
   // Teacher row
@@ -631,12 +626,13 @@ const styles = StyleSheet.create({
   },
   teacherRowName: {
     fontSize: 18,
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
     marginBottom: 2,
   },
   teacherRowCount: {
     fontSize: 14,
+    fontFamily: 'Avenir',
     color: colors.gray[500],
   },
 
@@ -661,7 +657,7 @@ const styles = StyleSheet.create({
   },
   eventCardTitle: {
     fontSize: 17,
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
     marginBottom: 2,
   },
@@ -780,8 +776,7 @@ const styles = StyleSheet.create({
   },
   desktopRowName: {
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
   },
   desktopRowSubDate: {
@@ -790,11 +785,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   desktopTeacherAvatars: {
-    width: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginRight: 28,
+    marginRight: 12,
   },
   desktopAvatarWrapper: {
     borderWidth: 2,

@@ -122,10 +122,10 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 22,
     fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     letterSpacing: 2.5,
-    textTransform: 'uppercase',
+    fontVariant: ['small-caps'],
   },
   spacer: {
     position: 'absolute',

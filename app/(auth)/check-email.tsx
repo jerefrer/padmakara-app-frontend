@@ -416,7 +416,8 @@ const styles = StyleSheet.create({
     color: colors.gray[800],
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontFamily: 'MinionPro',
+    fontVariant: ['small-caps'],
   },
   subtitle: {
     fontSize: 16,

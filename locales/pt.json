@@ -99,10 +99,12 @@
     "sessions": "Sessões",
     "sessionLabel": "sessão",
     "sessionsLabel": "sessões",
-    "date": "Data",
+    "date": "mais recentes",
     "duration": "Duração",
-    "teachers": "Professores",
-    "showAll": "Mostrar todos os eventos"
+    "teachers": "por professor",
+    "showAll": "Mostrar todos os eventos",
+    "teaching": "Ensinamento",
+    "teachings": "Ensinamentos e Palestras"
   },
   "home": {
     "greetingMorning": "Bom dia",
@@ -270,9 +272,9 @@
   "publications": {
     "title": "Publicações",
     "tabs": {
-      "title": "título",
-      "author": "autor",
-      "recent": "recentes"
+      "latest": "mais recentes",
+      "author": "por autor",
+      "title": "por título"
     },
     "filters": {
       "all": "Todos",
