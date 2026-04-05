@@ -81,6 +81,8 @@
     "signInPrompt": "Access recordings and transcripts from your retreat group's gatherings.",
     "signInSubtle": "A quiet space for your practice.",
     "signIn": "Sign In",
+    "sessionExpiredTitle": "Session expired",
+    "sessionExpiredMessage": "Sign in to access your retreats.",
     "noGroups": "No Retreat Groups",
     "noGroupsDescription": "You haven't been assigned to any retreat groups yet. Please contact your administrator.",
     "groupName": "Group",
@@ -154,6 +156,7 @@
   },
   "retreats": {
     "myRetreats": "My Retreats",
+    "connectionErrorMessage": "Please check your connection and try again.",
     "spring": "Spring",
     "fall": "Fall",
     "sessions": "Sessions",

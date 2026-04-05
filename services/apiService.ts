@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_CONFIG, API_ENDPOINTS, ApiResponse, ApiError, getAuthHeaders } from './apiConfig';
-import { router } from 'expo-router';
 
 class ApiService {
   private static instance: ApiService;
@@ -64,25 +63,11 @@ class ApiService {
       }
     }
     
-    // Notify auth context of state change
+    // Notify auth context — screens react to the isAuthenticated change.
+    // We deliberately do NOT route from here: the service layer shouldn't
+    // know about routes (the previous hard-coded target no longer exists
+    // and left users on a perpetual loading screen).
     this.notifyAuthStateChange();
-    
-    // Platform-specific redirect timing
-    const redirectDelay = Platform.OS === 'web' ? 50 : 100;
-    
-    // Redirect to login after a short delay to allow state updates
-    setTimeout(() => {
-      try {
-        router.replace('/(tabs)/(events)');
-        console.log('✅ Redirected to events after auth failure');
-      } catch (error) {
-        console.error('❌ Error redirecting to login:', error);
-        console.log('📱 Redirect error context:', {
-          platform: Platform.OS,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }, redirectDelay);
   }
 
   private async getAuthToken(): Promise<string | null> {
@@ -208,6 +193,7 @@ class ApiService {
         return {
           success: false,
           error: token ? 'Authentication expired. Please login again.' : 'Authentication required.',
+          authRequired: true,
         };
       }
 

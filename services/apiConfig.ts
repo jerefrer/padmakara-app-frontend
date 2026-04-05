@@ -82,6 +82,11 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+  // True when the request failed because the user's session is no longer
+  // valid (401 after token refresh attempt, or no token present on an
+  // auth-required endpoint). Screens can use this to show a "sign in"
+  // state instead of a generic connection error.
+  authRequired?: boolean;
 }
 
 export interface PaginatedResponse<T> {

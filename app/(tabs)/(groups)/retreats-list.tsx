@@ -134,14 +134,18 @@ export default function RetreatsListScreen() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
 
   const loadContent = async () => {
     try {
       setLoading(true);
       setError(null);
+      setAuthRequired(false);
       const response = await retreatService.getUserRetreats();
       if (response.success && response.data) {
         setRetreatData(response.data);
+      } else if (response.authRequired) {
+        setAuthRequired(true);
       } else {
         setError(response.error || "Failed to load retreats");
       }
@@ -175,25 +179,51 @@ export default function RetreatsListScreen() {
     );
   }
 
-  // Error
+  // Session expired — prompt sign-in
+  if (authRequired) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.centerContent}>
+            <Ionicons name="log-in-outline" size={40} color={colors.gray[400]} style={{ marginBottom: 12 }} />
+            <Text style={styles.authTitle}>
+              {t("auth.sessionExpiredTitle") || "Session expired"}
+            </Text>
+            <Text style={styles.authSubtitle}>
+              {t("auth.sessionExpiredMessage") || "Sign in to access your retreats."}
+            </Text>
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={() => router.push("/(auth)/magic-link")}
+            >
+              <Text style={styles.signInButtonText}>
+                {t("auth.signIn") || "Sign In"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </>
+    );
+  }
+
+  // Error (network / server)
   if (error) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-            </TouchableOpacity>
-          </View>
           <View style={styles.centerContent}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Ionicons name="cloud-offline-outline" size={40} color={colors.gray[400]} style={{ marginBottom: 12 }} />
+            <Text style={styles.errorText}>
+              {t("common.connectionError") || "Connection error"}
+            </Text>
+            <Text style={styles.errorSubtext}>
+              {t("retreats.connectionErrorMessage") || "Please check your connection and try again."}
+            </Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadContent}>
               <Text style={styles.retryButtonText}>
-                {t("common.retry") || "Retry"}
+                {t("common.retry") || "Try Again"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -383,11 +413,42 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     textAlign: "center",
   },
-  errorText: {
+  authTitle: {
+    fontSize: 20,
+    fontFamily: "EBGaramond_500Medium",
+    color: colors.gray[800],
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  authSubtitle: {
     fontSize: 15,
     color: colors.gray[500],
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  signInButton: {
+    backgroundColor: colors.burgundy[500],
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 2,
+  },
+  signInButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  errorText: {
+    fontSize: 17,
+    fontFamily: "EBGaramond_500Medium",
+    color: colors.gray[800],
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  errorSubtext: {
+    fontSize: 15,
+    color: colors.gray[500],
+    textAlign: "center",
+    marginBottom: 20,
   },
   retryButton: {
     backgroundColor: colors.burgundy[500],

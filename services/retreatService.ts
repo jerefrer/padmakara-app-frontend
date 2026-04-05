@@ -256,7 +256,7 @@ class RetreatService {
   }
 
   // Get user's retreat groups and recent activity (backend-first with offline fallback)
-  async getUserRetreats(): Promise<{ success: boolean; data?: UserRetreatData; error?: string }> {
+  async getUserRetreats(): Promise<{ success: boolean; data?: UserRetreatData; error?: string; authRequired?: boolean }> {
     try {
       console.log('Fetching user groups and events...');
 
@@ -267,9 +267,15 @@ class RetreatService {
       ]);
 
       if (!groupsRes.success || !groupsRes.data) {
+        if (groupsRes.authRequired) {
+          return { success: false, error: groupsRes.error || 'Authentication required.', authRequired: true };
+        }
         throw new Error(groupsRes.error || 'Failed to load groups');
       }
       if (!eventsRes.success || !eventsRes.data) {
+        if (eventsRes.authRequired) {
+          return { success: false, error: eventsRes.error || 'Authentication required.', authRequired: true };
+        }
         throw new Error(eventsRes.error || 'Failed to load events');
       }
 
