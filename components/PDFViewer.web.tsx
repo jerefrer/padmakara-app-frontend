@@ -10,15 +10,22 @@ interface PDFViewerProps {
 }
 
 /**
- * Web: Use browser's native PDF viewer via iframe.
- * Provides built-in zoom, page navigation, search, and print.
- * Adds a custom fullscreen toggle button.
+ * Web: Use browser's native PDF viewer via iframe, but hide its dark toolbar
+ * (#toolbar=0&navpanes=0) and overlay our own slim burgundy header with
+ * download + fullscreen controls that match the app's design.
  */
 export function PDFViewer({ source }: PDFViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Append PDF Open Parameters to hide the native viewer chrome.
+  // view=FitH fits the page width; Chrome/Edge/Firefox all honour these fragments.
+  const iframeSrc = React.useMemo(() => {
+    const separator = source.includes('#') ? '&' : '#';
+    return `${source}${separator}toolbar=0&navpanes=0&scrollbar=0&view=FitV`;
+  }, [source]);
 
   // Listen for fullscreen changes (user might press Escape)
   useEffect(() => {
@@ -42,9 +49,45 @@ export function PDFViewer({ source }: PDFViewerProps) {
     }
   }, []);
 
+  const handleDownload = useCallback(() => {
+    // blob: URLs are same-origin, so a normal anchor click triggers download.
+    const a = document.createElement('a');
+    a.href = source;
+    a.download = 'publication.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [source]);
+
   return (
     // @ts-ignore - ref on View for web DOM access
     <View style={styles.container} ref={containerRef}>
+      {/* Custom slim toolbar */}
+      <View style={styles.toolbar}>
+        <View style={styles.toolbarActions}>
+          <Pressable
+            onPress={handleDownload}
+            style={styles.toolbarButton}
+            accessibilityRole="button"
+            accessibilityLabel="Download PDF"
+          >
+            <Ionicons name="download-outline" size={18} color={colors.gray[700]} />
+          </Pressable>
+          <Pressable
+            onPress={toggleFullscreen}
+            style={styles.toolbarButton}
+            accessibilityRole="button"
+            accessibilityLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            <Ionicons
+              name={isFullscreen ? 'contract-outline' : 'expand-outline'}
+              size={18}
+              color={colors.gray[700]}
+            />
+          </Pressable>
+        </View>
+      </View>
+
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
@@ -57,38 +100,21 @@ export function PDFViewer({ source }: PDFViewerProps) {
           <Text style={styles.errorText}>Failed to load PDF</Text>
         </View>
       ) : (
-        <>
-          <iframe
-            src={source}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              flex: 1,
-            }}
-            onLoad={() => setLoading(false)}
-            onError={() => {
-              setError(true);
-              setLoading(false);
-            }}
-            title="PDF Transcript"
-          />
-          {/* Fullscreen toggle — positioned over the PDF viewer's toolbar area */}
-          {!loading && (
-            <Pressable
-              onPress={toggleFullscreen}
-              style={styles.fullscreenButton}
-              accessibilityRole="button"
-              accessibilityLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            >
-              <Ionicons
-                name={isFullscreen ? 'contract-outline' : 'expand-outline'}
-                size={16}
-                color="rgba(255, 255, 255, 0.9)"
-              />
-            </Pressable>
-          )}
-        </>
+        <iframe
+          src={iframeSrc}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            flex: 1,
+          }}
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError(true);
+            setLoading(false);
+          }}
+          title="PDF Transcript"
+        />
       )}
     </View>
   );
@@ -97,7 +123,31 @@ export function PDFViewer({ source }: PDFViewerProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray[100],
+    backgroundColor: colors.white,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 36,
+    paddingHorizontal: 12,
+    backgroundColor: colors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+  },
+  toolbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  toolbarButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // @ts-ignore - web-only
+    cursor: 'pointer',
   },
   loadingText: {
     fontSize: 14,
@@ -122,20 +172,5 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     marginTop: 12,
     textAlign: 'center',
-  },
-  fullscreenButton: {
-    position: 'absolute',
-    bottom: 12,
-    right: 20,
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    backgroundColor: 'rgba(50, 50, 50, 0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-    // @ts-ignore - web shadow
-    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-    cursor: 'pointer',
   },
 });
