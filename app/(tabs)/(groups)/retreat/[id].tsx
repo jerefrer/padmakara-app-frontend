@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import retreatService from '@/services/retreatService';
@@ -127,6 +128,13 @@ export default function RetreatDetailScreen() {
   const [allTracks, setAllTracks] = useState<TrackWithSession[]>([]);
   const [filteredTracks, setFilteredTracks] = useState<TrackWithSession[]>([]);
   const [currentLanguageMode, setCurrentLanguageMode] = useState<string>('en');
+
+  // Video playback (separate from the audio context — opens a full-screen modal).
+  // Videos are session-scoped: tap "Watch video" on a session to open it here.
+  const [videoSession, setVideoSession] = useState<Session | null>(null);
+  // App-session-of-use ref to remember "I accepted cellular playback" — survives
+  // remounts when the user opens different videos in the same screen visit.
+  const cellularAcceptedRef = useRef<boolean>(false);
 
   // Read Along state (mobile)
   const [readAlongModalVisible, setReadAlongModalVisible] = useState(false);
@@ -447,18 +455,25 @@ export default function RetreatDetailScreen() {
     }
   };
 
-  // Track selection - updates both local UI state and audio context
+  // Track selection — tracks are always audio. Videos are session-scoped and
+  // opened via the "Watch video" button in the session header below.
   const selectTrack = (track: TrackWithSession, trackIndex: number) => {
     setShowLanguageDropdown(false);
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
     setSelectedTrack(track);
+
     audioContext.playTrack(track, filteredTracks, trackIndex, {
       retreatId: retreat!.id,
       retreatName: getTranslatedName(retreat!, language) || retreat!.name,
       groupName: retreat!.retreat_group ? (getTranslatedName(retreat!.retreat_group, language) || retreat!.retreat_group.name) : '',
     });
   };
+
+  /** Open the video modal for the given session. */
+  const watchSessionVideo = useCallback((session: Session) => {
+    setVideoSession(session);
+  }, []);
 
   const goToNextTrack = () => {
     const nextIndex = currentTrackIndex + 1;
@@ -528,15 +543,16 @@ export default function RetreatDetailScreen() {
 
   // Format session date header - "Day 1 · April 18th · Morning · Part 1"
   const formatSessionHeader = (session: { sessionName: string; sessionDate: string; sessionType: string; sessionPartNumber?: number | null }) => {
+    const sessionType = t(`retreats.${session.sessionType}`) || session.sessionType;
+    const partLabel = t('retreats.part') || 'Part';
+    const partSuffix = session.sessionPartNumber ? ` · ${partLabel} ${session.sessionPartNumber}` : '';
+
     const sessionDate = new Date(session.sessionDate);
-    const retreatStartDate = retreat ? new Date(retreat.startDate) : sessionDate;
+    if (isNaN(sessionDate.getTime())) {
+      // Session has no valid date — degrade gracefully instead of "Day NaN · Invalid Date NaNth"
+      return sessionType ? `${sessionType}${partSuffix}` : (session.sessionName || '');
+    }
 
-    // Calculate day number (1-based)
-    const diffTime = sessionDate.getTime() - retreatStartDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const dayNumber = diffDays + 1;
-
-    // Format month and day with ordinal
     const month = sessionDate.toLocaleDateString('en-US', { month: 'long' });
     const dayNum = sessionDate.getDate();
     const getOrdinal = (n: number) => {
@@ -544,14 +560,17 @@ export default function RetreatDetailScreen() {
       const v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
     };
+    const dateLabel = `${month} ${getOrdinal(dayNum)}`;
 
-    const sessionType = t(`retreats.${session.sessionType}`) || session.sessionType;
-    let header = `Day ${dayNumber} · ${month} ${getOrdinal(dayNum)} · ${sessionType}`;
-    if (session.sessionPartNumber) {
-      const partLabel = t('retreats.part') || 'Part';
-      header += ` · ${partLabel} ${session.sessionPartNumber}`;
+    const retreatStartDate = retreat ? new Date(retreat.startDate) : sessionDate;
+    if (isNaN(retreatStartDate.getTime())) {
+      return `${dateLabel} · ${sessionType}${partSuffix}`;
     }
-    return header;
+
+    const diffTime = sessionDate.getTime() - retreatStartDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const dayNumber = diffDays + 1;
+    return `Day ${dayNumber} · ${dateLabel} · ${sessionType}${partSuffix}`;
   };
 
   const calculateTotalRetreatSize = () => {
@@ -786,6 +805,11 @@ export default function RetreatDetailScreen() {
     let trackSessionId: string | null = null;
     let isFirstSession = true;
 
+    // Lookup map for session-level data (notably bunnyVideoId so we can show
+    // a "Watch video" button on sessions with an attached recording).
+    const sessionsById = new Map<string, Session>();
+    retreat?.sessions?.forEach((s) => sessionsById.set(s.id, s));
+
     return (
       <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom }]}>
         {filteredTracks.map((track, trackIndex) => {
@@ -798,6 +822,7 @@ export default function RetreatDetailScreen() {
             isFirstSession = false;
           }
           trackSessionId = track.sessionId;
+          const sessionForHeader = showSessionHeader ? sessionsById.get(track.sessionId) ?? null : null;
 
           return (
             <React.Fragment key={track.id}>
@@ -807,6 +832,21 @@ export default function RetreatDetailScreen() {
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track)}
                   </Text>
+                  {sessionForHeader?.bunnyVideoId && (
+                    <TouchableOpacity
+                      style={styles.watchVideoButton}
+                      onPress={() => watchSessionVideo(sessionForHeader)}
+                      accessibilityLabel={t('video.watchSessionVideo') || 'Watch session video'}
+                    >
+                      <Ionicons name="play-circle" size={18} color={colors.white} />
+                      <Text style={styles.watchVideoButtonText}>
+                        {t('video.watchSessionVideo') || 'Watch video'}
+                        {sessionForHeader.videoDurationSeconds
+                          ? ` · ${formatDuration(sessionForHeader.videoDurationSeconds)}`
+                          : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -1042,6 +1082,18 @@ export default function RetreatDetailScreen() {
           <AudioPlayer />
         </>
       )}
+
+      {/* Full-screen video player (opens when a session's "Watch video" is tapped) */}
+      <VideoPlayer
+        session={videoSession}
+        cellularAcceptedRef={cellularAcceptedRef}
+        onClose={() => setVideoSession(null)}
+        onComplete={() => {
+          // Video reached the end. Close the modal — there's no notion of
+          // "next video" because each session has at most one.
+          setVideoSession(null);
+        }}
+      />
 
       {/* Overflow Menu Modal */}
       <Modal
@@ -1306,6 +1358,22 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  watchVideoButton: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: colors.burgundy[500],
+    borderRadius: 8,
+  },
+  watchVideoButtonText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '600',
   },
   trackItem: {
     flexDirection: 'row',

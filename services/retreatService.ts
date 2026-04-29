@@ -139,6 +139,9 @@ function mapSession(backend: any): Session {
     date: backend.sessionDate || backend.session_date || '',
     tracks: backend.tracks?.map(mapTrack) || undefined,
     gathering_id: String(backend.eventId || backend.event_id || backend.retreat_id || ''),
+    bunnyVideoId: backend.bunnyVideoId ?? backend.bunny_video_id ?? null,
+    videoDurationSeconds: backend.videoDurationSeconds ?? backend.video_duration_seconds ?? null,
+    videoPosterUrl: backend.videoPosterUrl ?? backend.video_poster_url ?? null,
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
   };
@@ -528,6 +531,57 @@ class RetreatService {
     } catch (error) {
       console.error('Get presigned URL error:', error);
       return { success: false, error: 'Failed to get audio URL' };
+    }
+  }
+
+  /**
+   * Get token-signed Bunny Stream playback URLs for a session's video.
+   * Returns the HLS playlist URL (for native expo-video), the iframe embed URL
+   * (web fallback), the thumbnail/poster URL, the duration, and the unix-epoch
+   * expiry. Returns success=false when the session has no attached video.
+   */
+  async getSessionVideoPlaybackUrls(sessionId: string): Promise<{
+    success: boolean;
+    /** Backend HLS proxy URL — primary playback path on every platform.
+     *  Per-segment signed via short-lived MAT, full ABR, no shareable
+     *  long-lived links. */
+    proxyHls?: string;
+    /** Bunny iframe embed — kept as a fallback / for environments where
+     *  HLS via HTML5 video is unsupported. */
+    iframe?: string;
+    /** Direct Bunny HLS URL — exposed for diagnostics, not the primary
+     *  playback path (sub-playlists 403 with token auth on). */
+    hls?: string;
+    thumbnail?: string;
+    durationSeconds?: number | null;
+    expiresAt?: number;
+    error?: string;
+  }> {
+    try {
+      const response = await apiService.get<{
+        proxyHls: string;
+        iframe: string;
+        hls: string;
+        thumbnail: string;
+        durationSeconds: number | null;
+        expiresAt: number;
+      }>(API_ENDPOINTS.VIDEO_SESSION_URL(sessionId));
+
+      if (response.success && response.data) {
+        return {
+          success: true,
+          proxyHls: response.data.proxyHls,
+          iframe: response.data.iframe,
+          hls: response.data.hls,
+          thumbnail: response.data.thumbnail,
+          durationSeconds: response.data.durationSeconds,
+          expiresAt: response.data.expiresAt,
+        };
+      }
+      return { success: false, error: response.error || 'Failed to get video URL' };
+    } catch (error) {
+      console.error('Get session video URL error:', error);
+      return { success: false, error: 'Failed to get video URL' };
     }
   }
 

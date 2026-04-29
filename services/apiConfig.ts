@@ -53,6 +53,11 @@ export const API_ENDPOINTS = {
   
   // Audio & File Access (Media endpoints)
   PRESIGNED_URL: (trackId: string) => `/media/audio/${trackId}`,
+  /** Session-scoped video — there's at most one video per session. */
+  VIDEO_SESSION_URL: (sessionId: string) => `/media/video/session/${sessionId}`,
+  VIDEO_SESSION_DOWNLOAD_URL: (sessionId: string) => `/media/video/session/${sessionId}/download`,
+  /** Cross-device watched-position storage for session videos. */
+  VIDEO_PROGRESS: (sessionId: string) => `/content/video-progress/${sessionId}`,
   READ_ALONG_URL: (trackId: string) => `/media/readalong/${trackId}`,
   TRANSCRIPT_URL: (transcriptId: string) => `/media/transcript/${transcriptId}`,
   

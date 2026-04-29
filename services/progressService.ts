@@ -1,5 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProgress, Bookmark, PDFProgress } from '@/types';
+import apiService from './apiService';
+import { API_ENDPOINTS } from './apiConfig';
+
+interface RemoteVideoProgress {
+  positionSeconds: number;
+  durationSeconds: number | null;
+  completedAt: string | null;
+  updatedAt: string | null;
+}
 
 class ProgressService {
   private static instance: ProgressService;
@@ -242,6 +251,58 @@ class ProgressService {
       
     } catch (error) {
       console.error('Error syncing with backend:', error);
+    }
+  }
+
+  // ─── Video Progress (cross-device, session-scoped) ───
+  //
+  // The native track-progress endpoint is keyed by integer track_id and
+  // doesn't fit videos (which live on sessions). We hit a separate
+  // `/content/video-progress/:sessionId` endpoint and mirror it locally
+  // through the same UserProgress AsyncStorage key the VideoPlayer was
+  // already using, so offline reads keep working unchanged.
+
+  /**
+   * Save the user's current video position to the backend. Best-effort
+   * fire-and-forget — on network failure the local copy still has it.
+   */
+  async saveVideoProgressRemote(
+    sessionId: string,
+    positionSeconds: number,
+    durationSeconds: number,
+    completed: boolean,
+  ): Promise<void> {
+    try {
+      await apiService.post(API_ENDPOINTS.VIDEO_PROGRESS(sessionId), {
+        positionSeconds: Math.floor(positionSeconds),
+        durationSeconds: durationSeconds > 0 ? Math.floor(durationSeconds) : undefined,
+        completed,
+      });
+    } catch (error) {
+      // Don't surface errors — playback must never break because the
+      // sync server is unreachable.
+      // eslint-disable-next-line no-console
+      console.warn('saveVideoProgressRemote failed (will retry on next save):', error);
+    }
+  }
+
+  /**
+   * Fetch the latest server-side video progress. Returns null if no row
+   * exists, the request fails, or the response is malformed.
+   */
+  async getVideoProgressRemote(sessionId: string): Promise<RemoteVideoProgress | null> {
+    try {
+      const res = await apiService.get<RemoteVideoProgress>(
+        API_ENDPOINTS.VIDEO_PROGRESS(sessionId),
+      );
+      if (!res.success || !res.data) return null;
+      // updatedAt is null when the user has never saved progress server-side.
+      if (!res.data.updatedAt) return null;
+      return res.data;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('getVideoProgressRemote failed:', error);
+      return null;
     }
   }
 }

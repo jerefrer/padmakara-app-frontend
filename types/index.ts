@@ -79,6 +79,10 @@ export interface Session {
   date: string;
   tracks?: Track[];
   gathering_id: string;
+  /** Bunny Stream video GUID for the full session recording, if available. */
+  bunnyVideoId?: string | null;
+  videoDurationSeconds?: number | null;
+  videoPosterUrl?: string | null;
   created_at: string;
   updated_at: string;
 }

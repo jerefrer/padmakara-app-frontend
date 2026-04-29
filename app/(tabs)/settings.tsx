@@ -3,6 +3,7 @@ import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import progressService from '@/services/progressService';
+import videoPreferencesService from '@/services/videoPreferencesService';
 import { StorageSection } from '@/components/StorageSection';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -60,6 +61,29 @@ export default function SettingsScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('');
   const [isClearing, setIsClearing] = useState(false);
+  // Video playback preferences
+  const [warnOnCellular, setWarnOnCellular] = useState(true);
+  const [allowOnCellular, setAllowOnCellular] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      videoPreferencesService.getWarnOnCellular(),
+      videoPreferencesService.getAllowOnCellular(),
+    ]).then(([warn, allow]) => {
+      setWarnOnCellular(warn);
+      setAllowOnCellular(allow);
+    });
+  }, []);
+
+  const handleToggleWarnOnCellular = (value: boolean) => {
+    setWarnOnCellular(value);
+    videoPreferencesService.setWarnOnCellular(value);
+  };
+
+  const handleToggleAllowOnCellular = (value: boolean) => {
+    setAllowOnCellular(value);
+    videoPreferencesService.setAllowOnCellular(value);
+  };
 
 
   // Cross-platform alert system (only the UI implementation differs by platform)
@@ -421,6 +445,56 @@ export default function SettingsScreen() {
             <>
               <Text style={styles.sectionTitleOutside}>{t('profile.storage') || 'Storage'}</Text>
               <StorageSection />
+            </>
+          )}
+
+          {/* Video Playback - only for authenticated users (only group members hit videos) */}
+          {isAuthenticated && Platform.OS !== 'web' && (
+            <>
+              <Text style={styles.sectionTitleOutside}>
+                {t('profile.videoPlayback') || 'Video Playback'}
+              </Text>
+              <View style={styles.section}>
+                <View style={styles.settingItem}>
+                  <View style={styles.settingLeft}>
+                    <Ionicons name="cellular-outline" size={20} color={colors.burgundy[500]} />
+                    <View style={styles.textContainer}>
+                      <Text style={styles.settingTitle}>
+                        {t('profile.allowVideoOnCellular') || 'Allow video on mobile data'}
+                      </Text>
+                      <Text style={styles.settingSubtitle}>
+                        {t('profile.allowVideoOnCellularSubtitle')
+                          || 'Turn off to only play videos on Wi-Fi.'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={allowOnCellular}
+                    onValueChange={handleToggleAllowOnCellular}
+                    trackColor={{ false: colors.gray[300], true: colors.burgundy[500] }}
+                  />
+                </View>
+                <View style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: colors.gray[200] }]}>
+                  <View style={styles.settingLeft}>
+                    <Ionicons name="warning-outline" size={20} color={colors.burgundy[500]} />
+                    <View style={styles.textContainer}>
+                      <Text style={styles.settingTitle}>
+                        {t('profile.warnOnCellular') || 'Warn before playing on mobile data'}
+                      </Text>
+                      <Text style={styles.settingSubtitle}>
+                        {t('profile.warnOnCellularSubtitle')
+                          || 'Show a confirmation the first time you tap a video off Wi-Fi each session.'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={warnOnCellular}
+                    onValueChange={handleToggleWarnOnCellular}
+                    disabled={!allowOnCellular}
+                    trackColor={{ false: colors.gray[300], true: colors.burgundy[500] }}
+                  />
+                </View>
+              </View>
             </>
           )}
 
