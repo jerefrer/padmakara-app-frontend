@@ -246,7 +246,7 @@ export function TrackDetailPanel({ retreat, currentTrack }: TrackDetailPanelProp
                 <Text style={styles.backButtonText}>{t('common.goBack') || 'Back'}</Text>
               </Pressable>
             </View>
-            <PDFViewer source={transcriptUrl} compact />
+            <PDFViewer source={transcriptUrl} title={retreat.name ? `${retreat.name} — Transcript` : undefined} compact />
           </View>
         ) : null}
       </View>

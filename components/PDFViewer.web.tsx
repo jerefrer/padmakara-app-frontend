@@ -4,6 +4,7 @@ import { colors } from '@/constants/colors';
 
 interface PDFViewerProps {
   source: string;
+  title?: string;
   onPageChange?: (page: number, totalPages: number) => void;
   compact?: boolean;
 }

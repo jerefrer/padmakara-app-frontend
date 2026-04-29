@@ -12,6 +12,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@$
 
 interface PDFViewerProps {
   source: string;
+  title?: string;
   onPageChange?: (page: number, totalPages: number) => void;
   compact?: boolean;
 }
@@ -31,7 +32,7 @@ const TOOLBAR_HEIGHT = 40;
  * fit-to-height and fit-to-width modes. User preferences persist in
  * localStorage. Annotations are disabled; text selection is kept.
  */
-export default function PDFViewerWebImpl({ source, onPageChange }: PDFViewerProps) {
+export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -95,14 +96,32 @@ export default function PDFViewerWebImpl({ source, onPageChange }: PDFViewerProp
     }
   }, []);
 
-  const handleDownload = useCallback(() => {
-    const a = document.createElement('a');
-    a.href = source;
-    a.download = 'publication.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }, [source]);
+  const downloadName = useMemo(() => {
+    if (title) return title.endsWith('.pdf') ? title : `${title}.pdf`;
+    try {
+      const pathname = new URL(source).pathname;
+      const basename = decodeURIComponent(pathname.split('/').pop() || '');
+      if (basename && basename !== '/') return basename.endsWith('.pdf') ? basename : `${basename}.pdf`;
+    } catch { /* invalid URL, fall through */ }
+    return 'document.pdf';
+  }, [source, title]);
+
+  const handleDownload = useCallback(async () => {
+    try {
+      const res = await fetch(source);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  }, [source, downloadName]);
 
   const file = useMemo(() => ({ url: source }), [source]);
 

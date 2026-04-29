@@ -274,6 +274,7 @@ export default function PublicationsScreen() {
           {/* PDF content */}
           <PDFViewer
             source={viewingPdf.uri}
+            title={getTitle(viewingPdf.publication)}
             onPageChange={(page) => {
               publicationService.saveReadingPosition(
                 viewingPdf.publication.id,

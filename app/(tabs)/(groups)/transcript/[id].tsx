@@ -81,14 +81,17 @@ export default function TranscriptViewerScreen() {
 
     try {
       if (Platform.OS === 'web') {
-        // Web: the iframe already has browser download built in — but provide explicit download too
         if (transcriptUrl) {
+          const res = await fetch(transcriptUrl);
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = transcriptUrl;
-          a.download = 'transcript.pdf';
+          a.href = url;
+          a.download = eventName ? `${eventName} — Transcript.pdf` : 'transcript.pdf';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          URL.revokeObjectURL(url);
         }
       } else {
         // Native: use cached file path and share
@@ -186,7 +189,7 @@ export default function TranscriptViewerScreen() {
       </View>
 
       {/* PDF Viewer */}
-      <PDFViewer source={transcriptUrl} onPageChange={handlePageChange} />
+      <PDFViewer source={transcriptUrl} title={eventName ? `${eventName} — Transcript` : undefined} onPageChange={handlePageChange} />
     </SafeAreaView>
   );
 }
