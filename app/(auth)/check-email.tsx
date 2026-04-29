@@ -127,14 +127,11 @@ export default function CheckEmailScreen() {
             setActivationStatus('activated');
             setIsPolling(false);
 
-            // Refresh AuthContext to pick up the activation
+            // Refresh AuthContext to pick up the activation.
+            // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect,
+            // so do NOT schedule another router.replace here (would cause a double animation).
             console.log('🔄 Refreshing AuthContext after activation detection');
             await refreshAuth();
-
-            // Give a moment for the user to see the success state
-            setTimeout(() => {
-              router.replace(redirectTarget);
-            }, 2000);
           } else {
             setActivationStatus('pending');
             setPollCount(prev => prev + 1);

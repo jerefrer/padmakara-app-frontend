@@ -128,10 +128,11 @@ export default function MagicLinkScreen() {
 
       switch (status) {
         case 'already_activated':
-          // Device already activated, refresh auth state then redirect
-          console.log('🎉 Device already activated, refreshing auth state and redirecting to main app');
+          // Device already activated — refresh auth state.
+          // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect,
+          // so do NOT call router.replace here (would cause a double navigation animation).
+          console.log('🎉 Device already activated, refreshing auth state');
           await refreshAuth();
-          router.replace(redirectTarget);
           return; // Exit early to prevent further processing
 
         case 'magic_link_sent':
