@@ -7,12 +7,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 const colors = {
   burgundy: {
@@ -415,12 +422,26 @@ const ParagraphRow = React.memo(function ParagraphRow({
         activeWordIndex >= 0 &&
         words[words.length - 1].wordIdx < activeWordIndex));
 
+  // Coarse "I'm here" anchor: when the active word is in this paragraph, give
+  // the whole paragraph a faint burgundy tint. This stays steady even when
+  // individual word timing is interpolated and slightly off, so the reader
+  // always knows which passage the audio is in.
+  const isActiveParagraph = activeIdxInPara >= 0;
+
+  // Tapping any blank space in the paragraph (between words, in the margin)
+  // seeks to its first word. Word taps still work — RN gives child Text
+  // onPress priority over the surrounding Pressable.
+  const handleParagraphPress = () => {
+    if (words.length > 0) onWordPress(words[0].word);
+  };
+
   return (
-    <View
-      style={styles.paragraph}
+    <Pressable
+      style={[styles.paragraph, isActiveParagraph && styles.paragraphActive]}
       onLayout={(e) => onLayout(paraIndex, e.nativeEvent.layout.y)}
+      onPress={handleParagraphPress}
     >
-      <Text style={styles.paragraphText}>
+      <View style={styles.paragraphText}>
         {words.map((pw, idx) => {
           const isActive = pw.segIdx === activeSegmentIndex && pw.wordIdx === activeWordIndex;
 
@@ -451,8 +472,8 @@ const ParagraphRow = React.memo(function ParagraphRow({
             />
           );
         })}
-      </Text>
-    </View>
+      </View>
+    </Pressable>
   );
 });
 
@@ -474,20 +495,42 @@ const FADE_COLORS = [
 ] as const;
 
 const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPress }: WordSpanProps) {
-  const isLowConfidence = word.confidence === 'low';
+  // Animated dot indicator: fades in + scale pulse when this word becomes active.
+  const dotOpacity = useSharedValue(isActive ? 1 : 0);
+  const dotScale = useSharedValue(isActive ? 1 : 0.6);
+
+  useEffect(() => {
+    if (isActive) {
+      dotOpacity.value = withTiming(1, { duration: 140 });
+      dotScale.value = withSequence(
+        withTiming(1.25, { duration: 140 }),
+        withTiming(1, { duration: 110 }),
+      );
+    } else {
+      dotOpacity.value = withTiming(0, { duration: 180 });
+      dotScale.value = withTiming(0.6, { duration: 180 });
+    }
+  }, [isActive, dotOpacity, dotScale]);
+
+  const dotAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dotOpacity.value,
+    transform: [{ scale: dotScale.value }],
+  }));
 
   return (
-    <Text
-      onPress={() => onPress(word)}
-      style={[
-        styles.word,
-        { color: FADE_COLORS[fadeTier] },
-        isLowConfidence && styles.wordLowConfidence,
-        isActive && styles.wordActive,
-      ]}
-    >
-      {word.word}{' '}
-    </Text>
+    <View style={styles.wordContainer}>
+      <Text
+        onPress={() => onPress(word)}
+        style={[
+          styles.word,
+          { color: FADE_COLORS[fadeTier] },
+          isActive && styles.wordActive,
+        ]}
+      >
+        {word.word}
+      </Text>
+      <Animated.View style={[styles.dot, dotAnimatedStyle]} pointerEvents="none" />
+    </View>
   );
 });
 
@@ -561,23 +604,40 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     marginBottom: 16,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginHorizontal: -4,
+    borderRadius: 6,
+  },
+  paragraphActive: {
+    backgroundColor: colors.burgundy[50],
   },
   paragraphText: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+  },
+  wordContainer: {
+    alignItems: 'center',
+    paddingBottom: 6,
+    marginRight: 5,
+    position: 'relative',
+  },
+  word: {
     fontSize: 18,
     lineHeight: 30,
     fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[800],
   },
-  word: {
-    fontFamily: 'EBGaramond_400Regular',
-    color: colors.gray[800],
-  },
-  wordLowConfidence: {
-    opacity: 0.7,
-  },
   wordActive: {
     color: colors.burgundy[500],
-    fontFamily: 'EBGaramond_600SemiBold',
+  },
+  dot: {
+    position: 'absolute',
+    bottom: 0,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.burgundy[500],
   },
 });
