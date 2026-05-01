@@ -80,6 +80,12 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={24} name="card-outline" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="_events"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 
