@@ -36,7 +36,8 @@
       "bundleIdentifier": "org.padmakara.app",
       "icon": "./assets/images/iOS.icon",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
