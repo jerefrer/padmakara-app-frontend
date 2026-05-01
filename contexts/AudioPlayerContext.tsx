@@ -181,10 +181,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   // --- Activate lock screen / Now Playing controls (iOS & Android) ---
+  // We call setActiveForLockScreen as soon as we have a track + player, before
+  // the file finishes loading. iOS happily renders the Now Playing card with
+  // just the metadata; gating on loadedTrackId/playerState delayed the call
+  // long enough that the card never appeared on lock. The seek options enable
+  // the ±10s buttons — without them expo-audio sets isEnabled=false on
+  // skipForwardCommand/skipBackwardCommand (see MediaController.swift).
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    if (track && player && loadedTrackId === track.id && playerState !== 'LOADING') {
+    if (track && player) {
       try {
         const metadata: Record<string, string> = {
           title: track.title,
@@ -192,7 +198,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         if (track.speakerName) metadata.artist = track.speakerName;
         if (metaRetreatName) metadata.albumTitle = metaRetreatName;
 
-        player.setActiveForLockScreen(true, metadata);
+        player.setActiveForLockScreen(true, metadata, {
+          showSeekForward: true,
+          showSeekBackward: true,
+        });
       } catch (error) {
         console.warn('Failed to set lock screen metadata:', error);
       }
@@ -203,7 +212,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         // Player may already be inactive
       }
     }
-  }, [track, player, loadedTrackId, playerState, metaRetreatName]);
+  }, [track, player, metaRetreatName]);
 
   // --- Stop playback when auth is lost ---
   const { isAuthenticated } = useAuth();

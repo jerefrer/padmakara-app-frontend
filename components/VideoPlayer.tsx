@@ -128,6 +128,11 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
     // matches what users expect from a teaching recording. Requires the
     // expo-video plugin's supportsBackgroundPlayback flag in app.json.
     p.staysActiveInBackground = true;
+    // Show the Now Playing card on the iOS lock screen / Android media
+    // notification with play/pause + scrub controls. Off by default in
+    // expo-video; without it the audio keeps playing in background but
+    // there's no system-level way to control it.
+    p.showNowPlayingNotification = true;
     p.bufferOptions = {
       preferredForwardBufferDuration: FORWARD_BUFFER_SECONDS,
     };
