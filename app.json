@@ -55,12 +55,7 @@
       "name": "Padmakara"
     },
     "plugins": [
-      [
-        "expo-audio",
-        {
-          "enableBackgroundPlayback": true
-        }
-      ],
+      "expo-audio",
       "expo-router",
       [
         "expo-splash-screen",
@@ -78,7 +73,12 @@
           "project": "react-native"
         }
       ],
-      "expo-video"
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true
+        }
+      ]
     ],
     "extra": {
       "sentryDsn": "https://a0c5633e88bc9febe3d131bd356303e6@o4510993302618112.ingest.de.sentry.io/4510993304256592",

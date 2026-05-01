@@ -123,7 +123,11 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
   // network outages (tunnels, weak coverage) don't stall playback.
   const player = useVideoPlayer(null, (p) => {
     p.timeUpdateEventInterval = 1;
-    p.staysActiveInBackground = false;
+    // Keep audio playing when the user locks the screen or backgrounds the
+    // app — iOS hides the video frame but the soundtrack continues, which
+    // matches what users expect from a teaching recording. Requires the
+    // expo-video plugin's supportsBackgroundPlayback flag in app.json.
+    p.staysActiveInBackground = true;
     p.bufferOptions = {
       preferredForwardBufferDuration: FORWARD_BUFFER_SECONDS,
     };
