@@ -107,26 +107,13 @@ function formatDateRangePretty(startDateStr: string, endDateStr: string, locale:
   }
 }
 
-/** Format seconds into "Xh Ym" or "Ym" */
-function formatDuration(totalSeconds: number): string {
-  if (!totalSeconds || totalSeconds <= 0) return '—';
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.round((totalSeconds % 3600) / 60);
-  if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+/** Split a list into chunks of n items. */
+function chunkInto<T>(items: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += n) {
+    out.push(items.slice(i, i + n));
   }
-  return `${minutes}m`;
-}
-
-/** Compute total duration of all tracks in a retreat */
-function getRetreatTotalDuration(retreat: Gathering): number {
-  let total = 0;
-  for (const session of retreat.sessions || []) {
-    for (const track of session.tracks || []) {
-      total += track.duration || 0;
-    }
-  }
-  return total;
+  return out;
 }
 
 // ── Mobile card ──────────────────────────────────────────────────────────────
@@ -200,9 +187,7 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameFor
 
 // ── Desktop row ──────────────────────────────────────────────────────────────
 
-function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupNameForStrip }: RetreatCardProps) {
-  const sessionCount = retreat.sessions?.length || 0;
-  const totalDuration = getRetreatTotalDuration(retreat);
+function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupNameForStrip }: RetreatCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
   const displayName = cleanEventName(rawName, groupNameForStrip);
@@ -219,22 +204,56 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
     >
-      {/* Teacher avatars (stacked) */}
+      {/* Teacher avatars — fixed-width column reserving space for 3 per row.
+          Within a row avatars overlap (stacked look); when there are more
+          than 3 teachers, additional rows of up-to-3 wrap below. The fixed
+          column width keeps every event title aligned across rows regardless
+          of how many teachers each event has. */}
       <View style={styles.desktopAvatarGroup}>
-        {teachers.slice(0, 3).map((teacher, i) => (
-          <View key={teacher.abbreviation || i} style={[styles.desktopAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
-            {(teacher.avatarUrl || teacher.photoUrl) ? (
-              <Image source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }} cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined} style={styles.desktopAvatarImg} contentFit="cover" />
-            ) : (
-              <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
-                <Text style={styles.desktopAvatarFallbackText}>
-                  {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
-        ))}
-        {teachers.length === 0 && (
+        {teachers.length > 0 ? (
+          (() => {
+            const rows = chunkInto(teachers, 3);
+            return rows.map((row, rowIdx) => (
+              <View
+                key={rowIdx}
+                style={[
+                  styles.desktopAvatarRow,
+                  rowIdx > 0 && { marginTop: -8 },
+                  // First row stays on top; subsequent rows tuck under it,
+                  // so the principal teachers (always row 0) remain the most
+                  // visible.
+                  { zIndex: rows.length - rowIdx },
+                ]}
+              >
+                {row.map((teacher, i, arr) => (
+                <View
+                  key={teacher.abbreviation || i}
+                  style={[
+                    styles.desktopAvatarWrapper,
+                    i > 0 && { marginLeft: -8 },
+                    { zIndex: arr.length - i },
+                  ]}
+                >
+                  {(teacher.avatarUrl || teacher.photoUrl) ? (
+                    <Image
+                      source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }}
+                      cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined}
+                      style={styles.desktopAvatarImg}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
+                      <Text style={styles.desktopAvatarFallbackText}>
+                        {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+            ));
+          })()
+        ) : (
           <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
             <Ionicons name="people-outline" size={18} color={colors.gray[400]} />
           </View>
@@ -248,15 +267,6 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, t, language, groupN
           {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
           {teachers.length > 0 && ` · ${teachers.map((t) => t.name).filter(Boolean).join(', ')}`}
         </Text>
-      </View>
-      <View style={styles.desktopRowStat}>
-        <Text style={styles.desktopRowStatValue}>{sessionCount}</Text>
-        <Text style={styles.desktopRowStatLabel}>
-          {sessionCount === 1 ? (t('events.sessionLabel') || 'session') : (t('events.sessionsLabel') || 'sessions')}
-        </Text>
-      </View>
-      <View style={styles.desktopRowStat}>
-        <Text style={styles.desktopRowStatValue}>{formatDuration(totalDuration)}</Text>
       </View>
       <View style={styles.desktopRowBadges}>
         {isDownloaded && <OfflineBadge />}
@@ -775,16 +785,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   desktopAvatarGroup: {
-    width: 64,
+    // Fixed width sized to fit 3 stacked avatars (44px each with white
+    // border, overlapping by 8px → 44 + 36 + 36 = 116). Always reserves
+    // this space so titles align across rows regardless of teacher count.
+    // Vertical row stacking is handled by negative marginTop on rows after
+    // the first, so no `gap` here.
+    width: 116,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginRight: 20,
+  },
+  desktopAvatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginRight: 20,
   },
   desktopAvatarWrapper: {
     borderWidth: 2,
     borderColor: colors.white,
-    borderRadius: 20,
+    borderRadius: 22,
   },
   desktopAvatarImg: {
     width: 40,
@@ -809,30 +827,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.gray[500],
     marginTop: 2,
-  },
-  desktopRowStat: {
-    width: 90,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  desktopRowStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.burgundy[500],
-  },
-  desktopRowStatLabel: {
-    fontSize: 13,
-    color: colors.gray[500],
-  },
-  desktopRowDuration: {
-    width: 80,
-    paddingHorizontal: 4,
-  },
-  desktopRowDurationText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray[600],
   },
   desktopRowBadges: {
     width: 32,
