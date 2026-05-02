@@ -126,7 +126,9 @@
     "teachers": "by teachers",
     "showAll": "Show all events",
     "teaching": "Teaching",
-    "teachings": "Teachings & Talks"
+    "teachings": "Teachings & Talks",
+    "recordingsLabel": "Recordings",
+    "organizerPrefix": "Org."
   },
   "home": {
     "greetingMorning": "Good morning",

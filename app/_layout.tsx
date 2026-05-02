@@ -4,7 +4,9 @@ import {
   EBGaramond_400Regular_Italic,
   EBGaramond_500Medium,
   EBGaramond_600SemiBold,
+  EBGaramond_600SemiBold_Italic,
   EBGaramond_700Bold,
+  EBGaramond_700Bold_Italic,
 } from '@expo-google-fonts/eb-garamond';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -35,12 +37,21 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     MinionPro: require('../assets/fonts/MinionPro-Regular.otf'),
+    MinionPro_Italic: require('../assets/fonts/MinionPro-It.otf'),
+    MinionPro_Medium: require('../assets/fonts/MinionPro-Medium.otf'),
+    MinionPro_MediumItalic: require('../assets/fonts/MinionPro-MediumIt.otf'),
+    MinionPro_Semibold: require('../assets/fonts/MinionPro-Semibold.otf'),
+    MinionPro_SemiboldItalic: require('../assets/fonts/MinionPro-SemiboldIt.otf'),
+    MinionPro_Bold: require('../assets/fonts/MinionPro-Bold.otf'),
+    MinionPro_BoldItalic: require('../assets/fonts/MinionPro-BoldIt.otf'),
     Avenir: require('../assets/fonts/Avenir-Book.ttf'),
     EBGaramond_400Regular,
     EBGaramond_400Regular_Italic,
     EBGaramond_500Medium,
     EBGaramond_600SemiBold,
+    EBGaramond_600SemiBold_Italic,
     EBGaramond_700Bold,
+    EBGaramond_700Bold_Italic,
   });
 
   if (!loaded) {

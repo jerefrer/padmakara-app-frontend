@@ -126,7 +126,9 @@
     "teachers": "por professor",
     "showAll": "Mostrar todos os eventos",
     "teaching": "Ensinamento",
-    "teachings": "Ensinamentos e Palestras"
+    "teachings": "Ensinamentos e Palestras",
+    "recordingsLabel": "Gravações",
+    "organizerPrefix": "Org."
   },
   "home": {
     "greetingMorning": "Bom dia",

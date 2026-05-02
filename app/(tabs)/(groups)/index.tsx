@@ -315,7 +315,7 @@ export default function HomeScreen() {
       handleSignInPress();
       return;
     }
-    router.push("/(tabs)/(groups)/retreats-list");
+    router.push("/(tabs)/(groups)/retreats");
   };
 
   const handlePublicationsPress = () => {
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.burgundy[500],
   },
   categoryTitle: {
-    fontSize: 26,
+    fontSize: 25,
     fontFamily: "MinionPro",
     color: colors.gray[800],
     fontVariant: ["small-caps"],
@@ -481,13 +481,13 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   highlightLabel: {
-    fontSize: 22,
+    fontSize: 23,
     fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
     marginBottom: 6,
   },
   highlightLabelInCard: {
-    fontSize: 22,
+    fontSize: 23,
     fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
     marginBottom: 16,
@@ -538,18 +538,18 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   featuredTeacher: {
-    fontSize: 26,
-    fontFamily: "EBGaramond_700Bold",
+    fontSize: 25,
+    fontFamily: "EBGaramond_500Medium",
     color: colors.burgundy[500],
     marginBottom: 2,
   },
   featuredTeacherDesktop: {
-    fontSize: 32,
+    fontSize: 30,
     marginBottom: 4,
   },
   featuredTitle: {
-    fontSize: 16,
-    fontFamily: "EBGaramond_500Medium",
+    fontSize: 17,
+    fontFamily: "EBGaramond_400Regular",
     color: colors.gray[800],
     marginBottom: 4,
   },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   featuredMeta: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: "Avenir",
     color: colors.gray[500],
     letterSpacing: 0.2,
