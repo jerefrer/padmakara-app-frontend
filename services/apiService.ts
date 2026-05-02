@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_CONFIG, API_ENDPOINTS, ApiResponse, ApiError, getAuthHeaders } from './apiConfig';
 
+type RefreshResult = 'refreshed' | 'rejected' | 'transient';
+
 class ApiService {
   private static instance: ApiService;
   private authStateListeners: Array<() => void> = [];
@@ -79,49 +81,80 @@ class ApiService {
     }
   }
 
-  // Attempt to refresh the access token using the stored refresh token
-  private isRefreshing = false;
-  private async attemptTokenRefresh(): Promise<boolean> {
-    if (this.isRefreshing) return false;
-    this.isRefreshing = true;
+  // Attempt to refresh the access token using the stored refresh token.
+  //
+  // Concurrent callers (e.g. several parallel API calls all hitting 401 on
+  // the same expired token) share a single in-flight refresh: every caller
+  // awaits the same promise and gets the same result. Without this, only
+  // the first caller actually refreshes; the rest see the in-flight flag
+  // and incorrectly conclude the refresh failed, then nuke the session.
+  //
+  // The result discriminates between three outcomes so callers can act
+  // appropriately:
+  //   - "refreshed": new access token issued, retry the original request
+  //   - "rejected": refresh token was rejected by the backend (401/expired)
+  //                 — the session is truly dead, log the user out
+  //   - "transient": network/server error, retry-able — keep the session
+  private refreshInFlight: Promise<RefreshResult> | null = null;
 
-    try {
-      const refreshToken = await AsyncStorage.getItem('refresh_token');
-      if (!refreshToken) {
-        console.log('🔐 No refresh token available');
-        return false;
-      }
-
-      console.log('🔄 Attempting token refresh...');
-      const fullUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.REFRESH_TOKEN}`;
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      if (!response.ok) {
-        console.log('❌ Token refresh failed:', response.status);
-        return false;
-      }
-
-      const data = await response.json();
-      if (data.accessToken) {
-        await AsyncStorage.setItem('auth_token', data.accessToken);
-        if (data.refreshToken) {
-          await AsyncStorage.setItem('refresh_token', data.refreshToken);
-        }
-        console.log('✅ Token refreshed successfully');
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('❌ Token refresh error:', error);
-      return false;
-    } finally {
-      this.isRefreshing = false;
+  private async attemptTokenRefresh(): Promise<RefreshResult> {
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
     }
+
+    this.refreshInFlight = (async (): Promise<RefreshResult> => {
+      try {
+        const refreshToken = await AsyncStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          console.log('🔐 No refresh token available');
+          return 'rejected';
+        }
+
+        console.log('🔄 Attempting token refresh...');
+        const fullUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.REFRESH_TOKEN}`;
+        const response = await fetch(fullUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          console.log('❌ Refresh token rejected by backend:', response.status);
+          return 'rejected';
+        }
+
+        if (!response.ok) {
+          console.log('⚠️ Token refresh transient failure:', response.status);
+          return 'transient';
+        }
+
+        const data = await response.json();
+        if (data.accessToken) {
+          await AsyncStorage.setItem('auth_token', data.accessToken);
+          if (data.refreshToken) {
+            await AsyncStorage.setItem('refresh_token', data.refreshToken);
+          }
+          console.log('✅ Token refreshed successfully');
+          return 'refreshed';
+        }
+
+        return 'transient';
+      } catch (error) {
+        // Network failure, DNS error, etc. — keep the session, the next
+        // request will retry the refresh.
+        console.error('⚠️ Token refresh network error (transient):', error);
+        return 'transient';
+      } finally {
+        // Clear the in-flight handle so the next 401 can trigger a fresh
+        // attempt. Done in a microtask to make sure all current awaiters
+        // have observed the resolved value first.
+        queueMicrotask(() => {
+          this.refreshInFlight = null;
+        });
+      }
+    })();
+
+    return this.refreshInFlight;
   }
 
   private async makeRequest<T>(
@@ -168,9 +201,9 @@ class ApiService {
         const token = await this.getAuthToken();
 
         if (token) {
-          // Try to refresh the access token before giving up
-          const refreshed = await this.attemptTokenRefresh();
-          if (refreshed) {
+          const refreshResult = await this.attemptTokenRefresh();
+
+          if (refreshResult === 'refreshed') {
             // Retry the original request with the new token
             const newHeaders = await getAuthHeaders();
             const retryResponse = await fetch(fullUrl, {
@@ -178,21 +211,56 @@ class ApiService {
               headers: { ...newHeaders, ...options.headers },
             });
 
-            if (retryResponse.ok) {
-              const contentType = retryResponse.headers.get('content-type');
-              const retryData = contentType?.includes('application/json')
-                ? await retryResponse.json()
-                : await retryResponse.text();
-              return { success: true, data: retryData as T };
+            // Only treat the session as dead if the retry comes back 401
+            // (auth still bad after refresh). Other failures (5xx, network)
+            // are surfaced as request errors but the session is preserved.
+            if (retryResponse.status === 401) {
+              await this.handleAuthFailure();
+              return {
+                success: false,
+                error: 'Authentication expired. Please login again.',
+                authRequired: true,
+              };
             }
+
+            const contentType = retryResponse.headers.get('content-type');
+            const retryData = contentType?.includes('application/json')
+              ? await retryResponse.json()
+              : await retryResponse.text();
+
+            if (!retryResponse.ok) {
+              return {
+                success: false,
+                error: (retryData as any)?.message || (retryData as any)?.error
+                  || `HTTP ${retryResponse.status}: ${retryResponse.statusText}`,
+              };
+            }
+            return { success: true, data: retryData as T };
           }
 
-          // Refresh failed or retry failed — session is truly expired
-          await this.handleAuthFailure();
+          if (refreshResult === 'rejected') {
+            // Backend explicitly rejected the refresh token — the session
+            // is truly dead, log the user out.
+            await this.handleAuthFailure();
+            return {
+              success: false,
+              error: 'Authentication expired. Please login again.',
+              authRequired: true,
+            };
+          }
+
+          // 'transient' — network or backend hiccup. Keep the session
+          // intact so the next request can retry the refresh; this 401
+          // is reported back to the caller without nuking storage.
+          return {
+            success: false,
+            error: 'Authentication check failed. Please try again.',
+            authRequired: false,
+          };
         }
         return {
           success: false,
-          error: token ? 'Authentication expired. Please login again.' : 'Authentication required.',
+          error: 'Authentication required.',
           authRequired: true,
         };
       }
@@ -298,31 +366,50 @@ class ApiService {
   async upload<T>(endpoint: string, file: any, additionalData?: any): Promise<ApiResponse<T>> {
     try {
       const token = await this.getAuthToken();
-      const headers: any = token 
+      const headers: any = token
         ? { 'Authorization': `Bearer ${token}` }
         : {};
 
       const formData = new FormData();
       formData.append('file', file);
-      
+
       if (additionalData) {
         Object.keys(additionalData).forEach(key => {
           formData.append(key, additionalData[key]);
         });
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: formData,
-      });
+      const buildRequest = async (): Promise<Response> => {
+        const reqHeaders = (await this.getAuthToken())
+          ? { Authorization: `Bearer ${await this.getAuthToken()}` }
+          : ({} as any);
+        return fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: formData,
+        });
+      };
 
-      if (response.status === 401) {
-        await this.handleAuthFailure();
-        return {
-          success: false,
-          error: 'Authentication expired. Please login again.',
-        };
+      let response = await buildRequest();
+
+      // Same refresh dance as makeRequest: try to refresh on 401, retry
+      // once, only nuke the session if the refresh is explicitly rejected.
+      if (response.status === 401 && token) {
+        const refreshResult = await this.attemptTokenRefresh();
+        if (refreshResult === 'refreshed') {
+          response = await buildRequest();
+          if (response.status === 401) {
+            await this.handleAuthFailure();
+            return { success: false, error: 'Authentication expired. Please login again.' };
+          }
+        } else if (refreshResult === 'rejected') {
+          await this.handleAuthFailure();
+          return { success: false, error: 'Authentication expired. Please login again.' };
+        } else {
+          return { success: false, error: 'Authentication check failed. Please try again.' };
+        }
+      } else if (response.status === 401) {
+        return { success: false, error: 'Authentication required.' };
       }
 
       const data = await response.json();
