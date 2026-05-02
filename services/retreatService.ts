@@ -52,6 +52,13 @@ function mapGroup(backend: any, gatherings?: Gathering[]): RetreatGroup {
     },
     abbreviation: backend.abbreviation || '',
     gatherings: gatherings || [],
+    avatarUrl: backend.avatarUrl ?? null,
+    heroUrl: backend.heroUrl ?? null,
+    heroFocalX: backend.heroFocalX ?? 50,
+    heroFocalY: backend.heroFocalY ?? 50,
+    heroScale: backend.heroScale ?? 100,
+    avatarUpdatedAt: backend.avatarUpdatedAt ?? null,
+    heroUpdatedAt: backend.heroUpdatedAt ?? null,
     created_at: backend.createdAt || backend.created_at || '',
     updated_at: backend.updatedAt || backend.updated_at || '',
   };
@@ -114,6 +121,7 @@ function mapEvent(backend: any): Gathering {
       heroUrl: et.teacher?.heroUrl || null,
       heroFocalX: et.teacher?.heroFocalX ?? 50,
       heroFocalY: et.teacher?.heroFocalY ?? 50,
+      heroScale: et.teacher?.heroScale ?? 100,
       avatarUpdatedAt: et.teacher?.avatarUpdatedAt || null,
       heroUpdatedAt: et.teacher?.heroUpdatedAt || null,
     })).filter((t: any) => t.name) || undefined,
@@ -421,6 +429,13 @@ class RetreatService {
                 ? { pt: retreatGroup.namePt || retreatGroup.name_pt }
                 : {}),
             },
+            avatarUrl: retreatGroup.avatarUrl ?? null,
+            heroUrl: retreatGroup.heroUrl ?? null,
+            heroFocalX: retreatGroup.heroFocalX ?? 50,
+            heroFocalY: retreatGroup.heroFocalY ?? 50,
+            heroScale: retreatGroup.heroScale ?? 100,
+            avatarUpdatedAt: retreatGroup.avatarUpdatedAt ?? null,
+            heroUpdatedAt: retreatGroup.heroUpdatedAt ?? null,
           } : undefined,
         };
 

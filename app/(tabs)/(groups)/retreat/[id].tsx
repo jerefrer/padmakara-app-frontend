@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert, Image } from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const HERO_HEIGHT = 280;
+const HERO_COLLAPSE_END = 230;
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
@@ -85,6 +96,13 @@ interface RetreatDetails {
     id: string;
     name: string;
     name_translations?: Record<string, string>;
+    avatarUrl?: string | null;
+    heroUrl?: string | null;
+    heroFocalX?: number;
+    heroFocalY?: number;
+    heroScale?: number;
+    avatarUpdatedAt?: string | null;
+    heroUpdatedAt?: string | null;
   };
   transcripts?: TranscriptInfo[];
   relatedPublications?: Array<{
@@ -111,6 +129,28 @@ export default function RetreatDetailScreen() {
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const scrollY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+
+  const heroStyle = useAnimatedStyle(() => ({
+    height: interpolate(
+      scrollY.value,
+      [0, HERO_COLLAPSE_END],
+      [HERO_HEIGHT, 0],
+      Extrapolation.CLAMP,
+    ),
+    opacity: interpolate(
+      scrollY.value,
+      [0, HERO_COLLAPSE_END * 0.4, HERO_COLLAPSE_END],
+      [1, 1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   const handleBack = useCallback(() => {
     if (from === 'events') {
@@ -810,8 +850,40 @@ export default function RetreatDetailScreen() {
     const sessionsById = new Map<string, Session>();
     retreat?.sessions?.forEach((s) => sessionsById.set(s.id, s));
 
+    // Mobile-only: collapsing hero from the parent retreat group.
+    const groupHero = !isDesktop ? retreat?.retreat_group?.heroUrl : null;
+
     return (
-      <ScrollView style={styles.content} contentContainerStyle={[styles.scrollContent, { paddingBottom }]}>
+      <Animated.ScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom }]}
+        onScroll={isDesktop ? undefined : scrollHandler}
+        scrollEventThrottle={16}
+      >
+        {/* Group hero (mobile only) — collapses on scroll */}
+        {groupHero && retreat?.retreat_group && (
+          <Animated.View style={[styles.heroContainer, heroStyle]}>
+            <ExpoImage
+              source={{ uri: groupHero }}
+              cacheKey={
+                retreat.retreat_group.heroUpdatedAt
+                  ? `group-hero-${retreat.retreat_group.id}-${retreat.retreat_group.heroUpdatedAt}`
+                  : undefined
+              }
+              style={[
+                StyleSheet.absoluteFillObject,
+                (retreat.retreat_group.heroScale ?? 100) !== 100 && {
+                  transform: [{ scale: (retreat.retreat_group.heroScale ?? 100) / 100 }],
+                },
+              ]}
+              contentFit="cover"
+              contentPosition={{
+                left: `${retreat.retreat_group.heroFocalX ?? 50}%`,
+                top: `${retreat.retreat_group.heroFocalY ?? 50}%`,
+              }}
+            />
+          </Animated.View>
+        )}
         {filteredTracks.map((track, trackIndex) => {
           const isActive = currentTrack?.id === track.id;
           const isSelected = selectedTrack?.id === track.id;
@@ -929,7 +1001,7 @@ export default function RetreatDetailScreen() {
             ))}
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     );
   };
 
@@ -1341,6 +1413,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+  },
+  heroContainer: {
+    alignSelf: 'stretch',
+    overflow: 'hidden',
+    backgroundColor: colors.gray[200],
+    // Break out of scrollContent's horizontal padding (16) so the hero spans
+    // edge to edge.
+    marginHorizontal: -16,
+    marginTop: -16,
+    marginBottom: 12,
   },
   sessionHeader: {
     paddingTop: 16,

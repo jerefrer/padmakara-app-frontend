@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -12,6 +19,9 @@ import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const HERO_HEIGHT = 280;
+const HERO_COLLAPSE_END = 230;
 
 const colors = {
   cream: {
@@ -264,10 +274,32 @@ export default function GroupDetailScreen() {
   const { user } = useAuth();
   const { isDesktop } = useDesktopLayout();
   const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
   const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadedRetreatIds, setDownloadedRetreatIds] = useState<Set<string>>(new Set());
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+
+  const heroStyle = useAnimatedStyle(() => ({
+    height: interpolate(
+      scrollY.value,
+      [0, HERO_COLLAPSE_END],
+      [HERO_HEIGHT, 0],
+      Extrapolation.CLAMP,
+    ),
+    opacity: interpolate(
+      scrollY.value,
+      [0, HERO_COLLAPSE_END * 0.4, HERO_COLLAPSE_END],
+      [1, 1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   const loadDownloadStatus = async () => {
     try {
@@ -401,15 +433,46 @@ export default function GroupDetailScreen() {
 
   const years = Object.keys(retreatsByYear).map(Number).sort((a, b) => b - a);
   const groupName = getTranslatedName(groupData, language);
+  const hasHero = !!groupData.heroUrl && !isDesktop;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
-          {/* Page title with back button */}
+        <Animated.ScrollView
+          style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+        >
+          {/* Collapsing hero (mobile only — desktop keeps a denser layout) */}
+          {hasHero && (
+            <Animated.View style={[styles.heroContainer, heroStyle]}>
+              <Image
+                source={{ uri: groupData.heroUrl! }}
+                cacheKey={
+                  groupData.heroUpdatedAt
+                    ? `group-hero-${groupData.id}-${groupData.heroUpdatedAt}`
+                    : undefined
+                }
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  (groupData.heroScale ?? 100) !== 100 && {
+                    transform: [{ scale: (groupData.heroScale ?? 100) / 100 }],
+                  },
+                ]}
+                contentFit="cover"
+                contentPosition={{
+                  left: `${groupData.heroFocalX ?? 50}%`,
+                  top: `${groupData.heroFocalY ?? 50}%`,
+                }}
+              />
+            </Animated.View>
+          )}
+
+          {/* Page title with back button. When a hero is shown the back arrow
+              floats over the image; otherwise it sits inline next to the title. */}
           <View style={isDesktop ? styles.desktopPageHeader : styles.mobileTitleHeader}>
-            {!isDesktop && (
+            {!isDesktop && !hasHero && (
               <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
                 <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
               </TouchableOpacity>
@@ -462,7 +525,18 @@ export default function GroupDetailScreen() {
               )}
             </View>
           ))}
-        </ScrollView>
+        </Animated.ScrollView>
+
+        {/* Floating back button — only when hero is shown, sits over the image */}
+        {hasHero && (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.floatingBackButton, { top: insets.top + 8 }]}
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );
@@ -502,6 +576,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 12,
     paddingBottom: 16,
+  },
+  heroContainer: {
+    alignSelf: 'stretch',
+    overflow: 'hidden',
+    backgroundColor: colors.gray[200],
+    // Break out of the ScrollView's horizontal padding so the image
+    // spans edge to edge.
+    marginHorizontal: -24,
+    marginBottom: 8,
+  },
+  floatingBackButton: {
+    position: 'absolute',
+    left: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pageTitleSmallCaps: {
     fontSize: 30,

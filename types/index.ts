@@ -27,6 +27,13 @@ export interface RetreatGroup {
   abbreviation?: string;
   gatherings?: Gathering[];
   members?: string[];
+  avatarUrl?: string | null;
+  heroUrl?: string | null;
+  heroFocalX?: number;
+  heroFocalY?: number;
+  heroScale?: number;
+  avatarUpdatedAt?: string | null;
+  heroUpdatedAt?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +47,7 @@ export interface GatheringTeacher {
   heroUrl?: string | null;
   heroFocalX?: number;
   heroFocalY?: number;
+  heroScale?: number;
   avatarUpdatedAt?: string | null;
   heroUpdatedAt?: string | null;
 }
