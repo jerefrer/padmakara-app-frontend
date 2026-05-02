@@ -456,21 +456,21 @@ const styles = StyleSheet.create({
   categoryRow: {
     paddingVertical: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: colors.burgundy[500],
   },
   categoryTitle: {
     fontSize: 26,
     fontFamily: "MinionPro",
-    color: colors.burgundy[500],
+    color: colors.gray[800],
     fontVariant: ["small-caps"],
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   categorySubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Avenir",
     color: colors.gray[500],
-    letterSpacing: 0.3,
+    letterSpacing: -0.1,
   },
 
   // Monthly highlight
@@ -482,15 +482,13 @@ const styles = StyleSheet.create({
   },
   highlightLabel: {
     fontSize: 22,
-    fontFamily: "EBGaramond_400Regular",
-    fontStyle: "italic",
+    fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
     marginBottom: 6,
   },
   highlightLabelInCard: {
     fontSize: 22,
-    fontFamily: "EBGaramond_400Regular",
-    fontStyle: "italic",
+    fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
     marginBottom: 16,
   },
@@ -540,13 +538,13 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   featuredTeacher: {
-    fontSize: 22,
-    fontFamily: "EBGaramond_400Regular",
-    color: colors.gray[800],
+    fontSize: 26,
+    fontFamily: "EBGaramond_700Bold",
+    color: colors.burgundy[500],
     marginBottom: 2,
   },
   featuredTeacherDesktop: {
-    fontSize: 28,
+    fontSize: 32,
     marginBottom: 4,
   },
   featuredTitle: {

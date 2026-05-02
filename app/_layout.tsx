@@ -1,6 +1,7 @@
 import { useFonts } from 'expo-font';
 import {
   EBGaramond_400Regular,
+  EBGaramond_400Regular_Italic,
   EBGaramond_500Medium,
   EBGaramond_600SemiBold,
   EBGaramond_700Bold,
@@ -36,6 +37,7 @@ export default function RootLayout() {
     MinionPro: require('../assets/fonts/MinionPro-Regular.otf'),
     Avenir: require('../assets/fonts/Avenir-Book.ttf'),
     EBGaramond_400Regular,
+    EBGaramond_400Regular_Italic,
     EBGaramond_500Medium,
     EBGaramond_600SemiBold,
     EBGaramond_700Bold,
