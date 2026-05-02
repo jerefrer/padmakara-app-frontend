@@ -20,7 +20,7 @@ export function Sidebar() {
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  const globalParams = useGlobalSearchParams<{ groupId?: string; teacher?: string; from?: string }>();
+  const globalParams = useGlobalSearchParams<{ code?: string; teacher?: string; from?: string }>();
   const fromParam = globalParams.from as string | undefined;
   const isInEventsSection = pathname.includes('/events') || pathname.includes('/teacher/')
     || (fromParam === 'events' && (pathname.includes('/retreat/') || pathname.includes('/session/')));
@@ -38,7 +38,7 @@ export function Sidebar() {
       key: 'home',
       title: t('home.retreats') || 'Retreats',
       subtitle: t('home.retreatsSubtitle') || 'Organized by Kangyur Rinpoche Foundation',
-      route: '/(tabs)/(groups)/retreats-list',
+      route: '/(tabs)/(groups)/retreats',
     },
     {
       key: 'publications',
@@ -61,7 +61,7 @@ export function Sidebar() {
         return segs.includes('(groups)')
           && !isInEventsSection
           && !pathname.includes('/publications')
-          && (pathname.includes('/retreats-list') || !!globalParams.groupId || pathname.includes('/retreat/') || pathname.includes('/session/'));
+          && (pathname.includes('/retreats') || !!globalParams.code || pathname.includes('/retreat/') || pathname.includes('/session/'));
       }
       if (key === 'search') {
         return segs.includes('search');
@@ -85,9 +85,9 @@ export function Sidebar() {
       return;
     }
     if (isActive('home')) {
-      router.replace('/(tabs)/(groups)/retreats-list' as any);
+      router.replace('/(tabs)/(groups)/retreats' as any);
     } else {
-      router.push('/(tabs)/(groups)/retreats-list' as any);
+      router.push('/(tabs)/(groups)/retreats' as any);
     }
   }, [isAuthenticated, isActive]);
 

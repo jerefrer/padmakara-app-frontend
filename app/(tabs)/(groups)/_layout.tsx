@@ -13,8 +13,8 @@ export default function GroupsLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="events" />
-      <Stack.Screen name="retreats-list" />
-      <Stack.Screen name="[groupId]" />
+      <Stack.Screen name="retreats/index" />
+      <Stack.Screen name="retreats/[code]" />
       <Stack.Screen name="retreat/[id]" />
       <Stack.Screen name="transcript/[id]" />
       <Stack.Screen name="publications" />

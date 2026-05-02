@@ -161,8 +161,9 @@ export default function RetreatsListScreen() {
     loadContent();
   }, [isAuthenticated]);
 
-  const handleGroupPress = (groupId: string) => {
-    router.push(`/(tabs)/(groups)/${groupId}`);
+  const handleGroupPress = (group: RetreatGroup) => {
+    const code = (group.abbreviation || group.id).toLowerCase();
+    router.push(`/(tabs)/(groups)/retreats/${code}` as any);
   };
 
   // Loading
@@ -280,7 +281,7 @@ export default function RetreatsListScreen() {
               <GroupRow
                 key={group.id}
                 group={group}
-                onPress={() => handleGroupPress(group.id)}
+                onPress={() => handleGroupPress(group)}
                 language={language}
                 t={t}
               />

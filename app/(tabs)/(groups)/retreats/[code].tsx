@@ -279,7 +279,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 export default function GroupDetailScreen() {
-  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const { code } = useLocalSearchParams<{ code: string }>();
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { isDesktop } = useDesktopLayout();
@@ -330,7 +330,7 @@ export default function GroupDetailScreen() {
     try {
       setLoading(true);
       setError(null);
-      const response = await retreatService.getRetreatGroupDetails(groupId);
+      const response = await retreatService.getRetreatGroupDetails(code);
       if (response.success && response.data) {
         setGroupData(response.data);
       } else {
@@ -345,10 +345,10 @@ export default function GroupDetailScreen() {
   };
 
   useEffect(() => {
-    if (user && groupId) {
+    if (user && code) {
       loadGroupData();
     }
-  }, [user, groupId]);
+  }, [user, code]);
 
   const handleRetreatPress = (retreatId: string) => {
     router.push(`/(tabs)/(groups)/retreat/${retreatId}`);
