@@ -18,6 +18,66 @@ import type { Gathering, GatheringTeacher } from '@/types';
 const HERO_HEIGHT = 300;
 const HERO_COLLAPSE_END = 250;
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: 'En',
+  pt: 'Pt',
+  tib: 'Tib',
+  bo: 'Tib',
+};
+
+/** Compute total track duration (seconds) across an event's sessions. */
+function eventDurationSeconds(event: Gathering): number {
+  let total = 0;
+  for (const s of event.sessions || []) {
+    for (const t of s.tracks || []) {
+      total += t.duration || 0;
+    }
+  }
+  return total;
+}
+
+/** Format duration as "208min" (matching the design). */
+function formatMinutes(totalSeconds: number): string {
+  if (!totalSeconds || totalSeconds <= 0) return '';
+  const minutes = Math.round(totalSeconds / 60);
+  return `${minutes}min`;
+}
+
+/** Collect distinct languages across the event's tracks, in display order. */
+function eventLanguages(event: Gathering): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of event.sessions || []) {
+    for (const t of s.tracks || []) {
+      const langs = t.languages?.length ? t.languages : t.originalLanguage ? [t.originalLanguage] : [];
+      for (const raw of langs) {
+        const key = raw?.toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(LANGUAGE_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1));
+      }
+    }
+  }
+  return out;
+}
+
+/** Has at least one session with an attached video recording? */
+function eventHasVideo(event: Gathering): boolean {
+  return !!event.sessions?.some((s) => !!s.bunnyVideoId);
+}
+
+/** Has at least one event-level transcript? */
+function eventHasTranscript(event: Gathering): boolean {
+  return !!event.transcripts && event.transcripts.length > 0;
+}
+
+/** Format ISO date as "YYYY-MM-DD". */
+function formatIsoDate(dateStr: string): string {
+  if (!dateStr) return '';
+  // Already YYYY-MM-DD or full ISO — slice off the time if present.
+  return dateStr.length >= 10 ? dateStr.slice(0, 10) : dateStr;
+}
+
 const colors = {
   burgundy500: '#9b1b1b',
   gray200: '#e5e7eb',
@@ -156,10 +216,31 @@ export default function TeacherDetailScreen() {
               ? event.name_translations.pt
               : event.name;
             const sessionCount = event.sessions?.length || 0;
-            const otherTeachers = event.teachers
-              ?.filter((t: any) => t.abbreviation !== abbreviation)
-              .map((t: any) => t.name)
-              .filter(Boolean) || [];
+            const durationLabel = formatMinutes(eventDurationSeconds(event));
+            const langs = eventLanguages(event).join(' + ');
+            const dateLabel = formatIsoDate(event.startDate);
+            const placeLabel = event.places?.map((p) => p.name).filter(Boolean).join(', ') || '';
+            const orgLabel = event.retreatGroups
+              ?.map((g) => g.abbreviation || g.name)
+              .filter(Boolean)
+              .join(' & ') || '';
+
+            const hasVideo = eventHasVideo(event);
+            const hasTranscript = eventHasTranscript(event);
+
+            const statsParts = [
+              `${sessionCount} ${sessionCount === 1
+                ? (t('events.sessionLabel') || 'session')
+                : (t('events.sessionsLabel') || 'sessions')}`,
+              durationLabel,
+              langs,
+            ].filter(Boolean);
+
+            const metaParts = [
+              dateLabel,
+              placeLabel,
+              orgLabel ? `${t('events.organizerPrefix') || 'Org.'} ${orgLabel}` : '',
+            ].filter(Boolean);
 
             return (
               <TouchableOpacity
@@ -168,13 +249,30 @@ export default function TeacherDetailScreen() {
                 onPress={() => router.push(`/(tabs)/(groups)/retreat/${event.id}` as any)}
               >
                 <Text style={styles.eventTitle}>{eventTitle}</Text>
-                <Text style={styles.eventMeta}>
-                  {sessionCount} {sessionCount === 1
-                    ? (t('events.sessionLabel') || 'session')
-                    : (t('events.sessionsLabel') || 'sessions')}
-                  {event.startDate ? `  ·  ${new Date(event.startDate).getFullYear()}` : ''}
-                  {otherTeachers.length > 0 ? `  ·  ${otherTeachers.join(', ')}` : ''}
-                </Text>
+                {statsParts.length > 0 && (
+                  <Text style={styles.eventStats}>{statsParts.join('  ')}</Text>
+                )}
+                {metaParts.length > 0 && (
+                  <Text style={styles.eventMeta}>{metaParts.join('  |  ')}</Text>
+                )}
+                <View style={styles.eventIconRow}>
+                  <View style={styles.eventIconGroup}>
+                    {sessionCount > 0 && (
+                      <Ionicons name="musical-notes-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
+                    )}
+                    {hasVideo && (
+                      <Ionicons name="videocam-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
+                    )}
+                    {hasTranscript && (
+                      <Ionicons name="book-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
+                    )}
+                  </View>
+                  {/* Visual placeholder — event-level bookmark not wired to a
+                      backend yet. Tap is a no-op until the feature lands. */}
+                  <View style={styles.eventBookmarkButton}>
+                    <Ionicons name="bookmark-outline" size={20} color={colors.burgundy500} />
+                  </View>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -247,13 +345,34 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.gray200,
   },
   eventTitle: {
-    fontFamily: 'EBGaramond_500Medium',
+    fontFamily: 'EBGaramond_600SemiBold',
     fontSize: 18,
     color: colors.gray800,
+  },
+  eventStats: {
+    fontSize: 14,
+    color: colors.gray800,
+    marginTop: 4,
   },
   eventMeta: {
     fontSize: 13,
     color: colors.gray500,
-    marginTop: 4,
+    marginTop: 2,
+  },
+  eventIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  eventIconGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eventIcon: {
+    marginRight: 14,
+  },
+  eventBookmarkButton: {
+    padding: 4,
   },
 });

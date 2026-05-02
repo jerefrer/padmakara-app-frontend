@@ -60,6 +60,19 @@ export interface EventType {
   slug: string;
 }
 
+export interface GatheringPlace {
+  id: number;
+  name: string;
+  abbreviation?: string | null;
+  location?: string | null;
+}
+
+export interface GatheringGroup {
+  id: number;
+  name: string;
+  abbreviation?: string | null;
+}
+
 export interface Gathering {
   id: string;
   name: string;
@@ -71,6 +84,8 @@ export interface Gathering {
   endDate: string;
   sessions?: Session[];
   teachers?: GatheringTeacher[];
+  places?: GatheringPlace[];
+  retreatGroups?: GatheringGroup[];
   eventType?: EventType;
   transcripts?: { id: number }[];
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';

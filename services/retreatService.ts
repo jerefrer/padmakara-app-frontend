@@ -125,6 +125,18 @@ function mapEvent(backend: any): Gathering {
       avatarUpdatedAt: et.teacher?.avatarUpdatedAt || null,
       heroUpdatedAt: et.teacher?.heroUpdatedAt || null,
     })).filter((t: any) => t.name) || undefined,
+    places: backend.eventPlaces?.map((ep: any) => ({
+      id: ep.place?.id,
+      name: ep.place?.name || '',
+      abbreviation: ep.place?.abbreviation ?? null,
+      location: ep.place?.location ?? null,
+    })).filter((p: any) => p.name) || undefined,
+    retreatGroups: backend.eventRetreatGroups?.map((erg: any) => ({
+      id: erg.retreatGroup?.id,
+      name: erg.retreatGroup?.nameEn || erg.retreatGroup?.name_en || '',
+      abbreviation: erg.retreatGroup?.abbreviation ?? null,
+    })).filter((g: any) => g.id) || undefined,
+    transcripts: backend.transcripts?.map((tr: any) => ({ id: tr.id })) || undefined,
     status: mapEventStatus(backend.status || 'published', startDate, endDate),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
