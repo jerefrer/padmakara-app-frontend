@@ -353,18 +353,21 @@ class RetreatService {
     }
   }
 
-  // Get detailed information about a specific retreat group
-  async getRetreatGroupDetails(groupId: string): Promise<{
+  // Get detailed information about a specific retreat group.
+  // `groupKey` may be a numeric id, abbreviation (case-insensitive), or slug —
+  // the backend resolves all three. The groups list is matched the same way
+  // so we can hydrate the metadata from cache.
+  async getRetreatGroupDetails(groupKey: string): Promise<{
     success: boolean;
     data?: RetreatGroupDetails;
     error?: string
   }> {
     try {
-      console.log(`Fetching group ${groupId} events...`);
+      console.log(`Fetching group ${groupKey} events...`);
 
       // Parallel: group events + group info
       const [eventsRes, groupsRes] = await Promise.all([
-        apiService.get<any[]>(API_ENDPOINTS.GROUP_EVENTS(groupId)),
+        apiService.get<any[]>(API_ENDPOINTS.GROUP_EVENTS(groupKey)),
         apiService.get<any[]>(API_ENDPOINTS.GROUPS),
       ]);
 
@@ -373,11 +376,16 @@ class RetreatService {
       }
 
       const gatherings = eventsRes.data.map(mapEvent);
-      const backendGroup = groupsRes.data?.find((g: any) => String(g.id) === groupId);
+      const keyLower = groupKey.toLowerCase();
+      const backendGroup = groupsRes.data?.find((g: any) =>
+        String(g.id) === groupKey
+        || (g.abbreviation && String(g.abbreviation).toLowerCase() === keyLower)
+        || (g.slug && String(g.slug) === groupKey),
+      );
 
       const data: RetreatGroupDetails = {
         ...(backendGroup ? mapGroup(backendGroup, gatherings) : {
-          id: groupId,
+          id: groupKey,
           name: '',
           gatherings,
           created_at: '',

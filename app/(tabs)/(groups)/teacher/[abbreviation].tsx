@@ -15,8 +15,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
 
-const HERO_HEIGHT = 300;
-const HERO_COLLAPSE_END = 250;
+const HERO_HEIGHT = 380;
+const HERO_COLLAPSE_END = 320;
 
 const LANGUAGE_LABELS: Record<string, string> = {
   en: 'En',
@@ -163,7 +163,7 @@ export default function TeacherDetailScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <Animated.ScrollView
@@ -171,7 +171,11 @@ export default function TeacherDetailScreen() {
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
-        {/* Collapsible hero */}
+        {/* Collapsible hero — extends to the very top of the screen, behind
+            the status bar. Plain 'cover' rendering with the focal point set
+            in the admin; the admin crop dialog shows a "mobile safe zone"
+            overlay so the editor knows which part of the banner will be
+            cropped on mobile. */}
         {hasHero && (
           <Animated.View style={[styles.heroContainer, heroStyle]}>
             <Image
@@ -191,14 +195,9 @@ export default function TeacherDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Header with back button + teacher name */}
+        {/* Teacher name (back button moved to a floating button over the
+            hero — see below) */}
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.gray800} />
-          </TouchableOpacity>
           <Text style={styles.teacherName}>{teacher.name}</Text>
         </View>
         <View style={styles.infoSection}>
@@ -278,6 +277,16 @@ export default function TeacherDetailScreen() {
           })}
         </View>
       </Animated.ScrollView>
+
+      {/* Floating back button over the hero — sits inside the safe area
+          (insets.top) so it stays clear of the notch / status bar. */}
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={[styles.floatingBackButton, { top: insets.top + 8 }]}
+        hitSlop={8}
+      >
+        <Ionicons name="arrow-back" size={22} color={colors.white} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -305,13 +314,16 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  backButton: {
+  floatingBackButton: {
+    position: 'absolute',
+    left: 12,
     width: 36,
     height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: -8,
-    marginRight: 4,
+    zIndex: 20,
   },
   heroContainer: {
     width: '100%',

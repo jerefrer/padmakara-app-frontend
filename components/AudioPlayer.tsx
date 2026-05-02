@@ -36,7 +36,23 @@ const formatTimeRemaining = (position: number, duration: number) => {
   return `- ${formatTime(remaining)}`;
 };
 
-export function AudioPlayer() {
+interface AudioPlayerProps {
+  /** Tap on the globe button — typically opens a language picker. */
+  onLanguagePress?: () => void;
+  /** Tap on the read button — typically opens read-along when available. */
+  onReadPress?: () => void;
+  /** Tap on the bookmark button — typically toggles a track-level bookmark. */
+  onBookmarkPress?: () => void;
+  /** Optional label shown next to the globe icon (e.g. "En + Pt"). */
+  languageLabel?: string;
+}
+
+export function AudioPlayer({
+  onLanguagePress,
+  onReadPress,
+  onBookmarkPress,
+  languageLabel,
+}: AudioPlayerProps = {}) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const TAB_BAR_HEIGHT = 49;
@@ -160,7 +176,7 @@ export function AudioPlayer() {
 
       {/* Bottom toolbar */}
       <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.toolbarButton}>
+        <TouchableOpacity style={styles.toolbarButton} onPress={onBookmarkPress}>
           <Ionicons name="bookmark-outline" size={20} color={colors.gray[600]} />
           <Text style={styles.toolbarLabel}>{t('player.bookmark') || 'bookmark'}</Text>
         </TouchableOpacity>
@@ -176,14 +192,14 @@ export function AudioPlayer() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.toolbarButton}>
+        <TouchableOpacity style={styles.toolbarButton} onPress={onReadPress}>
           <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
           <Text style={styles.toolbarLabel}>{t('player.read') || 'read'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.toolbarButton}>
+        <TouchableOpacity style={styles.toolbarButton} onPress={onLanguagePress}>
           <Ionicons name="globe-outline" size={20} color={colors.gray[600]} />
-          <Text style={styles.toolbarLabel}>{t('player.language') || 'En + Pt'}</Text>
+          <Text style={styles.toolbarLabel}>{languageLabel || t('player.language') || 'En + Pt'}</Text>
         </TouchableOpacity>
       </View>
 
