@@ -8,10 +8,10 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const HERO_HEIGHT = 280;
-const HERO_COLLAPSE_END = 230;
+const HERO_HEIGHT = 380;
+const HERO_COLLAPSE_END = 320;
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
@@ -83,6 +83,21 @@ interface TranscriptInfo {
   originalFilename?: string;
 }
 
+/** Format an ISO date as "12 November 2025" / "12 de novembro de 2025". */
+function formatLongDate(dateStr: string, language: string): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(language === 'pt' ? 'pt-PT' : 'en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 interface RetreatDetails {
   id: string;
   name: string;
@@ -92,6 +107,22 @@ interface RetreatDetails {
   startDate: string;
   endDate: string;
   sessions: Session[];
+  teachers?: Array<{
+    id?: number;
+    name: string;
+    abbreviation: string;
+    photoUrl?: string | null;
+    avatarUrl?: string | null;
+    heroUrl?: string | null;
+    heroFocalX?: number;
+    heroFocalY?: number;
+    heroScale?: number;
+    avatarUpdatedAt?: string | null;
+    heroUpdatedAt?: string | null;
+  }>;
+  places?: Array<{ id: number; name: string }>;
+  retreatGroups?: Array<{ id: number; name: string; abbreviation?: string | null }>;
+  eventType?: { nameEn: string; namePt?: string };
   retreat_group?: {
     id: string;
     name: string;
@@ -121,10 +152,13 @@ interface TrackWithSession extends Track {
   sessionPartNumber?: number | null;
 }
 
+const LAST_TRACK_KEY = (eventId: string) => `last_played_track:${eventId}`;
+
 export default function RetreatDetailScreen() {
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const { t, contentLanguage, language } = useLanguage();
   const { isDesktop } = useDesktopLayout();
+  const insets = useSafeAreaInsets();
   const audioContext = useAudioPlayerContext();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -318,6 +352,65 @@ export default function RetreatDetailScreen() {
     }
   }, [allTracks, currentLanguageMode, applyLanguageFilter]);
 
+  // Auto-load the last-played track for this event (or fall back to the
+  // first one) so the player is ready as soon as the user lands on the
+  // page. Runs once per mount; if the global audio context already has a
+  // track from this event loaded (e.g. resumed from a previous session),
+  // we skip the auto-load — the sync effect below will pick that up and
+  // highlight it in the list.
+  const autoLoadedRef = useRef(false);
+  useEffect(() => {
+    if (autoLoadedRef.current) return;
+    if (!retreat || filteredTracks.length === 0) return;
+
+    const ctxTrack = audioContext.currentTrack;
+    const ctxTrackInThisEvent = ctxTrack
+      ? filteredTracks.some((t) => String(t.id) === String(ctxTrack.id))
+      : false;
+    if (ctxTrackInThisEvent) {
+      // The player already has a track from this event — leave it alone;
+      // the sync effect will mirror it into local state for the highlight.
+      autoLoadedRef.current = true;
+      return;
+    }
+    autoLoadedRef.current = true;
+
+    (async () => {
+      let target = filteredTracks[0];
+      let targetIndex = 0;
+      try {
+        const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
+        if (lastId) {
+          const idx = filteredTracks.findIndex((t) => String(t.id) === lastId);
+          if (idx >= 0) {
+            target = filteredTracks[idx];
+            targetIndex = idx;
+          }
+        }
+      } catch {
+        // Ignore — fall back to first track.
+      }
+      selectTrack(target, targetIndex);
+    })();
+  }, [retreat, filteredTracks, audioContext.currentTrack]);
+
+  // Keep the local highlight in sync with the global audio context. Covers
+  // two cases:
+  //   1. The auto-load above bailed out because a track from this event was
+  //      already in the player — we still need to highlight it in the list.
+  //   2. The user advances to the next track via the player's transport
+  //      controls — local state must follow.
+  useEffect(() => {
+    const ctxTrack = audioContext.currentTrack;
+    if (!ctxTrack || filteredTracks.length === 0) return;
+    const idx = filteredTracks.findIndex((t) => String(t.id) === String(ctxTrack.id));
+    if (idx < 0) return;
+    const matched = filteredTracks[idx];
+    setCurrentTrack((prev) => (prev?.id === matched.id ? prev : matched));
+    setCurrentTrackIndex((prev) => (prev === idx ? prev : idx));
+    setSelectedTrack((prev) => (prev?.id === matched.id ? prev : matched));
+  }, [audioContext.currentTrack, filteredTracks]);
+
   // Track download completion to prevent stale callbacks
   const downloadCompletedRef = useRef(false);
 
@@ -508,6 +601,10 @@ export default function RetreatDetailScreen() {
       retreatName: getTranslatedName(retreat!, language) || retreat!.name,
       groupName: retreat!.retreat_group ? (getTranslatedName(retreat!.retreat_group, language) || retreat!.retreat_group.name) : '',
     });
+
+    // Persist the last-played track for this event so the next visit can
+    // resume the player at the right place.
+    AsyncStorage.setItem(LAST_TRACK_KEY(retreat!.id), String(track.id)).catch(() => {});
   };
 
   /** Open the video modal for the given session. */
@@ -850,8 +947,47 @@ export default function RetreatDetailScreen() {
     const sessionsById = new Map<string, Session>();
     retreat?.sessions?.forEach((s) => sessionsById.set(s.id, s));
 
-    // Mobile-only: collapsing hero from the parent retreat group.
-    const groupHero = !isDesktop ? retreat?.retreat_group?.heroUrl : null;
+    // Mobile-only: collapsing hero. Use the parent group's photo when set;
+    // otherwise fall back to the principal teacher's hero so public talks
+    // (which are not attached to any retreat group) still get a portrait.
+    const groupHero = retreat?.retreat_group?.heroUrl ?? null;
+    const teacherHero = retreat?.teachers?.[0]?.heroUrl ?? null;
+    const heroSource = !isDesktop ? (groupHero ?? teacherHero) : null;
+    const heroFocalX = groupHero
+      ? (retreat?.retreat_group?.heroFocalX ?? 50)
+      : (retreat?.teachers?.[0]?.heroFocalX ?? 50);
+    const heroFocalY = groupHero
+      ? (retreat?.retreat_group?.heroFocalY ?? 50)
+      : (retreat?.teachers?.[0]?.heroFocalY ?? 50);
+    const heroScale = groupHero
+      ? (retreat?.retreat_group?.heroScale ?? 100)
+      : (retreat?.teachers?.[0]?.heroScale ?? 100);
+    const heroCacheKey = groupHero && retreat?.retreat_group
+      ? (retreat.retreat_group.heroUpdatedAt
+          ? `group-hero-${retreat.retreat_group.id}-${retreat.retreat_group.heroUpdatedAt}`
+          : undefined)
+      : (retreat?.teachers?.[0]?.heroUpdatedAt
+          ? `teacher-hero-${retreat.teachers[0].abbreviation}-${retreat.teachers[0].heroUpdatedAt}`
+          : undefined);
+
+    // Computed bits for the title block under the hero.
+    const titleText = retreat ? getTranslatedName(retreat as any, language) : '';
+    const speakersText = retreat?.teachers?.map((te) => te.name).filter(Boolean).join(', ') || '';
+    const eventTypeLabel = retreat?.eventType
+      ? (language === 'pt' && retreat.eventType.namePt ? retreat.eventType.namePt : retreat.eventType.nameEn)
+      : null;
+    const dateLabel = retreat?.startDate ? formatLongDate(retreat.startDate, language) : '';
+    const metaParts = [
+      t('events.recordingsLabel') || 'Recordings',
+      eventTypeLabel,
+      dateLabel,
+    ].filter(Boolean);
+
+    // Indicators for the floating circles on the hero.
+    const hasAudio = !!retreat?.sessions?.some((s) => (s.tracks?.length ?? 0) > 0);
+    const hasVideo = !!retreat?.sessions?.some((s) => !!s.bunnyVideoId);
+    const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
+    const firstVideoSession = retreat?.sessions?.find((s) => !!s.bunnyVideoId) ?? null;
 
     return (
       <Animated.ScrollView
@@ -860,29 +996,63 @@ export default function RetreatDetailScreen() {
         onScroll={isDesktop ? undefined : scrollHandler}
         scrollEventThrottle={16}
       >
-        {/* Group hero (mobile only) — collapses on scroll */}
-        {groupHero && retreat?.retreat_group && (
+        {/* Hero (mobile only) — collapses on scroll. Floating action circles
+            sit at the bottom-right and overlap the boundary between hero and
+            content, exactly like the design. */}
+        {heroSource && (
           <Animated.View style={[styles.heroContainer, heroStyle]}>
-            <ExpoImage
-              source={{ uri: groupHero }}
-              cacheKey={
-                retreat.retreat_group.heroUpdatedAt
-                  ? `group-hero-${retreat.retreat_group.id}-${retreat.retreat_group.heroUpdatedAt}`
-                  : undefined
-              }
-              style={[
-                StyleSheet.absoluteFillObject,
-                (retreat.retreat_group.heroScale ?? 100) !== 100 && {
-                  transform: [{ scale: (retreat.retreat_group.heroScale ?? 100) / 100 }],
-                },
-              ]}
-              contentFit="cover"
-              contentPosition={{
-                left: `${retreat.retreat_group.heroFocalX ?? 50}%`,
-                top: `${retreat.retreat_group.heroFocalY ?? 50}%`,
-              }}
-            />
+            <View style={styles.heroImageWrapper}>
+              <ExpoImage
+                source={{ uri: heroSource }}
+                cacheKey={heroCacheKey}
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },
+                ]}
+                contentFit="cover"
+                contentPosition={{ left: `${heroFocalX}%`, top: `${heroFocalY}%` }}
+              />
+            </View>
+            <View style={styles.heroActionRow} pointerEvents="box-none">
+              {hasTranscript && (
+                <TouchableOpacity
+                  style={styles.heroActionCircle}
+                  onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat?.id}` as any)}
+                  accessibilityLabel={t('transcript.open') || 'Open transcript'}
+                >
+                  <Ionicons name="book-outline" size={18} color={colors.white} />
+                </TouchableOpacity>
+              )}
+              {hasAudio && (
+                <View style={styles.heroActionCircle}>
+                  <Ionicons name="musical-notes-outline" size={18} color={colors.white} />
+                </View>
+              )}
+              {hasVideo && firstVideoSession && (
+                <TouchableOpacity
+                  style={styles.heroActionCircle}
+                  onPress={() => watchSessionVideo(firstVideoSession)}
+                  accessibilityLabel={t('video.watchSessionVideo') || 'Watch session video'}
+                >
+                  <Ionicons name="videocam-outline" size={18} color={colors.white} />
+                </TouchableOpacity>
+              )}
+            </View>
           </Animated.View>
+        )}
+
+        {/* Event title block — sits below the hero, replacing the title that
+            used to live in the fixed top bar. */}
+        {!isDesktop && (
+          <View style={styles.eventTitleSection}>
+            <Text style={styles.eventTitleText}>{titleText}</Text>
+            {speakersText ? (
+              <Text style={styles.eventSpeakerText}>{speakersText}</Text>
+            ) : null}
+            {metaParts.length > 0 && (
+              <Text style={styles.eventTitleMetaText}>{metaParts.join(' | ')}</Text>
+            )}
+          </View>
         )}
         {filteredTracks.map((track, trackIndex) => {
           const isActive = currentTrack?.id === track.id;
@@ -1005,135 +1175,138 @@ export default function RetreatDetailScreen() {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Fixed Header Section */}
-      <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
-        {/* Navigation Header with Overflow Menu */}
-        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-          {!isDesktop && (
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
-            </TouchableOpacity>
-          )}
-          <View style={styles.headerText}>
-            <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''}</Text>
-              {isRetreatDownloaded && <OfflineBadge />}
+  // Common download progress banners (used by both mobile floating overlay
+  // and desktop fixed header)
+  const renderDownloadBanners = () => (
+    <>
+      {isDownloadingRetreat && (
+        <View style={styles.downloadBanner}>
+          <View style={styles.downloadBannerContent}>
+            <View style={styles.downloadBannerHeader}>
+              <Text style={styles.downloadBannerTitle}>Downloading for offline listening...</Text>
+              <TouchableOpacity onPress={() => downloadService.cancelDownload()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={20} color={colors.gray[500]} />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.headerSubtitle}>
-              {getTranslatedName(retreat, language)} {retreat.year}
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` }
+                ]}
+              />
+            </View>
+            <Text style={styles.downloadBannerSubtext}>
+              {downloadProgress.current} of {downloadProgress.total} tracks
+              {downloadProgress.startTime > 0 && downloadProgress.current > 0 && (() => {
+                const elapsed = (Date.now() - downloadProgress.startTime) / 1000;
+                const perTrack = elapsed / downloadProgress.current;
+                const remaining = (downloadProgress.total - downloadProgress.current) * perTrack;
+                if (remaining < 60) return ` • ~${Math.ceil(remaining)}s remaining`;
+                return ` • ~${Math.ceil(remaining / 60)}m remaining`;
+              })()}
             </Text>
           </View>
-          {/* Language selector dropdown */}
-          {currentLanguageMode && (
-            <View style={styles.languageDropdownContainer}>
-              <TouchableOpacity
-                style={styles.languageButton}
-                onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              >
-                <Text style={styles.languageButtonText}>
-                  {getLanguageLabel(currentLanguageMode)}
-                </Text>
-                <Ionicons name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'} size={14} color={colors.gray[600]} />
-              </TouchableOpacity>
-              {showLanguageDropdown && (
-                <View style={styles.languageDropdown}>
-                  {(['en', 'en-pt', 'pt'] as const).map((mode) => (
-                    <TouchableOpacity
-                      key={mode}
-                      style={[
-                        styles.languageDropdownItem,
-                        currentLanguageMode === mode && styles.languageDropdownItemActive,
-                      ]}
-                      onPress={() => {
-                        updateLanguagePreference(mode);
-                        setShowLanguageDropdown(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.languageDropdownItemText,
-                        currentLanguageMode === mode && styles.languageDropdownItemTextActive,
-                      ]}>
-                        {getLanguageLabel(mode)}
-                      </Text>
-                      {currentLanguageMode === mode && (
-                        <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Read Along button (mobile only — desktop shows in detail panel) */}
-          {!isDesktop && currentTrack?.hasReadAlong && (
-            <TouchableOpacity
-              onPress={handleOpenReadAlong}
-              style={styles.menuButton}
-            >
-              <Ionicons name="text-outline" size={22} color={colors.burgundy[500]} />
-            </TouchableOpacity>
-          )}
-          {/* Transcript button (mobile only — desktop shows in detail panel) */}
-          {!isDesktop && retreat.transcripts && retreat.transcripts.length > 0 && (
-            <TouchableOpacity
-              onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)}
-              style={styles.menuButton}
-            >
-              <Ionicons name="document-text-outline" size={22} color={colors.burgundy[500]} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-            <Ionicons name="ellipsis-vertical" size={24} color={colors.gray[600]} />
+        </View>
+      )}
+      {isDownloadingZip && (
+        <View style={styles.downloadBanner}>
+          <ActivityIndicator size="small" color={colors.burgundy[500]} />
+          <Text style={styles.downloadBannerText}>{zipDownloadProgress}</Text>
+          <TouchableOpacity onPress={handleDownloadRetreatZip}>
+            <Ionicons name="close" size={20} color={colors.gray[600]} />
           </TouchableOpacity>
         </View>
+      )}
+    </>
+  );
 
-        {/* Download Progress Banner */}
-        {isDownloadingRetreat && (
-          <View style={styles.downloadBanner}>
-            <View style={styles.downloadBannerContent}>
-              <View style={styles.downloadBannerHeader}>
-                <Text style={styles.downloadBannerTitle}>Downloading for offline listening...</Text>
-                <TouchableOpacity onPress={() => downloadService.cancelDownload()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="close" size={20} color={colors.gray[500]} />
-                </TouchableOpacity>
+  return (
+    <View style={styles.container}>
+      {/* Desktop keeps the existing fixed top bar; mobile drops it so the hero
+          can extend to the very top of the screen and shows just two floating
+          buttons (back + overflow menu) over the photo. */}
+      {isDesktop ? (
+        <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
+          <View style={[styles.header, styles.headerDesktop]}>
+            <View style={styles.headerText}>
+              <View style={styles.headerTitleRow}>
+                <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''}</Text>
+                {isRetreatDownloaded && <OfflineBadge />}
               </View>
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    { width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` }
-                  ]}
-                />
-              </View>
-              <Text style={styles.downloadBannerSubtext}>
-                {downloadProgress.current} of {downloadProgress.total} tracks
-                {downloadProgress.startTime > 0 && downloadProgress.current > 0 && (() => {
-                  const elapsed = (Date.now() - downloadProgress.startTime) / 1000;
-                  const perTrack = elapsed / downloadProgress.current;
-                  const remaining = (downloadProgress.total - downloadProgress.current) * perTrack;
-                  if (remaining < 60) return ` • ~${Math.ceil(remaining)}s remaining`;
-                  return ` • ~${Math.ceil(remaining / 60)}m remaining`;
-                })()}
+              <Text style={styles.headerSubtitle}>
+                {getTranslatedName(retreat, language)} {retreat.year}
               </Text>
             </View>
-          </View>
-        )}
-
-        {/* ZIP Download Progress Banner */}
-        {isDownloadingZip && (
-          <View style={styles.downloadBanner}>
-            <ActivityIndicator size="small" color={colors.burgundy[500]} />
-            <Text style={styles.downloadBannerText}>{zipDownloadProgress}</Text>
-            <TouchableOpacity onPress={handleDownloadRetreatZip}>
-              <Ionicons name="close" size={20} color={colors.gray[600]} />
+            {currentLanguageMode && (
+              <View style={styles.languageDropdownContainer}>
+                <TouchableOpacity
+                  style={styles.languageButton}
+                  onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                >
+                  <Text style={styles.languageButtonText}>{getLanguageLabel(currentLanguageMode)}</Text>
+                  <Ionicons name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'} size={14} color={colors.gray[600]} />
+                </TouchableOpacity>
+                {showLanguageDropdown && (
+                  <View style={styles.languageDropdown}>
+                    {(['en', 'en-pt', 'pt'] as const).map((mode) => (
+                      <TouchableOpacity
+                        key={mode}
+                        style={[
+                          styles.languageDropdownItem,
+                          currentLanguageMode === mode && styles.languageDropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          updateLanguagePreference(mode);
+                          setShowLanguageDropdown(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.languageDropdownItemText,
+                          currentLanguageMode === mode && styles.languageDropdownItemTextActive,
+                        ]}>
+                          {getLanguageLabel(mode)}
+                        </Text>
+                        {currentLanguageMode === mode && (
+                          <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+            <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
+              <Ionicons name="ellipsis-vertical" size={24} color={colors.gray[600]} />
             </TouchableOpacity>
           </View>
-        )}
-
-      </SafeAreaView>
+          {renderDownloadBanners()}
+        </SafeAreaView>
+      ) : (
+        <>
+          {/* Mobile floating top buttons — sit absolutely over the hero. */}
+          <TouchableOpacity
+            onPress={handleBack}
+            style={[styles.floatingTopButton, styles.floatingTopButtonLeft, { top: insets.top + 8 }]}
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setMenuVisible(true)}
+            style={[styles.floatingTopButton, styles.floatingTopButtonRight, { top: insets.top + 8 }]}
+            hitSlop={8}
+          >
+            <Ionicons name="ellipsis-vertical" size={22} color={colors.white} />
+          </TouchableOpacity>
+          {/* Download banners floated under the buttons */}
+          {(isDownloadingRetreat || isDownloadingZip) && (
+            <View style={[styles.mobileDownloadBannerOverlay, { top: insets.top + 56 }]}>
+              {renderDownloadBanners()}
+            </View>
+          )}
+        </>
+      )}
 
       {/* Main content: desktop master-detail split vs mobile single column */}
       {isDesktop ? (
@@ -1149,9 +1322,17 @@ export default function RetreatDetailScreen() {
         </View>
       ) : (
         <>
-          {renderTrackList(180)}
+          {/* Bottom padding has to clear the floating audio player AND the
+              tab bar. Player ≈ 145px content + tab bar (49) + bottom inset
+              (home-indicator) + 16px breathing room = the last track stays
+              visible above the player when fully scrolled. */}
+          {renderTrackList(145 + 49 + insets.bottom + 16)}
           {/* Bottom-sticky Audio Player (mobile only; desktop uses DesktopPlayerBar) */}
-          <AudioPlayer />
+          <AudioPlayer
+            languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
+            onLanguagePress={() => setShowLanguageDropdown(true)}
+            onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
+          />
         </>
       )}
 
@@ -1188,6 +1369,24 @@ export default function RetreatDetailScreen() {
               </Text>
             </TouchableOpacity>
 
+            {/* Transcript shortcut — moved here from the (now-removed) top bar
+                so it stays accessible alongside the download action. */}
+            {!isDesktop && retreat.transcripts && retreat.transcripts.length > 0 && (
+              <>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any);
+                  }}
+                >
+                  <Ionicons name="document-text-outline" size={22} color={colors.gray[700]} />
+                  <Text style={styles.menuItemText}>{t('transcript.open') || 'Open transcript'}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
             {/* ZIP Download Option - Only on web/desktop */}
             {Platform.OS === 'web' && (
               <>
@@ -1201,6 +1400,39 @@ export default function RetreatDetailScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Mobile language picker — opened from the AudioPlayer's globe icon
+          (the inline dropdown that used to sit in the top bar is gone). */}
+      {!isDesktop && (
+        <Modal
+          visible={showLanguageDropdown}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowLanguageDropdown(false)}
+        >
+          <Pressable style={styles.menuOverlay} onPress={() => setShowLanguageDropdown(false)}>
+            <View style={styles.menuContainer}>
+              {(['en', 'en-pt', 'pt'] as const).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={styles.menuItem}
+                  onPress={() => {
+                    updateLanguagePreference(mode);
+                    setShowLanguageDropdown(false);
+                  }}
+                >
+                  <Ionicons
+                    name={currentLanguageMode === mode ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={20}
+                    color={currentLanguageMode === mode ? colors.burgundy[500] : colors.gray[400]}
+                  />
+                  <Text style={styles.menuItemText}>{getLanguageLabel(mode)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Modal>
+      )}
 
       {/* Read Along Modal (mobile) */}
       <Modal
@@ -1416,13 +1648,90 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     alignSelf: 'stretch',
-    overflow: 'hidden',
     backgroundColor: colors.gray[200],
     // Break out of scrollContent's horizontal padding (16) so the hero spans
-    // edge to edge.
+    // edge to edge AND extends to the very top of the screen (under the
+    // status bar) — there is no fixed top bar on mobile anymore.
     marginHorizontal: -16,
     marginTop: -16,
     marginBottom: 12,
+    // Visible overflow so the floating action circles can extend past the
+    // bottom edge of the photo, sitting half over the image and half over
+    // the white background — exactly like the mockup.
+    overflow: 'visible',
+  },
+  floatingTopButton: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  floatingTopButtonLeft: {
+    left: 12,
+  },
+  floatingTopButtonRight: {
+    right: 12,
+  },
+  mobileDownloadBannerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 15,
+  },
+  // Inner wrapper that clips the image. Kept separate from heroContainer
+  // so we can still let the action circles overflow the bottom edge.
+  heroImageWrapper: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  heroActionRow: {
+    position: 'absolute',
+    right: 16,
+    bottom: -18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    zIndex: 10,
+  },
+  heroActionCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.burgundy[500],
+    justifyContent: 'center',
+    alignItems: 'center',
+    // White ring so the circles read clearly against either the photo or
+    // the page background.
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  eventTitleSection: {
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.burgundy[500],
+    marginBottom: 8,
+  },
+  eventTitleText: {
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 26,
+    color: colors.burgundy[500],
+    lineHeight: 32,
+  },
+  eventSpeakerText: {
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 18,
+    color: colors.gray[700],
+    marginTop: 6,
+  },
+  eventTitleMetaText: {
+    fontSize: 13,
+    color: colors.gray[500],
+    marginTop: 4,
   },
   sessionHeader: {
     paddingTop: 16,
