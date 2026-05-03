@@ -906,13 +906,36 @@ export default function RetreatDetailScreen() {
     setReadAlongData(null);
   }, []);
 
-  // Reset read along when track changes
+  // When the user advances to another track (e.g. via the player's next/prev
+  // controls), keep the read-along modal open and load the new track's
+  // alignment data — or close the modal if the new track has no read-along.
   useEffect(() => {
-    if (readAlongModalVisible) {
+    if (!readAlongModalVisible || !currentTrack) return;
+    if (!currentTrack.hasReadAlong) {
       setReadAlongModalVisible(false);
       setReadAlongData(null);
+      return;
     }
-  }, [currentTrack?.id]);
+    let cancelled = false;
+    setReadAlongLoading(true);
+    setReadAlongData(null);
+    (async () => {
+      try {
+        const result = await retreatService.getReadAlongData(String(currentTrack.id));
+        if (cancelled) return;
+        if (result.success && result.data) {
+          setReadAlongData(result.data);
+        }
+      } catch (err) {
+        console.error('Failed to load Read Along on track change:', err);
+      } finally {
+        if (!cancelled) setReadAlongLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTrack?.id, currentTrack?.hasReadAlong, readAlongModalVisible]);
 
   if (loading) {
     return (
@@ -1435,7 +1458,9 @@ export default function RetreatDetailScreen() {
         </Modal>
       )}
 
-      {/* Read Along Modal (mobile) */}
+      {/* Read Along Modal (mobile) — embeds the AudioPlayer at the bottom
+          so the user can pause / skip 10s / change track / change speed
+          without leaving the read-along view. */}
       <Modal
         visible={readAlongModalVisible}
         animationType="slide"
@@ -1443,24 +1468,35 @@ export default function RetreatDetailScreen() {
         onRequestClose={handleCloseReadAlong}
       >
         <SafeAreaView style={styles.readAlongModal}>
-          {readAlongLoading ? (
-            <View style={styles.readAlongModalLoading}>
-              <ActivityIndicator size="large" color={colors.burgundy[500]} />
-            </View>
-          ) : readAlongData ? (
-            <ReadAlongViewer readAlongData={readAlongData} onClose={handleCloseReadAlong} />
-          ) : (
-            <View style={styles.readAlongModalLoading}>
-              <Text style={{ color: colors.gray[500] }}>
-                {t('readAlong.unavailable') || 'Read Along not available for this track'}
-              </Text>
-              <TouchableOpacity onPress={handleCloseReadAlong} style={{ marginTop: 16 }}>
-                <Text style={{ color: colors.burgundy[500], fontWeight: '600' }}>
-                  {t('common.goBack') || 'Go Back'}
+          <View style={[styles.readAlongContent, { paddingBottom: 145 + insets.bottom + 16 }]}>
+            {readAlongLoading ? (
+              <View style={styles.readAlongModalLoading}>
+                <ActivityIndicator size="large" color={colors.burgundy[500]} />
+              </View>
+            ) : readAlongData ? (
+              <ReadAlongViewer readAlongData={readAlongData} onClose={handleCloseReadAlong} />
+            ) : (
+              <View style={styles.readAlongModalLoading}>
+                <Text style={{ color: colors.gray[500] }}>
+                  {t('readAlong.unavailable') || 'Read Along not available for this track'}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                <TouchableOpacity onPress={handleCloseReadAlong} style={{ marginTop: 16 }}>
+                  <Text style={{ color: colors.burgundy[500], fontWeight: '600' }}>
+                    {t('common.goBack') || 'Go Back'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {/* Embedded player — bottom inset only, no tab bar inside the modal.
+              The "read" button toggles the modal closed so the user can
+              return to the regular track list. */}
+          <AudioPlayer
+            bottom={insets.bottom}
+            languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
+            onLanguagePress={() => setShowLanguageDropdown(true)}
+            onReadPress={handleCloseReadAlong}
+          />
         </SafeAreaView>
       </Modal>
 
@@ -1922,6 +1958,12 @@ const styles = StyleSheet.create({
   readAlongModal: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  // Wraps the read-along scroll area inside the modal; reserves room at the
+  // bottom for the embedded AudioPlayer (≈ 145px content + insets) so the
+  // last lines of text aren't hidden under the player.
+  readAlongContent: {
+    flex: 1,
   },
   readAlongModalLoading: {
     flex: 1,

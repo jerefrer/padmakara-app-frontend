@@ -45,6 +45,13 @@ interface AudioPlayerProps {
   onBookmarkPress?: () => void;
   /** Optional label shown next to the globe icon (e.g. "En + Pt"). */
   languageLabel?: string;
+  /**
+   * Override the bottom positioning. By default the player sits above the
+   * tab bar (49px + safe-area inset on iOS); pass an explicit value when
+   * mounting the player inside a modal that has no tab bar — typically
+   * `insets.bottom` so it just clears the home indicator.
+   */
+  bottom?: number;
 }
 
 export function AudioPlayer({
@@ -52,11 +59,13 @@ export function AudioPlayer({
   onReadPress,
   onBookmarkPress,
   languageLabel,
+  bottom,
 }: AudioPlayerProps = {}) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const TAB_BAR_HEIGHT = 49;
-  const bottomOffset = Platform.OS === 'ios' ? TAB_BAR_HEIGHT + insets.bottom : TAB_BAR_HEIGHT;
+  const defaultBottom = Platform.OS === 'ios' ? TAB_BAR_HEIGHT + insets.bottom : TAB_BAR_HEIGHT;
+  const bottomOffset = bottom ?? defaultBottom;
 
   const {
     currentTrack,

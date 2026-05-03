@@ -609,9 +609,10 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
     borderRadius: 6,
   },
-  paragraphActive: {
-    backgroundColor: colors.burgundy[50],
-  },
+  // No background highlight on the active paragraph — the per-word styling
+  // (color shift on the current word) is enough to track position without
+  // boxing the whole paragraph in a pink tint.
+  paragraphActive: {},
   paragraphText: {
     flexDirection: 'row',
     flexWrap: 'wrap',
