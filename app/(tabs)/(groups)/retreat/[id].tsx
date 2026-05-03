@@ -8,6 +8,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
+import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HERO_HEIGHT = 380;
@@ -963,12 +964,10 @@ export default function RetreatDetailScreen() {
       ? (retreat?.retreat_group?.heroScale ?? 100)
       : (retreat?.teachers?.[0]?.heroScale ?? 100);
     const heroCacheKey = groupHero && retreat?.retreat_group
-      ? (retreat.retreat_group.heroUpdatedAt
-          ? `group-hero-${retreat.retreat_group.id}-${retreat.retreat_group.heroUpdatedAt}`
-          : undefined)
-      : (retreat?.teachers?.[0]?.heroUpdatedAt
-          ? `teacher-hero-${retreat.teachers[0].abbreviation}-${retreat.teachers[0].heroUpdatedAt}`
-          : undefined);
+      ? groupHeroCacheKey(retreat.retreat_group as any)
+      : retreat?.teachers?.[0]
+        ? teacherHeroCacheKey(retreat.teachers[0])
+        : undefined;
 
     // Computed bits for the title block under the hero.
     const titleText = retreat ? getTranslatedName(retreat as any, language) : '';
@@ -1005,6 +1004,8 @@ export default function RetreatDetailScreen() {
               <ExpoImage
                 source={{ uri: heroSource }}
                 cacheKey={heroCacheKey}
+                cachePolicy="memory-disk"
+                transition={0}
                 style={[
                   StyleSheet.absoluteFillObject,
                   heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },

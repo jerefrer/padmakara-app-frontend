@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
 import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
+import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -180,11 +181,9 @@ export default function TeacherDetailScreen() {
           <Animated.View style={[styles.heroContainer, heroStyle]}>
             <Image
               source={{ uri: teacher.heroUrl! }}
-              cacheKey={
-                teacher.heroUpdatedAt
-                  ? `teacher-hero-${teacher.abbreviation}-${teacher.heroUpdatedAt}`
-                  : undefined
-              }
+              cacheKey={teacherHeroCacheKey(teacher)}
+              cachePolicy="memory-disk"
+              transition={0}
               style={StyleSheet.absoluteFillObject}
               contentFit="cover"
               contentPosition={{

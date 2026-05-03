@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
+import { teacherAvatarCacheKey } from "@/utils/cacheKeys";
 
 const colors = {
   burgundy: {
@@ -111,7 +112,9 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage }}
-            cacheKey={event.teachers?.[0]?.avatarUpdatedAt ? `teacher-avatar-${event.teachers[0].abbreviation}-${event.teachers[0].avatarUpdatedAt}` : undefined}
+            cacheKey={event.teachers?.[0] ? teacherAvatarCacheKey(event.teachers[0]) : undefined}
+            cachePolicy="memory-disk"
+            transition={0}
             style={styles.featuredImage}
             contentFit="cover"
           />
@@ -206,7 +209,9 @@ function RecentEventCard({
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage }}
-            cacheKey={event.teachers?.[0]?.avatarUpdatedAt ? `teacher-avatar-${event.teachers[0].abbreviation}-${event.teachers[0].avatarUpdatedAt}` : undefined}
+            cacheKey={event.teachers?.[0] ? teacherAvatarCacheKey(event.teachers[0]) : undefined}
+            cachePolicy="memory-disk"
+            transition={0}
             style={styles.recentImage}
             contentFit="cover"
           />

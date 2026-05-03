@@ -5,6 +5,8 @@ import authService from '@/services/authService';
 import magicLinkService from '@/services/magicLinkService';
 import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
+import imagePrefetchService, { type PrefetchTarget } from '@/services/imagePrefetch';
+import { ImagePrewarmer } from '@/components/ImagePrewarmer';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -45,6 +47,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
     console.log(`[${timestamp}] 🔐 ${message}`, { ...platformInfo, ...data });
   };
+
+  // Hidden image prewarmer — see <ImagePrewarmer/> below. We collect every
+  // avatar/hero (uri, cacheKey) at app start (and again on auth change) and
+  // mount them as 1×1 hidden Image components so expo-image keeps the
+  // bitmaps in its memory cache for the whole session. Screens that
+  // request the same cacheKey then render instantly.
+  const [prewarmTargets, setPrewarmTargets] = useState<PrefetchTarget[]>([]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    let cancelled = false;
+    imagePrefetchService.resetCooldown();
+    imagePrefetchService
+      .collectAvatarsAndHeros({ isAuthenticated })
+      .then((targets) => {
+        if (cancelled || targets.length === 0) return;
+        setPrewarmTargets((prev) => {
+          // Merge with any existing targets so signing in adds groups
+          // without dropping the public-events targets we already warmed.
+          const merged = new Map(prev.map((t) => [t.cacheKey, t]));
+          for (const t of targets) merged.set(t.cacheKey, t);
+          return Array.from(merged.values());
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialized, isAuthenticated]);
 
   useEffect(() => {
     initializeAuth();
@@ -433,6 +464,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      <ImagePrewarmer targets={prewarmTargets} />
     </AuthContext.Provider>
   );
 }

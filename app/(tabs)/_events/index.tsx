@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
+import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 
 const colors = {
   burgundy: {
@@ -44,7 +45,9 @@ function TeacherRow({ teacher, onPress, t }: { teacher: TeacherGroup; onPress: (
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
             source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }}
-            cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined}
+            cacheKey={teacherAvatarCacheKey(teacher)}
+            cachePolicy="memory-disk"
+            transition={0}
             style={styles.teacherAvatarLargeImg}
             contentFit="cover"
           />
