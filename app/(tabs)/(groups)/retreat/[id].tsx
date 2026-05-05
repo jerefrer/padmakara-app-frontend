@@ -989,6 +989,11 @@ export default function RetreatDetailScreen() {
   const renderTrackList = (paddingBottom: number) => {
     let trackSessionId: string | null = null;
     let isFirstSession = true;
+    // Per-render counter: increments each time we draw a new session
+    // header. Used (only on event 655) to A/B/C-test three button styles
+    // for the "Watch video" affordance on the first three sessions.
+    let sessionIndex = -1;
+    const isWatchVideoPreviewEvent = String(id) === '655';
 
     // Lookup map for session-level data (notably bunnyVideoId so we can show
     // a "Watch video" button on sessions with an attached recording).
@@ -1114,9 +1119,25 @@ export default function RetreatDetailScreen() {
           if (showSessionHeader) {
             wasFirstSession = isFirstSession;
             isFirstSession = false;
+            sessionIndex += 1;
           }
           trackSessionId = track.sessionId;
           const sessionForHeader = showSessionHeader ? sessionsById.get(track.sessionId) ?? null : null;
+
+          // Pick which Watch Video button to render. On event 655 the
+          // first three sessions get variants A / B / C respectively so
+          // the user can compare them in context. Everywhere else falls
+          // back to the original solid button.
+          const watchVideoVariant: 'A' | 'B' | 'C' | 'default' =
+            isWatchVideoPreviewEvent && sessionIndex === 0 ? 'A'
+            : isWatchVideoPreviewEvent && sessionIndex === 1 ? 'B'
+            : isWatchVideoPreviewEvent && sessionIndex === 2 ? 'C'
+            : 'default';
+
+          const watchLabel = t('video.watchSessionVideo') || 'Watch video';
+          const watchDuration = sessionForHeader?.videoDurationSeconds
+            ? formatDuration(sessionForHeader.videoDurationSeconds)
+            : '';
 
           return (
             <React.Fragment key={track.id}>
@@ -1126,18 +1147,56 @@ export default function RetreatDetailScreen() {
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track)}
                   </Text>
-                  {sessionForHeader?.bunnyVideoId && (
+                  {sessionForHeader?.bunnyVideoId && watchVideoVariant === 'A' && (
+                    <TouchableOpacity
+                      style={styles.watchVideoLinkA}
+                      onPress={() => watchSessionVideo(sessionForHeader)}
+                      accessibilityLabel={watchLabel}
+                    >
+                      <Ionicons name="play" size={11} color={colors.burgundy[500]} />
+                      <Text style={styles.watchVideoLinkAText}>
+                        {watchLabel}{watchDuration ? ` · ${watchDuration}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {sessionForHeader?.bunnyVideoId && watchVideoVariant === 'B' && (
+                    <TouchableOpacity
+                      style={styles.watchVideoButtonB}
+                      onPress={() => watchSessionVideo(sessionForHeader)}
+                      accessibilityLabel={watchLabel}
+                    >
+                      <Ionicons name="play" size={13} color={colors.burgundy[500]} />
+                      <Text style={styles.watchVideoButtonBText}>
+                        {watchLabel}{watchDuration ? `  ·  ${watchDuration}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {sessionForHeader?.bunnyVideoId && watchVideoVariant === 'C' && (
+                    <TouchableOpacity
+                      style={styles.watchVideoRowC}
+                      onPress={() => watchSessionVideo(sessionForHeader)}
+                      accessibilityLabel={watchLabel}
+                    >
+                      <View style={styles.watchVideoCircleC}>
+                        <Ionicons name="play" size={14} color={colors.white} />
+                      </View>
+                      <View style={styles.watchVideoTextStackC}>
+                        <Text style={styles.watchVideoTitleC}>{watchLabel}</Text>
+                        {!!watchDuration && (
+                          <Text style={styles.watchVideoMetaC}>{watchDuration}</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  {sessionForHeader?.bunnyVideoId && watchVideoVariant === 'default' && (
                     <TouchableOpacity
                       style={styles.watchVideoButton}
                       onPress={() => watchSessionVideo(sessionForHeader)}
-                      accessibilityLabel={t('video.watchSessionVideo') || 'Watch session video'}
+                      accessibilityLabel={watchLabel}
                     >
                       <Ionicons name="play-circle" size={18} color={colors.white} />
                       <Text style={styles.watchVideoButtonText}>
-                        {t('video.watchSessionVideo') || 'Watch video'}
-                        {sessionForHeader.videoDurationSeconds
-                          ? ` · ${formatDuration(sessionForHeader.videoDurationSeconds)}`
-                          : ''}
+                        {watchLabel}{watchDuration ? ` · ${watchDuration}` : ''}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -1866,6 +1925,79 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 13,
     fontWeight: '600',
+  },
+
+  /* Variant A — editorial text link in burgundy italic Garamond. */
+  watchVideoLinkA: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  watchVideoLinkAText: {
+    fontFamily: 'EBGaramond_500Medium',
+    fontStyle: 'italic',
+    fontSize: 15,
+    color: colors.burgundy[500],
+  },
+
+  /* Variant B — outlined ghost button, small-caps title. */
+  watchVideoButtonB: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.burgundy[500],
+    backgroundColor: 'transparent',
+  },
+  watchVideoButtonBText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.burgundy[500],
+    fontVariant: ['small-caps'] as any,
+    letterSpacing: 0.6,
+  },
+
+  /* Variant C — icon-led row with stacked title + duration. */
+  watchVideoRowC: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  watchVideoCircleC: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.burgundy[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2, // optical-center the play triangle
+  },
+  watchVideoTextStackC: {
+    flexDirection: 'column',
+  },
+  watchVideoTitleC: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gray[700],
+    fontVariant: ['small-caps'] as any,
+    letterSpacing: 0.6,
+  },
+  watchVideoMetaC: {
+    marginTop: 1,
+    fontSize: 12,
+    color: colors.gray[500],
+    fontFamily: 'EBGaramond_400Regular',
   },
   trackItem: {
     flexDirection: 'row',
