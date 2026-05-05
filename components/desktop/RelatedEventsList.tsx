@@ -103,7 +103,17 @@ export function RelatedEventsList({
 
   const onPick = (eventId: string) => {
     if (String(eventId) === String(currentEventId)) return;
-    router.push(`/(tabs)/(groups)/retreat/${eventId}` as any);
+    // Teacher-driven lists mark navigation as the "events" flow so the
+    // left nav keeps Teachings & Talks active. Group-driven lists leave
+    // it unset so the Retreats item stays active.
+    if (teacherAbbreviation) {
+      router.push({
+        pathname: '/(tabs)/(groups)/retreat/[id]',
+        params: { id: String(eventId), from: 'events' },
+      } as any);
+    } else {
+      router.push(`/(tabs)/(groups)/retreat/${eventId}` as any);
+    }
   };
 
   return (

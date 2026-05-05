@@ -7,7 +7,16 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { colors } from '@/constants/colors';
 
-export function RightSidebar() {
+export type RightSidebarVariant = 'wide' | 'narrow';
+
+interface RightSidebarProps {
+  /** 'wide' is the default brand panel (logo + Padmakara title + name).
+   *  'narrow' collapses to a 64px rail used on the event detail screen
+   *  where horizontal space is at a premium. */
+  variant?: RightSidebarVariant;
+}
+
+export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
   const { clearTrack } = useAudioPlayerContext();
@@ -17,6 +26,7 @@ export function RightSidebar() {
   const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
 
   const isSettingsActive = pathname.includes('/settings');
+  const isNarrow = variant === 'narrow';
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -48,25 +58,36 @@ export function RightSidebar() {
 
   return (
     <View style={styles.container}>
-      {/* Logo only — title/subtitle removed for the narrow rail layout */}
-      <View style={styles.brandingSection}>
+      {/* Branding — wide shows logo + title; narrow shows just a small logo. */}
+      <View style={[styles.brandingSection, isNarrow && styles.brandingSectionNarrow]}>
         <Image
           source={require('@/assets/images/logo.png')}
-          style={styles.logo}
+          style={isNarrow ? styles.logoNarrow : styles.logo}
           resizeMode="contain"
         />
+        {!isNarrow && (
+          <>
+            <Text style={styles.title}>Padmakara</Text>
+            <Text style={styles.subtitle}>Ramo Lusófono</Text>
+          </>
+        )}
       </View>
 
       {/* Account section at bottom */}
       <View
-        style={styles.accountSection}
+        style={[styles.accountSection, isNarrow && styles.accountSectionNarrow]}
         // @ts-ignore
         dataSet={{ rightMenu: true }}
         data-right-menu="true"
       >
-        {/* Dropdown menu (opens upward) */}
+        {/* Dropdown menu (opens upward). In narrow mode it's anchored to
+            the right edge but expands leftward so the menu items aren't
+            clipped by the 64px rail. */}
         {menuOpen && (
-          <View style={styles.dropdownMenu} data-right-menu="true">
+          <View
+            style={[styles.dropdownMenu, isNarrow && styles.dropdownMenuNarrow]}
+            data-right-menu="true"
+          >
             <Pressable
               style={[
                 styles.menuItem,
@@ -113,7 +134,7 @@ export function RightSidebar() {
 
         {isAuthenticated && user ? (
           <Pressable
-            style={styles.userRow}
+            style={[styles.userRow, isNarrow && styles.userRowNarrow]}
             onPress={() => setMenuOpen(!menuOpen)}
             accessibilityRole="button"
             accessibilityLabel={user.name || 'Account'}
@@ -122,15 +143,23 @@ export function RightSidebar() {
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{getUserInitials()}</Text>
             </View>
+            {!isNarrow && (
+              <Text style={styles.userName} numberOfLines={1}>
+                {user.dharma_name || user.name}
+              </Text>
+            )}
           </Pressable>
         ) : (
           <Pressable
-            style={styles.loginRow}
+            style={[styles.loginRow, isNarrow && styles.loginRowNarrow]}
             onPress={() => router.push('/(auth)/magic-link' as any)}
             accessibilityRole="link"
             accessibilityLabel="Login"
           >
-            <Ionicons name="person-outline" size={18} color={colors.white} />
+            <Ionicons name="person-outline" size={isNarrow ? 18 : 16} color={colors.white} />
+            {!isNarrow && (
+              <Text style={styles.loginText}>{t('common.login') || 'Login'}</Text>
+            )}
           </Pressable>
         )}
       </View>
@@ -152,25 +181,57 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingHorizontal: 20,
   },
+  brandingSectionNarrow: {
+    paddingHorizontal: 12,
+  },
   logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
+    tintColor: 'rgba(255,255,255,0.85)',
+  },
+  logoNarrow: {
     width: 36,
     height: 36,
-    // Tint white for the dharma wheel on burgundy background
     tintColor: 'rgba(255,255,255,0.85)',
+  },
+  title: {
+    fontSize: 22,
+    fontFamily: 'EBGaramond_400Regular',
+    color: colors.white,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginTop: 4,
+    textAlign: 'center',
   },
 
   /* Account */
   accountSection: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingBottom: 16,
     position: 'relative',
+  },
+  accountSectionNarrow: {
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   userRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 6,
+    padding: 8,
     borderRadius: 8,
+  },
+  userRowNarrow: {
+    flexDirection: 'column',
+    padding: 6,
   },
   avatar: {
     width: 28,
@@ -185,11 +246,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
+  userName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.white,
+    marginLeft: 10,
+    flex: 1,
+  },
   loginRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 6,
+    padding: 8,
     borderRadius: 8,
+  },
+  loginRowNarrow: {
+    padding: 6,
+  },
+  loginText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.burgundy[50],
+    marginLeft: 10,
   },
 
   /* Dropdown menu */
@@ -208,6 +285,13 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
     zIndex: 100,
+  },
+  // Narrow rail can't fit a 200px menu, so anchor to the right edge of
+  // the rail and let the menu extend leftward into the main content.
+  dropdownMenuNarrow: {
+    left: undefined as any,
+    right: 8,
+    width: 200,
   },
   menuItem: {
     flexDirection: 'row',

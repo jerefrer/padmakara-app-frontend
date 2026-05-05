@@ -7,13 +7,21 @@ import { colors } from '@/constants/colors';
 interface DesktopShellProps {
   sidebar: ReactNode;
   rightSidebar?: ReactNode;
+  /** Width of the right rail in pixels. Defaults to the wide brand
+   *  panel; pass 64 on screens that need to maximize content width. */
+  rightSidebarWidth?: number;
   children: ReactNode;
   playerBar?: ReactNode;
 }
 
-export function DesktopShell({ sidebar, rightSidebar, children, playerBar }: DesktopShellProps) {
+export function DesktopShell({
+  sidebar,
+  rightSidebar,
+  rightSidebarWidth = 220,
+  children,
+  playerBar,
+}: DesktopShellProps) {
   const { sidebarWidth, playerBarHeight } = useDesktopLayout();
-  const rightSidebarWidth = 64;
 
   // Activate keyboard shortcuts for audio playback on web
   useKeyboardShortcuts();
@@ -70,7 +78,9 @@ export function DesktopShell({ sidebar, rightSidebar, children, playerBar }: Des
             Platform.OS === 'web' && ({
               gridColumn: '3',
               gridRow: '1',
-              overflow: 'auto' as any,
+              // overflow: 'visible' so the account dropdown menu can
+              // extend leftward past the rail edge in narrow mode.
+              overflow: 'visible' as any,
             } as any),
           ]}
         >

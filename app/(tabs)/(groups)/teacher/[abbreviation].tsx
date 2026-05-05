@@ -244,7 +244,7 @@ export default function TeacherDetailScreen() {
               <TouchableOpacity
                 key={event.id}
                 style={styles.eventCard}
-                onPress={() => router.push(`/(tabs)/(groups)/retreat/${event.id}` as any)}
+                onPress={() => router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: String(event.id), from: 'events' } } as any)}
               >
                 <Text style={styles.eventTitle}>{eventTitle}</Text>
                 {statsParts.length > 0 && (

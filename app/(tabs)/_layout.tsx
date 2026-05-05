@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useSegments } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,13 @@ export const unstable_settings = {
 export default function TabLayout() {
   const { t } = useLanguage();
   const { isMobile } = useDesktopLayout();
+  const segments = useSegments() as string[];
+  // The right rail collapses to a 64px strip only on the event-detail
+  // screen. Everywhere else it's the wide brand panel.
+  const isOnEventDetail =
+    segments.includes('(groups)') && segments.includes('retreat');
+  const rightVariant = isOnEventDetail ? 'narrow' : 'wide';
+  const rightWidth = isOnEventDetail ? 64 : 220;
 
   const tabsElement = (
     <Tabs
@@ -95,7 +102,12 @@ export default function TabLayout() {
 
   return (
     <SidebarNavigationProvider>
-      <DesktopShell sidebar={<Sidebar />} rightSidebar={<RightSidebar />} playerBar={<DesktopPlayerBar />}>
+      <DesktopShell
+        sidebar={<Sidebar />}
+        rightSidebar={<RightSidebar variant={rightVariant} />}
+        rightSidebarWidth={rightWidth}
+        playerBar={<DesktopPlayerBar />}
+      >
         {tabsElement}
       </DesktopShell>
     </SidebarNavigationProvider>
