@@ -6,9 +6,10 @@ import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -70,14 +71,41 @@ export function DesktopPlayerBar() {
   // Only play button enabled for idle track (others need actual audio)
   const controlsDisabled = !hasTrack;
 
+  // Thin progress ring around the play button — only paints when loading
+  // exceeds 300ms so fast cache hits stay flicker-free.
+  const [showLoadingRing, setShowLoadingRing] = useState(false);
+  useEffect(() => {
+    if (!isLoading) {
+      setShowLoadingRing(false);
+      return;
+    }
+    const tm = setTimeout(() => setShowLoadingRing(true), 300);
+    return () => clearTimeout(tm);
+  }, [isLoading]);
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!showLoadingRing) {
+      spinAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showLoadingRing, spinAnim]);
+  const ringRotation = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
       <View style={styles.container}>
-        {/* Loading overlay */}
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color={colors.burgundy[500]} />
-          </View>
-        )}
 
         {/* Left zone: track info */}
         <View style={styles.leftZone}>
@@ -116,48 +144,58 @@ export function DesktopPlayerBar() {
               />
             </TouchableOpacity>
 
-            {/* Skip backward 15s */}
+            {/* Skip backward 15s — interactive once a real track is loaded;
+                during the brief loading phase the tap is ignored. */}
             <TouchableOpacity
               onPress={skipBackward}
-              style={[styles.skipButton, (controlsDisabled || isPlayButtonDisabled) && styles.transportDisabled]}
-              disabled={controlsDisabled || isPlayButtonDisabled}
+              style={[styles.skipButton, controlsDisabled && styles.transportDisabled]}
+              disabled={controlsDisabled}
             >
               <RotateLeftThinIcon
                 size={24}
-                color={(controlsDisabled || isPlayButtonDisabled) ? colors.gray[400] : colors.gray[600]}
+                color={controlsDisabled ? colors.gray[400] : colors.gray[600]}
                 strokeWidth={1.5}
               />
-              <Text style={[styles.skipNumber, (controlsDisabled || isPlayButtonDisabled) && styles.skipNumberDisabled]}>
+              <Text style={[styles.skipNumber, controlsDisabled && styles.skipNumberDisabled]}>
                 15
               </Text>
             </TouchableOpacity>
 
-            {/* Play / Pause */}
-            <TouchableOpacity
-              onPress={hasIdleTrack ? resumeLastPlayed : togglePlayPause}
-              style={[styles.playButton, (allDisabled || (!hasIdleTrack && isPlayButtonDisabled)) && styles.playButtonDisabled]}
-              disabled={allDisabled || (!hasIdleTrack && isPlayButtonDisabled)}
-            >
-              <Ionicons
-                name={isPlaying ? 'pause' : 'play'}
-                size={22}
-                color={colors.white}
-                style={!isPlaying ? styles.playIconOffset : undefined}
-              />
-            </TouchableOpacity>
+            {/* Play / Pause — wrapped so the optional loading ring sits
+                concentric with the button. */}
+            <View style={styles.playButtonWrapper}>
+              {showLoadingRing && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.loadingRing, { transform: [{ rotate: ringRotation }] }]}
+                />
+              )}
+              <TouchableOpacity
+                onPress={hasIdleTrack ? resumeLastPlayed : togglePlayPause}
+                style={[styles.playButton, allDisabled && styles.playButtonDisabled]}
+                disabled={allDisabled}
+              >
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={22}
+                  color={colors.white}
+                  style={!isPlaying ? styles.playIconOffset : undefined}
+                />
+              </TouchableOpacity>
+            </View>
 
             {/* Skip forward 15s */}
             <TouchableOpacity
               onPress={skipForward}
-              style={[styles.skipButton, (controlsDisabled || isPlayButtonDisabled) && styles.transportDisabled]}
-              disabled={controlsDisabled || isPlayButtonDisabled}
+              style={[styles.skipButton, controlsDisabled && styles.transportDisabled]}
+              disabled={controlsDisabled}
             >
               <RotateRightThinIcon
                 size={24}
-                color={(controlsDisabled || isPlayButtonDisabled) ? colors.gray[400] : colors.gray[600]}
+                color={controlsDisabled ? colors.gray[400] : colors.gray[600]}
                 strokeWidth={1.5}
               />
-              <Text style={[styles.skipNumber, (controlsDisabled || isPlayButtonDisabled) && styles.skipNumberDisabled]}>
+              <Text style={[styles.skipNumber, controlsDisabled && styles.skipNumberDisabled]}>
                 15
               </Text>
             </TouchableOpacity>
@@ -176,7 +214,8 @@ export function DesktopPlayerBar() {
             </TouchableOpacity>
           </View>
 
-          {/* Slider + time */}
+          {/* Slider + time — interactive whenever a real track is loaded;
+              gray only when there is no track at all. */}
           <View style={styles.sliderRow}>
             <Text style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}>{formatTime(displayPosition)}</Text>
             <Slider
@@ -200,10 +239,10 @@ export function DesktopPlayerBar() {
         <View style={styles.rightZone}>
           <TouchableOpacity
             onPress={changePlaybackSpeed}
-            style={[styles.speedButton, (controlsDisabled || isPlayButtonDisabled) && styles.speedButtonDisabled]}
-            disabled={controlsDisabled || isPlayButtonDisabled}
+            style={[styles.speedButton, controlsDisabled && styles.speedButtonDisabled]}
+            disabled={controlsDisabled}
           >
-            <Text style={[styles.speedText, (controlsDisabled || isPlayButtonDisabled) && styles.speedTextDisabled]}>
+            <Text style={[styles.speedText, controlsDisabled && styles.speedTextDisabled]}>
               {playbackSpeed}x
             </Text>
           </TouchableOpacity>
@@ -301,6 +340,12 @@ const styles = StyleSheet.create({
   skipNumberDisabled: {
     color: colors.gray[400],
   },
+  playButtonWrapper: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   playButton: {
     backgroundColor: colors.burgundy[500],
     borderRadius: 18,
@@ -314,6 +359,15 @@ const styles = StyleSheet.create({
   },
   playIconOffset: {
     marginLeft: 2,
+  },
+  loadingRing: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderTopColor: colors.burgundy[500],
   },
   sliderRow: {
     flexDirection: 'row',

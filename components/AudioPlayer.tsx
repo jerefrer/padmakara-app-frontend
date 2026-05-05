@@ -4,8 +4,8 @@ import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import React from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = {
@@ -54,6 +54,15 @@ interface AudioPlayerProps {
   bottom?: number;
 }
 
+/**
+ * Optimistic audio player UI:
+ *   - Slider, play, skip, and speed are always interactive while a track
+ *     is loaded. Tapping play during the loading phase is acknowledged
+ *     immediately (icon flips, playback starts as soon as audio is ready).
+ *   - The only loading affordance is a thin spinning ring around the play
+ *     button, and it only appears if loading takes longer than a quick
+ *     beat — so the typical fast cache hit shows no spinner at all.
+ */
 export function AudioPlayer({
   onLanguagePress,
   onReadPress,
@@ -74,7 +83,6 @@ export function AudioPlayer({
     duration,
     playbackSpeed,
     isLoading,
-    isPlayButtonDisabled,
     togglePlayPause,
     skipForward,
     skipBackward,
@@ -88,14 +96,51 @@ export function AudioPlayer({
     onSliderValueChange,
   } = useAudioPlayerContext();
 
+  // Show a thin progress ring around the play button only when loading
+  // exceeds 300ms — fast cache hits never paint a spinner, while slower
+  // network loads still get visible feedback.
+  const [showLoadingRing, setShowLoadingRing] = useState(false);
+  useEffect(() => {
+    if (!isLoading) {
+      setShowLoadingRing(false);
+      return;
+    }
+    const t = setTimeout(() => setShowLoadingRing(true), 300);
+    return () => clearTimeout(t);
+  }, [isLoading]);
+
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!showLoadingRing) {
+      spinAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showLoadingRing, spinAnim]);
+
+  const ringRotation = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   if (!currentTrack) {
     return null;
   }
 
   return (
     <View style={[styles.container, { bottom: bottomOffset }]}>
-      {/* Progress bar — disabled & visually muted while loading so the thumb
-          doesn't appear half-rendered over the dimmed player. */}
+      {/* Progress bar — always interactive. While loading, position
+          reflects the saved/seek-to target so the thumb sits where the
+          user expects it before audio is even buffered. */}
       <View style={styles.progressContainer}>
         <Slider
           style={styles.progressBar}
@@ -105,10 +150,9 @@ export function AudioPlayer({
           onSlidingStart={onSlidingStart}
           onSlidingComplete={onSlidingComplete}
           onValueChange={onSliderValueChange}
-          minimumTrackTintColor={isPlayButtonDisabled ? colors.gray[200] : colors.burgundy[500]}
+          minimumTrackTintColor={colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[200]}
-          thumbTintColor={isPlayButtonDisabled ? colors.gray[200] : colors.burgundy[500]}
-          disabled={isPlayButtonDisabled}
+          thumbTintColor={colors.burgundy[500]}
         />
       </View>
 
@@ -127,44 +171,33 @@ export function AudioPlayer({
           </TouchableOpacity>
 
           {/* -10s button */}
-          <TouchableOpacity
-            onPress={skipBackward}
-            style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
-            disabled={isPlayButtonDisabled}
-          >
-            <RotateLeftThinIcon
-              size={28}
-              color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-              strokeWidth={1.5}
-            />
-            <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>10</Text>
+          <TouchableOpacity onPress={skipBackward} style={styles.circularSkipButton}>
+            <RotateLeftThinIcon size={28} color={colors.gray[700]} strokeWidth={1.5} />
+            <Text style={styles.skipNumber}>10</Text>
           </TouchableOpacity>
 
-          {/* Play/Pause button */}
-          <TouchableOpacity
-            onPress={togglePlayPause}
-            style={[styles.playButton, isPlayButtonDisabled && styles.playButtonDisabled]}
-            disabled={isPlayButtonDisabled}
-          >
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={28}
-              color={colors.gray[800]}
-            />
-          </TouchableOpacity>
+          {/* Play/Pause button — wrapped so we can overlay a thin loading
+              ring without offsetting the icon. */}
+          <View style={styles.playButtonWrapper}>
+            {showLoadingRing && (
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.loadingRing, { transform: [{ rotate: ringRotation }] }]}
+              />
+            )}
+            <TouchableOpacity onPress={togglePlayPause} style={styles.playButton}>
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={28}
+                color={colors.gray[800]}
+              />
+            </TouchableOpacity>
+          </View>
 
           {/* +10s button */}
-          <TouchableOpacity
-            onPress={skipForward}
-            style={[styles.circularSkipButton, isPlayButtonDisabled && styles.controlDisabled]}
-            disabled={isPlayButtonDisabled}
-          >
-            <RotateRightThinIcon
-              size={28}
-              color={isPlayButtonDisabled ? colors.gray[400] : colors.gray[700]}
-              strokeWidth={1.5}
-            />
-            <Text style={[styles.skipNumber, isPlayButtonDisabled && styles.skipNumberDisabled]}>10</Text>
+          <TouchableOpacity onPress={skipForward} style={styles.circularSkipButton}>
+            <RotateRightThinIcon size={28} color={colors.gray[700]} strokeWidth={1.5} />
+            <Text style={styles.skipNumber}>10</Text>
           </TouchableOpacity>
 
           {/* Next track */}
@@ -192,15 +225,9 @@ export function AudioPlayer({
           <Text style={styles.toolbarLabel}>{t('player.bookmark') || 'bookmark'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={changePlaybackSpeed}
-          style={styles.toolbarButton}
-          disabled={isPlayButtonDisabled}
-        >
-          <Text style={[styles.speedValue, isPlayButtonDisabled && styles.toolbarLabelDisabled]}>x{playbackSpeed}</Text>
-          <Text style={[styles.toolbarLabel, isPlayButtonDisabled && styles.toolbarLabelDisabled]}>
-            {t('player.speed') || 'speed'}
-          </Text>
+        <TouchableOpacity style={styles.toolbarButton} onPress={changePlaybackSpeed}>
+          <Text style={styles.speedValue}>x{playbackSpeed}</Text>
+          <Text style={styles.toolbarLabel}>{t('player.speed') || 'speed'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.toolbarButton} onPress={onReadPress}>
@@ -213,16 +240,12 @@ export function AudioPlayer({
           <Text style={styles.toolbarLabel}>{languageLabel || t('player.language') || 'En + Pt'}</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Loading Overlay */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color={colors.burgundy[500]} />
-        </View>
-      )}
     </View>
   );
 }
+
+const PLAY_BUTTON_SIZE = 44;
+const RING_SIZE = PLAY_BUTTON_SIZE + 8;
 
 const styles = StyleSheet.create({
   container: {
@@ -274,12 +297,27 @@ const styles = StyleSheet.create({
   controlDisabled: {
     opacity: 0.4,
   },
-  playButton: {
-    padding: 6,
+  playButtonWrapper: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 4,
   },
-  playButtonDisabled: {
-    opacity: 0.4,
+  playButton: {
+    width: PLAY_BUTTON_SIZE,
+    height: PLAY_BUTTON_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingRing: {
+    position: 'absolute',
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderTopColor: colors.burgundy[500],
   },
   circularSkipButton: {
     width: 36,
@@ -295,9 +333,6 @@ const styles = StyleSheet.create({
     color: colors.gray[700],
     textAlign: 'center',
     position: 'absolute',
-  },
-  skipNumberDisabled: {
-    color: colors.gray[400],
   },
 
   // Track info
@@ -330,24 +365,9 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
     marginTop: 2,
   },
-  toolbarLabelDisabled: {
-    opacity: 0.4,
-  },
   speedValue: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.gray[700],
-  },
-
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
   },
 });

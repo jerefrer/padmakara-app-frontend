@@ -157,6 +157,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [targetPosition, setTargetPosition] = useState(0);
   const [userScrubValue, setUserScrubValue] = useState<number | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  // Optimistic play state: when the user taps play during the loading
+  // phase (or before audio is ready), we acknowledge the intent
+  // immediately by flipping isPlaying to true in the UI, and trigger
+  // the actual player.play() as soon as phase becomes 'ready'.
+  const [pendingPlay, setPendingPlay] = useState(false);
 
   const player = useAudioPlayer(audioSource);
   const status = useAudioPlayerStatus(player);
@@ -183,7 +188,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
 
   // ─── Derived values ───
-  const isPlaying = !!status?.playing;
+  // isPlaying reflects optimistic intent: if the user tapped play before
+  // audio was ready, the UI shows the pause icon and the playing-bars
+  // animation right away, even though the underlying engine is still
+  // buffering.
+  const isPlaying = !!status?.playing || (phase !== 'ready' && pendingPlay);
   const duration = status?.duration || track?.duration || 0;
 
   // Position display priority:
@@ -199,7 +208,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       : targetPosition;
 
   const isLoading = phase === 'loading';
-  const isPlayButtonDisabled = phase !== 'ready';
+  // Optimistic play UX: the play button is interactive whenever there is
+  // any track to play (loaded or idle). A loading state no longer locks
+  // it — the tap is queued and fires as soon as the audio is ready.
+  // Skip ±15s and speed change still need a ready engine to act on; the
+  // mobile/desktop player bars gate those separately.
+  const isPlayButtonDisabled = !track && !idleTrack;
 
   // ─── Audio session (mount once) ───
   useEffect(() => {
@@ -294,6 +308,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setUserScrubValue(null);
     lastSavedSecondRef.current = -1;
     hasCompletedRef.current = false;
+    setPendingPlay(false);
 
     // Stop any audio that may already be playing from a previous track —
     // we don't want overlap during the brief moment the new source is
@@ -377,6 +392,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setPhase('ready');
     })();
   }, [phase, track, audioSource, status?.isLoaded, player, targetPosition, playbackSpeed]);
+
+  // ─── Fire any queued play when audio becomes ready ───
+  // Optimistic play: if the user tapped play during loading (or while idle),
+  // pendingPlay is true; the moment phase flips to 'ready', start playback.
+  useEffect(() => {
+    if (phase !== 'ready' || !pendingPlay || !player) return;
+    setPendingPlay(false);
+    try { player.play(); } catch (error) {
+      console.error('pendingPlay play() failed:', error);
+    }
+  }, [phase, pendingPlay, player]);
 
   // ─── Progress save + completion detection during playback ───
   useEffect(() => {
@@ -498,6 +524,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const resumeLastPlayed = useCallback(() => {
     if (!idleTrack) return;
+    setPendingPlay(true);
     const { track: idleT, meta } = idleTrack;
     playTrack(idleT, [idleT], 0, meta || undefined);
   }, [idleTrack, playTrack]);
@@ -514,14 +541,33 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [player]);
 
   const togglePlayPause = useCallback(() => {
-    if (phase !== 'ready' || !player) return;
-    try {
-      if (isPlaying) player.pause();
-      else player.play();
-    } catch (error) {
-      console.error('togglePlayPause error:', error);
+    // Idle: there's a saved last-played track but no audio loaded. Mark
+    // play as pending and resume the track; once it loads, playback will
+    // start automatically.
+    if (phase === 'idle' && idleTrack) {
+      setPendingPlay(true);
+      const { track: idleT, meta } = idleTrack;
+      playTrack(idleT, [idleT], 0, meta || undefined);
+      return;
     }
-  }, [phase, player, isPlaying]);
+    // Loading: the audio engine isn't ready yet. Toggle the optimistic
+    // pending flag — UI updates immediately, real play() is fired by the
+    // phase→ready effect.
+    if (phase === 'loading') {
+      setPendingPlay((p) => !p);
+      return;
+    }
+    // Ready: drive the engine directly.
+    if (phase === 'ready' && player) {
+      try {
+        if (status?.playing) player.pause();
+        else player.play();
+      } catch (error) {
+        console.error('togglePlayPause error:', error);
+      }
+      setPendingPlay(false);
+    }
+  }, [phase, player, status?.playing, idleTrack, playTrack]);
 
   const seekTo = useCallback((positionMs: number) => {
     if (phase !== 'ready' || !player) return;
