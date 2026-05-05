@@ -259,7 +259,7 @@ export default function RetreatsListScreen() {
           {/* Title with back button */}
           <View style={[styles.titleRow, isDesktop && styles.desktopTitleRow]}>
             <TouchableOpacity
-              onPress={() => router.navigate('/(tabs)/(groups)' as any)}
+              onPress={() => router.back()}
               style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />

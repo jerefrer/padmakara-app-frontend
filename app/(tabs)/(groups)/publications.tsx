@@ -399,7 +399,7 @@ export default function PublicationsScreen() {
         <View style={[styles.header, isDesktop && styles.desktopHeader]}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.navigate('/(tabs)/(groups)' as any)}
+            onPress={() => router.back()}
           >
             <Ionicons
               name="arrow-back"
