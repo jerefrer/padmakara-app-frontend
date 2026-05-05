@@ -48,15 +48,13 @@ export function RightSidebar() {
 
   return (
     <View style={styles.container}>
-      {/* Logo and branding */}
+      {/* Logo only — title/subtitle removed for the narrow rail layout */}
       <View style={styles.brandingSection}>
         <Image
           source={require('@/assets/images/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.title}>Padmakara</Text>
-        <Text style={styles.subtitle}>Ramo Lusófono</Text>
       </View>
 
       {/* Account section at bottom */}
@@ -124,9 +122,6 @@ export function RightSidebar() {
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{getUserInitials()}</Text>
             </View>
-            <Text style={styles.userName} numberOfLines={1}>
-              {user.dharma_name || user.name}
-            </Text>
           </Pressable>
         ) : (
           <Pressable
@@ -135,10 +130,7 @@ export function RightSidebar() {
             accessibilityRole="link"
             accessibilityLabel="Login"
           >
-            <Ionicons name="person-outline" size={16} color={colors.white} />
-            <Text style={styles.loginText}>
-              {t('common.login') || 'Login'}
-            </Text>
+            <Ionicons name="person-outline" size={18} color={colors.white} />
           </Pressable>
         )}
       </View>
@@ -161,40 +153,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
+    width: 36,
+    height: 36,
     // Tint white for the dharma wheel on burgundy background
     tintColor: 'rgba(255,255,255,0.85)',
-  },
-  title: {
-    fontSize: 22,
-    fontFamily: 'EBGaramond_400Regular',
-    color: colors.white,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginTop: 4,
-    textAlign: 'center',
   },
 
   /* Account */
   accountSection: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingBottom: 16,
     position: 'relative',
+    alignItems: 'center',
   },
   userRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    justifyContent: 'center',
+    padding: 6,
     borderRadius: 8,
   },
   avatar: {
@@ -210,24 +185,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
-  userName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.white,
-    marginLeft: 10,
-    flex: 1,
-  },
   loginRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    justifyContent: 'center',
+    padding: 6,
     borderRadius: 8,
-  },
-  loginText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.burgundy[50],
-    marginLeft: 10,
   },
 
   /* Dropdown menu */

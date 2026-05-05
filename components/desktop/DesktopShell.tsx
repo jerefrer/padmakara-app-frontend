@@ -13,7 +13,7 @@ interface DesktopShellProps {
 
 export function DesktopShell({ sidebar, rightSidebar, children, playerBar }: DesktopShellProps) {
   const { sidebarWidth, playerBarHeight } = useDesktopLayout();
-  const rightSidebarWidth = 220;
+  const rightSidebarWidth = 64;
 
   // Activate keyboard shortcuts for audio playback on web
   useKeyboardShortcuts();

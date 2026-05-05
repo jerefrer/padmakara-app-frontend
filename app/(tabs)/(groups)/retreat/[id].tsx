@@ -27,6 +27,7 @@ import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
+import { RelatedEventsList } from '@/components/desktop/RelatedEventsList';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
@@ -976,7 +977,10 @@ export default function RetreatDetailScreen() {
     // (which are not attached to any retreat group) still get a portrait.
     const groupHero = retreat?.retreat_group?.heroUrl ?? null;
     const teacherHero = retreat?.teachers?.[0]?.heroUrl ?? null;
-    const heroSource = !isDesktop ? (groupHero ?? teacherHero) : null;
+    // Show the hero on both mobile and desktop now — desktop renders the
+    // event content (hero + title + tracks) in the right pane just like
+    // mobile, so the hero applies there too.
+    const heroSource = groupHero ?? teacherHero;
     const heroFocalX = groupHero
       ? (retreat?.retreat_group?.heroFocalX ?? 50)
       : (retreat?.teachers?.[0]?.heroFocalX ?? 50);
@@ -1065,9 +1069,10 @@ export default function RetreatDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Event title block — sits below the hero, replacing the title that
-            used to live in the fixed top bar. */}
-        {!isDesktop && (
+        {/* Event title block — sits below the hero on both mobile and
+            desktop. On mobile it replaces the title that used to live in
+            the fixed top bar; on desktop it's the main event header. */}
+        {(
           <View style={styles.eventTitleSection}>
             <Text style={styles.eventTitleText}>{titleText}</Text>
             {speakersText ? (
@@ -1332,16 +1337,32 @@ export default function RetreatDetailScreen() {
         </>
       )}
 
-      {/* Main content: desktop master-detail split vs mobile single column */}
+      {/* Main content. Desktop: 3-pane (related events list | event content
+          | right rail mounted by DesktopShell). Mobile: single column with
+          the AudioPlayer floating at the bottom. */}
       {isDesktop ? (
         <View style={styles.masterDetailContainer}>
-          {/* Master: Track list (40%) */}
-          <View style={styles.masterPanel}>
-            {renderTrackList(24)}
+          {/* Master: list of other events for the same teacher / group */}
+          <View style={styles.desktopRelatedPanel}>
+            <RelatedEventsList
+              currentEventId={String(retreat.id)}
+              teacherAbbreviation={retreat.teachers?.[0]?.abbreviation ?? null}
+              groupId={retreat.retreat_group?.id ? String(retreat.retreat_group.id) : null}
+              headerTitle={
+                retreat.teachers?.[0]?.name
+                  || (retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : '')
+              }
+              headerSubtitle={
+                retreat.teachers?.[0]
+                  ? `${t('events.teachings') || 'Teachings & Talks'}`
+                  : undefined
+              }
+            />
           </View>
-          {/* Detail panel (60%) */}
-          <View style={styles.detailPanel}>
-            <TrackDetailPanel retreat={retreat} currentTrack={currentTrack} />
+          {/* Detail: event content (hero + title + tracks), reusing the
+              same renderer as mobile so the two layouts stay in sync. */}
+          <View style={styles.desktopEventContent}>
+            {renderTrackList(24)}
           </View>
         </View>
       ) : (
@@ -1938,11 +1959,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
     marginHorizontal: 16,
   },
-  // Desktop master-detail layout
+  // Desktop layout: list of related events on the left, event content on
+  // the right. The narrow right rail (logo + account initial) is mounted
+  // by DesktopShell at the app level, not here.
   masterDetailContainer: {
     flex: 1,
     flexDirection: 'row' as const,
   },
+  desktopRelatedPanel: {
+    width: 320,
+    flexShrink: 0,
+  },
+  desktopEventContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  // Kept around in case any code still references them — both the old
+  // master/detail and the new layout share the same outer container.
   masterPanel: {
     flex: 0.4,
     borderRightWidth: 1,
