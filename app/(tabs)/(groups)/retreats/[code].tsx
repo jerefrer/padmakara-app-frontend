@@ -448,7 +448,7 @@ export default function GroupDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, !hasHero && { paddingTop: insets.top }]}>
         <Animated.ScrollView
           style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
           onScroll={scrollHandler}
