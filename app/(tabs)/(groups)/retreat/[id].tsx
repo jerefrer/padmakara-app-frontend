@@ -1186,33 +1186,17 @@ export default function RetreatDetailScreen() {
             isFirstSession = false;
           }
           trackSessionId = track.sessionId;
-          const sessionForHeader = showSessionHeader ? sessionsById.get(track.sessionId) ?? null : null;
-
-          const watchLabel = t('video.watchSessionVideo') || 'Watch video';
-          const watchDuration = sessionForHeader?.videoDurationSeconds
-            ? formatDuration(sessionForHeader.videoDurationSeconds)
-            : '';
 
           return (
             <React.Fragment key={track.id}>
-              {/* Session Header */}
+              {/* Session Header. The "Watch video" link used to live here
+                  but the dedicated Video tab now provides that
+                  affordance, so the header is text-only. */}
               {showSessionHeader && (
                 <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track)}
                   </Text>
-                  {sessionForHeader?.bunnyVideoId && (
-                    <TouchableOpacity
-                      style={styles.watchVideoLink}
-                      onPress={() => watchSessionVideo(sessionForHeader)}
-                      accessibilityLabel={watchLabel}
-                    >
-                      <Ionicons name="play" size={11} color={colors.burgundy[500]} />
-                      <Text style={styles.watchVideoLinkText}>
-                        {watchLabel}{watchDuration ? ` · ${watchDuration}` : ''}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               )}
 
@@ -1953,21 +1937,6 @@ const styles = StyleSheet.create({
     color: colors.burgundy[500],
   },
 
-  // Editorial text link — small play glyph + burgundy italic Garamond.
-  watchVideoLink: {
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingVertical: 4,
-  },
-  watchVideoLinkText: {
-    fontFamily: 'EBGaramond_500Medium',
-    fontStyle: 'italic',
-    fontSize: 15,
-    color: colors.burgundy[500],
-  },
   trackItem: {
     flexDirection: 'row',
     alignItems: 'center',
