@@ -317,7 +317,14 @@
     "pageCount": "{count} pages",
     "noPublications": "No publications available",
     "open": "Open",
-    "authors": "Authors"
+    "authors": "Authors",
+    "newVersion": {
+      "available": "New version available",
+      "label": "Version {version}",
+      "update": "Update",
+      "updating": "Updating...",
+      "dismiss": "Later"
+    }
   },
   "privacy": {
     "title": "Privacy Policy",

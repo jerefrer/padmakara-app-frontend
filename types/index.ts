@@ -212,6 +212,7 @@ export interface Publication {
   language: string;
   pageCount: number | null;
   publicationDate: string | null;
+  version: string | null;
   fileSizeBytes: number | null;
   accessLevel: 'public' | 'subscribers';
   updatedAt: string;

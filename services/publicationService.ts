@@ -18,13 +18,17 @@ const POSITION_KEY_PREFIX = '@publication_position:';
 interface PublicationCacheEntry {
   publicationId: string;
   updatedAt: string;
+  version: string | null;
   filePath: string;
   fileSize: number;
   cachedAt: string;
 }
 
 // Web-only in-memory cache
-const webCache = new Map<string, { blobUrl: string; updatedAt: string }>();
+const webCache = new Map<
+  string,
+  { blobUrl: string; updatedAt: string; version: string | null }
+>();
 
 class PublicationService {
   private isWeb = Platform.OS === 'web';
@@ -74,21 +78,15 @@ class PublicationService {
   }
 
   /**
-   * Get cached PDF URL if available and fresh.
-   * Returns file:// URI (native) or blob: URL (web), or null if not cached/stale.
+   * Get cached PDF URL if available. Returns the cached file even if a newer
+   * version exists on the server — the UI is responsible for offering the
+   * user the choice to update via a "new version available" banner.
+   * Returns file:// URI (native) or blob: URL (web), or null if not cached.
    */
-  async getCachedPdf(publicationId: string, updatedAt: string): Promise<string | null> {
+  async getCachedPdf(publicationId: string): Promise<string | null> {
     if (this.isWeb) {
       const entry = webCache.get(publicationId);
-      if (entry && entry.updatedAt === updatedAt) {
-        return entry.blobUrl;
-      }
-      // Stale — revoke old blob URL
-      if (entry) {
-        URL.revokeObjectURL(entry.blobUrl);
-        webCache.delete(publicationId);
-      }
-      return null;
+      return entry ? entry.blobUrl : null;
     }
 
     // Native
@@ -97,15 +95,7 @@ class PublicationService {
       const metadata = await this.getCacheMetadata();
       const entry = metadata[publicationId];
 
-      if (!entry || entry.updatedAt !== updatedAt) {
-        // Stale or missing — clean up old file if exists
-        if (entry) {
-          await FileSystem.deleteAsync(entry.filePath, { idempotent: true }).catch(() => {});
-          delete metadata[publicationId];
-          await this.saveCacheMetadata(metadata);
-        }
-        return null;
-      }
+      if (!entry) return null;
 
       // Verify file still exists
       const info = await FileSystem.getInfoAsync(entry.filePath);
@@ -123,11 +113,29 @@ class PublicationService {
   }
 
   /**
+   * Return the cached version string for a publication, or null if not cached.
+   * Used by the UI to detect when the server has a newer version.
+   */
+  async getCachedVersion(publicationId: string): Promise<string | null> {
+    if (this.isWeb) {
+      return webCache.get(publicationId)?.version ?? null;
+    }
+    try {
+      const metadata = await this.getCacheMetadata();
+      return metadata[publicationId]?.version ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Download and cache a publication PDF. Returns the local URL to use for viewing.
+   * If a previous version is cached, it is overwritten.
    */
   async downloadAndCachePdf(
     publicationId: string,
     updatedAt: string,
+    version: string | null,
     onProgress?: (progress: number) => void,
   ): Promise<string> {
     const pdfUrl = await this.getPdfUrl(publicationId);
@@ -144,7 +152,7 @@ class PublicationService {
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
-      webCache.set(publicationId, { blobUrl, updatedAt });
+      webCache.set(publicationId, { blobUrl, updatedAt, version });
 
       onProgress?.(1);
       return blobUrl;
@@ -193,6 +201,7 @@ class PublicationService {
       metadata[publicationId] = {
         publicationId,
         updatedAt,
+        version,
         filePath,
         fileSize: (info as { size?: number }).size ?? 0,
         cachedAt: new Date().toISOString(),

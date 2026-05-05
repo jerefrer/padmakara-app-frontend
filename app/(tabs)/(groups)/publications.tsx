@@ -37,9 +37,14 @@ export default function PublicationsScreen() {
   const [viewingPdf, setViewingPdf] = useState<{
     uri: string;
     publication: Publication;
+    cachedVersion: string | null;
   } | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [updatingVersion, setUpdatingVersion] = useState(false);
+  const [versionBannerDismissed, setVersionBannerDismissed] = useState<
+    Record<string, boolean>
+  >({});
 
   // Load publications
   useEffect(() => {
@@ -145,25 +150,29 @@ export default function PublicationsScreen() {
         setDownloading(publication.id);
         setDownloadProgress(0);
 
-        // Check cache first
-        const cached = await publicationService.getCachedPdf(
-          publication.id,
-          publication.updatedAt
-        );
+        // Check cache first — return cached PDF even if a newer server version
+        // exists. The user is offered an in-reader banner to update.
+        const cached = await publicationService.getCachedPdf(publication.id);
 
         let pdfUri: string;
+        let cachedVersion: string | null;
         if (cached) {
           pdfUri = cached;
+          cachedVersion = await publicationService.getCachedVersion(
+            publication.id
+          );
         } else {
           pdfUri = await publicationService.downloadAndCachePdf(
             publication.id,
             publication.updatedAt,
+            publication.version,
             (progress) => setDownloadProgress(progress)
           );
+          cachedVersion = publication.version;
         }
 
         setDownloading(null);
-        setViewingPdf({ uri: pdfUri, publication });
+        setViewingPdf({ uri: pdfUri, publication, cachedVersion });
 
         // Restore reading position
         const savedPage = await publicationService.getReadingPosition(
@@ -181,6 +190,32 @@ export default function PublicationsScreen() {
     },
     []
   );
+
+  // Replace cached PDF with the latest server version (user-triggered).
+  const handleUpdateVersion = useCallback(async () => {
+    if (!viewingPdf) return;
+    const { publication } = viewingPdf;
+    try {
+      setUpdatingVersion(true);
+      setDownloadProgress(0);
+      const newUri = await publicationService.downloadAndCachePdf(
+        publication.id,
+        publication.updatedAt,
+        publication.version,
+        (progress) => setDownloadProgress(progress)
+      );
+      setViewingPdf({
+        uri: newUri,
+        publication,
+        cachedVersion: publication.version,
+      });
+    } catch (err) {
+      console.error('Failed to update publication:', err);
+    } finally {
+      setUpdatingVersion(false);
+      setDownloadProgress(0);
+    }
+  }, [viewingPdf]);
 
   // Get display title for a publication
   const getTitle = useCallback(
@@ -250,6 +285,13 @@ export default function PublicationsScreen() {
 
   // If viewing a PDF, show full-screen viewer
   if (viewingPdf) {
+    const serverVersion = viewingPdf.publication.version;
+    const cachedVersion = viewingPdf.cachedVersion;
+    const showUpdateBanner =
+      !!serverVersion &&
+      serverVersion !== cachedVersion &&
+      !versionBannerDismissed[viewingPdf.publication.id];
+
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -270,6 +312,68 @@ export default function PublicationsScreen() {
               {getTitle(viewingPdf.publication)}
             </Text>
           </View>
+
+          {/* New-version banner */}
+          {showUpdateBanner && (
+            <View style={styles.versionBanner}>
+              <Ionicons
+                name="cloud-download-outline"
+                size={18}
+                color={colors.burgundy[500]}
+              />
+              <View style={styles.versionBannerText}>
+                <Text style={styles.versionBannerTitle}>
+                  {t('publications.newVersion.available') ||
+                    'New version available'}
+                </Text>
+                {serverVersion ? (
+                  <Text style={styles.versionBannerSubtitle}>
+                    {(t('publications.newVersion.label') || 'Version {version}').replace(
+                      '{version}',
+                      serverVersion,
+                    )}
+                  </Text>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                style={styles.versionUpdateButton}
+                onPress={handleUpdateVersion}
+                disabled={updatingVersion}
+              >
+                {updatingVersion ? (
+                  <View style={styles.versionUpdateContent}>
+                    <ActivityIndicator size="small" color={colors.white} />
+                    <Text style={styles.versionUpdateText}>
+                      {downloadProgress > 0
+                        ? `${Math.round(downloadProgress * 100)}%`
+                        : t('publications.newVersion.updating') || 'Updating...'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.versionUpdateText}>
+                    {t('publications.newVersion.update') || 'Update'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.versionDismissButton}
+                onPress={() =>
+                  setVersionBannerDismissed((prev) => ({
+                    ...prev,
+                    [viewingPdf.publication.id]: true,
+                  }))
+                }
+                disabled={updatingVersion}
+                hitSlop={8}
+              >
+                <Ionicons
+                  name="close"
+                  size={18}
+                  color={colors.burgundy[500]}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* PDF content */}
           <PDFViewer
@@ -662,5 +766,53 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
+  },
+
+  // New-version banner inside PDF viewer
+  versionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: colors.burgundy[50],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.burgundy[100],
+    gap: 10,
+  },
+  versionBannerText: {
+    flex: 1,
+  },
+  versionBannerTitle: {
+    fontSize: 14,
+    color: colors.burgundy[500],
+    fontWeight: '600',
+  },
+  versionBannerSubtitle: {
+    fontSize: 12,
+    color: colors.burgundy[500],
+    opacity: 0.8,
+    marginTop: 1,
+  },
+  versionUpdateButton: {
+    backgroundColor: colors.burgundy[500],
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  versionUpdateContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  versionUpdateText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  versionDismissButton: {
+    padding: 4,
   },
 });
