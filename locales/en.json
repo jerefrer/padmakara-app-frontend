@@ -48,6 +48,9 @@
   "auth": {
     "welcomeBack": "Welcome Back",
     "signInToContinue": "Please sign in to continue",
+    "signIn": "Sign In",
+    "sessionExpiredTitle": "Session expired",
+    "sessionExpiredMessage": "Sign in to access your retreats.",
     "useBiometric": "Use {{biometricType}}",
     "biometricPrompt": "Use your {{biometricType}} to access your retreat content",
     "biometricFallback": "Enter Passcode",
@@ -108,6 +111,7 @@
     "sessionExpiredTitle": "Session expired",
     "sessionExpiredMessage": "Sign in to access your retreats.",
     "noGroups": "No Retreat Groups",
+    "noRetreats": "No retreats available yet.",
     "noGroupsDescription": "You haven't been assigned to any retreat groups yet. Please contact your administrator.",
     "groupName": "Group",
     "lastRetreat": "Last retreat",
@@ -121,6 +125,7 @@
     "setupAccount": "Visit app.padmakara.pt to set up your account"
   },
   "events": {
+    "empty": "No events available",
     "eventName": "Event",
     "sessions": "Sessions",
     "sessionLabel": "session",
@@ -193,6 +198,7 @@
     "morning": "Morning",
     "afternoon": "Afternoon",
     "evening": "Evening",
+    "full_day": "Full day",
     "part": "Part",
     "transcript": "Transcript",
     "audio": "Audio",
@@ -211,10 +217,12 @@
   "transcript": {
     "transcriptNotFound": "Transcript not found",
     "transcript": "Transcript",
+    "open": "Open transcript",
     "viewTranscript": "View Transcript",
     "downloadPdf": "Download PDF",
     "downloading": "Downloading...",
     "downloadError": "Failed to download transcript",
+    "downloadErrorMessage": "Failed to download transcript",
     "noTranscript": "No transcript available for this event",
     "page": "Page {{current}}",
     "pageOf": "Page {{current}} of {{total}}",
@@ -274,7 +282,14 @@
     "noLimit": "No Limit",
     "default": "(Default)",
     "trackCount": "{{count}} track",
-    "tracksCount": "{{count}} tracks"
+    "tracksCount": "{{count}} tracks",
+    "clearPublications": "Clear Publications Cache",
+    "clearPublicationsTitle": "Clear Publications Cache",
+    "clearPublicationsMessage": "This will remove all cached publication PDFs. They will be re-downloaded when you open them again.",
+    "clearPublicationsAction": "Clear",
+    "publicationsCacheCleared": "Publications Cache Cleared",
+    "publicationsCacheClearedMessage": "All cached publication PDFs have been removed.",
+    "publicationsCacheInfo": "{count} publications ({size})"
   },
   "search": {
     "placeholder": "Search by topic or teacher",

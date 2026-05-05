@@ -48,6 +48,9 @@
   "auth": {
     "welcomeBack": "Bem-vindo de Volta",
     "signInToContinue": "Por favor, faça login para continuar",
+    "signIn": "Entrar",
+    "sessionExpiredTitle": "Sessão expirada",
+    "sessionExpiredMessage": "Inicie sessão para aceder aos seus retiros.",
     "useBiometric": "Usar {{biometricType}}",
     "biometricPrompt": "Use sua {{biometricType}} para acessar o conteúdo do retiro",
     "biometricFallback": "Inserir Código",
@@ -108,6 +111,7 @@
     "sessionExpiredTitle": "Sessão expirada",
     "sessionExpiredMessage": "Inicie sessão para aceder aos seus retiros.",
     "noGroups": "Sem Grupos de Retiro",
+    "noRetreats": "Ainda não há retiros disponíveis.",
     "noGroupsDescription": "Ainda não foi atribuído a nenhum grupo de retiro. Por favor, contacte o administrador.",
     "groupName": "Grupo",
     "lastRetreat": "Último retiro",
@@ -121,6 +125,7 @@
     "setupAccount": "Visite app.padmakara.pt para configurar a sua conta"
   },
   "events": {
+    "empty": "Sem eventos disponíveis",
     "eventName": "Evento",
     "sessions": "Sessões",
     "sessionLabel": "sessão",
@@ -193,6 +198,7 @@
     "morning": "Manhã",
     "afternoon": "Tarde",
     "evening": "Noite",
+    "full_day": "Dia inteiro",
     "part": "Parte",
     "transcript": "Transcrição",
     "audio": "Áudio",
@@ -211,10 +217,12 @@
   "transcript": {
     "transcriptNotFound": "Transcrição não encontrada",
     "transcript": "Transcrição",
+    "open": "Abrir transcrição",
     "viewTranscript": "Ver Transcrição",
     "downloadPdf": "Transferir PDF",
     "downloading": "A transferir...",
     "downloadError": "Falha ao transferir transcrição",
+    "downloadErrorMessage": "Falha ao transferir a transcrição",
     "noTranscript": "Nenhuma transcrição disponível para este evento",
     "page": "Página {{current}}",
     "pageOf": "Página {{current}} de {{total}}",
@@ -274,7 +282,14 @@
     "noLimit": "Sem Limite",
     "default": "(Padrão)",
     "trackCount": "{{count}} faixa",
-    "tracksCount": "{{count}} faixas"
+    "tracksCount": "{{count}} faixas",
+    "clearPublications": "Limpar Cache de Publicações",
+    "clearPublicationsTitle": "Limpar Cache de Publicações",
+    "clearPublicationsMessage": "Isto irá remover todas as publicações em cache. Serão transferidas novamente quando as abrir.",
+    "clearPublicationsAction": "Limpar",
+    "publicationsCacheCleared": "Cache de Publicações Limpa",
+    "publicationsCacheClearedMessage": "Todas as publicações em cache foram removidas.",
+    "publicationsCacheInfo": "{count} publicações ({size})"
   },
   "search": {
     "placeholder": "Pesquisar por tema ou professor",
