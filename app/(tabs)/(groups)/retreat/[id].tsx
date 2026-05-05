@@ -1504,39 +1504,6 @@ export default function RetreatDetailScreen() {
         </Pressable>
       </Modal>
 
-      {/* Mobile language picker — opened from the AudioPlayer's globe icon
-          (the inline dropdown that used to sit in the top bar is gone). */}
-      {!isDesktop && (
-        <Modal
-          visible={showLanguageDropdown}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowLanguageDropdown(false)}
-        >
-          <Pressable style={styles.menuOverlay} onPress={() => setShowLanguageDropdown(false)}>
-            <View style={styles.menuContainer}>
-              {(['en', 'en-pt', 'pt'] as const).map((mode) => (
-                <TouchableOpacity
-                  key={mode}
-                  style={styles.menuItem}
-                  onPress={() => {
-                    updateLanguagePreference(mode);
-                    setShowLanguageDropdown(false);
-                  }}
-                >
-                  <Ionicons
-                    name={currentLanguageMode === mode ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={20}
-                    color={currentLanguageMode === mode ? colors.burgundy[500] : colors.gray[400]}
-                  />
-                  <Text style={styles.menuItemText}>{getLanguageLabel(mode)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Pressable>
-        </Modal>
-      )}
-
       {/* Read Along Modal (mobile) — embeds the AudioPlayer at the bottom
           so the user can pause / skip 10s / change track / change speed
           without leaving the read-along view. */}
