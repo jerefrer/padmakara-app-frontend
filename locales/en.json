@@ -41,6 +41,10 @@
     "addBookmarkAtCurrent": "Add bookmark at current time",
     "watchSessionVideo": "Watch video"
   },
+  "eventTabs": {
+    "videos": "Videos",
+    "tracks": "Audio"
+  },
   "auth": {
     "welcomeBack": "Welcome Back",
     "signInToContinue": "Please sign in to continue",

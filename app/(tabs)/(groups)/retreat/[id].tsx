@@ -29,6 +29,7 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
+import { VideoGrid } from '@/components/VideoGrid';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -219,6 +220,10 @@ export default function RetreatDetailScreen() {
   const [readAlongLoading, setReadAlongLoading] = useState(false);
 
   // Overflow menu state
+  // Which tab is showing: 'video' (thumbnail grid of session recordings)
+  // or 'tracks' (audio session list). We default to 'video' on mount and
+  // then sync to whatever the event actually has once it loads.
+  const [activeContentTab, setActiveContentTab] = useState<'video' | 'tracks'>('video');
   const [menuVisible, setMenuVisible] = useState(false);
 
   // Language dropdown state
@@ -562,6 +567,15 @@ export default function RetreatDetailScreen() {
       setLoading(false);
     }
   };
+
+  // Default content tab when the event loads: 'video' if any session has
+  // a recording, otherwise 'tracks'. This runs whenever a different
+  // event is loaded (which remounts the screen).
+  useEffect(() => {
+    if (!retreat) return;
+    const anyVideo = retreat.sessions?.some((s) => !!s.bunnyVideoId);
+    setActiveContentTab(anyVideo ? 'video' : 'tracks');
+  }, [retreat]);
 
   // Push event metadata into the layout-level sidebar context. The
   // sidebar lives in (groups)/_layout.tsx, so updating meta here only
@@ -1038,6 +1052,25 @@ export default function RetreatDetailScreen() {
     const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
     const firstVideoSession = retreat?.sessions?.find((s) => !!s.bunnyVideoId) ?? null;
 
+    // Sessions that have a recording — used by the Video tab grid.
+    const videoSessions = (retreat?.sessions ?? []).filter((s) => !!s.bunnyVideoId);
+    // Tabs only appear when both content types are available; otherwise
+    // the screen renders whichever exists.
+    const showContentTabs = hasVideo && hasAudio;
+    const effectiveTab: 'video' | 'tracks' = showContentTabs
+      ? activeContentTab
+      : (hasVideo ? 'video' : 'tracks');
+
+    // Helper for the video card title — reuses the same session header
+    // formatting as the audio track list so the two stay consistent.
+    const renderSessionTitle = (s: Session) => formatSessionHeader({
+      sessionName: s.name,
+      sessionDate: s.date,
+      sessionType: s.type,
+      sessionPartNumber: s.partNumber ?? null,
+    });
+    const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
+
     return (
       <Animated.ScrollView
         style={styles.content}
@@ -1106,7 +1139,44 @@ export default function RetreatDetailScreen() {
             )}
           </View>
         )}
-        {filteredTracks.map((track, trackIndex) => {
+
+        {/* Tab bar — only shown when the event has both audio tracks and
+            video recordings. Sits between the title and the content. */}
+        {showContentTabs && (
+          <View style={styles.contentTabBar}>
+            <Pressable
+              style={[styles.contentTab, effectiveTab === 'video' && styles.contentTabActive]}
+              onPress={() => setActiveContentTab('video')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: effectiveTab === 'video' }}
+            >
+              <Text style={[styles.contentTabText, effectiveTab === 'video' && styles.contentTabTextActive]}>
+                {t('eventTabs.videos') || 'Videos'}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.contentTab, effectiveTab === 'tracks' && styles.contentTabActive]}
+              onPress={() => setActiveContentTab('tracks')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: effectiveTab === 'tracks' }}
+            >
+              <Text style={[styles.contentTabText, effectiveTab === 'tracks' && styles.contentTabTextActive]}>
+                {t('eventTabs.tracks') || 'Audio'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {effectiveTab === 'video' && hasVideo && (
+          <VideoGrid
+            sessions={videoSessions as any}
+            onPlay={(s) => watchSessionVideo(s as any)}
+            renderTitle={(s) => renderSessionTitle(s as any)}
+            formatDuration={formatDurationForGrid}
+          />
+        )}
+
+        {effectiveTab === 'tracks' && filteredTracks.map((track, trackIndex) => {
           const isActive = currentTrack?.id === track.id;
           const isSelected = selectedTrack?.id === track.id;
           const showSessionHeader = track.sessionId !== trackSessionId;
@@ -1853,6 +1923,36 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
+  // Two-tab content switcher (Videos | Audio). Underline on the active
+  // tab, no background — sits flush above the content.
+  contentTabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  contentTab: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginRight: 28,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  contentTabActive: {
+    borderBottomColor: colors.burgundy[500],
+  },
+  contentTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    color: colors.gray[500],
+    textTransform: 'uppercase',
+  },
+  contentTabTextActive: {
+    color: colors.burgundy[500],
+  },
+
   // Editorial text link — small play glyph + burgundy italic Garamond.
   watchVideoLink: {
     marginTop: 6,
