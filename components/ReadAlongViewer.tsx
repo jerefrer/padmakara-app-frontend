@@ -46,13 +46,19 @@ interface ReadAlongViewerProps {
   /** URL to fetch alignment data from (fallback) */
   readAlongUrl?: string;
   onClose: () => void;
+  /**
+   * Pixels reserved at the bottom of the scroll content for an overlapping
+   * audio player (mobile uses an absolutely-positioned AudioPlayer). Defaults
+   * to 0 so the text scrolls flush to the bottom edge.
+   */
+  bottomInset?: number;
 }
 
 /**
  * Displays transcript text with word-level highlighting synced to audio playback.
  * Words are tappable to seek to that position.
  */
-export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, onClose }: ReadAlongViewerProps) {
+export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, onClose, bottomInset = 0 }: ReadAlongViewerProps) {
   const { t } = useLanguage();
   const { position, isPlaying, seekTo, player } = useAudioPlayerContext();
 
@@ -111,13 +117,23 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
   const [data, setData] = useState<ReadAlongData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [autoScroll, setAutoScroll] = useState(true);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const paraLayoutsRef = useRef<Map<number, number>>(new Map());
   const lastScrolledParaRef = useRef<number>(-1);
   const userScrollingRef = useRef(false);
   const userScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initial scroll-to-position bookkeeping. When the viewer opens partway
+  // through a track, we want to center the active paragraph in the viewport
+  // rather than starting at the top. Both the viewport height AND the active
+  // paragraph's layout must be known before we can scroll, so we track them
+  // and trigger the initial scroll once both are available.
+  const [scrollViewHeight, setScrollViewHeight] = useState(0);
+  // Bumps whenever a paragraph reports its layout, so the initial-scroll
+  // effect re-evaluates after each layout pass.
+  const [layoutTick, setLayoutTick] = useState(0);
+  const hasInitialScrolledRef = useRef(false);
 
   // Load alignment data (from pre-loaded data or URL)
   useEffect(() => {
@@ -264,18 +280,38 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     );
   }, [paragraphs, activeSegmentIndex]);
 
-  // Auto-scroll to keep the active paragraph visible
+  // Initial scroll on open: center the active paragraph in the viewport so
+  // the user lands on the word that's currently playing instead of at the
+  // start of the track. Runs once, as soon as both the viewport height and
+  // the active paragraph's layout are available.
   useEffect(() => {
-    if (!autoScroll || !isPlaying || activeParaIndex < 0) return;
+    if (hasInitialScrolledRef.current) return;
+    if (activeParaIndex < 0 || scrollViewHeight === 0) return;
+    const yOffset = paraLayoutsRef.current.get(activeParaIndex);
+    if (yOffset === undefined || !scrollViewRef.current) return;
+
+    const target = Math.max(0, yOffset - scrollViewHeight / 2);
+    scrollViewRef.current.scrollTo({ y: target, animated: false });
+    hasInitialScrolledRef.current = true;
+    lastScrolledParaRef.current = activeParaIndex;
+  }, [activeParaIndex, scrollViewHeight, layoutTick]);
+
+  // Continuous auto-scroll: keep the active paragraph centered as audio
+  // advances. Always on (no user toggle). Pauses for 5s after the user
+  // scrolls manually so we don't fight them.
+  useEffect(() => {
+    if (!isPlaying || activeParaIndex < 0) return;
     if (activeParaIndex === lastScrolledParaRef.current) return;
     if (userScrollingRef.current) return;
+    if (scrollViewHeight === 0) return;
 
     const yOffset = paraLayoutsRef.current.get(activeParaIndex);
     if (yOffset !== undefined && scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ y: Math.max(0, yOffset - 120), animated: true });
+      const target = Math.max(0, yOffset - scrollViewHeight / 2);
+      scrollViewRef.current.scrollTo({ y: target, animated: true });
       lastScrolledParaRef.current = activeParaIndex;
     }
-  }, [activeParaIndex, autoScroll, isPlaying]);
+  }, [activeParaIndex, isPlaying, scrollViewHeight]);
 
   // Detect manual user scrolling — temporarily pause auto-scroll
   const handleScrollBeginDrag = useCallback(() => {
@@ -295,9 +331,15 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     seekTo(word.start * 1000); // seekTo takes milliseconds
   }, [seekTo]);
 
-  // Record layout position of each paragraph for auto-scroll
+  // Record layout position of each paragraph for auto-scroll. Bump layoutTick
+  // so the initial-scroll effect re-evaluates once the active paragraph has
+  // reported its position.
   const handleParaLayout = useCallback((index: number, y: number) => {
+    const prev = paraLayoutsRef.current.get(index);
     paraLayoutsRef.current.set(index, y);
+    if (prev !== y) {
+      setLayoutTick((c) => c + 1);
+    }
   }, []);
 
   if (loading) {
@@ -338,31 +380,21 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
 
   return (
     <View style={styles.container}>
-      {/* Header with title and controls */}
+      {/* Header with title and close button */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
-        <View style={styles.headerControls}>
-          <TouchableOpacity
-            onPress={() => setAutoScroll(!autoScroll)}
-            style={[styles.autoScrollButton, autoScroll && styles.autoScrollButtonActive]}
-          >
-            <Ionicons
-              name="locate-outline"
-              size={18}
-              color={autoScroll ? colors.burgundy[500] : colors.gray[400]}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.gray[600]} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="close" size={24} color={colors.gray[600]} />
+        </TouchableOpacity>
       </View>
 
-      {/* Transcript text */}
+      {/* Transcript text — bottomInset reserves room for the overlay player
+          so the last lines can scroll up above the slider. */}
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
+        onLayout={(e) => setScrollViewHeight(e.nativeEvent.layout.height)}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}
         showsVerticalScrollIndicator={false}
@@ -378,8 +410,6 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
             onLayout={handleParaLayout}
           />
         ))}
-        {/* Bottom padding for comfortable scrolling */}
-        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
@@ -555,19 +585,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.burgundy[500],
-  },
-  headerControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  autoScrollButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: colors.gray[100],
-  },
-  autoScrollButtonActive: {
-    backgroundColor: colors.burgundy[50],
   },
   closeButton: {
     padding: 4,

@@ -1547,13 +1547,17 @@ export default function RetreatDetailScreen() {
         onRequestClose={handleCloseReadAlong}
       >
         <SafeAreaView style={styles.readAlongModal}>
-          <View style={[styles.readAlongContent, { paddingBottom: 145 + insets.bottom + 16 }]}>
+          <View style={styles.readAlongContent}>
             {readAlongLoading ? (
               <View style={styles.readAlongModalLoading}>
                 <ActivityIndicator size="large" color={colors.burgundy[500]} />
               </View>
             ) : readAlongData ? (
-              <ReadAlongViewer readAlongData={readAlongData} onClose={handleCloseReadAlong} />
+              <ReadAlongViewer
+                readAlongData={readAlongData}
+                onClose={handleCloseReadAlong}
+                bottomInset={145 + insets.bottom + 16}
+              />
             ) : (
               <View style={styles.readAlongModalLoading}>
                 <Text style={{ color: colors.gray[500] }}>
@@ -2105,9 +2109,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  // Wraps the read-along scroll area inside the modal; reserves room at the
-  // bottom for the embedded AudioPlayer (≈ 145px content + insets) so the
-  // last lines of text aren't hidden under the player.
+  // Wraps the read-along scroll area inside the modal. Padding for the
+  // overlay AudioPlayer is applied inside ReadAlongViewer's scrollContent
+  // (via the bottomInset prop) so the text scrolls all the way down to the
+  // player's slider rather than stopping in a white band above it.
   readAlongContent: {
     flex: 1,
   },
