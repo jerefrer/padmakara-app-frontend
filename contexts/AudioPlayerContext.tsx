@@ -177,6 +177,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const hasCompletedRef = useRef(false);
   // Throttles the every-10s progress save.
   const lastSavedSecondRef = useRef(-1);
+  // In-memory cache of saved positions per track id. Lets the track-change
+  // effect place the slider at the right point synchronously, without
+  // waiting for an AsyncStorage round-trip — eliminates the brief slider
+  // jump from the old track's position to the new one.
+  const savedPositionsRef = useRef<Map<string, number>>(new Map());
 
   // ─── Callback refs (registered by consumer screens) ───
   const onProgressUpdateRef = useRef<((progress: UserProgress) => void) | undefined>(undefined);
@@ -193,7 +198,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // animation right away, even though the underlying engine is still
   // buffering.
   const isPlaying = !!status?.playing || (phase !== 'ready' && pendingPlay);
-  const duration = status?.duration || track?.duration || 0;
+  // While loading, ignore status?.duration — the player object can briefly
+  // carry over the previous track's duration during the source switch,
+  // which would show e.g. "3:36 remaining" on a 130-minute track until
+  // playback actually started. Use the metadata duration the listing
+  // already gave us.
+  const duration = phase === 'ready'
+    ? (status?.duration || track?.duration || 0)
+    : (track?.duration || 0);
 
   // Position display priority:
   //   1. While the user is dragging the slider, show their value
@@ -225,6 +237,34 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       interruptionModeAndroid: 'duckOthers',
       shouldRouteThroughEarpiece: false,
     });
+  }, []);
+
+  // ─── Pre-load all saved positions into memory on mount ───
+  // Lets the track-change effect place the slider at the right point
+  // synchronously when the user taps a track, without waiting for an
+  // AsyncStorage read.
+  useEffect(() => {
+    (async () => {
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const progressKeys = keys.filter((k) => k.startsWith('progress_'));
+        if (progressKeys.length === 0) return;
+        const items = await AsyncStorage.multiGet(progressKeys);
+        const map = new Map<string, number>();
+        for (const [k, v] of items) {
+          if (!v) continue;
+          try {
+            const parsed = JSON.parse(v);
+            if (typeof parsed.position === 'number') {
+              map.set(k.slice('progress_'.length), parsed.position);
+            }
+          } catch {}
+        }
+        savedPositionsRef.current = map;
+      } catch (error) {
+        console.error('Pre-load saved positions failed:', error);
+      }
+    })();
   }, []);
 
   // ─── Restore idle track (display-only) on mount ───
@@ -322,6 +362,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // and the seek-to-target effect can fire with a stale targetPosition
     // before the saved position has been read from storage.
     setAudioSource(null);
+    // Place the slider at the right position immediately, using the
+    // in-memory cache. Falls back to 0 for tracks we've never played.
+    // The async readSavedPosition below still runs as a corrective in
+    // case the cache misses.
+    setTargetPosition(savedPositionsRef.current.get(currentId) ?? 0);
 
     // Safety net: if source resolution or audio buffering is still
     // unresolved after 15s, transition to ready anyway and surface the
@@ -467,13 +512,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!track) return;
     try {
       const trackDuration = status?.duration || track.duration || 0;
+      const positionSeconds = Math.floor(positionMs / 1000);
       const progress: UserProgress = {
         trackId: track.id,
-        position: Math.floor(positionMs / 1000),
+        position: positionSeconds,
         completed: trackDuration > 0 && positionMs / 1000 >= trackDuration - 1,
         lastPlayed: new Date().toISOString(),
         bookmarks: [],
       };
+      // Keep the in-memory cache fresh so the next track switch can use it
+      // synchronously.
+      savedPositionsRef.current.set(track.id, positionSeconds);
       await AsyncStorage.setItem(`progress_${track.id}`, JSON.stringify(progress));
       onProgressUpdateRef.current?.(progress);
     } catch (error) {
