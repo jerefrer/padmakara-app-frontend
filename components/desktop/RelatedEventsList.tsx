@@ -200,13 +200,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   item: {
-    paddingHorizontal: 24,
     paddingVertical: 14,
+    paddingHorizontal: 24,
+    // Transparent left border on inactive items so the layout doesn't
+    // shift when an item becomes active and gains a 3px burgundy bar.
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
   itemActive: {
-    // No background change — the active item is identified by red text.
+    backgroundColor: colors.burgundy[50],
+    borderLeftColor: colors.burgundy[500],
+    paddingLeft: 21, // 24 - 3 to keep text horizontally aligned
   },
   itemTitle: {
     fontFamily: 'EBGaramond_500Medium',

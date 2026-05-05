@@ -85,7 +85,10 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
             clipped by the 64px rail. */}
         {menuOpen && (
           <View
-            style={[styles.dropdownMenu, isNarrow && styles.dropdownMenuNarrow]}
+            style={[
+              styles.dropdownMenu,
+              isNarrow ? styles.dropdownMenuNarrow : styles.dropdownMenuWide,
+            ]}
             data-right-menu="true"
           >
             <Pressable
@@ -273,8 +276,6 @@ const styles = StyleSheet.create({
   dropdownMenu: {
     position: 'absolute',
     bottom: '100%',
-    left: 8,
-    right: 8,
     backgroundColor: colors.white,
     borderRadius: 8,
     paddingVertical: 4,
@@ -286,10 +287,14 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 100,
   },
-  // Narrow rail can't fit a 200px menu, so anchor to the right edge of
-  // the rail and let the menu extend leftward into the main content.
+  // Wide rail: stretch the menu to fill the panel width.
+  dropdownMenuWide: {
+    left: 8,
+    right: 8,
+  },
+  // Narrow rail can't fit a usable menu, so anchor to the right edge of
+  // the rail and extend leftward into the main content area.
   dropdownMenuNarrow: {
-    left: undefined as any,
     right: 8,
     width: 200,
   },
