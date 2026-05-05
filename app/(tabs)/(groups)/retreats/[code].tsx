@@ -20,7 +20,7 @@ import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const HERO_HEIGHT = 280;
+const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 230;
 
 const colors = {
