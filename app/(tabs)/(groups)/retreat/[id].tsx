@@ -27,7 +27,7 @@ import { Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
-import { RelatedEventsList } from '@/components/desktop/RelatedEventsList';
+import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
@@ -162,6 +162,7 @@ export default function RetreatDetailScreen() {
   const { isDesktop } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const audioContext = useAudioPlayerContext();
+  const { setMeta: setSidebarMeta } = useRelatedEvents();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -561,6 +562,28 @@ export default function RetreatDetailScreen() {
       setLoading(false);
     }
   };
+
+  // Push event metadata into the layout-level sidebar context. The
+  // sidebar lives in (groups)/_layout.tsx, so updating meta here only
+  // changes which item is highlighted — the sidebar itself does not
+  // remount as we navigate from one event to another.
+  useEffect(() => {
+    if (!retreat) return;
+    setSidebarMeta({
+      eventId: String(retreat.id),
+      teacherAbbreviation: retreat.teachers?.[0]?.abbreviation ?? null,
+      groupId: retreat.retreat_group?.id ? String(retreat.retreat_group.id) : null,
+      headerTitle:
+        retreat.teachers?.[0]?.name
+        || (retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''),
+      headerSubtitle: retreat.teachers?.[0]
+        ? (t('events.teachings') || 'Teachings & Talks')
+        : undefined,
+    });
+    // We deliberately do NOT clear meta on unmount — leaving the last
+    // value in place avoids a frame where the sidebar disappears while
+    // the next event screen is still mounting.
+  }, [retreat, language, setSidebarMeta, t]);
 
   const checkDownloadStatus = async () => {
     if (!retreat) return;
@@ -1252,119 +1275,98 @@ export default function RetreatDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Desktop keeps the existing fixed top bar; mobile drops it so the hero
-          can extend to the very top of the screen and shows just two floating
-          buttons (back + overflow menu) over the photo. */}
-      {isDesktop ? (
-        <SafeAreaView edges={['top']} style={styles.fixedHeaderContainer}>
-          <View style={[styles.header, styles.headerDesktop]}>
-            <View style={styles.headerText}>
-              <View style={styles.headerTitleRow}>
-                <Text style={styles.headerTitle} numberOfLines={1}>{retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''}</Text>
-                {isRetreatDownloaded && <OfflineBadge />}
-              </View>
-              <Text style={styles.headerSubtitle}>
-                {getTranslatedName(retreat, language)} {retreat.year}
-              </Text>
-            </View>
-            {currentLanguageMode && (
-              <View style={styles.languageDropdownContainer}>
-                <TouchableOpacity
-                  style={styles.languageButton}
-                  onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
-                >
-                  <Text style={styles.languageButtonText}>{getLanguageLabel(currentLanguageMode)}</Text>
-                  <Ionicons name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'} size={14} color={colors.gray[600]} />
-                </TouchableOpacity>
-                {showLanguageDropdown && (
-                  <View style={styles.languageDropdown}>
-                    {(['en', 'en-pt', 'pt'] as const).map((mode) => (
-                      <TouchableOpacity
-                        key={mode}
-                        style={[
-                          styles.languageDropdownItem,
-                          currentLanguageMode === mode && styles.languageDropdownItemActive,
-                        ]}
-                        onPress={() => {
-                          updateLanguagePreference(mode);
-                          setShowLanguageDropdown(false);
-                        }}
-                      >
-                        <Text style={[
-                          styles.languageDropdownItemText,
-                          currentLanguageMode === mode && styles.languageDropdownItemTextActive,
-                        ]}>
-                          {getLanguageLabel(mode)}
-                        </Text>
-                        {currentLanguageMode === mode && (
-                          <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-            <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-              <Ionicons name="ellipsis-vertical" size={24} color={colors.gray[600]} />
-            </TouchableOpacity>
-          </View>
-          {renderDownloadBanners()}
-        </SafeAreaView>
-      ) : (
-        <>
-          {/* Mobile floating top buttons — sit absolutely over the hero. */}
-          <TouchableOpacity
-            onPress={handleBack}
-            style={[styles.floatingTopButton, styles.floatingTopButtonLeft, { top: insets.top + 8 }]}
-            hitSlop={8}
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.white} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setMenuVisible(true)}
-            style={[styles.floatingTopButton, styles.floatingTopButtonRight, { top: insets.top + 8 }]}
-            hitSlop={8}
-          >
-            <Ionicons name="ellipsis-vertical" size={22} color={colors.white} />
-          </TouchableOpacity>
-          {/* Download banners floated under the buttons */}
-          {(isDownloadingRetreat || isDownloadingZip) && (
-            <View style={[styles.mobileDownloadBannerOverlay, { top: insets.top + 56 }]}>
-              {renderDownloadBanners()}
-            </View>
-          )}
-        </>
+      {/* No fixed top bar on either platform — the hero extends to the very
+          top of the content area. Controls (language pill + overflow menu)
+          float over the hero. Mobile additionally shows a back button. */}
+      {!isDesktop && (
+        <TouchableOpacity
+          onPress={handleBack}
+          style={[styles.floatingTopButton, styles.floatingTopButtonLeft, { top: insets.top + 8 }]}
+          hitSlop={8}
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.white} />
+        </TouchableOpacity>
       )}
 
-      {/* Main content. Desktop: 3-pane (related events list | event content
-          | right rail mounted by DesktopShell). Mobile: single column with
-          the AudioPlayer floating at the bottom. */}
-      {isDesktop ? (
-        <View style={styles.masterDetailContainer}>
-          {/* Master: list of other events for the same teacher / group */}
-          <View style={styles.desktopRelatedPanel}>
-            <RelatedEventsList
-              currentEventId={String(retreat.id)}
-              teacherAbbreviation={retreat.teachers?.[0]?.abbreviation ?? null}
-              groupId={retreat.retreat_group?.id ? String(retreat.retreat_group.id) : null}
-              headerTitle={
-                retreat.teachers?.[0]?.name
-                  || (retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : '')
-              }
-              headerSubtitle={
-                retreat.teachers?.[0]
-                  ? `${t('events.teachings') || 'Teachings & Talks'}`
-                  : undefined
-              }
-            />
+      <View
+        style={[
+          styles.floatingTopRightCluster,
+          { top: isDesktop ? 16 : insets.top + 8 },
+        ]}
+      >
+        {currentLanguageMode && (
+          <View style={styles.languageDropdownContainerFloating}>
+            <TouchableOpacity
+              style={styles.languageButtonFloating}
+              onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
+              hitSlop={8}
+            >
+              <Text style={styles.languageButtonFloatingText}>
+                {getLanguageLabel(currentLanguageMode)}
+              </Text>
+              <Ionicons
+                name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color={colors.white}
+              />
+            </TouchableOpacity>
+            {showLanguageDropdown && (
+              <View style={styles.languageDropdown}>
+                {(['en', 'en-pt', 'pt'] as const).map((mode) => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[
+                      styles.languageDropdownItem,
+                      currentLanguageMode === mode && styles.languageDropdownItemActive,
+                    ]}
+                    onPress={() => {
+                      updateLanguagePreference(mode);
+                      setShowLanguageDropdown(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.languageDropdownItemText,
+                        currentLanguageMode === mode && styles.languageDropdownItemTextActive,
+                      ]}
+                    >
+                      {getLanguageLabel(mode)}
+                    </Text>
+                    {currentLanguageMode === mode && (
+                      <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
-          {/* Detail: event content (hero + title + tracks), reusing the
-              same renderer as mobile so the two layouts stay in sync. */}
-          <View style={styles.desktopEventContent}>
-            {renderTrackList(24)}
-          </View>
+        )}
+        <TouchableOpacity
+          onPress={() => setMenuVisible(true)}
+          style={styles.floatingTopButtonInline}
+          hitSlop={8}
+        >
+          <Ionicons name="ellipsis-vertical" size={22} color={colors.white} />
+        </TouchableOpacity>
+      </View>
+
+      {(isDownloadingRetreat || isDownloadingZip) && (
+        <View
+          style={[
+            styles.mobileDownloadBannerOverlay,
+            { top: (isDesktop ? 16 : insets.top + 8) + 48 },
+          ]}
+        >
+          {renderDownloadBanners()}
         </View>
+      )}
+
+      {/* Main content. The desktop "related events" sidebar is mounted by
+          (groups)/_layout.tsx so it survives event-to-event navigation —
+          the screen itself just renders the event content (hero + title +
+          tracks) on both platforms. */}
+      {isDesktop ? (
+        renderTrackList(24)
       ) : (
         <>
           {/* Bottom padding has to clear the floating audio player AND the
@@ -1733,6 +1735,47 @@ const styles = StyleSheet.create({
   },
   floatingTopButtonRight: {
     right: 12,
+  },
+  // Group of floating top-right controls (language pill + overflow menu).
+  // Positioned absolutely over the hero on both mobile and desktop now
+  // that the desktop top bar has been removed.
+  floatingTopRightCluster: {
+    position: 'absolute',
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    zIndex: 20,
+  },
+  // Same circle as floatingTopButton but rendered inline inside the
+  // cluster — no absolute positioning.
+  floatingTopButtonInline: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Translucent pill version of the language button so it reads cleanly
+  // over a hero photo.
+  languageDropdownContainerFloating: {
+    position: 'relative',
+    zIndex: 100,
+  },
+  languageButtonFloating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  languageButtonFloatingText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.white,
+    marginRight: 6,
   },
   mobileDownloadBannerOverlay: {
     position: 'absolute',
