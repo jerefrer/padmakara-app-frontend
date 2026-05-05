@@ -20,6 +20,19 @@ interface RelatedEventsListProps {
   headerSubtitle?: string;
 }
 
+// Module-level cache so navigating between sibling events does not
+// re-fetch the list (and does not flash empty while the new screen
+// mounts). Keyed by `teacher:<abbrev>` or `group:<id>`.
+const eventsCache = new Map<string, Gathering[]>();
+const cacheKeyFor = (
+  teacherAbbreviation?: string | null,
+  groupId?: string | null,
+): string | null => {
+  if (teacherAbbreviation) return `teacher:${teacherAbbreviation}`;
+  if (groupId) return `group:${groupId}`;
+  return null;
+};
+
 /**
  * Sidebar list of all events that share the current event's teacher or
  * parent group. Tap one to navigate to its detail screen — keeping the
@@ -39,11 +52,20 @@ export function RelatedEventsList({
   headerSubtitle,
 }: RelatedEventsListProps) {
   const { t, language } = useLanguage();
-  const [events, setEvents] = useState<Gathering[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = cacheKeyFor(teacherAbbreviation, groupId);
+  const cached = cacheKey ? eventsCache.get(cacheKey) : undefined;
+  const [events, setEvents] = useState<Gathering[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     let cancelled = false;
+    const key = cacheKeyFor(teacherAbbreviation, groupId);
+    const hit = key ? eventsCache.get(key) : undefined;
+    if (hit) {
+      setEvents(hit);
+      setLoading(false);
+      return; // Skip refetch — module cache is the source of truth.
+    }
     setLoading(true);
 
     (async () => {
@@ -55,13 +77,16 @@ export function RelatedEventsList({
             const filtered = (res.data as Gathering[]).filter((ev) =>
               ev.teachers?.some((te: any) => te.abbreviation === teacherAbbreviation),
             );
+            if (key) eventsCache.set(key, filtered);
             setEvents(filtered);
           }
         } else if (groupId) {
           const res = await retreatService.getRetreatGroupDetails(groupId);
           if (cancelled) return;
           if (res.success && res.data) {
-            setEvents(res.data.gatherings || []);
+            const list = res.data.gatherings || [];
+            if (key) eventsCache.set(key, list);
+            setEvents(list);
           }
         }
       } catch (err) {
