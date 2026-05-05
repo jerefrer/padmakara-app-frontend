@@ -94,7 +94,8 @@ export function AudioPlayer({
 
   return (
     <View style={[styles.container, { bottom: bottomOffset }]}>
-      {/* Progress bar */}
+      {/* Progress bar — disabled & visually muted while loading so the thumb
+          doesn't appear half-rendered over the dimmed player. */}
       <View style={styles.progressContainer}>
         <Slider
           style={styles.progressBar}
@@ -104,9 +105,10 @@ export function AudioPlayer({
           onSlidingStart={onSlidingStart}
           onSlidingComplete={onSlidingComplete}
           onValueChange={onSliderValueChange}
-          minimumTrackTintColor={colors.burgundy[500]}
+          minimumTrackTintColor={isPlayButtonDisabled ? colors.gray[200] : colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[200]}
-          thumbTintColor={colors.burgundy[500]}
+          thumbTintColor={isPlayButtonDisabled ? colors.gray[200] : colors.burgundy[500]}
+          disabled={isPlayButtonDisabled}
         />
       </View>
 

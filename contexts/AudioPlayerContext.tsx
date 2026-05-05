@@ -4,15 +4,37 @@ import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Audio player state machine
-export type AudioPlayerState = 'LOADING' | 'READY' | 'RESTORED' | 'PLAYING' | 'SEEKING';
+/**
+ * Audio player phases — a deliberate three-state lifecycle:
+ *
+ *   'idle'    : no track loaded (initial state, after sign-out, before
+ *               resume-last-played) — controls hidden or in idle preview.
+ *   'loading' : a track is selected but the audio is still being resolved
+ *               (download / cache / stream URL) and/or being seeked to the
+ *               saved position. The slider already shows the *target*
+ *               position so the UI doesn't flicker; play controls are
+ *               disabled.
+ *   'ready'   : audio is buffered and at the target position. All controls
+ *               are interactive; the slider tracks live playback.
+ *
+ * That's the entire state machine. The previous implementation maintained
+ * five overlapping states plus a dozen boolean flags and a session-id
+ * pattern to coordinate cancellable async work; almost all of it existed
+ * to paper over expo-av timing quirks that don't apply to expo-audio. The
+ * `trackIdRef` below replaces the session-id mechanism with a single
+ * source of truth for "which track are we currently working on".
+ */
+export type AudioPlayerState = 'idle' | 'loading' | 'ready';
 
-// Pre-cache lookahead duration: 1 hour (3600 seconds)
 const PRE_CACHE_DURATION_SECONDS = 3600;
+const SAFETY_LOAD_TIMEOUT_MS = 15000;
+const PROGRESS_SAVE_INTERVAL_S = 10;
+const SKIP_INTERVAL_S = 15;
+const PLAYBACK_SPEED_CYCLE = [1.0, 1.25, 1.5, 2.0, 0.75] as const;
 
 export interface IdleTrackInfo {
   track: Track;
@@ -25,10 +47,10 @@ export interface AudioPlayerContextType {
   // State
   currentTrack: Track | null;
   isPlaying: boolean;
-  position: number;      // displayPosition in seconds
-  duration: number;      // in seconds
+  position: number;
+  duration: number;
   playbackSpeed: number;
-  isLoading: boolean;    // isTrackLoading
+  isLoading: boolean;
   playerState: AudioPlayerState;
   trackList: Track[];
   currentTrackIndex: number;
@@ -59,7 +81,7 @@ export interface AudioPlayerContextType {
   onSlidingComplete: (value: number) => void;
   onSliderValueChange: (value: number) => void;
 
-  // Callback registration for retreat screen
+  // Callback registration
   setOnProgressUpdate: (cb: ((progress: UserProgress) => void) | undefined) => void;
   setOnTrackComplete: (cb: (() => void) | undefined) => void;
   setOnPlayingStateChange: (cb: ((isPlaying: boolean) => void) | undefined) => void;
@@ -70,23 +92,88 @@ export interface AudioPlayerContextType {
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
 
 export function useAudioPlayerContext(): AudioPlayerContextType {
-  const context = useContext(AudioPlayerContext);
-  if (!context) {
-    throw new Error('useAudioPlayerContext must be used within an AudioPlayerProvider');
-  }
-  return context;
+  const ctx = useContext(AudioPlayerContext);
+  if (!ctx) throw new Error('useAudioPlayerContext must be used within an AudioPlayerProvider');
+  return ctx;
 }
 
+// ─── Helpers (pure / side-effect-free where possible) ──────────────────
+
+async function readSavedPosition(trackId: string): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(`progress_${trackId}`);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw);
+    return typeof parsed.position === 'number' ? parsed.position : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function resolveAudioSource(track: Track): Promise<string | null> {
+  // Priority: explicitly downloaded → cached → freshly streamed (and
+  // cached in the background for next time).
+  try {
+    const downloaded = await downloadService.getDownloadedTrackPath(track.id);
+    if (downloaded) return downloaded;
+
+    const cached = await cacheService.getCachedTrackPath(track.id);
+    if (cached) return cached;
+
+    const response = await retreatService.getTrackStreamUrl(track.id);
+    if (!response.success || !response.url) {
+      console.error(`Failed to get stream URL for ${track.title}: ${response.error}`);
+      return null;
+    }
+
+    // Fire-and-forget background caching for offline next time.
+    const retreatIdForCache = track.session_id || 'unknown';
+    cacheService.cacheTrack(track.id, retreatIdForCache, response.url)
+      .catch((err) => console.warn(`Background cache failed for ${track.title}:`, err));
+
+    return response.url;
+  } catch (error) {
+    console.error('resolveAudioSource error:', error);
+    return null;
+  }
+}
+
+// ─── Provider ──────────────────────────────────────────────────────────
+
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
-  // --- Track & metadata state ---
+  // ─── Track + metadata ───
   const [track, setTrack] = useState<Track | null>(null);
   const [trackListState, setTrackListState] = useState<Track[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [metaRetreatId, setMetaRetreatId] = useState<string | null>(null);
   const [metaRetreatName, setMetaRetreatName] = useState<string | null>(null);
   const [metaGroupName, setMetaGroupName] = useState<string | null>(null);
+  const [upcomingTracks, setUpcomingTracks] = useState<Track[]>([]);
+  const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
 
-  // --- Callback refs (registered by consuming screens) ---
+  // ─── Audio engine ───
+  const [audioSource, setAudioSource] = useState<string | null>(null);
+  const [phase, setPhase] = useState<AudioPlayerState>('idle');
+  const [targetPosition, setTargetPosition] = useState(0);
+  const [userScrubValue, setUserScrubValue] = useState<number | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+
+  const player = useAudioPlayer(audioSource);
+  const status = useAudioPlayerStatus(player);
+
+  // ─── Refs (don't trigger renders) ───
+  // The id of the track we're currently working on. Captured by async
+  // operations so they can bail out if the user has moved on.
+  const trackIdRef = useRef<string | null>(null);
+  // Guards the "audio loaded → seek to target" transition so it only runs
+  // once per track load.
+  const seekToTargetDoneRef = useRef<string | null>(null);
+  // Guards against the completion callback firing more than once per track.
+  const hasCompletedRef = useRef(false);
+  // Throttles the every-10s progress save.
+  const lastSavedSecondRef = useRef(-1);
+
+  // ─── Callback refs (registered by consumer screens) ───
   const onProgressUpdateRef = useRef<((progress: UserProgress) => void) | undefined>(undefined);
   const onTrackCompleteRef = useRef<(() => void) | undefined>(undefined);
   const onPlayingStateChangeRef = useRef<((isPlaying: boolean) => void) | undefined>(undefined);
@@ -95,80 +182,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [hasNextTrack, setHasNextTrack] = useState(false);
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
 
-  // --- Upcoming tracks for pre-caching ---
-  const [upcomingTracks, setUpcomingTracks] = useState<Track[]>([]);
-
-  // --- State machine and core state ---
-  const [playerState, setPlayerState] = useState<AudioPlayerState>('LOADING');
-  const [audioSource, setAudioSource] = useState<string | null>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [loadedTrackId, setLoadedTrackId] = useState<string | null>(null);
-
-  // Position state
-  const [playerPosition, setPlayerPosition] = useState(0);
-  const [displayPosition, setDisplayPosition] = useState(0);
-  const [restorationProtection, setRestorationProtection] = useState(false);
-  const [expectedPosition, setExpectedPosition] = useState(0);
-  const [isSeekInProgress, setIsSeekInProgress] = useState(false);
-  const [pendingTimeouts, setPendingTimeouts] = useState<ReturnType<typeof setTimeout>[]>([]);
-  const [isRestorationInProgress, setIsRestorationInProgress] = useState(false);
-  const [restorationTrackId, setRestorationTrackId] = useState<string | null>(null);
-  const currentRestorationSessionIdRef = useRef<string | null>(null);
-  const [isStreamLoading, setIsStreamLoading] = useState(false);
-  const [streamLoadedTrackId, setStreamLoadedTrackId] = useState<string | null>(null);
-  const [isTrackLoading, setIsTrackLoading] = useState(false);
-
-  // Pre-caching state
-  const hasPreCachedForTrackRef = useRef<string | null>(null);
-
-  // Track completion guard - prevents firing multiple times per track
-  const hasCompletedCurrentTrackRef = useRef(false);
-
-  // --- expo-audio hooks ---
-  const player = useAudioPlayer(audioSource);
-  const status = useAudioPlayerStatus(player);
-
-  // --- Derived values ---
+  // ─── Derived values ───
+  const isPlaying = !!status?.playing;
   const duration = status?.duration || track?.duration || 0;
-  const isPlaying = status?.playing || false;
-  const isLoading = playerState === 'LOADING';
-  const isPlayButtonDisabled = isLoading || isSeekInProgress;
 
-  // --- Helper: safe session ID clearing ---
-  const safeClearSessionId = (reason: string, force: boolean = false) => {
-    console.log(`[SESSION] Attempting to clear session ID: reason="${reason}", force=${force}, isRestorationInProgress=${isRestorationInProgress}, currentSessionId=${currentRestorationSessionIdRef.current}`);
+  // Position display priority:
+  //   1. While the user is dragging the slider, show their value
+  //   2. While loading, show the target (saved or seek-to) position so the
+  //      slider appears at the right place from the very first frame
+  //   3. While ready, follow live playback
+  const livePosition = status?.currentTime ?? 0;
+  const position = userScrubValue !== null
+    ? userScrubValue
+    : phase === 'ready'
+      ? livePosition
+      : targetPosition;
 
-    if (!force && isRestorationInProgress) {
-      console.log(`[SESSION] Blocked session ID clearing during active restoration: reason="${reason}"`);
-      return false;
-    }
+  const isLoading = phase === 'loading';
+  const isPlayButtonDisabled = phase !== 'ready';
 
-    console.log(`[SESSION] Clearing session ID: ${currentRestorationSessionIdRef.current} -> null (reason: ${reason})`);
-    currentRestorationSessionIdRef.current = null;
-    return true;
-  };
-
-  // --- Helper: get remembered position ---
-  const getRememberedPosition = async (trackId: string): Promise<{ position: number; duration: number }> => {
-    try {
-      const progressKey = `progress_${trackId}`;
-      const savedProgress = await AsyncStorage.getItem(progressKey);
-
-      if (savedProgress) {
-        const progress = JSON.parse(savedProgress);
-        return {
-          position: progress.position || 0,
-          duration: track?.duration || 1800,
-        };
-      }
-    } catch (error) {
-      console.error('Error getting remembered position:', error);
-    }
-
-    return { position: 0, duration: track?.duration || 1800 };
-  };
-
-  // --- Setup audio session on mount ---
+  // ─── Audio session (mount once) ───
   useEffect(() => {
     setAudioModeAsync({
       allowsRecording: false,
@@ -180,87 +213,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
-  // --- Activate lock screen / Now Playing controls (iOS & Android) ---
-  // We call setActiveForLockScreen as soon as we have a track + player, before
-  // the file finishes loading. iOS happily renders the Now Playing card with
-  // just the metadata; gating on loadedTrackId/playerState delayed the call
-  // long enough that the card never appeared on lock. The seek options enable
-  // the ±10s buttons — without them expo-audio sets isEnabled=false on
-  // skipForwardCommand/skipBackwardCommand (see MediaController.swift).
+  // ─── Restore idle track (display-only) on mount ───
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    if (track && player) {
-      try {
-        const metadata: Record<string, string> = {
-          title: track.title,
-        };
-        if (track.speakerName) metadata.artist = track.speakerName;
-        if (metaRetreatName) metadata.albumTitle = metaRetreatName;
-
-        player.setActiveForLockScreen(true, metadata, {
-          showSeekForward: true,
-          showSeekBackward: true,
-        });
-      } catch (error) {
-        console.warn('Failed to set lock screen metadata:', error);
-      }
-    } else if (!track && player) {
-      try {
-        player.setActiveForLockScreen(false);
-      } catch (error) {
-        // Player may already be inactive
-      }
-    }
-  }, [track, player, metaRetreatName]);
-
-  // --- Stop playback when auth is lost ---
-  const { isAuthenticated } = useAuth();
-  const wasAuthenticatedRef = useRef(isAuthenticated);
-
-  useEffect(() => {
-    if (wasAuthenticatedRef.current && !isAuthenticated) {
-      console.log('[AudioPlayer] Auth lost — stopping playback and clearing track');
-      try { player?.pause(); } catch {}
-      setTrack(null);
-      setTrackListState([]);
-      setCurrentTrackIndex(0);
-      setAudioSource(null);
-      setLoadedTrackId(null);
-      setMetaRetreatId(null);
-      setMetaRetreatName(null);
-      setMetaGroupName(null);
-      setIdleTrack(null);
-      setPlayerState('LOADING');
-      setDisplayPosition(0);
-      setPlayerPosition(0);
-    }
-    wasAuthenticatedRef.current = isAuthenticated;
-  }, [isAuthenticated]);
-
-  // --- Idle track state (display-only, no audio loaded) ---
-  const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
-
-  // --- Restore last played track info on mount (display only, no audio load) ---
-  useEffect(() => {
-    const restoreIdleTrack = async () => {
+    (async () => {
       try {
         const saved = await AsyncStorage.getItem('last_played_track');
         if (!saved) return;
-
         const { track: savedTrack, meta } = JSON.parse(saved) as {
           track: Track;
           meta: { retreatId: string; retreatName: string; groupName: string } | null;
         };
-
         if (!savedTrack?.id) return;
-
-        // Read saved position from progress data
-        const progressKey = `progress_${savedTrack.id}`;
-        const progressData = await AsyncStorage.getItem(progressKey);
-        const position = progressData ? (JSON.parse(progressData).position || 0) : 0;
-
-        console.log(`Loaded idle track info: ${savedTrack.title} at ${position}s`);
+        const position = await readSavedPosition(savedTrack.id);
         setIdleTrack({
           track: savedTrack,
           meta,
@@ -268,635 +232,252 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           duration: savedTrack.duration || 0,
         });
       } catch (error) {
-        console.error('Error restoring idle track info:', error);
+        console.error('restoreIdleTrack error:', error);
       }
-    };
-
-    restoreIdleTrack();
+    })();
   }, []);
 
-  // --- Load new track effect ---
+  // ─── Stop playback when the user signs out ───
+  const { isAuthenticated } = useAuth();
+  const wasAuthenticatedRef = useRef(isAuthenticated);
   useEffect(() => {
-    // Cancel all pending timeouts when switching tracks
-    pendingTimeouts.forEach(timeout => clearTimeout(timeout));
-    setPendingTimeouts([]);
+    if (wasAuthenticatedRef.current && !isAuthenticated) {
+      try { player?.pause(); } catch {}
+      setTrack(null);
+      setAudioSource(null);
+      setPhase('idle');
+      setTargetPosition(0);
+    }
+    wasAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated, player]);
+
+  // ─── Lock screen / Now Playing controls (iOS + Android) ───
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!player || typeof player.setActiveForLockScreen !== 'function') return;
 
     if (track) {
-      console.log(`Loading new track: ${track.title} (${track.id})`);
-
-      // Stop any currently playing audio immediately before async loading
-      try { player?.pause(); } catch {}
-
-      // Skip if same track already loaded and being restored
-      if (loadedTrackId === track.id && isRestorationInProgress && restorationTrackId === track.id) {
-        console.log(`Skipping track loading - same track already loaded and being restored: ${track.id}`);
-        return;
-      }
-
-      // Cancel any ongoing restoration for track switch
-      if (isRestorationInProgress) {
-        console.log('Cancelling ongoing restoration for track switch');
-        setRestorationTrackId(null);
-        safeClearSessionId("track switch cancellation", true);
-      }
-
-      // Start loading state immediately
-      setIsTrackLoading(true);
-
-      // Set optimistic display with remembered position
-      const setupOptimisticDisplay = async () => {
-        const remembered = await getRememberedPosition(track.id);
-        console.log(`Setting optimistic display: position=${remembered.position}s, duration=${remembered.duration}s`);
-
-        setDisplayPosition(remembered.position);
-        setPlayerPosition(remembered.position);
-        setExpectedPosition(remembered.position);
-
-        setPlayerState('LOADING');
-        setLoadedTrackId(null);
-        setRestorationProtection(false);
-        setIsSeekInProgress(false);
-        setIsRestorationInProgress(false);
-        setRestorationTrackId(null);
-        setIsStreamLoading(false);
-        setStreamLoadedTrackId(null);
-        hasPreCachedForTrackRef.current = null;
-        hasCompletedCurrentTrackRef.current = false;
-        safeClearSessionId("track loading reset", false);
-
-        loadTrack(track);
-      };
-
-      setupOptimisticDisplay();
-
-      // Safety timeout: if loading gets stuck, clear the spinner after 15s
-      const safetyTimeout = setTimeout(() => {
-        setIsTrackLoading(prev => {
-          if (prev) {
-            console.warn(`[SAFETY] Clearing stuck loading state after 15s for track: ${track.title}`);
-          }
-          return false;
+      try {
+        const metadata: Record<string, string> = { title: track.title };
+        if (track.speakerName) metadata.artist = track.speakerName;
+        if (metaRetreatName) metadata.albumTitle = metaRetreatName;
+        player.setActiveForLockScreen(true, metadata, {
+          showSeekForward: true,
+          showSeekBackward: true,
         });
-      }, 15000);
-      setPendingTimeouts(prev => [...prev, safetyTimeout]);
+      } catch (error) {
+        console.warn('setActiveForLockScreen failed:', error);
+      }
     } else {
-      console.log('No track selected, resetting');
-      setAudioSource(null);
-      setPlayerState('LOADING');
-      setLoadedTrackId(null);
-      setPlayerPosition(0);
-      setDisplayPosition(0);
-      setExpectedPosition(0);
-      setRestorationProtection(false);
-      setIsSeekInProgress(false);
-      setIsRestorationInProgress(false);
-      setRestorationTrackId(null);
-      setIsStreamLoading(false);
-      setStreamLoadedTrackId(null);
-      setIsTrackLoading(false);
-      safeClearSessionId("no track reset", false);
+      try { player.setActiveForLockScreen(false); } catch {}
     }
-  }, [track]);
+  }, [track, player, metaRetreatName]);
 
-  // --- Handle audio loading and restoration ---
+  // ─── Track change → load source + saved position ───
   useEffect(() => {
-    if (!status || !track) return;
-
-    // Prevent effect from running during active restoration
-    if (isRestorationInProgress) {
+    if (!track) {
+      // No track selected: drop everything back to idle.
+      trackIdRef.current = null;
+      seekToTargetDoneRef.current = null;
+      setAudioSource(null);
+      setPhase('idle');
+      setTargetPosition(0);
+      setUserScrubValue(null);
+      lastSavedSecondRef.current = -1;
+      hasCompletedRef.current = false;
       return;
     }
 
-    // State machine transitions - prevent duplicate loading for same track
-    // Note: Don't require status.duration > 0 — streaming URLs may report 0 duration until fully buffered
-    if (playerState === 'LOADING' && status.isLoaded && loadedTrackId !== track.id) {
-      console.log(`Audio loaded: ${track.title} (${track.id}) - Duration: ${status.duration}s (track.duration: ${track.duration}s)`);
-      setLoadedTrackId(track.id);
+    const currentId = track.id;
+    trackIdRef.current = currentId;
+    seekToTargetDoneRef.current = null;
+    setUserScrubValue(null);
+    lastSavedSecondRef.current = -1;
+    hasCompletedRef.current = false;
 
-      const isFirstLoad = loadedTrackId === null;
-      const delay = isFirstLoad ? 100 : 800;
+    // Stop any audio that may already be playing from a previous track —
+    // we don't want overlap during the brief moment the new source is
+    // resolving.
+    try { player?.pause(); } catch {}
 
-      const timeout = setTimeout(() => {
-        console.log(`Audio stabilized - transitioning to READY (delay: ${delay}ms)`);
-        setPlayerState('READY');
-        setIsTrackLoading(false);
-      }, delay);
+    setPhase('loading');
+    // Invalidate the previous source so the player is re-created from
+    // scratch. Without this, useAudioPlayer keeps reporting status.isLoaded
+    // for the *previous* track's audio while we're resolving the new one,
+    // and the seek-to-target effect can fire with a stale targetPosition
+    // before the saved position has been read from storage.
+    setAudioSource(null);
 
-      setPendingTimeouts(prev => [...prev, timeout]);
-    }
+    // Safety net: if source resolution or audio buffering is still
+    // unresolved after 15s, transition to ready anyway and surface the
+    // problem in the logs so the user isn't stuck staring at a spinner.
+    const safetyTimer = setTimeout(() => {
+      if (trackIdRef.current === currentId && phase === 'loading') {
+        console.warn(`[SAFETY] Track load exceeded ${SAFETY_LOAD_TIMEOUT_MS}ms: ${track.title}`);
+        setPhase('ready');
+      }
+    }, SAFETY_LOAD_TIMEOUT_MS);
 
-    // Automatic restoration when ready
-    const isAudioSourceReady = streamLoadedTrackId === track.id;
+    (async () => {
+      // Read saved position FIRST so the slider can be positioned correctly
+      // before the audio source is even resolved. This eliminates the
+      // "slider jumps from 0 to saved position" flicker.
+      const saved = await readSavedPosition(currentId);
+      if (trackIdRef.current !== currentId) return;
+      setTargetPosition(saved);
 
-    if (playerState === 'READY' && loadedTrackId === track.id && !isRestorationInProgress && isAudioSourceReady) {
-      console.log(`Auto-restoring position for: ${track.title}`);
-      restoreSavedPosition();
-    }
-  }, [status, track, playerState, loadedTrackId, isRestorationInProgress, audioSource, isStreamLoading, streamLoadedTrackId]);
-
-  // --- Handle position updates during normal playback ---
-  useEffect(() => {
-    if (!status || !track) return;
-
-    if (playerState !== 'PLAYING' && playerState !== 'SEEKING') return;
-    if (loadedTrackId !== track.id || status.currentTime === undefined) return;
-
-    // State-based protection
-    if (restorationProtection) {
-      const positionDiff = Math.abs(status.currentTime - expectedPosition);
-      const tolerance = playerState === 'PLAYING' ? 3 : 2;
-
-      if (positionDiff <= tolerance) {
-        setRestorationProtection(false);
-        setIsSeekInProgress(false);
-      } else {
+      const source = await resolveAudioSource(track);
+      if (trackIdRef.current !== currentId) return;
+      if (!source) {
+        console.error(`Could not resolve audio source for ${track.title}`);
+        // Stay in loading; safety timer will eventually unstick the UI.
         return;
       }
-    }
+      setAudioSource(source);
+    })();
 
-    // Update positions only if not currently seeking via slider
-    if (playerState !== 'SEEKING') {
-      setPlayerPosition(status.currentTime);
-      setDisplayPosition(status.currentTime);
-    }
+    return () => clearTimeout(safetyTimer);
+    // We deliberately key only on `track` so this effect runs once per
+    // track switch; phase/player intentionally don't re-trigger it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track]);
 
-    // Save progress every 10 seconds (only during normal playback)
-    if (playerState === 'PLAYING') {
-      const currentSeconds = Math.floor(status.currentTime);
-      if (currentSeconds > 0 && currentSeconds % 10 === 0) {
-        saveProgress(status.currentTime * 1000);
+  // ─── Audio loaded → seek to target → ready ───
+  // Single transition. No artificial delays. Runs at most once per track
+  // load, gated by seekToTargetDoneRef. The audioSource check prevents the
+  // effect from firing against the placeholder player that useAudioPlayer
+  // returns while we're still resolving the new source — that placeholder
+  // can report status.isLoaded=true even though no real audio is loaded.
+  useEffect(() => {
+    if (phase !== 'loading') return;
+    if (!track || !audioSource || !status?.isLoaded || !player) return;
+    if (seekToTargetDoneRef.current === track.id) return;
+
+    const currentId = track.id;
+    seekToTargetDoneRef.current = currentId;
+
+    (async () => {
+      try {
+        // Always align the audio engine with targetPosition, even when
+        // targetPosition is 0. expo-audio sometimes carries a stale
+        // currentTime across source changes; without an explicit seek
+        // the slider would show the previous track's position until the
+        // user triggered playback.
+        const needSeek = Math.abs((status.currentTime ?? 0) - targetPosition) > 0.5;
+        if (needSeek) {
+          await player.seekTo(targetPosition);
+        }
+        // Restore the previous playback rate (expo-audio resets it on
+        // source change).
+        try { player.setPlaybackRate(playbackSpeed, 'high'); } catch {}
+      } catch (error) {
+        console.error('Seek to target failed:', error);
       }
+      if (trackIdRef.current !== currentId) return;
+      setPhase('ready');
+    })();
+  }, [phase, track, audioSource, status?.isLoaded, player, targetPosition, playbackSpeed]);
+
+  // ─── Progress save + completion detection during playback ───
+  useEffect(() => {
+    if (phase !== 'ready' || !track || !status) return;
+    if (!status.playing) return;
+
+    const currentSeconds = Math.floor(status.currentTime ?? 0);
+
+    if (currentSeconds > 0
+      && currentSeconds % PROGRESS_SAVE_INTERVAL_S === 0
+      && currentSeconds !== lastSavedSecondRef.current) {
+      lastSavedSecondRef.current = currentSeconds;
+      void saveProgress(currentSeconds * 1000);
     }
 
-    // Check for completion (fire once per track)
-    if (!hasCompletedCurrentTrackRef.current &&
-        (status.didJustFinish || (status.currentTime >= status.duration && status.duration > 0))) {
-      hasCompletedCurrentTrackRef.current = true;
-      console.log('Track completed');
-      saveProgress(status.duration * 1000);
+    if (!hasCompletedRef.current
+      && (status.didJustFinish
+        || (status.duration > 0 && status.currentTime >= status.duration))) {
+      hasCompletedRef.current = true;
+      void saveProgress(status.duration * 1000);
       onTrackCompleteRef.current?.();
     }
-  }, [status, track, playerState, loadedTrackId, restorationProtection, expectedPosition]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, phase, track]);
 
-  // --- Pre-caching effect ---
+  // ─── Pre-cache upcoming tracks once we're 30s into playback ───
+  const hasPreCachedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!track || !status || !upcomingTracks || upcomingTracks.length === 0) return;
-    if (playerState !== 'PLAYING' || !status.playing) return;
-    if (hasPreCachedForTrackRef.current === track.id) return;
+    if (phase !== 'ready' || !track || !status?.playing) return;
+    if (!upcomingTracks.length) return;
+    if (hasPreCachedForRef.current === track.id) return;
+    if ((status.currentTime ?? 0) < 30) return;
 
-    const currentTime = status.currentTime || 0;
+    hasPreCachedForRef.current = track.id;
 
-    if (currentTime >= 30) {
-      console.log(`[PRE-CACHE] Triggering pre-cache after ${Math.round(currentTime)}s for track: ${track.title}`);
-      hasPreCachedForTrackRef.current = track.id;
+    const getStreamUrlForTrack = async (trackId: string): Promise<string | null> => {
+      try {
+        if (await cacheService.getCachedTrackPath(trackId)) return null;
+        if (await downloadService.getDownloadedTrackPath(trackId)) return null;
+        const response = await retreatService.getTrackStreamUrl(trackId);
+        return response.success ? response.url || null : null;
+      } catch {
+        return null;
+      }
+    };
 
-      const getStreamUrlForTrack = async (trackId: string): Promise<string | null> => {
-        try {
-          const cachedPath = await cacheService.getCachedTrackPath(trackId);
-          if (cachedPath) return null;
+    cacheService.preCacheTracksForDuration(
+      upcomingTracks.map((t) => ({ id: t.id, duration: t.duration })),
+      metaRetreatId || track.session_id || 'unknown',
+      getStreamUrlForTrack,
+      PRE_CACHE_DURATION_SECONDS,
+    ).catch((err) => console.warn('[PRE-CACHE] failed:', err));
+  }, [phase, track, status?.playing, status?.currentTime, upcomingTracks, metaRetreatId]);
 
-          const downloadedPath = await downloadService.getDownloadedTrackPath(trackId);
-          if (downloadedPath) return null;
-
-          const response = await retreatService.getTrackStreamUrl(trackId);
-          return response.success ? response.url || null : null;
-        } catch (error) {
-          console.warn(`[PRE-CACHE] Failed to get stream URL for ${trackId}:`, error);
-          return null;
-        }
-      };
-
-      const currentRetreatId = metaRetreatId || track.session_id || 'unknown';
-      cacheService.preCacheTracksForDuration(
-        upcomingTracks.map(t => ({ id: t.id, duration: t.duration })),
-        currentRetreatId,
-        getStreamUrlForTrack,
-        PRE_CACHE_DURATION_SECONDS
-      ).catch(err => console.warn('[PRE-CACHE] Pre-cache failed:', err));
-    }
-  }, [track, status, playerState, upcomingTracks, metaRetreatId]);
-
-  // --- Notify playing state change ---
+  // ─── Notify external listeners when isPlaying flips ───
   useEffect(() => {
     onPlayingStateChangeRef.current?.(isPlaying);
   }, [isPlaying]);
 
-  // --- Load track audio source ---
-  const loadTrack = async (newTrack: Track) => {
+  // ─── Save progress to AsyncStorage + notify consumer ───
+  const saveProgress = useCallback(async (positionMs: number) => {
+    if (!track) return;
     try {
-      console.log(`Loading track audio: ${newTrack.title} (ID: ${newTrack.id})`);
-      const source = await getAudioSource(newTrack);
-      if (source) {
-        console.log(`Setting audio source for: ${newTrack.title}`);
-        setAudioSource(source);
-      } else {
-        console.error(`Failed to get audio source for: ${newTrack.title}`);
-      }
-    } catch (error) {
-      console.error('Error loading track:', error);
-    }
-  };
-
-  // --- Get audio source (local or stream) with automatic caching ---
-  const getAudioSource = async (targetTrack: Track): Promise<string | null> => {
-    try {
-      // 1. Check for explicitly downloaded track first
-      const downloadedPath = await downloadService.getDownloadedTrackPath(targetTrack.id);
-      if (downloadedPath) {
-        console.log(`Using downloaded audio: ${targetTrack.title}`);
-        setStreamLoadedTrackId(targetTrack.id);
-        return downloadedPath;
-      }
-
-      // 2. Check for cached track
-      const cachedPath = await cacheService.getCachedTrackPath(targetTrack.id);
-      if (cachedPath) {
-        console.log(`Using cached audio: ${targetTrack.title}`);
-        setStreamLoadedTrackId(targetTrack.id);
-        return cachedPath;
-      }
-
-      // 3. Stream from backend and cache in background
-      console.log(`Streaming and caching: ${targetTrack.title}`);
-      setIsStreamLoading(true);
-
-      const response = await retreatService.getTrackStreamUrl(targetTrack.id);
-
-      if (response.success && response.url) {
-        console.log(`Got stream URL for: ${targetTrack.title}`);
-        setStreamLoadedTrackId(targetTrack.id);
-        setIsStreamLoading(false);
-
-        // Cache the track in background
-        const retreatIdForCache = targetTrack.session_id || 'unknown';
-        cacheService.cacheTrack(targetTrack.id, retreatIdForCache, response.url)
-          .then(() => {
-            console.log(`Background cache complete: ${targetTrack.title}`);
-          })
-          .catch((cacheError) => {
-            console.warn(`Background cache failed: ${targetTrack.title}`, cacheError);
-          });
-
-        return response.url;
-      } else {
-        setIsStreamLoading(false);
-        throw new Error(response.error || 'Failed to get stream URL');
-      }
-    } catch (error) {
-      console.error('Error getting audio source:', error);
-      setIsStreamLoading(false);
-      return null;
-    }
-  };
-
-  // --- Restore saved position ---
-  const restoreSavedPosition = async () => {
-    if (!track || !player || !status?.isLoaded || playerState !== 'READY' || isRestorationInProgress) {
-      console.log('Cannot restore position - requirements not met');
-      return;
-    }
-
-    const currentTrackId = track.id;
-    const restorationSessionId = `${currentTrackId}-${Date.now()}`;
-    let restorationSucceeded = false;
-
-    try {
-      console.log(`Starting position restoration for ${track.title} (session: ${restorationSessionId})`);
-      setIsRestorationInProgress(true);
-      setRestorationTrackId(currentTrackId);
-      currentRestorationSessionIdRef.current = restorationSessionId;
-      setPlayerState('SEEKING');
-      setIsSeekInProgress(true);
-
-      const progressKey = `progress_${currentTrackId}`;
-      const savedProgress = await AsyncStorage.getItem(progressKey);
-
-      if (!track || track.id !== currentTrackId) {
-        console.log(`Track changed during restoration (session: ${restorationSessionId})`);
-        return;
-      }
-
-      if (savedProgress) {
-        const progress = JSON.parse(savedProgress);
-        const positionSeconds = progress.position;
-
-        const maxDuration = status.duration || track.duration || 0;
-        // Allow seek if we have a position, even when duration is unknown (0)
-        if (positionSeconds > 0 && (maxDuration === 0 || positionSeconds < maxDuration - 1)) {
-          console.log(`Restoring to saved position: ${positionSeconds}s / ${maxDuration}s`);
-
-          setDisplayPosition(positionSeconds);
-          setExpectedPosition(positionSeconds);
-
-          const currentAudioSource = audioSource || '';
-          const isStreamedTrack = currentAudioSource.startsWith('http://') || currentAudioSource.startsWith('https://');
-          const stabilizationWait = isStreamedTrack ? 1200 : 600;
-
-          console.log(`Waiting for audio to stabilize... (${stabilizationWait}ms for ${isStreamedTrack ? 'streamed' : 'local'} track)`);
-          await new Promise(resolve => setTimeout(resolve, stabilizationWait));
-
-          // Check if restoration session was cancelled during wait
-          if (currentRestorationSessionIdRef.current !== restorationSessionId) {
-            console.log(`Restoration session cancelled during stabilization (session: ${restorationSessionId})`);
-            return;
-          }
-
-          if (!track || track.id !== currentTrackId) {
-            console.log(`Track changed during stabilization wait (session: ${restorationSessionId})`);
-            return;
-          }
-
-          const isPlayerStateValid = player &&
-            status?.isLoaded &&
-            (playerState as AudioPlayerState) !== 'LOADING';
-
-          if (!isPlayerStateValid) {
-            console.log(`Player state invalid during restoration (session: ${restorationSessionId})`);
-            return;
-          }
-
-          try {
-            const testValid = player && status?.isLoaded;
-            if (!testValid) {
-              console.log(`Player object validation failed (session: ${restorationSessionId})`);
-              return;
-            }
-          } catch (validationError) {
-            console.log(`Player object validation threw error (session: ${restorationSessionId}):`, validationError);
-            return;
-          }
-
-          try {
-            if (currentRestorationSessionIdRef.current !== restorationSessionId) {
-              console.log(`Restoration session superseded (session: ${restorationSessionId})`);
-              return;
-            }
-
-            if (loadedTrackId !== currentTrackId) {
-              console.log(`Loaded track mismatch (session: ${restorationSessionId})`);
-              return;
-            }
-
-            if (!track || track.id !== currentTrackId) {
-              console.log(`Track changed just before seek (session: ${restorationSessionId})`);
-              return;
-            }
-
-            if (!status?.isLoaded || !player) {
-              console.log(`Player not ready for seek (session: ${restorationSessionId})`);
-              return;
-            }
-
-            console.log(`Executing seek to ${positionSeconds}s (session: ${restorationSessionId})`);
-
-            try {
-              await player.seekTo(positionSeconds);
-              console.log(`Seek completed successfully (session: ${restorationSessionId})`);
-
-              await new Promise(resolve => setTimeout(resolve, 400));
-
-              if (track && track.id === currentTrackId) {
-                setPlayerPosition(positionSeconds);
-                setRestorationProtection(true);
-                restorationSucceeded = true;
-                console.log(`Position restoration completed: ${positionSeconds}s (session: ${restorationSessionId})`);
-              }
-            } catch (seekOperationError: any) {
-              if (currentRestorationSessionIdRef.current === restorationSessionId) {
-                const errorMessage = seekOperationError?.message || '';
-                const isNativePlayerError = errorMessage.includes('SharedObject<AudioPlayer>') ||
-                  errorMessage.includes('native shared object') ||
-                  errorMessage.includes('Unable to find the native');
-
-                if (isNativePlayerError) {
-                  console.error(`Native player object error during restoration (session: ${restorationSessionId})`);
-                  console.log(`Keeping display position at ${positionSeconds}s for user visibility`);
-                } else {
-                  console.error(`Seek operation failed (session: ${restorationSessionId}):`, seekOperationError);
-                  setDisplayPosition(0);
-                  setPlayerPosition(0);
-                  setExpectedPosition(0);
-                }
-                setRestorationProtection(false);
-              }
-              return;
-            }
-          } catch (seekError) {
-            if (currentRestorationSessionIdRef.current === restorationSessionId) {
-              console.error(`Player seek failed during restoration (session: ${restorationSessionId}):`, seekError);
-              if (track && track.id === currentTrackId) {
-                setDisplayPosition(0);
-                setPlayerPosition(0);
-                setExpectedPosition(0);
-                setRestorationProtection(false);
-              }
-            }
-            return;
-          }
-        } else {
-          console.log(`Invalid saved position (${positionSeconds}s), starting from beginning`);
-          setDisplayPosition(0);
-          setPlayerPosition(0);
-          setExpectedPosition(0);
-          setRestorationProtection(false);
-        }
-      } else {
-        console.log(`No saved position, starting from beginning`);
-        setDisplayPosition(0);
-        setPlayerPosition(0);
-        setExpectedPosition(0);
-        setRestorationProtection(false);
-      }
-    } catch (error) {
-      if (currentRestorationSessionIdRef.current === restorationSessionId) {
-        console.error('Error during position restoration:', error);
-        if (track && track.id === currentTrackId) {
-          setRestorationProtection(false);
-          setDisplayPosition(0);
-          setPlayerPosition(0);
-          setExpectedPosition(0);
-        }
-      }
-    } finally {
-      setIsSeekInProgress(false);
-      setIsRestorationInProgress(false);
-
-      if (track && track.id === currentTrackId && currentRestorationSessionIdRef.current === restorationSessionId) {
-        // If restoration didn't succeed (early return from cancelled/failed seek),
-        // reset display position to avoid showing stale time while audio plays from 0
-        if (!restorationSucceeded) {
-          console.log(`Restoration did not succeed, resetting display position (session: ${restorationSessionId})`);
-          setDisplayPosition(0);
-          setPlayerPosition(0);
-          setExpectedPosition(0);
-          setRestorationProtection(false);
-        }
-        setPlayerState('RESTORED');
-        setIsTrackLoading(false);
-        console.log(`Position restoration complete (session: ${restorationSessionId})`);
-        safeClearSessionId("restoration completion", false);
-      }
-      setRestorationTrackId(null);
-    }
-  };
-
-  // --- Save progress ---
-  const saveProgress = async (currentPositionMs: number) => {
-    if (!track || !status) return;
-
-    try {
+      const trackDuration = status?.duration || track.duration || 0;
       const progress: UserProgress = {
         trackId: track.id,
-        position: Math.floor(currentPositionMs / 1000),
-        completed: (status.duration || track.duration || 0) > 0
-          ? currentPositionMs >= ((status.duration || track.duration) * 1000 * 0.95)
-          : false,
+        position: Math.floor(positionMs / 1000),
+        completed: trackDuration > 0 && positionMs / 1000 >= trackDuration - 1,
         lastPlayed: new Date().toISOString(),
         bookmarks: [],
       };
-
-      const progressKey = `progress_${track.id}`;
-      await AsyncStorage.setItem(progressKey, JSON.stringify(progress));
+      await AsyncStorage.setItem(`progress_${track.id}`, JSON.stringify(progress));
       onProgressUpdateRef.current?.(progress);
     } catch (error) {
-      console.error('Error saving progress:', error);
+      console.error('saveProgress error:', error);
     }
-  };
+  }, [track, status?.duration]);
 
-  // --- Toggle play/pause ---
-  const togglePlayPause = useCallback(() => {
-    if (!player || !status?.isLoaded || playerState === 'LOADING') return;
-
-    if (isSeekInProgress && !status.playing) {
-      console.log('Play blocked - seek in progress');
-      return;
-    }
-
-    if (status.playing) {
-      player.pause();
-      setPlayerState('RESTORED');
-    } else {
-      player.play();
-      setPlayerState('PLAYING');
-    }
-  }, [player, status, playerState, isSeekInProgress]);
-
-  // --- Seek to position ---
-  const seekToPosition = useCallback(async (positionMs: number) => {
-    if (!player || !status?.isLoaded || !track || loadedTrackId !== track.id) {
-      console.log('Cannot seek - audio not ready');
-      setIsSeekInProgress(false);
-      setPlayerState('RESTORED');
-      return;
-    }
-
-    try {
-      const positionSeconds = positionMs / 1000;
-      console.log(`Manual seek to: ${positionSeconds}s`);
-
-      const wasPlaying = status.playing;
-      if (wasPlaying) {
-        await player.pause();
-      }
-
-      setDisplayPosition(positionSeconds);
-      setExpectedPosition(positionSeconds);
-
-      if (!player || loadedTrackId !== track.id) {
-        setIsSeekInProgress(false);
-        setPlayerState('RESTORED');
-        return;
-      }
-
-      await player.seekTo(positionSeconds);
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      setPlayerPosition(positionSeconds);
-      console.log(`Manual seek completed: ${positionSeconds}s`);
-
-      if (wasPlaying && player && loadedTrackId === track.id) {
-        await player.play();
-        setPlayerState('PLAYING');
-        setRestorationProtection(false);
-      } else {
-        setPlayerState('RESTORED');
-        setRestorationProtection(false);
-      }
-
-      await saveProgress(positionMs);
-    } catch (error) {
-      console.error('Error during manual seek:', error);
-      setRestorationProtection(false);
-      setPlayerState('RESTORED');
-    } finally {
-      setIsSeekInProgress(false);
-    }
-  }, [player, status, track, loadedTrackId]);
-
-  // --- Change playback speed ---
-  const changePlaybackSpeed = useCallback(() => {
-    if (isPlayButtonDisabled || !player || !status?.isLoaded) return;
-
-    const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
-    const currentIndex = speeds.indexOf(playbackSpeed);
-    const newSpeed = speeds[(currentIndex + 1) % speeds.length];
-
-    setPlaybackSpeed(newSpeed);
-    player.setPlaybackRate(newSpeed, 'high');
-  }, [isPlayButtonDisabled, player, status, playbackSpeed]);
-
-  // --- Skip backward 15 seconds ---
-  const skipBackward = useCallback(() => {
-    const newPosition = Math.max(0, displayPosition - 15);
-    seekToPosition(newPosition * 1000);
-  }, [displayPosition, seekToPosition]);
-
-  // --- Skip forward 15 seconds ---
-  const skipForward = useCallback(() => {
-    const trackDuration = status?.duration || track?.duration || 0;
-    const newPosition = Math.min(trackDuration, displayPosition + 15);
-    seekToPosition(newPosition * 1000);
-  }, [displayPosition, status, track, seekToPosition]);
-
-  // --- Slider interaction handlers ---
-  const onSlidingStart = useCallback(() => {
-    console.log(`Slider interaction started at: ${displayPosition}s`);
-    setPlayerState('SEEKING');
-    setIsSeekInProgress(true);
-  }, [displayPosition]);
-
-  const onSlidingComplete = useCallback(async (value: number) => {
-    console.log(`Slider released at: ${value}s`);
-    await seekToPosition(value * 1000);
-  }, [seekToPosition]);
-
-  const onSliderValueChange = useCallback((value: number) => {
-    if (playerState === 'SEEKING') {
-      setDisplayPosition(value);
-    }
-  }, [playerState]);
-
-  // --- Persist last played track for restore on next launch ---
+  // ─── Persist last-played for "resume on next launch" ───
   const saveLastPlayedTrack = useCallback(async (
     savedTrack: Track,
-    meta?: { retreatId: string; retreatName: string; groupName: string }
+    meta?: { retreatId: string; retreatName: string; groupName: string },
   ) => {
     try {
-      const data = { track: savedTrack, meta: meta || null };
-      await AsyncStorage.setItem('last_played_track', JSON.stringify(data));
+      await AsyncStorage.setItem(
+        'last_played_track',
+        JSON.stringify({ track: savedTrack, meta: meta || null }),
+      );
     } catch (error) {
-      console.error('Error saving last played track:', error);
+      console.error('saveLastPlayedTrack error:', error);
     }
   }, []);
 
-  // --- Play a specific track ---
+  // ─── Actions ───
+
   const playTrack = useCallback((
     newTrack: Track,
     newTrackList: Track[],
     index: number,
-    meta?: { retreatId: string; retreatName: string; groupName: string }
+    meta?: { retreatId: string; retreatName: string; groupName: string },
   ) => {
-    // Clear idle track display when a real track loads
     setIdleTrack(null);
     setTrackListState(newTrackList);
     setCurrentTrackIndex(index);
@@ -905,78 +486,129 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setMetaRetreatName(meta.retreatName);
       setMetaGroupName(meta.groupName);
     }
-    // Setting track triggers the load effect
-    setTrack(newTrack);
-    // Persist for next launch
-    saveLastPlayedTrack(newTrack, meta);
-  }, [saveLastPlayedTrack]);
+    // Re-tapping the currently-loaded track is a no-op — the user can use
+    // play/pause to control playback. The session screen calls playTrack
+    // both on mount (auto-load) and on user tap; treating same-track taps
+    // as track switches would reset position and cancel playback.
+    if (track?.id !== newTrack.id) {
+      setTrack(newTrack);
+    }
+    void saveLastPlayedTrack(newTrack, meta);
+  }, [track, saveLastPlayedTrack]);
 
-  // --- Resume last played track (loads audio for idle track) ---
   const resumeLastPlayed = useCallback(() => {
     if (!idleTrack) return;
     const { track: idleT, meta } = idleTrack;
     playTrack(idleT, [idleT], 0, meta || undefined);
   }, [idleTrack, playTrack]);
 
-  // --- Clear current track (e.g. on sign out) ---
   const clearTrack = useCallback(() => {
     try { player?.pause(); } catch {}
     setTrack(null);
     setTrackListState([]);
     setCurrentTrackIndex(0);
-    setAudioSource(null);
-    setLoadedTrackId(null);
     setMetaRetreatId(null);
     setMetaRetreatName(null);
     setMetaGroupName(null);
     setIdleTrack(null);
-    setPlayerState('LOADING');
-    setDisplayPosition(0);
-    setPlayerPosition(0);
   }, [player]);
 
-  // --- Next / previous track ---
+  const togglePlayPause = useCallback(() => {
+    if (phase !== 'ready' || !player) return;
+    try {
+      if (isPlaying) player.pause();
+      else player.play();
+    } catch (error) {
+      console.error('togglePlayPause error:', error);
+    }
+  }, [phase, player, isPlaying]);
+
+  const seekTo = useCallback((positionMs: number) => {
+    if (phase !== 'ready' || !player) return;
+    const positionSeconds = Math.max(0, positionMs / 1000);
+    try {
+      player.seekTo(positionSeconds);
+      void saveProgress(positionSeconds * 1000);
+    } catch (error) {
+      console.error('seekTo error:', error);
+    }
+  }, [phase, player, saveProgress]);
+
+  const skipForward = useCallback(() => {
+    if (phase !== 'ready' || !player) return;
+    const max = duration || 0;
+    const next = Math.min(max, (status?.currentTime ?? 0) + SKIP_INTERVAL_S);
+    seekTo(next * 1000);
+  }, [phase, player, duration, status?.currentTime, seekTo]);
+
+  const skipBackward = useCallback(() => {
+    if (phase !== 'ready' || !player) return;
+    const next = Math.max(0, (status?.currentTime ?? 0) - SKIP_INTERVAL_S);
+    seekTo(next * 1000);
+  }, [phase, player, status?.currentTime, seekTo]);
+
+  const changePlaybackSpeed = useCallback(() => {
+    if (phase !== 'ready' || !player) return;
+    const i = PLAYBACK_SPEED_CYCLE.indexOf(playbackSpeed as typeof PLAYBACK_SPEED_CYCLE[number]);
+    const next = PLAYBACK_SPEED_CYCLE[(i + 1) % PLAYBACK_SPEED_CYCLE.length];
+    setPlaybackSpeed(next);
+    try { player.setPlaybackRate(next, 'high'); } catch (error) {
+      console.error('changePlaybackSpeed error:', error);
+    }
+  }, [phase, player, playbackSpeed]);
+
+  // ─── Slider interaction ───
+  // The slider is a controlled input: while the user drags, we mirror their
+  // value into userScrubValue so the thumb visibly tracks their finger
+  // without being yanked back by status.currentTime updates.
+  const onSlidingStart = useCallback(() => {
+    setUserScrubValue(position);
+  }, [position]);
+
+  const onSliderValueChange = useCallback((value: number) => {
+    setUserScrubValue(value);
+  }, []);
+
+  const onSlidingComplete = useCallback((value: number) => {
+    setUserScrubValue(null);
+    seekTo(value * 1000);
+  }, [seekTo]);
+
+  // ─── Next / previous (delegated to consumer via callback) ───
   const nextTrackAction = useCallback(() => {
     onNextTrackRef.current?.();
   }, []);
-
   const previousTrackAction = useCallback(() => {
     onPreviousTrackRef.current?.();
   }, []);
 
-  // --- Callback registration setters ---
+  // ─── Callback registration ───
   const setOnProgressUpdate = useCallback((cb: ((progress: UserProgress) => void) | undefined) => {
     onProgressUpdateRef.current = cb;
   }, []);
-
   const setOnTrackComplete = useCallback((cb: (() => void) | undefined) => {
     onTrackCompleteRef.current = cb;
   }, []);
-
   const setOnPlayingStateChange = useCallback((cb: ((isPlaying: boolean) => void) | undefined) => {
     onPlayingStateChangeRef.current = cb;
   }, []);
-
   const setOnNextTrack = useCallback((cb: (() => void) | undefined) => {
     onNextTrackRef.current = cb;
     setHasNextTrack(!!cb);
   }, []);
-
   const setOnPreviousTrack = useCallback((cb: (() => void) | undefined) => {
     onPreviousTrackRef.current = cb;
     setHasPreviousTrack(!!cb);
   }, []);
 
-  // --- Context value ---
-  const value: AudioPlayerContextType = {
-    // State
+  const value = useMemo<AudioPlayerContextType>(() => ({
     currentTrack: track,
     isPlaying,
-    position: displayPosition,
+    position,
     duration,
     playbackSpeed,
-    isLoading: isTrackLoading,
-    playerState,
+    isLoading,
+    playerState: phase,
     trackList: trackListState,
     currentTrackIndex,
     retreatId: metaRetreatId,
@@ -988,12 +620,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     idleTrack,
     player: track ? player : null,
 
-    // Actions
     playTrack,
     resumeLastPlayed,
     clearTrack,
     togglePlayPause,
-    seekTo: seekToPosition,
+    seekTo,
     skipForward,
     skipBackward,
     nextTrack: nextTrackAction,
@@ -1001,18 +632,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     changePlaybackSpeed,
     setUpcomingTracks,
 
-    // Slider interaction
     onSlidingStart,
     onSlidingComplete,
     onSliderValueChange,
 
-    // Callback registration
     setOnProgressUpdate,
     setOnTrackComplete,
     setOnPlayingStateChange,
     setOnNextTrack,
     setOnPreviousTrack,
-  };
+  }), [
+    track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
+    trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
+    isPlayButtonDisabled, hasNextTrack, hasPreviousTrack, idleTrack, player,
+    playTrack, resumeLastPlayed, clearTrack, togglePlayPause, seekTo,
+    skipForward, skipBackward, nextTrackAction, previousTrackAction,
+    changePlaybackSpeed,
+    onSlidingStart, onSlidingComplete, onSliderValueChange,
+    setOnProgressUpdate, setOnTrackComplete, setOnPlayingStateChange,
+    setOnNextTrack, setOnPreviousTrack,
+  ]);
 
   return (
     <AudioPlayerContext.Provider value={value}>
