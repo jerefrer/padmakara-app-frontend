@@ -443,7 +443,7 @@ export default function GroupDetailScreen() {
 
   const years = Object.keys(retreatsByYear).map(Number).sort((a, b) => b - a);
   const groupName = getTranslatedName(groupData, language);
-  const hasHero = !!groupData.heroUrl && !isDesktop;
+  const hasHero = !!groupData.heroUrl;
 
   return (
     <>
@@ -454,9 +454,17 @@ export default function GroupDetailScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
         >
-          {/* Collapsing hero (mobile only — desktop keeps a denser layout) */}
+          {/* Collapsing hero — same edge-to-edge banner pattern on mobile
+              and desktop. Spans full ScrollView width by negating the
+              horizontal padding. */}
           {hasHero && (
-            <Animated.View style={[styles.heroContainer, heroStyle]}>
+            <Animated.View
+              style={[
+                styles.heroContainer,
+                isDesktop && styles.desktopHeroContainer,
+                heroStyle,
+              ]}
+            >
               <Image
                 source={{ uri: groupData.heroUrl! }}
                 cacheKey={
@@ -595,6 +603,10 @@ const styles = StyleSheet.create({
     // spans edge to edge.
     marginHorizontal: -24,
     marginBottom: 8,
+  },
+  desktopHeroContainer: {
+    // Match the desktop ScrollView's wider 40px padding.
+    marginHorizontal: -40,
   },
   floatingBackButton: {
     position: 'absolute',

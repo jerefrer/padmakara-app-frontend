@@ -1,11 +1,49 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import retreatService from '@/services/retreatService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslatedName } from '@/utils/i18n';
 import { colors } from '@/constants/colors';
 import type { Gathering } from '@/types';
+
+/**
+ * Formats an event's start date for the sidebar — short and locale-aware,
+ * e.g. "April 22, 2025" / "22 de abril de 2025".
+ */
+function formatEventDate(iso: string | undefined, locale: string): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(locale === 'pt' ? 'pt-PT' : 'en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Inspects the gathering payload to decide which content-type chips to
+ * show. Audio is implied by any session having tracks, video by a
+ * bunnyVideoId on a session, transcript by a non-empty transcripts array.
+ */
+function deriveContentFlags(ev: Gathering): {
+  hasAudio: boolean;
+  hasVideo: boolean;
+  hasTranscript: boolean;
+} {
+  const sessions = ev.sessions || [];
+  return {
+    hasAudio: sessions.some((s) => s.tracks && s.tracks.length > 0),
+    hasVideo: sessions.some((s) => !!s.bunnyVideoId),
+    hasTranscript: (ev.transcripts?.length ?? 0) > 0,
+  };
+}
 
 interface RelatedEventsListProps {
   /** ID of the event currently being viewed (highlighted in the list). */
@@ -146,6 +184,9 @@ export function RelatedEventsList({
           events.map((ev) => {
             const isActive = String(ev.id) === String(currentEventId);
             const title = getTranslatedName(ev as any, language as 'en' | 'pt') || ev.name;
+            const dateText = formatEventDate(ev.startDate, language);
+            const { hasAudio, hasVideo, hasTranscript } = deriveContentFlags(ev);
+            const iconColor = isActive ? colors.burgundy[500] : colors.gray[400];
             return (
               <Pressable
                 key={ev.id}
@@ -158,6 +199,38 @@ export function RelatedEventsList({
                 >
                   {title}
                 </Text>
+                <View style={styles.itemMeta}>
+                  {!!dateText && (
+                    <Text style={[styles.itemDate, isActive && styles.itemDateActive]}>
+                      {dateText}
+                    </Text>
+                  )}
+                  {(hasAudio || hasVideo || hasTranscript) && (
+                    <View style={styles.itemIcons}>
+                      {hasAudio && (
+                        <Ionicons
+                          name="musical-notes-outline"
+                          size={12}
+                          color={iconColor}
+                        />
+                      )}
+                      {hasVideo && (
+                        <Ionicons
+                          name="videocam-outline"
+                          size={12}
+                          color={iconColor}
+                        />
+                      )}
+                      {hasTranscript && (
+                        <Ionicons
+                          name="book-outline"
+                          size={12}
+                          color={iconColor}
+                        />
+                      )}
+                    </View>
+                  )}
+                </View>
               </Pressable>
             );
           })
@@ -223,6 +296,25 @@ const styles = StyleSheet.create({
   itemTitleActive: {
     color: colors.burgundy[500],
     fontFamily: 'EBGaramond_700Bold',
+  },
+  itemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  itemDate: {
+    fontSize: 12,
+    color: colors.gray[500],
+  },
+  itemDateActive: {
+    color: colors.burgundy[500],
+  },
+  itemIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
   },
   loading: {
     paddingVertical: 32,
