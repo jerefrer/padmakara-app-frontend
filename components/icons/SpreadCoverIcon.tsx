@@ -7,15 +7,11 @@ interface SpreadCoverIconProps {
 }
 
 /**
- * Two-page-with-cover layout indicator: a solo cover page on the left
- * (slightly smaller, like a real book cover thinner than the inside
- * pages), a small gap, then two paired pages — each with the standard
- * dog-eared corner so they read as pages, matching the single-page icon
- * style.
- *
- * Wider viewBox (32×24) than the spread variant so three folded pages
- * fit comfortably; the rendered button is still visually balanced because
- * the consumer scales by the height prop.
+ * Two-page view with cover: a smaller solo cover page on the left, then
+ * a normal two-page spread on the right. Each rectangle keeps the same
+ * dog-eared corner as the single-page and spread icons so the toolbar
+ * group reads as one family. ViewBox is wider (32×24) to give the three
+ * page silhouettes room to breathe; the consumer scales by height.
  */
 export function SpreadCoverIcon({ size = 24, color = '#374151' }: SpreadCoverIconProps) {
   const stroke = {
@@ -25,16 +21,21 @@ export function SpreadCoverIcon({ size = 24, color = '#374151' }: SpreadCoverIco
     strokeLinecap: 'round' as const,
   };
   return (
-    <Svg width={(size * 32) / 24} height={size} viewBox="0 0 32 24" fill="none">
-      {/* Cover (solo) */}
-      <Path d="M2.5 6 H7 L9 8 V18 H2.5 Z" {...stroke} />
-      <Path d="M7 6 V8 H9" {...stroke} />
+    <Svg
+      width={(size * 32) / 24}
+      height={size}
+      viewBox="0 0 32 24"
+      fill="none"
+    >
+      {/* Cover (solo, slightly smaller) */}
+      <Path d="M2 6 H6 L8 8 V18 H2 Z" {...stroke} />
+      <Path d="M6 6 V8 H8" {...stroke} />
       {/* Spread — left half */}
-      <Path d="M13 5 H18 L20 7 V19 H13 Z" {...stroke} />
-      <Path d="M18 5 V7 H20" {...stroke} />
+      <Path d="M12 4 H17 L21 8 V20 H12 Z" {...stroke} />
+      <Path d="M17 4 V8 H21" {...stroke} />
       {/* Spread — right half */}
-      <Path d="M22 5 H27 L29 7 V19 H22 Z" {...stroke} />
-      <Path d="M27 5 V7 H29" {...stroke} />
+      <Path d="M22 4 H27 L31 8 V20 H22 Z" {...stroke} />
+      <Path d="M27 4 V8 H31" {...stroke} />
     </Svg>
   );
 }

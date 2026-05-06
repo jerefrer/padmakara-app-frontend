@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { SpreadIcon } from './icons/SpreadIcon';
 import { SpreadCoverIcon } from './icons/SpreadCoverIcon';
+import { FitWidthIcon } from './icons/FitWidthIcon';
+import { FitHeightIcon } from './icons/FitHeightIcon';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { colors } from '@/constants/colors';
@@ -275,18 +277,17 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
         </View>
         <View style={styles.toolbarDivider} />
         <View style={styles.toolbarGroup}>
-          {toolbarButton(
-            fit === 'height',
-            () => setFit('height'),
-            'chevron-expand-outline',
-            'Fit height',
-          )}
-          {toolbarButton(
+          {customIconButton(
             fit === 'width',
             () => setFit('width'),
-            'chevron-expand-outline',
+            FitWidthIcon,
             'Fit width',
-            90,
+          )}
+          {customIconButton(
+            fit === 'height',
+            () => setFit('height'),
+            FitHeightIcon,
+            'Fit height',
           )}
         </View>
 

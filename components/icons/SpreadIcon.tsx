@@ -7,45 +7,25 @@ interface SpreadIconProps {
 }
 
 /**
- * Two-page spread layout indicator: two page-shaped figures (with the
- * familiar dog-eared top-right corner) side by side. The corner fold is
- * what makes each shape read as "a page" rather than an abstract block,
- * matching the look of Ionicons' document-outline used for the single-
- * page mode.
+ * Two-page view: two pages side by side, each with a prominent
+ * dog-eared top-right corner — same visual language as the
+ * document-outline icon used for the single-page mode, just doubled up.
  */
 export function SpreadIcon({ size = 24, color = '#374151' }: SpreadIconProps) {
+  const stroke = {
+    stroke: color,
+    strokeWidth: 1.5,
+    strokeLinejoin: 'round' as const,
+    strokeLinecap: 'round' as const,
+  };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Left page */}
-      <Path
-        d="M3 5 H8.5 L11 7.5 V19 H3 Z"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <Path
-        d="M8.5 5 V7.5 H11"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      <Path d="M2 4 H7 L11 8 V20 H2 Z" {...stroke} />
+      <Path d="M7 4 V8 H11" {...stroke} />
       {/* Right page */}
-      <Path
-        d="M13 5 H18.5 L21 7.5 V19 H13 Z"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <Path
-        d="M18.5 5 V7.5 H21"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      <Path d="M13 4 H18 L22 8 V20 H13 Z" {...stroke} />
+      <Path d="M18 4 V8 H22" {...stroke} />
     </Svg>
   );
 }
