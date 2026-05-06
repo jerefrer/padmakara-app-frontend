@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SinglePageIcon } from './icons/SinglePageIcon';
 import { SpreadIcon } from './icons/SpreadIcon';
 import { SpreadCoverIcon } from './icons/SpreadCoverIcon';
 import { FitWidthIcon } from './icons/FitWidthIcon';
@@ -256,10 +257,10 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
       {/* Custom toolbar */}
       <View style={styles.toolbar}>
         <View style={styles.toolbarGroup}>
-          {toolbarButton(
+          {customIconButton(
             effectiveLayout === 'single',
             () => setLayout('single'),
-            'document-outline',
+            SinglePageIcon,
             'Single page',
           )}
           {customIconButton(
