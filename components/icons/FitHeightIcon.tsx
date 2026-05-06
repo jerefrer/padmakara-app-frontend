@@ -7,9 +7,9 @@ interface FitHeightIconProps {
 }
 
 /**
- * Fit-height indicator: a page outline (with the standard dog-eared
- * corner) containing a vertical double-arrow — the page is being
- * fitted to the viewport's height, so the arrows point up and down.
+ * Fit-height indicator: a single page outline (same 14×18 proportion as
+ * document-outline) with a vertical double-arrow inside — the page is
+ * being stretched to the viewport's height.
  */
 export function FitHeightIcon({ size = 24, color = '#374151' }: FitHeightIconProps) {
   const stroke = {
@@ -21,12 +21,12 @@ export function FitHeightIcon({ size = 24, color = '#374151' }: FitHeightIconPro
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Page outline */}
-      <Path d="M4 4 H14 L19 9 V20 H4 Z" {...stroke} />
-      <Path d="M14 4 V9 H19" {...stroke} />
-      {/* Vertical double-arrow inside the page */}
-      <Path d="M11 11 V18" {...stroke} />
-      <Path d="M9 13 L11 11 L13 13" {...stroke} />
-      <Path d="M9 16 L11 18 L13 16" {...stroke} />
+      <Path d="M5 3 H15 L19 7 V21 H5 Z" {...stroke} />
+      <Path d="M15 3 V7 H19" {...stroke} />
+      {/* Vertical double-arrow */}
+      <Path d="M12 9 V17" {...stroke} />
+      <Path d="M10 11 L12 9 L14 11" {...stroke} />
+      <Path d="M10 15 L12 17 L14 15" {...stroke} />
     </Svg>
   );
 }

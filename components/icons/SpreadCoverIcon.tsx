@@ -7,11 +7,13 @@ interface SpreadCoverIconProps {
 }
 
 /**
- * Two-page view with cover: a smaller solo cover page on the left, then
- * a normal two-page spread on the right. Each rectangle keeps the same
- * dog-eared corner as the single-page and spread icons so the toolbar
- * group reads as one family. ViewBox is wider (32×24) to give the three
- * page silhouettes room to breathe; the consumer scales by height.
+ * Two-page view with cover: the cover sits on the left as a blank page,
+ * and the second page on the right shows text lines — Acrobat's
+ * convention for "show cover page" is a blank cover next to a content
+ * page so the difference between the two layouts is obvious at a glance.
+ *
+ * Both pages share the 14×18 proportion of document-outline so the
+ * whole layout group looks consistent.
  */
 export function SpreadCoverIcon({ size = 24, color = '#374151' }: SpreadCoverIconProps) {
   const stroke = {
@@ -27,15 +29,16 @@ export function SpreadCoverIcon({ size = 24, color = '#374151' }: SpreadCoverIco
       viewBox="0 0 32 24"
       fill="none"
     >
-      {/* Cover (solo, slightly smaller) */}
-      <Path d="M2 6 H6 L8 8 V18 H2 Z" {...stroke} />
-      <Path d="M6 6 V8 H8" {...stroke} />
-      {/* Spread — left half */}
-      <Path d="M12 4 H17 L21 8 V20 H12 Z" {...stroke} />
-      <Path d="M17 4 V8 H21" {...stroke} />
-      {/* Spread — right half */}
-      <Path d="M22 4 H27 L31 8 V20 H22 Z" {...stroke} />
-      <Path d="M27 4 V8 H31" {...stroke} />
+      {/* Cover (blank, on the left) */}
+      <Path d="M1 3 H11 L15 7 V21 H1 Z" {...stroke} />
+      <Path d="M11 3 V7 H15" {...stroke} />
+      {/* Content page (right) — same outline as the cover, plus text
+          lines hinting at the page's content. */}
+      <Path d="M17 3 H27 L31 7 V21 H17 Z" {...stroke} />
+      <Path d="M27 3 V7 H31" {...stroke} />
+      <Path d="M19 12 H29" {...stroke} />
+      <Path d="M19 15 H29" {...stroke} />
+      <Path d="M19 18 H26" {...stroke} />
     </Svg>
   );
 }

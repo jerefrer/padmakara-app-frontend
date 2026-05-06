@@ -7,9 +7,10 @@ interface SpreadIconProps {
 }
 
 /**
- * Two-page view: two pages side by side, each with a prominent
- * dog-eared top-right corner — same visual language as the
- * document-outline icon used for the single-page mode, just doubled up.
+ * Two-page view: two pages side by side, each kept at the same 14×18
+ * proportion as Ionicons' document-outline so the whole toolbar group
+ * (single, spread, spread-cover) reads as one family. The viewBox is
+ * widened to 32×24 to fit two full-size pages without cramping.
  */
 export function SpreadIcon({ size = 24, color = '#374151' }: SpreadIconProps) {
   const stroke = {
@@ -19,13 +20,18 @@ export function SpreadIcon({ size = 24, color = '#374151' }: SpreadIconProps) {
     strokeLinecap: 'round' as const,
   };
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg
+      width={(size * 32) / 24}
+      height={size}
+      viewBox="0 0 32 24"
+      fill="none"
+    >
       {/* Left page */}
-      <Path d="M2 4 H7 L11 8 V20 H2 Z" {...stroke} />
-      <Path d="M7 4 V8 H11" {...stroke} />
+      <Path d="M1 3 H11 L15 7 V21 H1 Z" {...stroke} />
+      <Path d="M11 3 V7 H15" {...stroke} />
       {/* Right page */}
-      <Path d="M13 4 H18 L22 8 V20 H13 Z" {...stroke} />
-      <Path d="M18 4 V8 H22" {...stroke} />
+      <Path d="M17 3 H27 L31 7 V21 H17 Z" {...stroke} />
+      <Path d="M27 3 V7 H31" {...stroke} />
     </Svg>
   );
 }

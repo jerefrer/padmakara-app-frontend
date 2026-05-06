@@ -7,9 +7,9 @@ interface FitWidthIconProps {
 }
 
 /**
- * Fit-width indicator: a page outline (with the standard dog-eared
- * corner) containing a horizontal double-arrow — the page is being
- * fitted across the viewport's width, so the arrows point sideways.
+ * Fit-width indicator: a single page outline (same 14×18 proportion as
+ * document-outline) with a horizontal double-arrow inside — the page
+ * is being stretched across the viewport's width.
  */
 export function FitWidthIcon({ size = 24, color = '#374151' }: FitWidthIconProps) {
   const stroke = {
@@ -21,12 +21,12 @@ export function FitWidthIcon({ size = 24, color = '#374151' }: FitWidthIconProps
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Page outline */}
-      <Path d="M4 4 H14 L19 9 V20 H4 Z" {...stroke} />
-      <Path d="M14 4 V9 H19" {...stroke} />
-      {/* Horizontal double-arrow inside the page */}
-      <Path d="M7 14 H16" {...stroke} />
-      <Path d="M9 12 L7 14 L9 16" {...stroke} />
-      <Path d="M14 12 L16 14 L14 16" {...stroke} />
+      <Path d="M5 3 H15 L19 7 V21 H5 Z" {...stroke} />
+      <Path d="M15 3 V7 H19" {...stroke} />
+      {/* Horizontal double-arrow */}
+      <Path d="M8 13 H16" {...stroke} />
+      <Path d="M10 11 L8 13 L10 15" {...stroke} />
+      <Path d="M14 11 L16 13 L14 15" {...stroke} />
     </Svg>
   );
 }
