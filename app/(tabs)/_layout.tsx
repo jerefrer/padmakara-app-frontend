@@ -21,12 +21,14 @@ export default function TabLayout() {
   const { t } = useLanguage();
   const { isMobile } = useDesktopLayout();
   const segments = useSegments() as string[];
-  // The right rail collapses to a 64px strip only on the event-detail
-  // screen. Everywhere else it's the wide brand panel.
-  const isOnEventDetail =
-    segments.includes('(groups)') && segments.includes('retreat');
-  const rightVariant = isOnEventDetail ? 'narrow' : 'wide';
-  const rightWidth = isOnEventDetail ? 64 : 220;
+  // The right rail collapses to a 64px strip on focused content screens
+  // (event detail, transcript reader). Everywhere else it's the wide
+  // brand panel.
+  const isOnFocusedContent =
+    segments.includes('(groups)') &&
+    (segments.includes('retreat') || segments.includes('transcript'));
+  const rightVariant = isOnFocusedContent ? 'narrow' : 'wide';
+  const rightWidth = isOnFocusedContent ? 64 : 220;
 
   const tabsElement = (
     <Tabs
