@@ -581,23 +581,34 @@ export default function RetreatDetailScreen() {
   // sidebar lives in (groups)/_layout.tsx, so updating meta here only
   // changes which item is highlighted — the sidebar itself does not
   // remount as we navigate from one event to another.
+  //
+  // The sidebar context follows the navigation entry point:
+  //   - `from=events` (Teachings & Talks, Home featured/recent, teacher
+  //     page) → show the teacher's events.
+  //   - otherwise (Retreats → Group → Event) → show the group's events.
+  // Setting only one of teacherAbbreviation/groupId at a time disables
+  // RelatedEventsList's teacher-first preference so each path lands on
+  // its own list.
   useEffect(() => {
     if (!retreat) return;
+    const teacher = retreat.teachers?.[0];
+    const group = retreat.retreat_group;
+    const showTeacherView = from === 'events' && !!teacher;
     setSidebarMeta({
       eventId: String(retreat.id),
-      teacherAbbreviation: retreat.teachers?.[0]?.abbreviation ?? null,
-      groupId: retreat.retreat_group?.id ? String(retreat.retreat_group.id) : null,
-      headerTitle:
-        retreat.teachers?.[0]?.name
-        || (retreat.retreat_group ? getTranslatedName(retreat.retreat_group, language) : ''),
-      headerSubtitle: retreat.teachers?.[0]
+      teacherAbbreviation: showTeacherView ? (teacher?.abbreviation ?? null) : null,
+      groupId: showTeacherView ? null : (group?.id ? String(group.id) : null),
+      headerTitle: showTeacherView
+        ? (teacher?.name || '')
+        : (group ? getTranslatedName(group, language) : ''),
+      headerSubtitle: showTeacherView
         ? (t('events.teachings') || 'Teachings & Talks')
-        : undefined,
+        : (group ? (t('events.retreats') || 'Retreats') : undefined),
     });
     // We deliberately do NOT clear meta on unmount — leaving the last
     // value in place avoids a frame where the sidebar disappears while
     // the next event screen is still mounting.
-  }, [retreat, language, setSidebarMeta, t]);
+  }, [retreat, language, setSidebarMeta, t, from]);
 
   const checkDownloadStatus = async () => {
     if (!retreat) return;
