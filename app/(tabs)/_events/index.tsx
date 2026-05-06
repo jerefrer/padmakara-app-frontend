@@ -469,9 +469,11 @@ export default function EventsScreen() {
         <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
           {/* Title with back button */}
           <View style={[styles.header, isDesktop && styles.desktopHeader]}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-            </TouchableOpacity>
+            {!isDesktop && (
+              <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
+                <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
+              </TouchableOpacity>
+            )}
             <Text style={[styles.title, isDesktop && styles.desktopTitle]}>
               {filterTeacherName || t('home.teachingsAndTalks') || 'Teachings & Talks'}
             </Text>

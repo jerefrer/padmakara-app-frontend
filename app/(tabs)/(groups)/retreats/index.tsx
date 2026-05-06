@@ -258,12 +258,14 @@ export default function RetreatsListScreen() {
         >
           {/* Title with back button */}
           <View style={[styles.titleRow, isDesktop && styles.desktopTitleRow]}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-            </TouchableOpacity>
+            {!isDesktop && (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
+              >
+                <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
+              </TouchableOpacity>
+            )}
             <Text style={styles.pageTitle}>
               {t("home.retreats") || "Retreats"}
             </Text>

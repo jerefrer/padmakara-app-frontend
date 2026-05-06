@@ -397,16 +397,18 @@ export default function PublicationsScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={[styles.header, isDesktop && styles.desktopHeader]}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.burgundy[500]}
-            />
-          </TouchableOpacity>
+          {!isDesktop && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={colors.burgundy[500]}
+              />
+            </TouchableOpacity>
+          )}
           <Text style={styles.headerTitle}>
             {t('publications.title') || 'Publications'}
           </Text>
