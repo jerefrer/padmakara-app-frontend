@@ -272,11 +272,41 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     return { activeSegmentIndex: segIdx, activeWordIndex: wordIdx };
   }, [data, rafPosition]);
 
-  // Find which paragraph the active word is in (for auto-scroll)
+  // Sticky "last known active" position. The audio drops out of any
+  // segment in between paragraphs (and during long pauses), which would
+  // otherwise make the just-finished paragraph un-fade. By remembering
+  // the last position we saw, we can keep treating earlier paragraphs
+  // as past until a new active position is detected.
+  const lastActiveRef = useRef({ segIdx: -1, wordIdx: -1 });
+  useEffect(() => {
+    if (activeSegmentIndex >= 0) {
+      lastActiveRef.current = {
+        segIdx: activeSegmentIndex,
+        wordIdx: activeWordIndex,
+      };
+    }
+  }, [activeSegmentIndex, activeWordIndex]);
+
+  // The values that drive the per-paragraph fade. While active is valid we
+  // pass it through. While we're in a gap (active === -1) we synthesize a
+  // "we just finished segment N" position so paragraphs ending at or
+  // before N stay faded as past content. activeWordIndex is set to -1 in
+  // the gap so no specific word gets the live "currently playing" tint.
+  const inGap = activeSegmentIndex < 0 && lastActiveRef.current.segIdx >= 0;
+  const effectiveSegmentIndex = inGap
+    ? lastActiveRef.current.segIdx + 1
+    : activeSegmentIndex;
+  const effectiveWordIndex = inGap ? -1 : activeWordIndex;
+
+  // Find which paragraph the active word is in (for auto-scroll). When
+  // there is no live active word we fall back to the last one we saw so
+  // the viewport doesn't lurch backward during gaps.
   const activeParaIndex = useMemo(() => {
-    if (activeSegmentIndex < 0) return -1;
+    const segForScroll =
+      activeSegmentIndex >= 0 ? activeSegmentIndex : lastActiveRef.current.segIdx;
+    if (segForScroll < 0) return -1;
     return paragraphs.findIndex((para) =>
-      para.some((pw) => pw.segIdx === activeSegmentIndex),
+      para.some((pw) => pw.segIdx === segForScroll),
     );
   }, [paragraphs, activeSegmentIndex]);
 
@@ -404,8 +434,8 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
             key={paraIdx}
             words={para}
             paraIndex={paraIdx}
-            activeSegmentIndex={activeSegmentIndex}
-            activeWordIndex={activeWordIndex}
+            activeSegmentIndex={effectiveSegmentIndex}
+            activeWordIndex={effectiveWordIndex}
             onWordPress={handleWordPress}
             onLayout={handleParaLayout}
           />
