@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   desktopTitleRow: {
-    paddingTop: 32,
+    paddingTop: 42,
   },
   backButton: {
     width: 36,

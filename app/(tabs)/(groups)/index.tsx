@@ -342,7 +342,7 @@ export default function HomeScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
         >
           {/* Category navigation — mobile only (desktop has sidebar) */}
           {!isDesktop && (
@@ -456,6 +456,9 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 120,
   },
+  scrollContentDesktop: {
+    paddingTop: 32,
+  },
 
   // Category rows
   categoryRow: {
@@ -483,7 +486,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   highlightSectionDesktop: {
-    marginTop: 32,
+    marginTop: 0,
   },
   highlightLabel: {
     fontSize: 23,

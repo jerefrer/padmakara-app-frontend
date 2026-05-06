@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   desktopScrollView: {
-    paddingHorizontal: 40,
+    paddingHorizontal: 24,
   },
   inlineBackButton: {
     width: 36,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   desktopHeader: {
-    paddingTop: 32,
+    paddingTop: 44,
     paddingBottom: 8,
   },
   title: {
