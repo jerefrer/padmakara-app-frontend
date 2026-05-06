@@ -47,6 +47,10 @@ export function DesktopPlayerBar() {
     groupName,
     idleTrack,
     resumeLastPlayed,
+    canOpenReadAlong,
+    canOpenTranscript,
+    openReadAlong,
+    openTranscript,
   } = useAudioPlayerContext();
 
   const hasTrack = !!currentTrack;
@@ -235,18 +239,48 @@ export function DesktopPlayerBar() {
           </View>
         </View>
 
-        {/* Right zone: speed + expand */}
+        {/* Right zone: transcript / read-along / speed — mobile-style mini
+            buttons (icon stacked over a small label). Each button is
+            conditional on a handler being registered by the current screen. */}
         <View style={styles.rightZone}>
+          {canOpenTranscript && (
+            <TouchableOpacity
+              onPress={openTranscript}
+              style={styles.toolbarButton}
+              accessibilityLabel={t('transcript.open') || 'Open transcript'}
+            >
+              <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
+              <Text style={styles.toolbarLabel}>
+                {t('player.transcript') || 'transcript'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {canOpenReadAlong && (
+            <TouchableOpacity
+              onPress={openReadAlong}
+              style={styles.toolbarButton}
+              accessibilityLabel={t('readAlong.title') || 'Read Along'}
+            >
+              <Ionicons name="book-outline" size={20} color={colors.gray[600]} />
+              <Text style={styles.toolbarLabel}>
+                {t('player.read') || 'read'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             onPress={changePlaybackSpeed}
-            style={[styles.speedButton, controlsDisabled && styles.speedButtonDisabled]}
+            style={styles.toolbarButton}
             disabled={controlsDisabled}
           >
-            <Text style={[styles.speedText, controlsDisabled && styles.speedTextDisabled]}>
-              {playbackSpeed}x
+            <Text style={[styles.speedValue, controlsDisabled && styles.speedTextDisabled]}>
+              x{playbackSpeed}
+            </Text>
+            <Text style={[styles.toolbarLabel, controlsDisabled && styles.speedTextDisabled]}>
+              {t('player.speed') || 'speed'}
             </Text>
           </TouchableOpacity>
-
         </View>
       </View>
   );
@@ -397,23 +431,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 12,
+    gap: 16,
     paddingLeft: 16,
   },
-  speedButton: {
-    backgroundColor: colors.gray[100],
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
+  // Mobile-style mini button: icon (or value) on top, small label below.
+  toolbarButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 56,
   },
-  speedButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: colors.gray[200],
+  toolbarLabel: {
+    fontSize: 10,
+    color: colors.gray[500],
+    marginTop: 2,
   },
-  speedText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.burgundy[500],
+  speedValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.gray[700],
   },
   speedTextDisabled: {
     color: colors.gray[400],

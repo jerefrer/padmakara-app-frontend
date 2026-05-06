@@ -703,6 +703,27 @@ export default function RetreatDetailScreen() {
     };
   }, [currentTrackIndex, filteredTracks]);
 
+  // Register read-along + transcript open handlers so the desktop player
+  // bar can show transcript / read-along buttons in its right zone.
+  useEffect(() => {
+    audioContext.setOnOpenReadAlong(currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined);
+    return () => {
+      audioContext.setOnOpenReadAlong(undefined);
+    };
+  }, [currentTrack?.hasReadAlong]);
+
+  useEffect(() => {
+    const hasAnyTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
+    audioContext.setOnOpenTranscript(
+      hasAnyTranscript && retreat
+        ? () => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)
+        : undefined,
+    );
+    return () => {
+      audioContext.setOnOpenTranscript(undefined);
+    };
+  }, [retreat?.id, retreat?.transcripts?.length]);
+
   // Update upcoming tracks for pre-caching when track or list changes
   useEffect(() => {
     if (currentTrack && filteredTracks.length > 0) {
@@ -1097,29 +1118,24 @@ export default function RetreatDetailScreen() {
                 contentPosition={{ left: `${heroFocalX}%`, top: `${heroFocalY}%` }}
               />
             </View>
-            <View style={styles.heroActionRow} pointerEvents="box-none">
+            {/* Informative-only badges showing what content the event has.
+                Transcript is opened from the desktop player bar; audio/video
+                are accessed from the tabs and track list below. */}
+            <View style={styles.heroActionRow} pointerEvents="none">
               {hasTranscript && (
-                <TouchableOpacity
-                  style={styles.heroActionCircle}
-                  onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat?.id}` as any)}
-                  accessibilityLabel={t('transcript.open') || 'Open transcript'}
-                >
+                <View style={styles.heroActionCircle}>
                   <Ionicons name="book-outline" size={18} color={colors.white} />
-                </TouchableOpacity>
+                </View>
               )}
               {hasAudio && (
                 <View style={styles.heroActionCircle}>
                   <Ionicons name="musical-notes-outline" size={18} color={colors.white} />
                 </View>
               )}
-              {hasVideo && firstVideoSession && (
-                <TouchableOpacity
-                  style={styles.heroActionCircle}
-                  onPress={() => watchSessionVideo(firstVideoSession)}
-                  accessibilityLabel={t('video.watchSessionVideo') || 'Watch session video'}
-                >
+              {hasVideo && (
+                <View style={styles.heroActionCircle}>
                   <Ionicons name="videocam-outline" size={18} color={colors.white} />
-                </TouchableOpacity>
+                </View>
               )}
             </View>
           </Animated.View>

@@ -60,6 +60,11 @@ export interface AudioPlayerContextType {
   isPlayButtonDisabled: boolean;
   hasNextTrack: boolean;
   hasPreviousTrack: boolean;
+  // True when the screen mounting the player has wired up an open-handler
+  // (e.g. session screen has a transcript / a read-along available). The
+  // desktop player bar reads these to show or hide its right-zone buttons.
+  canOpenReadAlong: boolean;
+  canOpenTranscript: boolean;
   idleTrack: IdleTrackInfo | null;
   player: ReturnType<typeof useAudioPlayer> | null;
 
@@ -73,6 +78,8 @@ export interface AudioPlayerContextType {
   skipBackward: () => void;
   nextTrack: () => void;
   previousTrack: () => void;
+  openReadAlong: () => void;
+  openTranscript: () => void;
   changePlaybackSpeed: () => void;
   setUpcomingTracks: (tracks: Track[]) => void;
 
@@ -87,6 +94,8 @@ export interface AudioPlayerContextType {
   setOnPlayingStateChange: (cb: ((isPlaying: boolean) => void) | undefined) => void;
   setOnNextTrack: (cb: (() => void) | undefined) => void;
   setOnPreviousTrack: (cb: (() => void) | undefined) => void;
+  setOnOpenReadAlong: (cb: (() => void) | undefined) => void;
+  setOnOpenTranscript: (cb: (() => void) | undefined) => void;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
@@ -189,8 +198,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const onPlayingStateChangeRef = useRef<((isPlaying: boolean) => void) | undefined>(undefined);
   const onNextTrackRef = useRef<(() => void) | undefined>(undefined);
   const onPreviousTrackRef = useRef<(() => void) | undefined>(undefined);
+  const onOpenReadAlongRef = useRef<(() => void) | undefined>(undefined);
+  const onOpenTranscriptRef = useRef<(() => void) | undefined>(undefined);
   const [hasNextTrack, setHasNextTrack] = useState(false);
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
+  const [canOpenReadAlong, setCanOpenReadAlong] = useState(false);
+  const [canOpenTranscript, setCanOpenTranscript] = useState(false);
 
   // ─── Derived values ───
   // isPlaying reflects optimistic intent: if the user tapped play before
@@ -676,6 +689,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const previousTrackAction = useCallback(() => {
     onPreviousTrackRef.current?.();
   }, []);
+  const openReadAlong = useCallback(() => {
+    onOpenReadAlongRef.current?.();
+  }, []);
+  const openTranscript = useCallback(() => {
+    onOpenTranscriptRef.current?.();
+  }, []);
 
   // ─── Callback registration ───
   const setOnProgressUpdate = useCallback((cb: ((progress: UserProgress) => void) | undefined) => {
@@ -695,6 +714,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     onPreviousTrackRef.current = cb;
     setHasPreviousTrack(!!cb);
   }, []);
+  const setOnOpenReadAlong = useCallback((cb: (() => void) | undefined) => {
+    onOpenReadAlongRef.current = cb;
+    setCanOpenReadAlong(!!cb);
+  }, []);
+  const setOnOpenTranscript = useCallback((cb: (() => void) | undefined) => {
+    onOpenTranscriptRef.current = cb;
+    setCanOpenTranscript(!!cb);
+  }, []);
 
   const value = useMemo<AudioPlayerContextType>(() => ({
     currentTrack: track,
@@ -712,6 +739,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     isPlayButtonDisabled,
     hasNextTrack,
     hasPreviousTrack,
+    canOpenReadAlong,
+    canOpenTranscript,
     idleTrack,
     player: track ? player : null,
 
@@ -724,6 +753,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     skipBackward,
     nextTrack: nextTrackAction,
     previousTrack: previousTrackAction,
+    openReadAlong,
+    openTranscript,
     changePlaybackSpeed,
     setUpcomingTracks,
 
@@ -736,16 +767,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setOnPlayingStateChange,
     setOnNextTrack,
     setOnPreviousTrack,
+    setOnOpenReadAlong,
+    setOnOpenTranscript,
   }), [
     track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
     trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
-    isPlayButtonDisabled, hasNextTrack, hasPreviousTrack, idleTrack, player,
+    isPlayButtonDisabled, hasNextTrack, hasPreviousTrack,
+    canOpenReadAlong, canOpenTranscript, idleTrack, player,
     playTrack, resumeLastPlayed, clearTrack, togglePlayPause, seekTo,
     skipForward, skipBackward, nextTrackAction, previousTrackAction,
+    openReadAlong, openTranscript,
     changePlaybackSpeed,
     onSlidingStart, onSlidingComplete, onSliderValueChange,
     setOnProgressUpdate, setOnTrackComplete, setOnPlayingStateChange,
     setOnNextTrack, setOnPreviousTrack,
+    setOnOpenReadAlong, setOnOpenTranscript,
   ]);
 
   return (
