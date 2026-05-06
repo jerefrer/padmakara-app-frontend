@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SpreadIcon } from './icons/SpreadIcon';
+import { SpreadCoverIcon } from './icons/SpreadCoverIcon';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { colors } from '@/constants/colors';
@@ -230,6 +232,22 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
     </Pressable>
   );
 
+  const customIconButton = (
+    active: boolean,
+    onPress: () => void,
+    Icon: React.ComponentType<{ size?: number; color?: string }>,
+    label: string,
+  ) => (
+    <Pressable
+      onPress={onPress}
+      style={[styles.toolbarButton, active && styles.toolbarButtonActive]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Icon size={18} color={active ? colors.burgundy[500] : colors.gray[600]} />
+    </Pressable>
+  );
+
   return (
     // @ts-ignore - DOM ref on View for fullscreen target
     <View style={styles.container} ref={containerRef}>
@@ -242,16 +260,16 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
             'document-outline',
             'Single page',
           )}
-          {toolbarButton(
+          {customIconButton(
             effectiveLayout === 'spread',
             () => setLayout('spread'),
-            'book-outline',
+            SpreadIcon,
             'Two pages',
           )}
-          {toolbarButton(
+          {customIconButton(
             effectiveLayout === 'spread-cover',
             () => setLayout('spread-cover'),
-            'library-outline',
+            SpreadCoverIcon,
             'Two pages with cover',
           )}
         </View>
