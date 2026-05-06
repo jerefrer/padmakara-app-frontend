@@ -211,6 +211,9 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
     onPress: () => void,
     iconName: any,
     label: string,
+    /** Optional rotation in degrees (used to mirror chevron icons for the
+     *  fit-width variant — horizontal Ionicons equivalents don't exist). */
+    rotate?: number,
   ) => (
     <Pressable
       onPress={onPress}
@@ -222,6 +225,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
         name={iconName}
         size={16}
         color={active ? colors.burgundy[500] : colors.gray[600]}
+        style={rotate ? { transform: [{ rotate: `${rotate}deg` }] } : undefined}
       />
     </Pressable>
   );
@@ -232,7 +236,6 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
       {/* Custom toolbar */}
       <View style={styles.toolbar}>
         <View style={styles.toolbarGroup}>
-          <Text style={styles.toolbarLabel}>Layout</Text>
           {toolbarButton(
             effectiveLayout === 'single',
             () => setLayout('single'),
@@ -240,23 +243,33 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
             'Single page',
           )}
           {toolbarButton(
-            effectiveLayout === 'spread-cover',
-            () => setLayout('spread-cover'),
-            'book-outline',
-            'Two pages with cover',
-          )}
-          {toolbarButton(
             effectiveLayout === 'spread',
             () => setLayout('spread'),
-            'copy-outline',
+            'book-outline',
             'Two pages',
+          )}
+          {toolbarButton(
+            effectiveLayout === 'spread-cover',
+            () => setLayout('spread-cover'),
+            'library-outline',
+            'Two pages with cover',
           )}
         </View>
         <View style={styles.toolbarDivider} />
         <View style={styles.toolbarGroup}>
-          <Text style={styles.toolbarLabel}>Fit</Text>
-          {toolbarButton(fit === 'height', () => setFit('height'), 'swap-vertical-outline', 'Fit height')}
-          {toolbarButton(fit === 'width', () => setFit('width'), 'swap-horizontal-outline', 'Fit width')}
+          {toolbarButton(
+            fit === 'height',
+            () => setFit('height'),
+            'chevron-expand-outline',
+            'Fit height',
+          )}
+          {toolbarButton(
+            fit === 'width',
+            () => setFit('width'),
+            'chevron-expand-outline',
+            'Fit width',
+            90,
+          )}
         </View>
 
         <View style={styles.toolbarSpacer} />
@@ -375,13 +388,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-  },
-  toolbarLabel: {
-    fontSize: 11,
-    color: colors.gray[500],
-    marginRight: 6,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
   },
   toolbarDivider: {
     width: StyleSheet.hairlineWidth,
