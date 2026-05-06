@@ -29,6 +29,12 @@ export function Sidebar() {
 
   const categories = [
     {
+      key: 'whats-new',
+      title: t('home.whatsNew') || "What's New",
+      subtitle: t('home.whatsNewSubtitle') || 'Featured content and recent additions',
+      route: '/(tabs)/(groups)',
+    },
+    {
       key: 'events',
       title: t('home.teachingsAndTalks') || 'Teachings & Talks',
       subtitle: t('home.teachingsSubtitle') || 'Events by Kangyur Rinpoche Found., Songtsen Pt & others',
@@ -63,12 +69,22 @@ export function Sidebar() {
           && !pathname.includes('/publications')
           && (pathname.includes('/retreats') || !!globalParams.code || pathname.includes('/retreat/') || pathname.includes('/session/'));
       }
+      if (key === 'whats-new') {
+        return segs.includes('(groups)')
+          && !isInEventsSection
+          && !pathname.includes('/publications')
+          && !pathname.includes('/retreats')
+          && !pathname.includes('/retreat/')
+          && !pathname.includes('/session/')
+          && !pathname.includes('/transcript/')
+          && !globalParams.code;
+      }
       if (key === 'search') {
         return segs.includes('search');
       }
       return false;
     },
-    [segments, pathname, isInEventsSection]
+    [segments, pathname, isInEventsSection, globalParams.code]
   );
 
   const handleNavPress = useCallback((route: string, key: string) => {
