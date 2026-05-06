@@ -33,6 +33,9 @@ export default function PublicationsScreen() {
   const [sortMode, setSortMode] = useState<SortMode>('latest');
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
 
+  // Language dropdown
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+
   // PDF viewer state
   const [viewingPdf, setViewingPdf] = useState<{
     uri: string;
@@ -222,6 +225,20 @@ export default function PublicationsScreen() {
     (pub: Publication) => pub.title,
     []
   );
+
+  // Resolve a language code to its localized full name (falls back to the code).
+  const getLanguageLabel = useCallback(
+    (code: string) => {
+      const translated = t(`publications.languages.${code.toLowerCase()}`);
+      return translated || code;
+    },
+    [t]
+  );
+
+  const handleSelectLanguage = useCallback((lang: string | null) => {
+    setLanguageFilter(lang);
+    setShowLanguageDropdown(false);
+  }, []);
 
   // Render a publication item
   const renderPublicationItem = useCallback(
@@ -414,71 +431,108 @@ export default function PublicationsScreen() {
           </Text>
         </View>
 
-        {/* Sort tabs */}
-        <View style={styles.sortTabs}>
-          {(['latest', 'author', 'title'] as SortMode[]).map((mode) => {
-            const isActive = sortMode === mode;
-            return (
-              <TouchableOpacity
-                key={mode}
-                style={[styles.sortTab, isActive && styles.sortTabActive]}
-                onPress={() => setSortMode(mode)}
-              >
-                <Text
-                  style={[
-                    styles.sortTabText,
-                    isActive && styles.sortTabTextActive,
-                  ]}
+        {/* Sort tabs + language dropdown */}
+        <View style={styles.sortRow}>
+          <View style={styles.sortTabs}>
+            {(['latest', 'author', 'title'] as SortMode[]).map((mode) => {
+              const isActive = sortMode === mode;
+              return (
+                <TouchableOpacity
+                  key={mode}
+                  style={[styles.sortTab, isActive && styles.sortTabActive]}
+                  onPress={() => setSortMode(mode)}
                 >
-                  {t(`publications.tabs.${mode}`) || mode}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Language filter chips */}
-        {availableLanguages.length > 1 && (
-          <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                !languageFilter && styles.filterChipActive,
-              ]}
-              onPress={() => setLanguageFilter(null)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  !languageFilter && styles.filterChipTextActive,
-                ]}
-              >
-                {t('publications.filters.all') || 'All'}
-              </Text>
-            </TouchableOpacity>
-            {availableLanguages.map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[
-                  styles.filterChip,
-                  languageFilter === lang && styles.filterChipActive,
-                ]}
-                onPress={() =>
-                  setLanguageFilter(languageFilter === lang ? null : lang)
-                }
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    languageFilter === lang && styles.filterChipTextActive,
-                  ]}
-                >
-                  {lang}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.sortTabText,
+                      isActive && styles.sortTabTextActive,
+                    ]}
+                  >
+                    {t(`publications.tabs.${mode}`) || mode}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
+
+          {availableLanguages.length > 1 && (
+            <View style={styles.languageDropdownContainer}>
+              <TouchableOpacity
+                style={styles.languageTrigger}
+                onPress={() => setShowLanguageDropdown((v) => !v)}
+                activeOpacity={0.7}
+                hitSlop={8}
+              >
+                <Text style={styles.languageTriggerText}>
+                  {languageFilter
+                    ? getLanguageLabel(languageFilter)
+                    : t('publications.filters.allLanguages') || 'All languages'}
+                </Text>
+                <Ionicons
+                  name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={colors.gray[500]}
+                />
+              </TouchableOpacity>
+              {showLanguageDropdown && (
+                <View style={styles.languageDropdown}>
+                  <TouchableOpacity
+                    style={[
+                      styles.languageDropdownItem,
+                      !languageFilter && styles.languageDropdownItemActive,
+                    ]}
+                    onPress={() => handleSelectLanguage(null)}
+                  >
+                    <Text
+                      style={[
+                        styles.languageDropdownItemText,
+                        !languageFilter && styles.languageDropdownItemTextActive,
+                      ]}
+                    >
+                      {t('publications.filters.allLanguages') || 'All languages'}
+                    </Text>
+                    {!languageFilter && (
+                      <Ionicons
+                        name="checkmark"
+                        size={16}
+                        color={colors.burgundy[500]}
+                      />
+                    )}
+                  </TouchableOpacity>
+                  {availableLanguages.map((lang) => {
+                    const isActive = languageFilter === lang;
+                    return (
+                      <TouchableOpacity
+                        key={lang}
+                        style={[
+                          styles.languageDropdownItem,
+                          isActive && styles.languageDropdownItemActive,
+                        ]}
+                        onPress={() => handleSelectLanguage(lang)}
+                      >
+                        <Text
+                          style={[
+                            styles.languageDropdownItemText,
+                            isActive && styles.languageDropdownItemTextActive,
+                          ]}
+                        >
+                          {getLanguageLabel(lang)}
+                        </Text>
+                        {isActive && (
+                          <Ionicons
+                            name="checkmark"
+                            size={16}
+                            color={colors.burgundy[500]}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
 
         {/* Content */}
         {loading ? (
@@ -556,29 +610,40 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingVertical: 12,
   },
   desktopHeader: {
-    paddingTop: 32,
+    paddingTop: 42,
   },
   backButton: {
     padding: 4,
     marginRight: 12,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 30,
     fontFamily: 'MinionPro',
     color: colors.burgundy[500],
     fontVariant: ['small-caps'],
     letterSpacing: 0.5,
   },
 
-  // Sort tabs
+  // Sort tabs row (sorts on the left, language dropdown on the right).
+  // position:relative + zIndex are required so the absolutely-positioned
+  // dropdown menu rendered inside this row sits above the FlatList that
+  // follows in the DOM (otherwise clicks pass through to list items on web).
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+    marginBottom: 8,
+    position: 'relative',
+    zIndex: 100,
+  },
   sortTabs: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 8,
     gap: 20,
   },
   sortTab: {
@@ -601,37 +666,67 @@ const styles = StyleSheet.create({
     fontFamily: 'EBGaramond_600SemiBold',
   },
 
-  // Language filter
-  filterRow: {
+  // Language dropdown — anchored absolutely to its container, mirroring
+  // the language picker pattern used on the event hero.
+  languageDropdownContainer: {
+    position: 'relative',
+    zIndex: 100,
+  },
+  languageTrigger: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    backgroundColor: colors.white,
+    paddingHorizontal: 4,
   },
-  filterChipActive: {
-    borderColor: colors.burgundy[500],
+  languageTriggerText: {
+    fontSize: 14,
+    fontFamily: 'EBGaramond_400Regular',
+    color: colors.gray[600],
+    fontVariant: ['small-caps'],
+    letterSpacing: 0.3,
+  },
+  languageDropdown: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 4,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minWidth: 200,
+    overflow: 'hidden',
+  },
+  languageDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[100],
+  },
+  languageDropdownItemActive: {
     backgroundColor: colors.burgundy[50],
   },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.gray[500],
+  languageDropdownItemText: {
+    fontSize: 14,
+    color: colors.gray[700],
   },
-  filterChipTextActive: {
+  languageDropdownItemTextActive: {
+    fontWeight: '600',
     color: colors.burgundy[500],
   },
 
   // List
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 100,
   },
 

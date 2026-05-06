@@ -325,7 +325,12 @@
     },
     "filters": {
       "all": "Todos",
-      "language": "Idioma"
+      "language": "Idioma",
+      "allLanguages": "Todos os idiomas"
+    },
+    "languages": {
+      "en": "Inglês",
+      "pt": "Português"
     },
     "activateBanner": "Ative a sua conta para aceder à biblioteca completa",
     "downloading": "A transferir...",

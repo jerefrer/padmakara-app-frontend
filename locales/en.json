@@ -325,7 +325,12 @@
     },
     "filters": {
       "all": "All",
-      "language": "Language"
+      "language": "Language",
+      "allLanguages": "All languages"
+    },
+    "languages": {
+      "en": "English",
+      "pt": "Portuguese"
     },
     "activateBanner": "Activate your account to access the full library",
     "downloading": "Downloading...",
