@@ -118,24 +118,6 @@ function EventCard({ event, onPress, language }: { event: any; onPress: () => vo
 
 // ── Desktop event row ────────────────────────────────────────────────────────
 
-function parseDuration(totalSeconds: number): { hours: number; minutes: number } | null {
-  if (!totalSeconds || totalSeconds <= 0) return null;
-  return {
-    hours: Math.floor(totalSeconds / 3600),
-    minutes: Math.round((totalSeconds % 3600) / 60),
-  };
-}
-
-function getEventTotalDuration(event: any): number {
-  let total = 0;
-  for (const session of event.sessions || []) {
-    for (const track of session.tracks || []) {
-      total += track.duration || 0;
-    }
-  }
-  return total;
-}
-
 function getOrdinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
@@ -193,8 +175,6 @@ function DesktopEventRow({ event, onPress, language }: { event: any; onPress: ()
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
-  const totalDuration = getEventTotalDuration(event);
-  const sessionCount = event.sessions?.length || 0;
   const [isHovered, setIsHovered] = useState(false);
 
   const webHoverProps = Platform.OS === 'web' ? {
@@ -218,25 +198,6 @@ function DesktopEventRow({ event, onPress, language }: { event: any; onPress: ()
           {event.teachers?.length > 0 && ` · ${event.teachers.map((t: any) => t.name).filter(Boolean).join(', ')}`}
         </Text>
       </View>
-      {sessionCount > 1 && (
-        <View style={styles.desktopRowStat}>
-          <Text style={styles.desktopRowStatValue}>{sessionCount}</Text>
-          <Text style={styles.desktopRowStatLabel}>sessions</Text>
-        </View>
-      )}
-      <View style={styles.desktopRowStat}>
-        {(() => {
-          const d = parseDuration(totalDuration);
-          if (!d) return <Text style={styles.desktopRowStatValue}>—</Text>;
-          return (
-            <Text style={styles.desktopRowStatValue}>
-              {d.hours > 0 && <>{d.hours}<Text style={styles.desktopRowStatUnit}>h</Text> </>}
-              {(d.minutes > 0 || d.hours === 0) && <>{d.minutes}<Text style={styles.desktopRowStatUnit}>m</Text></>}
-            </Text>
-          );
-        })()}
-      </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
     </Pressable>
   );
 }
@@ -808,26 +769,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.gray[600],
-  },
-  desktopRowStat: {
-    width: 90,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  desktopRowStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.burgundy[500],
-  },
-  desktopRowStatUnit: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray[500],
-    marginLeft: 2,
-  },
-  desktopRowStatLabel: {
-    fontSize: 13,
-    color: colors.gray[500],
   },
 });
