@@ -29,6 +29,7 @@ export default function PublicationsScreen() {
   const { isDesktop } = useDesktopLayout();
 
   const [publications, setPublications] = useState<Publication[]>([]);
+  const [hasHiddenPublications, setHasHiddenPublications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('latest');
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
@@ -56,8 +57,11 @@ export default function PublicationsScreen() {
 
     publicationService
       .getPublications()
-      .then((data) => {
-        if (!cancelled) setPublications(data);
+      .then(({ publications: data, hasHiddenPublications: hidden }) => {
+        if (!cancelled) {
+          setPublications(data);
+          setHasHiddenPublications(hidden);
+        }
       })
       .catch((err) => {
         console.error('Failed to load publications:', err);
@@ -138,13 +142,6 @@ export default function PublicationsScreen() {
       data,
     }));
   }, [filteredPublications, sortMode, t]);
-
-  // Check if there are hidden publications (subscriber-only ones user can't see)
-  const hasHiddenPublications = useMemo(() => {
-    return publications.some(
-      (p) => p.accessLevel === 'subscribers' && !hasActiveSubscription
-    );
-  }, [publications, hasActiveSubscription]);
 
   // Open a publication PDF
   const handleOpenPublication = useCallback(

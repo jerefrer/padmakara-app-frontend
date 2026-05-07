@@ -36,8 +36,14 @@ class PublicationService {
   /**
    * Fetch list of publications from the API.
    * Works with or without authentication (public publications are always visible).
+   * Returns the publications array plus the backend-computed `hasHiddenPublications`
+   * flag, which is true when subscribers-only publications exist that the current
+   * caller cannot see.
    */
-  async getPublications(sort?: string, language?: string): Promise<Publication[]> {
+  async getPublications(
+    sort?: string,
+    language?: string,
+  ): Promise<{ publications: Publication[]; hasHiddenPublications: boolean }> {
     const params = new URLSearchParams();
     if (sort) params.set('sort', sort);
     if (language) params.set('language', language);
@@ -58,15 +64,27 @@ class PublicationService {
     }
 
     const data = await response.json();
-    return data.publications ?? data.data ?? data;
+    return {
+      publications: data.publications ?? data.data ?? [],
+      hasHiddenPublications: !!data.hasHiddenPublications,
+    };
   }
 
   /**
-   * Get a presigned PDF download URL for a publication (auth required).
+   * Get a presigned PDF download URL for a publication.
+   * Public publications work without auth; subscribers-only publications return
+   * 401/403 from the server when the user lacks an active subscription.
    */
   async getPdfUrl(publicationId: string): Promise<string> {
     const url = buildApiUrl(API_ENDPOINTS.PUBLICATION_PDF(publicationId));
-    const headers = await getAuthHeaders();
+
+    let headers: Record<string, string> = { ...API_CONFIG.headers };
+    try {
+      headers = await getAuthHeaders();
+    } catch {
+      // No auth token — proceed unauthenticated; server will reject if the
+      // publication is subscribers-only.
+    }
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
