@@ -24,7 +24,7 @@ type SortMode = 'title' | 'author' | 'latest';
 
 export default function PublicationsScreen() {
   const { t } = useLanguage();
-  const { hasActiveSubscription } = useAuth();
+  const { isAuthenticated, hasActiveSubscription } = useAuth();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
 
@@ -574,7 +574,13 @@ export default function PublicationsScreen() {
         {hasHiddenPublications && !hasActiveSubscription && (
           <TouchableOpacity
             style={styles.activationBanner}
-            onPress={() => router.push('/(tabs)/settings' as any)}
+            onPress={() =>
+              router.push(
+                (isAuthenticated
+                  ? '/(tabs)/settings'
+                  : '/(auth)/magic-link') as any,
+              )
+            }
           >
             <Ionicons
               name="lock-closed-outline"
