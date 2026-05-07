@@ -1214,6 +1214,16 @@ export default function RetreatDetailScreen() {
           }
           trackSessionId = track.sessionId;
 
+          const prevTrack = trackIndex > 0 ? filteredTracks[trackIndex - 1] : null;
+          const nextTrack = trackIndex < filteredTracks.length - 1 ? filteredTracks[trackIndex + 1] : null;
+          const isContinuation = !showSessionHeader
+            && !!prevTrack
+            && prevTrack.sessionId === track.sessionId
+            && prevTrack.order === track.order;
+          const nextIsContinuation = !!nextTrack
+            && nextTrack.sessionId === track.sessionId
+            && nextTrack.order === track.order;
+
           return (
             <React.Fragment key={track.id}>
               {/* Session Header. The "Watch video" link used to live here
@@ -1234,15 +1244,18 @@ export default function RetreatDetailScreen() {
                   styles.trackItem,
                   isActive && styles.currentTrackItem,
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
+                  nextIsContinuation && styles.trackItemSiblingAbove,
                 ]}
               >
                 <View style={styles.trackNumberContainer}>
-                  <Text style={[
-                    styles.trackNumber,
-                    isActive && styles.currentTrackNumber
-                  ]}>
-                    {track.order}
-                  </Text>
+                  {!isContinuation && (
+                    <Text style={[
+                      styles.trackNumber,
+                      isActive && styles.currentTrackNumber
+                    ]}>
+                      {track.order}
+                    </Text>
+                  )}
                 </View>
 
                 <View style={styles.trackInfo}>
@@ -1952,6 +1965,9 @@ const styles = StyleSheet.create({
   currentTrackItem: {
     backgroundColor: colors.burgundy[50],
     borderLeftColor: colors.burgundy[500],
+  },
+  trackItemSiblingAbove: {
+    borderBottomColor: colors.gray[100],
   },
   trackNumberContainer: {
     minWidth: 32,
