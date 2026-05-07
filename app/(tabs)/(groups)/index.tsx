@@ -69,7 +69,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
       : event.name || event.name_translations?.en || "";
 
   const teacherNames =
-    event.teachers?.map((t: any) => t.name || t.nameEn || "").join(", ") || "";
+    event.teachers?.[0]?.name || event.teachers?.[0]?.nameEn || "";
 
   const eventTypeName = event.eventType
     ? (language === "pt" && event.eventType.namePt
