@@ -1133,9 +1133,9 @@ export default function RetreatDetailScreen() {
                 Transcript is opened from the desktop player bar; audio/video
                 are accessed from the tabs and track list below. */}
             <View style={styles.heroActionRow} pointerEvents="none">
-              {hasTranscript && (
+              {hasVideo && (
                 <View style={styles.heroActionCircle}>
-                  <Ionicons name="book-outline" size={18} color={colors.white} />
+                  <Ionicons name="videocam-outline" size={18} color={colors.white} />
                 </View>
               )}
               {hasAudio && (
@@ -1143,9 +1143,9 @@ export default function RetreatDetailScreen() {
                   <Ionicons name="musical-notes-outline" size={18} color={colors.white} />
                 </View>
               )}
-              {hasVideo && (
+              {hasTranscript && (
                 <View style={styles.heroActionCircle}>
-                  <Ionicons name="videocam-outline" size={18} color={colors.white} />
+                  <Ionicons name="book-outline" size={18} color={colors.white} />
                 </View>
               )}
             </View>

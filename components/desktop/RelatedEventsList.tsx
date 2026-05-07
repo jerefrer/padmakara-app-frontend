@@ -207,16 +207,16 @@ export function RelatedEventsList({
                   )}
                   {(hasAudio || hasVideo || hasTranscript) && (
                     <View style={styles.itemIcons}>
-                      {hasAudio && (
+                      {hasVideo && (
                         <Ionicons
-                          name="musical-notes-outline"
+                          name="videocam-outline"
                           size={12}
                           color={iconColor}
                         />
                       )}
-                      {hasVideo && (
+                      {hasAudio && (
                         <Ionicons
-                          name="videocam-outline"
+                          name="musical-notes-outline"
                           size={12}
                           color={iconColor}
                         />

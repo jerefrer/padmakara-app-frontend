@@ -255,11 +255,11 @@ export default function TeacherDetailScreen() {
                 )}
                 <View style={styles.eventIconRow}>
                   <View style={styles.eventIconGroup}>
-                    {sessionCount > 0 && (
-                      <Ionicons name="musical-notes-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
-                    )}
                     {hasVideo && (
                       <Ionicons name="videocam-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
+                    )}
+                    {sessionCount > 0 && (
+                      <Ionicons name="musical-notes-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
                     )}
                     {hasTranscript && (
                       <Ionicons name="book-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
