@@ -137,7 +137,8 @@
     "teaching": "Ensinamento",
     "teachings": "Ensinamentos e Palestras",
     "recordingsLabel": "Gravações",
-    "organizerPrefix": "Org."
+    "organizerPrefix": "Org.",
+    "transcriptOnlyMessage": "Não existem gravações de áudio ou vídeo disponíveis para este evento. Apenas a transcrição escrita está disponível."
   },
   "home": {
     "greetingMorning": "Bom dia",

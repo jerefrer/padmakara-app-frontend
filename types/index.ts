@@ -28,7 +28,10 @@ export interface RetreatGroup {
   gatherings?: Gathering[];
   members?: string[];
   avatarUrl?: string | null;
+  /** Desktop hero (2400px wide). Falls back to heroMobileUrl on small screens. */
   heroUrl?: string | null;
+  /** Mobile hero variant (1200px wide); preferred by phone-sized clients. */
+  heroMobileUrl?: string | null;
   heroFocalX?: number;
   heroFocalY?: number;
   heroScale?: number;
@@ -44,7 +47,10 @@ export interface GatheringTeacher {
   abbreviation: string;
   photoUrl?: string | null;
   avatarUrl?: string | null;
+  /** Desktop hero (2400px wide). */
   heroUrl?: string | null;
+  /** Mobile hero variant (1200px wide). */
+  heroMobileUrl?: string | null;
   heroFocalX?: number;
   heroFocalY?: number;
   heroScale?: number;

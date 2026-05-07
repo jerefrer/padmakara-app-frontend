@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
+import { selectHero } from '@/utils/heroVariant';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HERO_HEIGHT = 380;
@@ -160,7 +161,7 @@ const LAST_TRACK_KEY = (eventId: string) => `last_played_track:${eventId}`;
 export default function RetreatDetailScreen() {
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const { t, contentLanguage, language } = useLanguage();
-  const { isDesktop } = useDesktopLayout();
+  const { isDesktop, isMobile } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const audioContext = useAudioPlayerContext();
   const { setMeta: setSidebarMeta } = useRelatedEvents();
@@ -1044,25 +1045,30 @@ export default function RetreatDetailScreen() {
     // Mobile-only: collapsing hero. Use the parent group's photo when set;
     // otherwise fall back to the principal teacher's hero so public talks
     // (which are not attached to any retreat group) still get a portrait.
-    const groupHero = retreat?.retreat_group?.heroUrl ?? null;
-    const teacherHero = retreat?.teachers?.[0]?.heroUrl ?? null;
+    // selectHero picks the 1200px mobile WebP variant on phone-sized
+    // viewports and the 2400px desktop WebP everywhere else; the variant
+    // tag also feeds into the cache key so expo-image keeps the two
+    // resolutions in distinct cache buckets.
+    const groupHeroPick = selectHero(retreat?.retreat_group, isMobile);
+    const teacherHeroPick = selectHero(retreat?.teachers?.[0], isMobile);
     // Show the hero on both mobile and desktop now — desktop renders the
     // event content (hero + title + tracks) in the right pane just like
     // mobile, so the hero applies there too.
-    const heroSource = groupHero ?? teacherHero;
-    const heroFocalX = groupHero
+    const useGroupHero = !!groupHeroPick.url;
+    const heroSource = groupHeroPick.url ?? teacherHeroPick.url;
+    const heroFocalX = useGroupHero
       ? (retreat?.retreat_group?.heroFocalX ?? 50)
       : (retreat?.teachers?.[0]?.heroFocalX ?? 50);
-    const heroFocalY = groupHero
+    const heroFocalY = useGroupHero
       ? (retreat?.retreat_group?.heroFocalY ?? 50)
       : (retreat?.teachers?.[0]?.heroFocalY ?? 50);
-    const heroScale = groupHero
+    const heroScale = useGroupHero
       ? (retreat?.retreat_group?.heroScale ?? 100)
       : (retreat?.teachers?.[0]?.heroScale ?? 100);
-    const heroCacheKey = groupHero && retreat?.retreat_group
-      ? groupHeroCacheKey(retreat.retreat_group as any)
+    const heroCacheKey = useGroupHero && retreat?.retreat_group
+      ? groupHeroCacheKey(retreat.retreat_group as any, groupHeroPick.variant)
       : retreat?.teachers?.[0]
-        ? teacherHeroCacheKey(retreat.teachers[0])
+        ? teacherHeroCacheKey(retreat.teachers[0], teacherHeroPick.variant)
         : undefined;
 
     // Computed bits for the title block under the hero.
@@ -1294,6 +1300,36 @@ export default function RetreatDetailScreen() {
             </React.Fragment>
           );
         })}
+
+        {/* Transcript-only fallback: when the event has no audio tracks and no
+            video recording but a transcript exists, surface it here so the
+            content area is never empty for these events. */}
+        {!hasAudio && !hasVideo && hasTranscript && retreat && (
+          <View style={styles.transcriptOnlySection}>
+            <Ionicons
+              name="book-outline"
+              size={40}
+              color={colors.gray[400]}
+              style={styles.transcriptOnlyIcon}
+            />
+            <Text style={styles.transcriptOnlyMessage}>
+              {t('events.transcriptOnlyMessage')
+                || 'No audio or video recordings are available for this event. Only the written transcript is available.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.transcriptOnlyButton}
+              onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)}
+              accessibilityRole="button"
+              accessibilityLabel={t('transcript.open') || 'Open transcript'}
+            >
+              <Ionicons name="book" size={18} color={colors.white} />
+              <Text style={styles.transcriptOnlyButtonText}>
+                {t('transcript.open') || 'Open transcript'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {retreat?.relatedPublications && retreat.relatedPublications.length > 0 && (
           <View style={styles.relatedPublicationsSection}>
             <Text style={styles.relatedPublicationsTitle}>
@@ -2130,6 +2166,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  transcriptOnlySection: {
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 40,
+  },
+  transcriptOnlyIcon: {
+    marginBottom: 16,
+    opacity: 0.85,
+  },
+  transcriptOnlyMessage: {
+    fontFamily: 'EBGaramond_400Regular',
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.gray[600],
+    textAlign: 'center',
+    marginBottom: 24,
+    maxWidth: 360,
+  },
+  transcriptOnlyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.burgundy[500],
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    gap: 8,
+  },
+  transcriptOnlyButtonText: {
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 16,
+    color: colors.white,
   },
   relatedPublicationsSection: {
     paddingHorizontal: 16,

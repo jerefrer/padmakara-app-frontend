@@ -14,6 +14,8 @@ import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useHero } from '@/utils/heroVariant';
+import { groupHeroCacheKey } from '@/utils/cacheKeys';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
@@ -290,6 +292,8 @@ export default function GroupDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [downloadedRetreatIds, setDownloadedRetreatIds] = useState<Set<string>>(new Set());
 
+  const { url: groupHeroSrc, variant: groupHeroVariant } = useHero(groupData);
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (e) => {
       scrollY.value = e.contentOffset.y;
@@ -443,7 +447,7 @@ export default function GroupDetailScreen() {
 
   const years = Object.keys(retreatsByYear).map(Number).sort((a, b) => b - a);
   const groupName = getTranslatedName(groupData, language);
-  const hasHero = !!groupData.heroUrl;
+  const hasHero = !!groupHeroSrc;
 
   return (
     <>
@@ -466,12 +470,8 @@ export default function GroupDetailScreen() {
               ]}
             >
               <Image
-                source={{ uri: groupData.heroUrl! }}
-                cacheKey={
-                  groupData.heroUpdatedAt
-                    ? `group-hero-${groupData.id}-${groupData.heroUpdatedAt}`
-                    : undefined
-                }
+                source={{ uri: groupHeroSrc! }}
+                cacheKey={groupHeroCacheKey(groupData as any, groupHeroVariant)}
                 style={[
                   StyleSheet.absoluteFillObject,
                   (groupData.heroScale ?? 100) !== 100 && {

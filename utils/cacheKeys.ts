@@ -36,14 +36,30 @@ export function teacherAvatarCacheKey(teacher: TeacherLike): string {
   return `teacher-avatar-${teacherIdent(teacher)}-${teacher.avatarUpdatedAt ?? 'v0'}`;
 }
 
-export function teacherHeroCacheKey(teacher: TeacherLike): string {
-  return `teacher-hero-${teacherIdent(teacher)}-${teacher.heroUpdatedAt ?? 'v0'}`;
+/**
+ * Hero variant — desktop (2400px) and mobile (1200px) need distinct cache
+ * keys so expo-image doesn't serve one when the other was requested.
+ */
+export type HeroVariant = 'desktop' | 'mobile';
+
+function variantSuffix(v: HeroVariant): string {
+  return v === 'mobile' ? '-m' : '';
+}
+
+export function teacherHeroCacheKey(
+  teacher: TeacherLike,
+  variant: HeroVariant = 'desktop',
+): string {
+  return `teacher-hero${variantSuffix(variant)}-${teacherIdent(teacher)}-${teacher.heroUpdatedAt ?? 'v0'}`;
 }
 
 export function groupAvatarCacheKey(group: GroupLike): string {
   return `group-avatar-${groupIdent(group)}-${group.avatarUpdatedAt ?? 'v0'}`;
 }
 
-export function groupHeroCacheKey(group: GroupLike): string {
-  return `group-hero-${groupIdent(group)}-${group.heroUpdatedAt ?? 'v0'}`;
+export function groupHeroCacheKey(
+  group: GroupLike,
+  variant: HeroVariant = 'desktop',
+): string {
+  return `group-hero${variantSuffix(variant)}-${groupIdent(group)}-${group.heroUpdatedAt ?? 'v0'}`;
 }

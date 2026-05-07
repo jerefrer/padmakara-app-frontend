@@ -15,6 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
+import { useHero } from '@/utils/heroVariant';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -145,7 +146,8 @@ export default function TeacherDetailScreen() {
     ),
   }));
 
-  const hasHero = !!teacher?.heroUrl;
+  const { url: heroSrc, variant: heroVariant } = useHero(teacher);
+  const hasHero = !!heroSrc;
 
   if (loading) {
     return (
@@ -180,8 +182,8 @@ export default function TeacherDetailScreen() {
         {hasHero && (
           <Animated.View style={[styles.heroContainer, heroStyle]}>
             <Image
-              source={{ uri: teacher.heroUrl! }}
-              cacheKey={teacherHeroCacheKey(teacher)}
+              source={{ uri: heroSrc! }}
+              cacheKey={teacherHeroCacheKey(teacher, heroVariant)}
               cachePolicy="memory-disk"
               transition={0}
               style={StyleSheet.absoluteFillObject}

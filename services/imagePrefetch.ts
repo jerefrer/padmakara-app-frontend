@@ -1,3 +1,4 @@
+import { Dimensions, Platform } from 'react-native';
 import retreatService from './retreatService';
 import apiService from './apiService';
 import { API_ENDPOINTS } from './apiConfig';
@@ -7,6 +8,19 @@ import {
   groupAvatarCacheKey,
   groupHeroCacheKey,
 } from '@/utils/cacheKeys';
+import { selectHero } from '@/utils/heroVariant';
+
+/**
+ * Mirrors the breakpoint in `useDesktopLayout` so prefetched bytes match
+ * the variant the screen will actually request: native + narrow web ⇒
+ * mobile (1200px), wider web ⇒ desktop (2400px). Read once at prefetch
+ * time — refetching after a window resize on web would tear the cooldown
+ * accounting and is not worth the complexity for a few hidden Image tags.
+ */
+function isMobileViewport(): boolean {
+  if (Platform.OS !== 'web') return true;
+  return Dimensions.get('window').width < 768;
+}
 
 export interface PrefetchTarget {
   uri: string;
@@ -66,6 +80,8 @@ class ImagePrefetchService {
       out.set(cacheKey, { uri, cacheKey });
     };
 
+    const mobile = isMobileViewport();
+
     // Public events — always available
     try {
       const res = await retreatService.getPublicEvents();
@@ -73,7 +89,8 @@ class ImagePrefetchService {
         for (const ev of res.data as any[]) {
           for (const teacher of ev.teachers || []) {
             push(teacher.avatarUrl, teacherAvatarCacheKey(teacher));
-            push(teacher.heroUrl, teacherHeroCacheKey(teacher));
+            const hero = selectHero(teacher, mobile);
+            push(hero.url, teacherHeroCacheKey(teacher, hero.variant));
           }
         }
       }
@@ -88,7 +105,8 @@ class ImagePrefetchService {
         if (groupsRes.success && groupsRes.data) {
           for (const group of groupsRes.data) {
             push(group.avatarUrl, groupAvatarCacheKey(group));
-            push(group.heroUrl, groupHeroCacheKey(group));
+            const hero = selectHero(group, mobile);
+            push(hero.url, groupHeroCacheKey(group, hero.variant));
           }
         }
       } catch {
