@@ -59,7 +59,7 @@ function ResultEventCard({
     try {
       return new Date(dateStr).toLocaleDateString(
         language === 'pt' ? 'pt-PT' : 'en-US',
-        { month: 'short', day: 'numeric', year: 'numeric' },
+        { month: 'long', day: 'numeric', year: 'numeric' },
       );
     } catch {
       return dateStr;
@@ -74,66 +74,48 @@ function ResultEventCard({
     }
   }
 
+  // First snippet provides the most relevant matching context
+  const primarySnippet = result.snippets?.[0];
+
   return (
     <TouchableOpacity
       style={styles.resultCard}
       onPress={() => onSessionPress(result.event.id)}
       activeOpacity={0.7}
     >
-      {/* Event header */}
-      <View style={styles.resultCardHeader}>
-        <View style={styles.resultCardTitleRow}>
-          <Ionicons name="calendar-outline" size={18} color={colors.burgundy[500]} />
-          <Text style={styles.resultEventTitle} numberOfLines={2}>
-            {eventTitle}
-          </Text>
-        </View>
-        {result.event.teachers.length > 0 && (
-          <Text style={styles.resultTeachers} numberOfLines={1}>
-            {result.event.teachers.join(', ')}
-          </Text>
-        )}
-        {result.event.startDate && (
-          <Text style={styles.resultDate}>{formatDate(result.event.startDate)}</Text>
-        )}
-      </View>
+      <Text style={styles.resultEventTitle} numberOfLines={2}>
+        {eventTitle}
+      </Text>
 
-      {/* Why it matched — snippets from themes/title */}
-      {result.snippets && result.snippets.length > 0 && (
-        <View style={styles.snippetsContainer}>
-          {result.snippets.map((snippet, idx) => (
-            <View key={idx} style={styles.snippetRow}>
-              <Text style={styles.snippetField}>
-                {t(FIELD_LABEL_MAP[snippet.field] || snippet.field) || snippet.field}
-              </Text>
-              <Text style={styles.snippetText} numberOfLines={3}>
-                {snippet.text}
-              </Text>
-            </View>
-          ))}
-        </View>
+      {result.event.teachers.length > 0 && (
+        <Text style={styles.resultTeachers} numberOfLines={1}>
+          {result.event.teachers.join(', ')}
+        </Text>
       )}
 
-      {/* Matched tracks listed by name */}
-      {allMatchedTracks.length > 0 && (
-        <View style={styles.matchedTracksContainer}>
-          <Text style={styles.matchedTracksLabel}>
-            {t('search.matchedTracks') || 'Matching tracks'}
-          </Text>
-          {allMatchedTracks.slice(0, 5).map((title, idx) => (
-            <View key={idx} style={styles.matchedTrackRow}>
-              <Ionicons name="musical-note" size={12} color={colors.gray[400]} />
-              <Text style={styles.matchedTrackText} numberOfLines={1}>
-                {title}
-              </Text>
-            </View>
-          ))}
-          {allMatchedTracks.length > 5 && (
-            <Text style={styles.matchedTracksMore}>
-              +{allMatchedTracks.length - 5} more
+      {result.event.startDate && (
+        <Text style={styles.resultDate}>{formatDate(result.event.startDate)}</Text>
+      )}
+
+      {primarySnippet && (
+        <Text style={styles.resultSnippet} numberOfLines={2}>
+          {primarySnippet.field !== 'title' && (
+            <Text style={styles.resultSnippetField}>
+              {(t(FIELD_LABEL_MAP[primarySnippet.field] || primarySnippet.field) || primarySnippet.field) + ' — '}
             </Text>
           )}
-        </View>
+          {`“${primarySnippet.text}”`}
+        </Text>
+      )}
+
+      {allMatchedTracks.length > 0 && (
+        <Text style={styles.resultTracksLine} numberOfLines={2}>
+          <Text style={styles.resultTracksLabel}>
+            {(t('search.matchedTracks') || 'Matching tracks') + ' · '}
+          </Text>
+          {allMatchedTracks.slice(0, 3).join(' · ')}
+          {allMatchedTracks.length > 3 ? `  +${allMatchedTracks.length - 3}` : ''}
+        </Text>
       )}
     </TouchableOpacity>
   );
@@ -302,9 +284,12 @@ export default function SearchScreen() {
 
           {!loading && !results && query.length === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="search" size={48} color={colors.gray[300]} />
+              <Text style={styles.emptyTitle}>
+                {t('search.initialPrompt') || 'Search the teachings'}
+              </Text>
               <Text style={styles.emptyText}>
-                {t('search.placeholder') || 'Search by topic or teacher'}
+                {t('search.initialHint') ||
+                  "Type a teacher's name, a topic, or any word from a track title."}
               </Text>
             </View>
           )}
@@ -339,7 +324,8 @@ const styles = StyleSheet.create({
   },
   searchBarDesktop: {
     paddingHorizontal: 40,
-    paddingTop: 36,
+    // Vertically centers the input on the sidebar's "What's New" title.
+    paddingTop: 42,
     backgroundColor: colors.white,
     borderBottomWidth: 0,
   },
@@ -375,9 +361,12 @@ const styles = StyleSheet.create({
     maxWidth: 800,
   },
   resultsCount: {
-    fontSize: 14,
+    fontSize: 12,
+    fontFamily: 'Avenir',
     color: colors.gray[500],
-    marginBottom: 12,
+    letterSpacing: 0.3,
+    marginBottom: 8,
+    textTransform: 'uppercase' as const,
   },
   statusContainer: {
     flexDirection: 'row',
@@ -392,112 +381,74 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
+    alignSelf: 'center',
+    maxWidth: 480,
+    paddingVertical: 64,
+    paddingHorizontal: 24,
     gap: 8,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 22,
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[700],
-    marginTop: 8,
+    textAlign: 'center',
   },
   emptyText: {
     fontSize: 15,
+    fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[500],
     textAlign: 'center',
+    lineHeight: 22,
   },
 
-  // Result card
+  // Result card — typography mirrors the Recently Added cards on Home
   resultCard: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    paddingVertical: 20,
-    paddingHorizontal: 0,
-    marginBottom: 0,
-    borderBottomWidth: 1,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
-  resultCardHeader: {
-    marginBottom: 10,
-  },
-  resultCardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
   resultEventTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.gray[800],
-  },
-  resultTeachers: {
-    fontSize: 14,
+    fontSize: 18,
+    fontFamily: 'EBGaramond_500Medium',
     color: colors.burgundy[500],
-    marginTop: 4,
-    marginLeft: 26,
-  },
-  resultDate: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginTop: 2,
-    marginLeft: 26,
-  },
-
-  // Snippets — why it matched
-  snippetsContainer: {
-    gap: 8,
-    marginBottom: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  snippetRow: {
-    gap: 2,
-  },
-  snippetField: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.burgundy[500],
-    textTransform: 'uppercase' as const,
-  },
-  snippetText: {
-    fontSize: 13,
-    color: colors.gray[600],
-    fontStyle: 'italic',
-    lineHeight: 19,
-  },
-
-  // Matched tracks
-  matchedTracksContainer: {
-    gap: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  matchedTracksLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.burgundy[500],
-    textTransform: 'uppercase' as const,
     marginBottom: 2,
   },
-  matchedTrackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingLeft: 4,
+  resultTeachers: {
+    fontSize: 15,
+    fontFamily: 'EBGaramond_400Regular',
+    color: colors.gray[800],
+    marginBottom: 2,
   },
-  matchedTrackText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.gray[600],
-  },
-  matchedTracksMore: {
+  resultDate: {
     fontSize: 12,
-    color: colors.gray[400],
-    paddingLeft: 22,
+    fontFamily: 'Avenir',
+    color: colors.gray[500],
+    letterSpacing: 0.2,
+  },
+  resultSnippet: {
+    fontSize: 13,
+    fontFamily: 'EBGaramond_400Regular_Italic',
+    color: colors.gray[600],
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  resultSnippetField: {
+    fontFamily: 'Avenir',
+    fontStyle: 'normal',
+    color: colors.gray[500],
+    letterSpacing: 0.2,
+  },
+  resultTracksLine: {
+    fontSize: 12,
+    fontFamily: 'Avenir',
+    color: colors.gray[500],
+    letterSpacing: 0.2,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  resultTracksLabel: {
+    fontFamily: 'Avenir',
+    color: colors.gray[700],
+    fontWeight: '600',
   },
 });

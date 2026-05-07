@@ -296,6 +296,9 @@
   },
   "search": {
     "placeholder": "Search by topic or teacher",
+    "sidebarSubtitle": "Find by topic, teacher, or word",
+    "initialPrompt": "Search the teachings",
+    "initialHint": "Type a teacher's name, a topic, or any word from a track title.",
     "noResults": "No results found",
     "noResultsDescription": "Try different keywords or check the spelling",
     "resultsCount": "{{count}} result",

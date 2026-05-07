@@ -296,6 +296,9 @@
   },
   "search": {
     "placeholder": "Pesquisar por tema ou professor",
+    "sidebarSubtitle": "Encontrar por tema, professor ou palavra",
+    "initialPrompt": "Pesquisar nos ensinamentos",
+    "initialHint": "Escreva o nome de um professor, um tema ou qualquer palavra do título de uma faixa.",
     "noResults": "Nenhum resultado encontrado",
     "noResultsDescription": "Tente palavras-chave diferentes ou verifique a ortografia",
     "resultsCount": "{{count}} resultado",

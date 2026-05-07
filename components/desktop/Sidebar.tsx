@@ -7,7 +7,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { router, usePathname, useSegments, useGlobalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
@@ -146,21 +145,29 @@ export function Sidebar() {
         </View>
       </ScrollView>
 
-      {/* Search at bottom */}
+      {/* Search — styled as a category for visual consistency */}
       <View style={styles.bottomSection}>
         <Pressable
-          style={[styles.searchRow, hoveredItem === 'search' && styles.searchRowHover]}
+          style={[
+            styles.categoryRow,
+            styles.searchCategoryRow,
+            isActive('search') && styles.categoryRowActive,
+            hoveredItem === 'search' && !isActive('search') && styles.categoryRowHover,
+          ]}
           onPress={() => handleNavPress('/(tabs)/search', 'search')}
           // @ts-ignore
           onMouseEnter={() => setHoveredItem('search')}
           // @ts-ignore
           onMouseLeave={() => setHoveredItem(null)}
           accessibilityRole="link"
-          accessibilityLabel="Search"
+          accessibilityLabel={t('navigation.search') || 'Search'}
+          accessibilityState={{ selected: isActive('search') }}
         >
-          <Ionicons name="search-outline" size={18} color={isActive('search') ? colors.burgundy[500] : colors.gray[500]} />
-          <Text style={[styles.searchLabel, isActive('search') && styles.searchLabelActive]}>
+          <Text style={[styles.categoryTitle, isActive('search') && styles.categoryTitleActive]}>
             {t('navigation.search') || 'Search'}
+          </Text>
+          <Text style={[styles.categorySubtitle, isActive('search') && styles.categorySubtitleActive]}>
+            {t('search.sidebarSubtitle') || 'Find by topic, teacher, or word'}
           </Text>
         </Pressable>
       </View>
@@ -219,29 +226,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 
-  /* Bottom search */
+  /* Search at bottom — matches category typography */
   bottomSection: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.gray[200],
+    paddingBottom: 12,
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  searchRowHover: {
-    opacity: 0.7,
-  },
-  searchLabel: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray[500],
-    marginLeft: 8,
-  },
-  searchLabelActive: {
-    color: colors.burgundy[500],
-    fontWeight: '600',
+  searchCategoryRow: {
+    // The search row is the last item; drop the bottom hairline since
+    // there is nothing visually following it.
+    borderBottomWidth: 0,
   },
 });
