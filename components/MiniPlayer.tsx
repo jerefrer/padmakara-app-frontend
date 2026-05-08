@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useSegments } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,18 +13,15 @@ const BURGUNDY = '#9b1b1b';
 const GRAY_TEXT = '#6b7280';
 const GRAY_BORDER = '#e5e7eb';
 
-function isOnOwningEvent(segments: string[], retreatId: string | null): boolean {
+function isOnOwningEvent(pathname: string, retreatId: string | null): boolean {
   if (!retreatId) return false;
-  // Expected pattern when on the event screen:
-  //   ['(tabs)', '(groups)', 'retreat', '<id>']
-  // We accept any position as long as the segment 'retreat' is followed by
-  // a segment equal to retreatId. This is robust to future route nesting.
-  for (let i = 0; i < segments.length - 1; i++) {
-    if (segments[i] === 'retreat' && segments[i + 1] === retreatId) {
-      return true;
-    }
-  }
-  return false;
+  // The event screen path looks like "/retreat/<id>" (route groups
+  // "(tabs)" and "(groups)" don't appear in URLs). Match either an exact
+  // path or a deeper nested route under that event.
+  return (
+    pathname === `/retreat/${retreatId}` ||
+    pathname.startsWith(`/retreat/${retreatId}/`)
+  );
 }
 
 function makeSubtitle(groupName: string | null, retreatName: string | null): string {
@@ -33,7 +30,7 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
 
 export function MiniPlayer() {
   const { t } = useLanguage();
-  const segments = useSegments() as string[];
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT + insets.bottom;
   const {
@@ -47,7 +44,7 @@ export function MiniPlayer() {
   } = useAudioPlayerContext();
 
   if (!currentTrack) return null;
-  if (isOnOwningEvent(segments, retreatId)) return null;
+  if (isOnOwningEvent(pathname, retreatId)) return null;
 
   const subtitle = makeSubtitle(groupName, retreatName);
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');

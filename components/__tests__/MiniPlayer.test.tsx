@@ -8,7 +8,7 @@ import { MiniPlayer } from '@/components/MiniPlayer';
 const mockTogglePlayPause = jest.fn();
 const mockClearTrack = jest.fn();
 const mockPush = jest.fn();
-let mockUseSegmentsReturn: string[] = [];
+let mockUsePathnameReturn: string = '';
 let mockAudioContext: any = null;
 
 jest.mock('@/contexts/AudioPlayerContext', () => ({
@@ -22,7 +22,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  useSegments: () => mockUseSegmentsReturn,
+  usePathname: () => mockUsePathnameReturn,
   router: {
     push: (...args: any[]) => mockPush(...args),
   },
@@ -50,7 +50,7 @@ beforeEach(() => {
   mockTogglePlayPause.mockReset();
   mockClearTrack.mockReset();
   mockPush.mockReset();
-  mockUseSegmentsReturn = ['(tabs)', 'bookmarks'];
+  mockUsePathnameReturn = '/bookmarks';
   mockAudioContext = { ...baseContext };
 });
 
@@ -64,21 +64,21 @@ describe('MiniPlayer — visibility', () => {
   });
 
   it('renders nothing when on the owning event screen', () => {
-    mockUseSegmentsReturn = ['(tabs)', '(groups)', 'retreat', '42'];
+    mockUsePathnameReturn = '/retreat/42';
     mockAudioContext = { ...baseContext, retreatId: '42' };
     const { queryByLabelText } = renderMiniPlayer();
     expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
   });
 
   it('renders when on a different event screen', () => {
-    mockUseSegmentsReturn = ['(tabs)', '(groups)', 'retreat', '99'];
+    mockUsePathnameReturn = '/retreat/99';
     mockAudioContext = { ...baseContext, retreatId: '42' };
     const { getByLabelText } = renderMiniPlayer();
     expect(getByLabelText('miniPlayer.openSession')).toBeTruthy();
   });
 
   it('renders on a non-retreat tab', () => {
-    mockUseSegmentsReturn = ['(tabs)', 'settings'];
+    mockUsePathnameReturn = '/settings';
     const { getByLabelText } = renderMiniPlayer();
     expect(getByLabelText('miniPlayer.openSession')).toBeTruthy();
   });
