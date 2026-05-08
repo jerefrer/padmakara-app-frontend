@@ -85,6 +85,12 @@
       }
     }
   },
+  "miniPlayer": {
+    "openSession": "Abrir sessão atual",
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "close": "Parar e fechar"
+  },
   "navigation": {
     "home": "Início",
     "retreats": "Retiros",

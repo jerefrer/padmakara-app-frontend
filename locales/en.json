@@ -85,6 +85,12 @@
       }
     }
   },
+  "miniPlayer": {
+    "openSession": "Open current session",
+    "play": "Play",
+    "pause": "Pause",
+    "close": "Stop and close"
+  },
   "navigation": {
     "home": "Home",
     "retreats": "Retreats",
