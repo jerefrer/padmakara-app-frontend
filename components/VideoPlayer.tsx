@@ -10,14 +10,13 @@ import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -122,18 +121,34 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const lastSavedAtRef = useRef<number>(0);
   const completedRef = useRef<boolean>(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const scheduleHide = useCallback(() => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setControlsVisible(false), 4000);
-  }, []);
-
-  const showControls = useCallback(() => {
-    setControlsVisible(true);
-    scheduleHide();
-  }, [scheduleHide]);
+  // Build a richer title than the bare date: "April 18th · Morning · Part 1".
+  // Localized labels for type/part; English month + ordinal to stay consistent
+  // with formatSessionHeader in retreat/[id].tsx.
+  const headerTitle = useMemo(() => {
+    if (!session) return '';
+    const parts: string[] = [];
+    const date = new Date(session.date);
+    if (!isNaN(date.getTime())) {
+      const month = date.toLocaleDateString('en-US', { month: 'long' });
+      const day = date.getDate();
+      const ord = (n: number) => {
+        const s = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+      };
+      parts.push(`${month} ${ord(day)}`);
+    } else if (session.name) {
+      parts.push(session.name);
+    }
+    if (session.type && session.type !== 'other') {
+      parts.push(t(`retreats.${session.type}`) || session.type);
+    }
+    if (session.partNumber) {
+      parts.push(`${t('retreats.part') || 'Part'} ${session.partNumber}`);
+    }
+    return parts.join(' · ');
+  }, [session, t]);
 
   // Build the player. We pass `null` until we have a URL — expo-video accepts
   // a null source and waits for replace(). Increase forward buffer so brief
@@ -322,29 +337,6 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
     }
   }, [hlsUrl, player, resumePosition, t]);
 
-  // Auto-hide our overlay header in sync with the native player controls:
-  // hide ~4s after playback starts, show again on pause. Tapping the top
-  // tap-zone (rendered when hidden) brings it back during playback.
-  useEventListener(player, 'playingChange', (event) => {
-    if (event.isPlaying) {
-      scheduleHide();
-    } else {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      setControlsVisible(true);
-    }
-  });
-
-  // Reset overlay state on session change; clear timer on unmount.
-  useEffect(() => {
-    if (session) {
-      setControlsVisible(true);
-      scheduleHide();
-    }
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
-  }, [session, scheduleHide]);
-
   // Subscribe to time updates to save progress (no rerender — side-effect only).
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
     if (!session) return;
@@ -528,16 +520,12 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
       statusBarTranslucent
     >
       <View style={styles.root}>
-        {!controlsVisible && (
-          <Pressable style={styles.topTapZone} onPress={showControls} />
-        )}
-        {controlsVisible && (
         <View style={[styles.header, { paddingTop: (isLandscape ? 0 : insets.top) + 8 }]}>
           <TouchableOpacity onPress={handleClose} style={styles.iconButton} accessibilityLabel={t('common.close') || 'Close'}>
             <Ionicons name="chevron-down" size={28} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.title} numberOfLines={1}>
-            {session?.name ?? ''}
+            {headerTitle}
           </Text>
           {Platform.OS !== 'web' && (
             <TouchableOpacity
@@ -583,7 +571,6 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
             </TouchableOpacity>
           )}
         </View>
-        )}
 
         {/* Bookmarks list modal */}
         <Modal
@@ -737,14 +724,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 12,
     backgroundColor: colors.black,
-  },
-  topTapZone: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 88,
-    zIndex: 9,
   },
   iconButton: {
     width: 44,
