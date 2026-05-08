@@ -256,18 +256,18 @@ export function DesktopPlayerBar() {
             </TouchableOpacity>
           )}
 
-          {canOpenReadAlong && (
-            <TouchableOpacity
-              onPress={openReadAlong}
-              style={styles.toolbarButton}
-              accessibilityLabel={t('readAlong.title') || 'Read Along'}
-            >
-              <Ionicons name="book-outline" size={20} color={colors.gray[600]} />
-              <Text style={styles.toolbarLabel}>
-                {t('player.read') || 'read'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={canOpenReadAlong ? openReadAlong : undefined}
+            style={[styles.toolbarButton, !canOpenReadAlong && styles.toolbarButtonDisabled]}
+            disabled={!canOpenReadAlong}
+            accessibilityLabel={t('readAlong.title') || 'Read Along'}
+            accessibilityState={{ disabled: !canOpenReadAlong }}
+          >
+            <Ionicons name="book-outline" size={20} color={colors.gray[600]} />
+            <Text style={styles.toolbarLabel}>
+              {t('player.read') || 'read'}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             onPress={changePlaybackSpeed}
@@ -439,6 +439,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 56,
+  },
+  toolbarButtonDisabled: {
+    opacity: 0.4,
   },
   toolbarLabel: {
     fontSize: 10,
