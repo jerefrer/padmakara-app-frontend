@@ -40,6 +40,12 @@ import downloadStateService, { DownloadState } from '@/services/downloadStateSer
 import eventBookmarkService from '@/services/eventBookmarkService';
 import trackBookmarkService from '@/services/trackBookmarkService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  filterTracksByLanguage,
+  sortTracksForSession,
+  type ContentLanguageMode,
+  type TrackWithSession,
+} from '@/utils/trackFiltering';
 
 const colors = {
   cream: {
@@ -148,15 +154,6 @@ interface RetreatDetails {
     title: string;
     coverImageUrl?: string | null;
   }>;
-}
-
-// Flat track with session info for display
-interface TrackWithSession extends Track {
-  sessionId: string;
-  sessionName: string;
-  sessionDate: string;
-  sessionType: string;
-  sessionPartNumber?: number | null;
 }
 
 const LAST_TRACK_KEY = (eventId: string) => `last_played_track:${eventId}`;
@@ -298,16 +295,7 @@ export default function RetreatDetailScreen() {
 
     for (const session of sortedSessions) {
       if (session.tracks) {
-        const LANG_ORDER: Record<string, number> = { en: 0, pt: 1, es: 2, fr: 3 };
-        const sortedTracks = [...session.tracks].sort((a, b) => {
-          if (a.order !== b.order) return a.order - b.order;
-          const aOrig = a.isOriginal ? 0 : 1;
-          const bOrig = b.isOriginal ? 0 : 1;
-          if (aOrig !== bOrig) return aOrig - bOrig;
-          const aLang = LANG_ORDER[a.originalLanguage || a.language || 'en'] ?? 4;
-          const bLang = LANG_ORDER[b.originalLanguage || b.language || 'en'] ?? 4;
-          return aLang - bLang;
-        });
+        const sortedTracks = sortTracksForSession(session.tracks);
         for (const track of sortedTracks) {
           tracks.push({
             ...track,
@@ -326,39 +314,7 @@ export default function RetreatDetailScreen() {
 
   // Apply language filter to tracks
   const applyLanguageFilter = useCallback(() => {
-    if (allTracks.length === 0) {
-      setFilteredTracks([]);
-      return;
-    }
-
-    let filtered: TrackWithSession[];
-
-    // Check if tracks have language metadata
-    const hasLanguageMetadata = allTracks.some(track => track.isOriginal !== undefined || track.language);
-
-    if (!hasLanguageMetadata) {
-      // No language metadata - show all tracks
-      filtered = allTracks;
-    } else if (currentLanguageMode === 'en') {
-      // English only - show tracks whose languages include English
-      filtered = allTracks.filter(track =>
-        track.languages?.includes('en') ?? track.isOriginal !== false
-      );
-    } else if (currentLanguageMode === 'en-pt') {
-      // Both - show all tracks
-      filtered = allTracks;
-    } else if (currentLanguageMode === 'pt') {
-      // Portuguese only - show tracks whose languages include Portuguese
-      filtered = allTracks.filter(track =>
-        track.languages?.includes('pt') ?? (!track.isOriginal && track.language === 'pt')
-      );
-      // If no PT tracks, fall back to all
-      if (filtered.length === 0) filtered = allTracks;
-    } else {
-      filtered = allTracks;
-    }
-
-    setFilteredTracks(filtered);
+    setFilteredTracks(filterTracksByLanguage(allTracks, currentLanguageMode as ContentLanguageMode));
   }, [allTracks, currentLanguageMode]);
 
   useEffect(() => {
