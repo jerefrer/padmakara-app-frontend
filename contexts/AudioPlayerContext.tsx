@@ -272,6 +272,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           if (!v) continue;
           try {
             const parsed = JSON.parse(v);
+            // Skip completed tracks — they should restart from 0 on re-open.
+            // This mirrors readSavedPosition's behavior; without it, the in-memory
+            // cache would briefly point completed tracks at their finish position
+            // until the async readSavedPosition correction kicks in.
+            if (parsed.completed) continue;
             if (typeof parsed.position === 'number') {
               map.set(k.slice('progress_'.length), parsed.position);
             }
