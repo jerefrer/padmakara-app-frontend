@@ -1,6 +1,6 @@
 import { Tabs, useSegments } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -8,6 +8,7 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { DesktopPlayerBar } from '@/components/desktop/DesktopPlayerBar';
+import { MiniPlayer } from '@/components/MiniPlayer';
 import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
 import { RightSidebar } from '@/components/desktop/RightSidebar';
@@ -99,7 +100,12 @@ export default function TabLayout() {
   );
 
   if (isMobile) {
-    return tabsElement;
+    return (
+      <View style={{ flex: 1 }}>
+        {tabsElement}
+        <MiniPlayer />
+      </View>
+    );
   }
 
   return (
