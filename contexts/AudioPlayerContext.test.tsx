@@ -312,3 +312,292 @@ describe('AudioPlayerContext — resume + position (matrix D)', () => {
     expect(result.current.duration).toBe(420);
   });
 });
+
+import cacheService from '@/services/cacheService';
+
+describe('AudioPlayerContext — completion + auto-advance hook (matrix E)', () => {
+  it('E1 — track end fires onTrackComplete exactly once and saves completed=true', async () => {
+    const t = makeTrack({ id: 'tEnd', duration: 100 });
+    const { result } = renderPlayer();
+
+    const cb = jest.fn();
+    act(() => { result.current.setOnTrackComplete(cb); });
+
+    act(() => { __setDuration(100); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __advanceTime(99); });
+
+    act(() => { __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    const saved = JSON.parse((await AsyncStorage.getItem('progress_tEnd'))!);
+    expect(saved.completed).toBe(true);
+  });
+
+  it('E2 — duplicate finish events still fire callback once', async () => {
+    const t = makeTrack({ id: 'tDup', duration: 100 });
+    const { result } = renderPlayer();
+    const cb = jest.fn();
+    act(() => { result.current.setOnTrackComplete(cb); });
+
+    act(() => { __setDuration(100); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+
+    act(() => { __finishTrack(); });
+    act(() => { __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('E3 — playTrack on a new track resets the completion guard', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 100 });
+    const tB = makeTrack({ id: 'tB', duration: 100 });
+    const { result } = renderPlayer();
+    const cb = jest.fn();
+    act(() => { result.current.setOnTrackComplete(cb); });
+
+    act(() => { __setDuration(100); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    act(() => { __resetAudio(); __setDuration(100); result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
+
+  it('E4 — pre-cache fires once at 30s of playback', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 600 });
+    const tB = makeTrack({ id: 'tB', duration: 600 });
+    const { result } = renderPlayer();
+
+    act(() => { result.current.setUpcomingTracks([tB]); });
+    act(() => { __setDuration(600); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __advanceTime(30); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(cacheService.preCacheTracksForDuration).toHaveBeenCalledTimes(1);
+  });
+
+  it('E5 — pre-cache does not re-fire later in the same track', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 600 });
+    const tB = makeTrack({ id: 'tB', duration: 600 });
+    const { result } = renderPlayer();
+
+    act(() => { result.current.setUpcomingTracks([tB]); });
+    act(() => { __setDuration(600); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __advanceTime(30); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __advanceTime(30); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(cacheService.preCacheTracksForDuration).toHaveBeenCalledTimes(1);
+  });
+
+  it('E6 — nextTrack and previousTrack fire registered callbacks', async () => {
+    const { result } = renderPlayer();
+    const onNext = jest.fn();
+    const onPrev = jest.fn();
+
+    act(() => {
+      result.current.setOnNextTrack(onNext);
+      result.current.setOnPreviousTrack(onPrev);
+    });
+
+    act(() => { result.current.nextTrack(); });
+    expect(onNext).toHaveBeenCalledTimes(1);
+
+    act(() => { result.current.previousTrack(); });
+    expect(onPrev).toHaveBeenCalledTimes(1);
+  });
+});
+
+import { filterTracksByLanguage, sortTracksForSession, type TrackWithSession } from '@/utils/trackFiltering';
+
+const buildBilingualEvent = (): TrackWithSession[] => {
+  // Two sessions, each with one EN original + one PT translation.
+  const sessions = [
+    { id: 's1', name: 'Session 1', date: '2026-01-01', type: 'morning' as const, tracks: [
+      { id: 'S1-EN', isOriginal: true, originalLanguage: 'en', languages: ['en'], language: 'en' },
+      { id: 'S1-PT', isOriginal: false, originalLanguage: 'pt', languages: ['pt'], language: 'pt' },
+    ]},
+    { id: 's2', name: 'Session 2', date: '2026-01-02', type: 'morning' as const, tracks: [
+      { id: 'S2-EN', isOriginal: true, originalLanguage: 'en', languages: ['en'], language: 'en' },
+      { id: 'S2-PT', isOriginal: false, originalLanguage: 'pt', languages: ['pt'], language: 'pt' },
+    ]},
+  ];
+
+  const all: TrackWithSession[] = [];
+  for (const session of sessions) {
+    const sorted = sortTracksForSession(session.tracks.map((t) => ({
+      ...makeTrack({ id: t.id, session_id: session.id }),
+      ...t,
+    })));
+    for (const track of sorted) {
+      all.push({
+        ...track,
+        sessionId: session.id,
+        sessionName: session.name,
+        sessionDate: session.date,
+        sessionType: session.type,
+        sessionPartNumber: null,
+      });
+    }
+  }
+  return all;
+};
+
+/**
+ * Walks auto-advance from `startId` until either (a) the consumer's nextTrack
+ * callback says no more tracks, or (b) we hit a safety cap. Returns the
+ * sequence of track ids actually loaded.
+ */
+const walkAdvance = async (
+  result: ReturnType<typeof renderPlayer>['result'],
+  filtered: TrackWithSession[],
+  startId: string,
+): Promise<string[]> => {
+  const visited: string[] = [];
+  let index = filtered.findIndex((t) => t.id === startId);
+  if (index === -1) return visited;
+
+  // Wire the screen-equivalent next callback.
+  act(() => {
+    result.current.setOnNextTrack(() => {
+      if (index + 1 < filtered.length) {
+        index += 1;
+        const next = filtered[index];
+        act(() => {
+          __resetAudio();
+          __setDuration(60);
+          result.current.playTrack(next, filtered, index);
+        });
+      }
+    });
+    result.current.setOnTrackComplete(() => {
+      // Mirror retreat/[id].tsx handleTrackComplete: call nextTrack if available.
+      result.current.nextTrack();
+    });
+  });
+
+  // Start playback at startId.
+  act(() => {
+    __setDuration(60);
+    result.current.playTrack(filtered[index], filtered, index);
+  });
+  await act(async () => { await Promise.resolve(); });
+  visited.push(filtered[index].id);
+
+  for (let i = 0; i < filtered.length + 2; i++) {
+    act(() => { __setPlaying(true); __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+    if (visited[visited.length - 1] === filtered[filtered.length - 1].id) break;
+    visited.push(filtered[index].id);
+  }
+  return visited;
+};
+
+describe('AudioPlayerContext — filter + advance integration (matrix F)', () => {
+  it('F1 — `en` mode walks [S1-EN, S2-EN], skipping PT', async () => {
+    const all = buildBilingualEvent();
+    const filtered = filterTracksByLanguage(all, 'en');
+    const { result } = renderPlayer();
+    const visited = await walkAdvance(result, filtered, 'S1-EN');
+    expect(visited).toEqual(['S1-EN', 'S2-EN']);
+  });
+
+  it('F2 — `pt` mode walks [S1-PT, S2-PT], skipping EN', async () => {
+    const all = buildBilingualEvent();
+    const filtered = filterTracksByLanguage(all, 'pt');
+    const { result } = renderPlayer();
+    const visited = await walkAdvance(result, filtered, 'S1-PT');
+    expect(visited).toEqual(['S1-PT', 'S2-PT']);
+  });
+
+  it('F3 — `en-pt` mode starting at S1-EN walks [S1-EN, S1-PT, S2-EN, S2-PT]', async () => {
+    const all = buildBilingualEvent();
+    const filtered = filterTracksByLanguage(all, 'en-pt');
+    const { result } = renderPlayer();
+    const visited = await walkAdvance(result, filtered, 'S1-EN');
+    expect(visited).toEqual(['S1-EN', 'S1-PT', 'S2-EN', 'S2-PT']);
+  });
+
+  it('F4 — `en-pt` mode starting at S1-PT walks [S1-PT, S2-EN, S2-PT]', async () => {
+    const all = buildBilingualEvent();
+    const filtered = filterTracksByLanguage(all, 'en-pt');
+    const { result } = renderPlayer();
+    const visited = await walkAdvance(result, filtered, 'S1-PT');
+    expect(visited).toEqual(['S1-PT', 'S2-EN', 'S2-PT']);
+  });
+
+  it('F5 — `en` mode with single session: completion fires after one track, no advance', async () => {
+    const single: TrackWithSession[] = filterTracksByLanguage([
+      {
+        ...makeTrack({ id: 'S1-EN', session_id: 's1' }),
+        isOriginal: true,
+        originalLanguage: 'en',
+        languages: ['en'],
+        sessionId: 's1',
+        sessionName: 'Session 1',
+        sessionDate: '2026-01-01',
+        sessionType: 'morning',
+        sessionPartNumber: null,
+      },
+      {
+        ...makeTrack({ id: 'S1-PT', session_id: 's1' }),
+        isOriginal: false,
+        originalLanguage: 'pt',
+        languages: ['pt'],
+        sessionId: 's1',
+        sessionName: 'Session 1',
+        sessionDate: '2026-01-01',
+        sessionType: 'morning',
+        sessionPartNumber: null,
+      },
+    ], 'en');
+
+    const { result } = renderPlayer();
+    const visited = await walkAdvance(result, single, 'S1-EN');
+    expect(visited).toEqual(['S1-EN']);
+  });
+
+  it('F6 — `pt` mode with no PT tracks: fallback to all, advance walks all', async () => {
+    const enOnly: TrackWithSession[] = [
+      {
+        ...makeTrack({ id: 'S1-EN', session_id: 's1' }),
+        isOriginal: true,
+        originalLanguage: 'en',
+        languages: ['en'],
+        sessionId: 's1', sessionName: 'Session 1', sessionDate: '2026-01-01', sessionType: 'morning', sessionPartNumber: null,
+      },
+      {
+        ...makeTrack({ id: 'S2-EN', session_id: 's2' }),
+        isOriginal: true,
+        originalLanguage: 'en',
+        languages: ['en'],
+        sessionId: 's2', sessionName: 'Session 2', sessionDate: '2026-01-02', sessionType: 'morning', sessionPartNumber: null,
+      },
+    ];
+    const filtered = filterTracksByLanguage(enOnly, 'pt');
+    expect(filtered.map((t) => t.id)).toEqual(['S1-EN', 'S2-EN']); // fallback
+
+    const { result } = renderPlayer();
+    const visited = await walkAdvance(result, filtered, 'S1-EN');
+    expect(visited).toEqual(['S1-EN', 'S2-EN']);
+  });
+
+  it('F7 — `en-pt` mode preserves [EN, PT, EN, PT] ordering inside each session even with shared `order`', async () => {
+    const all = buildBilingualEvent();
+    const filtered = filterTracksByLanguage(all, 'en-pt');
+    expect(filtered.map((t) => t.id)).toEqual(['S1-EN', 'S1-PT', 'S2-EN', 'S2-PT']);
+  });
+});

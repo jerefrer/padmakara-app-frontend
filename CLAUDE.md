@@ -32,6 +32,8 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 - `npm run ios` - Run on iOS simulator/device
 - `npm run web` - Run web version
 - `npm run lint` - Run ESLint for code quality checks
+- `npm test` - Run the Jest test suite (unit + context integration)
+- `npm run test:watch` - Run Jest in watch mode
 
 ### Platform-Specific
 - `expo start --android` - Start with Android focus
@@ -40,6 +42,13 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 - `npm run reset-project` - Reset to clean starter template
 
 ## Architecture & Structure
+
+### Testing
+- **Framework:** Jest + jest-expo preset (Expo SDK 54).
+- **Layers:** pure utilities (`utils/trackFiltering.test.ts`), services (`services/progressService.test.ts`), and context integration (`contexts/AudioPlayerContext.test.tsx`).
+- **Mocks:** custom `expo-audio` mock at `__mocks__/expo-audio.ts` (hook-shaped, with test-only `__advanceTime`/`__finishTrack`/`__setDuration` helpers); AsyncStorage uses the package's built-in jest mock.
+- **What's NOT tested:** `<AudioPlayer />` button rendering, screen-level integration, cross-device sync (planned later).
+- **Spec/plan:** `docs/superpowers/specs/2026-05-08-audio-player-resume-tests-design.md` and `docs/superpowers/plans/2026-05-08-audio-player-resume-tests.md`.
 
 ### Routing System
 - Uses **Expo Router v5** with file-based routing and typed routes

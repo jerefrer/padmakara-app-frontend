@@ -88,12 +88,15 @@ class Store {
     };
     this.rate = 1.0;
     this.lastSeekTo = null;
-    // Drop existing listeners — by the time __reset() fires (in afterEach),
-    // the test is over and any still-mounted React component will be torn
-    // down by @testing-library/react-native's automatic cleanup. Notifying
-    // those listeners now would trigger a state update outside act() and
-    // warn. Clearing also prevents listener accumulation across tests.
-    this.listeners.clear();
+    // Do NOT clear listeners here. Tests call __reset() mid-test (e.g. matrix
+    // E3) to clear the mock's `didJustFinish` flag between tracks — clearing
+    // listeners would break the React subscription via useSyncExternalStore
+    // and cause the component to stop seeing future status updates.
+    //
+    // For end-of-test cleanup (afterEach), @testing-library/react-native's
+    // auto-cleanup unmounts mounted components first, which runs each
+    // useSyncExternalStore's unsubscribe and naturally drains the listener
+    // set before this reset runs.
   }
 }
 
