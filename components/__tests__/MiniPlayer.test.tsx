@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
+import { MiniPlayer } from '@/components/MiniPlayer';
+
 // ─── Mocks ──────────────────────────────────────────────────────────
 
 const mockTogglePlayPause = jest.fn();
@@ -42,10 +44,7 @@ const baseContext = {
   clearTrack: mockClearTrack,
 };
 
-const renderMiniPlayer = () => {
-  const { MiniPlayer } = require('@/components/MiniPlayer');
-  return render(<MiniPlayer />);
-};
+const renderMiniPlayer = () => render(<MiniPlayer />);
 
 beforeEach(() => {
   mockTogglePlayPause.mockReset();

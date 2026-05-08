@@ -80,30 +80,30 @@ export function MiniPlayer() {
             </Text>
           ) : null}
         </View>
+      </Pressable>
 
-        <Pressable
-          style={styles.controlButton}
-          onPress={togglePlayPause}
-          accessibilityRole="button"
-          accessibilityLabel={playLabel}
-          hitSlop={8}
-        >
-          <Ionicons
-            name={isPlaying ? 'pause' : 'play'}
-            size={24}
-            color={BURGUNDY}
-          />
-        </Pressable>
+      <Pressable
+        style={styles.controlButton}
+        onPress={togglePlayPause}
+        accessibilityRole="button"
+        accessibilityLabel={playLabel}
+        hitSlop={8}
+      >
+        <Ionicons
+          name={isPlaying ? 'pause' : 'play'}
+          size={24}
+          color={BURGUNDY}
+        />
+      </Pressable>
 
-        <Pressable
-          style={styles.controlButton}
-          onPress={clearTrack}
-          accessibilityRole="button"
-          accessibilityLabel={t('miniPlayer.close')}
-          hitSlop={8}
-        >
-          <Ionicons name="close" size={22} color={GRAY_TEXT} />
-        </Pressable>
+      <Pressable
+        style={styles.controlButton}
+        onPress={clearTrack}
+        accessibilityRole="button"
+        accessibilityLabel={t('miniPlayer.close')}
+        hitSlop={8}
+      >
+        <Ionicons name="close" size={22} color={GRAY_TEXT} />
       </Pressable>
     </View>
   );
@@ -118,6 +118,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: GRAY_BORDER,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -129,7 +132,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    minWidth: 0,
   },
   iconCircle: {
     width: 44,
