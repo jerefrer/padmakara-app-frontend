@@ -1645,19 +1645,33 @@ export default function RetreatDetailScreen() {
         renderTrackList(24)
       ) : (
         <>
-          {/* Bottom padding has to clear the floating audio player AND the
-              tab bar. Player ≈ 145px content + tab bar (49) + bottom inset
-              (home-indicator) + 16px breathing room = the last track stays
-              visible above the player when fully scrolled. */}
-          {renderTrackList(145 + 49 + insets.bottom + 16)}
-          {/* Bottom-sticky Audio Player (mobile only; desktop uses DesktopPlayerBar) */}
-          <AudioPlayer
-            languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
-            onLanguagePress={() => setShowLanguageDropdown(true)}
-            onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
-            onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
-            isBookmarked={isCurrentTrackBookmarked}
-          />
+          {/* Bottom padding clears the floating audio player AND the tab bar
+              when the in-event player is visible. When it is hidden (a track
+              from a different event is playing), the mini-player above the
+              tab bar takes its place — reserve space for that instead. */}
+          {(() => {
+            const ownsCurrentTrack =
+              audioContext.retreatId != null &&
+              String(audioContext.retreatId) === String(retreat.id);
+            return (
+              <>
+                {renderTrackList(
+                  ownsCurrentTrack
+                    ? 145 + 49 + insets.bottom + 16
+                    : 60 + 49 + insets.bottom + 16
+                )}
+                {ownsCurrentTrack && (
+                  <AudioPlayer
+                    languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
+                    onLanguagePress={() => setShowLanguageDropdown(true)}
+                    onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
+                    onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
+                    isBookmarked={isCurrentTrackBookmarked}
+                  />
+                )}
+              </>
+            );
+          })()}
         </>
       )}
 
