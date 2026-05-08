@@ -8,18 +8,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -100,6 +103,8 @@ async function saveVideoProgress(
 
 export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isLandscape = windowWidth > windowHeight;
   const { t } = useLanguage();
   // hlsUrl points at our backend's HLS proxy on every platform — see the
   // playback-URL-load effect below. The legacy name is kept so all existing
@@ -117,6 +122,18 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const lastSavedAtRef = useRef<number>(0);
   const completedRef = useRef<boolean>(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleHide = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setControlsVisible(false), 4000);
+  }, []);
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+    scheduleHide();
+  }, [scheduleHide]);
 
   // Build the player. We pass `null` until we have a URL — expo-video accepts
   // a null source and waits for replace(). Increase forward buffer so brief
@@ -305,6 +322,29 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
     }
   }, [hlsUrl, player, resumePosition, t]);
 
+  // Auto-hide our overlay header in sync with the native player controls:
+  // hide ~4s after playback starts, show again on pause. Tapping the top
+  // tap-zone (rendered when hidden) brings it back during playback.
+  useEventListener(player, 'playingChange', (event) => {
+    if (event.isPlaying) {
+      scheduleHide();
+    } else {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setControlsVisible(true);
+    }
+  });
+
+  // Reset overlay state on session change; clear timer on unmount.
+  useEffect(() => {
+    if (session) {
+      setControlsVisible(true);
+      scheduleHide();
+    }
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [session, scheduleHide]);
+
   // Subscribe to time updates to save progress (no rerender — side-effect only).
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
     if (!session) return;
@@ -341,6 +381,19 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
   useEffect(() => {
     if (session) loadBookmarks(session.id);
     else setBookmarks([]);
+  }, [session]);
+
+  // Allow the device to rotate while the video player is open. The app is
+  // locked to portrait globally (app.json), so we unlock here and restore
+  // portrait on close. Skipped on web where ScreenOrientation is a no-op.
+  useEffect(() => {
+    if (!session || Platform.OS === 'web') return;
+    ScreenOrientation.unlockAsync().catch(() => undefined);
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(
+        () => undefined,
+      );
+    };
   }, [session]);
 
   const openBookmarkList = async () => {
@@ -476,7 +529,11 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
       statusBarTranslucent
     >
       <View style={styles.root}>
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        {!controlsVisible && (
+          <Pressable style={styles.topTapZone} onPress={showControls} />
+        )}
+        {controlsVisible && (
+        <View style={[styles.header, { paddingTop: (isLandscape ? 0 : insets.top) + 8 }]}>
           <TouchableOpacity onPress={handleClose} style={styles.iconButton} accessibilityLabel={t('common.close') || 'Close'}>
             <Ionicons name="chevron-down" size={28} color={colors.white} />
           </TouchableOpacity>
@@ -527,6 +584,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
             </TouchableOpacity>
           )}
         </View>
+        )}
 
         {/* Bookmarks list modal */}
         <Modal
@@ -682,6 +740,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 12,
     backgroundColor: colors.black,
+  },
+  topTapZone: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 88,
+    zIndex: 9,
   },
   iconButton: {
     width: 44,
