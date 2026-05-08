@@ -248,8 +248,8 @@
     "trackMetadata": "Track Details",
     "close": "Close",
     "noTrack": "No track selected",
-    "speed": "speed",
-    "read": "read",
+    "speed": "Speed",
+    "read": "Read",
     "transcript": "transcript",
     "language": "En + Pt"
   },
@@ -448,5 +448,15 @@
     "notifications": "Notifications",
     "activeSubscription": "Active subscription",
     "inactiveSubscription": "Inactive subscription"
+  },
+  "bookmarks": {
+    "add": "Bookmark this event",
+    "remove": "Remove bookmark",
+    "empty": "Tap the bookmark icon on an event or in the player to save it here.",
+    "signInPrompt": "Sign in to save bookmarks.",
+    "eventsHeader": "Events",
+    "tracksHeader": "Tracks",
+    "noEventBookmarks": "No bookmarked events yet.",
+    "noTrackBookmarks": "No bookmarked tracks yet."
   }
 }

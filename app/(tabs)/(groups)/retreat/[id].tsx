@@ -20,6 +20,7 @@ import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useAuth } from '@/contexts/AuthContext';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
@@ -36,6 +37,8 @@ import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import apiService from '@/services/apiService';
 import downloadStateService, { DownloadState } from '@/services/downloadStateService';
+import eventBookmarkService from '@/services/eventBookmarkService';
+import trackBookmarkService from '@/services/trackBookmarkService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const colors = {
@@ -159,11 +162,16 @@ interface TrackWithSession extends Track {
 const LAST_TRACK_KEY = (eventId: string) => `last_played_track:${eventId}`;
 
 export default function RetreatDetailScreen() {
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { id, from, trackId: trackIdParam } = useLocalSearchParams<{
+    id: string;
+    from?: string;
+    trackId?: string;
+  }>();
   const { t, contentLanguage, language } = useLanguage();
   const { isDesktop, isMobile } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const audioContext = useAudioPlayerContext();
+  const { isAuthenticated } = useAuth();
   const { setMeta: setSidebarMeta } = useRelatedEvents();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,6 +250,16 @@ export default function RetreatDetailScreen() {
 
   // Pending download confirmation (triggers download in useEffect)
   const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
+
+  // Event-level bookmark state
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+
+  // Track-level bookmark state — set of bookmarked track IDs (as strings).
+  // The AudioPlayer reads currentTrack from context; we expose
+  // `isCurrentTrackBookmarked` derived from this set.
+  const [bookmarkedTrackIds, setBookmarkedTrackIds] = useState<Set<string>>(new Set());
+  const [trackBookmarkBusy, setTrackBookmarkBusy] = useState(false);
 
   // Confirmation modal state
   const [modalState, setModalState] = useState<{
@@ -368,6 +386,27 @@ export default function RetreatDetailScreen() {
   // we skip the auto-load — the sync effect below will pick that up and
   // highlight it in the list.
   const autoLoadedRef = useRef(false);
+
+  // Refs for scrolling the track list to the remembered track on open.
+  // The Animated.ScrollView's ref + a per-item layout map let us center
+  // the active track in view without a FlatList. Only set when there's
+  // an actual remembered track to scroll to (not the first-track fallback).
+  const scrollViewRef = useRef<any>(null);
+  const scrollViewHeightRef = useRef(0);
+  const trackLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const pendingScrollTrackIdRef = useRef<string | null>(null);
+
+  const tryScrollToPendingTrack = useCallback(() => {
+    const id = pendingScrollTrackIdRef.current;
+    if (!id) return;
+    const layout = trackLayoutsRef.current.get(id);
+    const viewportH = scrollViewHeightRef.current;
+    if (!layout || viewportH <= 0) return;
+    const target = Math.max(0, layout.y + layout.height / 2 - viewportH / 2);
+    scrollViewRef.current?.scrollTo?.({ y: target, animated: false });
+    pendingScrollTrackIdRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (autoLoadedRef.current) return;
     if (!retreat || filteredTracks.length === 0) return;
@@ -379,6 +418,14 @@ export default function RetreatDetailScreen() {
     if (ctxTrackInThisEvent) {
       // The player already has a track from this event — leave it alone;
       // the sync effect will mirror it into local state for the highlight.
+      // Queue a scroll so the list opens centered on it, but skip when
+      // it's the first track — there's nothing above to bring into view
+      // and scrolling would just hide the hero for no reason.
+      const ctxIdx = filteredTracks.findIndex((t) => String(t.id) === String(ctxTrack!.id));
+      if (ctxIdx > 0) {
+        pendingScrollTrackIdRef.current = String(ctxTrack!.id);
+        tryScrollToPendingTrack();
+      }
       autoLoadedRef.current = true;
       return;
     }
@@ -387,21 +434,41 @@ export default function RetreatDetailScreen() {
     (async () => {
       let target = filteredTracks[0];
       let targetIndex = 0;
-      try {
-        const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
-        if (lastId) {
-          const idx = filteredTracks.findIndex((t) => String(t.id) === lastId);
-          if (idx >= 0) {
-            target = filteredTracks[idx];
-            targetIndex = idx;
-          }
+      let resumedFromMemory = false;
+      // Explicit trackId param (e.g. tapped from the Bookmarks tab) wins
+      // over the per-event LAST_TRACK_KEY resume.
+      if (trackIdParam) {
+        const idx = filteredTracks.findIndex((t) => String(t.id) === String(trackIdParam));
+        if (idx >= 0) {
+          target = filteredTracks[idx];
+          targetIndex = idx;
+          resumedFromMemory = true;
         }
-      } catch {
-        // Ignore — fall back to first track.
+      }
+      if (!resumedFromMemory) {
+        try {
+          const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
+          if (lastId) {
+            const idx = filteredTracks.findIndex((t) => String(t.id) === lastId);
+            if (idx >= 0) {
+              target = filteredTracks[idx];
+              targetIndex = idx;
+              resumedFromMemory = true;
+            }
+          }
+        } catch {
+          // Ignore — fall back to first track.
+        }
       }
       selectTrack(target, targetIndex);
+      // Only scroll when the resumed track is past the first one — the
+      // first track is already at the top, so leave the hero visible.
+      if (resumedFromMemory && targetIndex > 0) {
+        pendingScrollTrackIdRef.current = String(target.id);
+        tryScrollToPendingTrack();
+      }
     })();
-  }, [retreat, filteredTracks, audioContext.currentTrack]);
+  }, [retreat, filteredTracks, audioContext.currentTrack, tryScrollToPendingTrack, trackIdParam]);
 
   // Keep the local highlight in sync with the global audio context. Covers
   // two cases:
@@ -577,6 +644,96 @@ export default function RetreatDetailScreen() {
     const anyVideo = retreat.sessions?.some((s) => !!s.bunnyVideoId);
     setActiveContentTab(anyVideo ? 'video' : 'tracks');
   }, [retreat]);
+
+  // Load whether this event is currently bookmarked. We check by listing
+  // the user's bookmarks (typically a small set) rather than adding a
+  // dedicated endpoint. Skip entirely when unauthenticated — public-event
+  // viewers can't bookmark and we shouldn't waste a 401.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsBookmarked(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await eventBookmarkService.list();
+      if (cancelled || !res.success || !res.data) return;
+      setIsBookmarked(res.data.some((bm) => String(bm.eventId) === String(id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isAuthenticated]);
+
+  const toggleBookmark = useCallback(async () => {
+    if (bookmarkBusy) return;
+    setBookmarkBusy(true);
+    const wasBookmarked = isBookmarked;
+    setIsBookmarked(!wasBookmarked); // optimistic
+    try {
+      const res = wasBookmarked
+        ? await eventBookmarkService.remove(id)
+        : await eventBookmarkService.add(id);
+      if (!res.success) {
+        setIsBookmarked(wasBookmarked); // revert
+      }
+    } finally {
+      setBookmarkBusy(false);
+    }
+  }, [bookmarkBusy, id, isBookmarked]);
+
+  // Load the user's track bookmarks so we can paint the toolbar icon
+  // correctly for whichever track plays. One fetch per event-screen mount.
+  // Skipped when unauthenticated (no API call, no toolbar toggle).
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setBookmarkedTrackIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await trackBookmarkService.list();
+      if (cancelled || !res.success || !res.data) return;
+      setBookmarkedTrackIds(new Set(res.data.map((bm) => String(bm.trackId))));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isAuthenticated]);
+
+  const isCurrentTrackBookmarked = currentTrack
+    ? bookmarkedTrackIds.has(String(currentTrack.id))
+    : false;
+
+  const toggleCurrentTrackBookmark = useCallback(async () => {
+    if (trackBookmarkBusy || !currentTrack) return;
+    const trackId = String(currentTrack.id);
+    setTrackBookmarkBusy(true);
+    const wasBookmarked = bookmarkedTrackIds.has(trackId);
+    // Optimistic update.
+    setBookmarkedTrackIds((prev) => {
+      const next = new Set(prev);
+      if (wasBookmarked) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+    try {
+      const res = wasBookmarked
+        ? await trackBookmarkService.remove(trackId)
+        : await trackBookmarkService.add(trackId);
+      if (!res.success) {
+        // Revert on failure.
+        setBookmarkedTrackIds((prev) => {
+          const next = new Set(prev);
+          if (wasBookmarked) next.add(trackId);
+          else next.delete(trackId);
+          return next;
+        });
+      }
+    } finally {
+      setTrackBookmarkBusy(false);
+    }
+  }, [bookmarkedTrackIds, currentTrack, trackBookmarkBusy]);
 
   // Push event metadata into the layout-level sidebar context. The
   // sidebar lives in (groups)/_layout.tsx, so updating meta here only
@@ -1111,10 +1268,15 @@ export default function RetreatDetailScreen() {
 
     return (
       <Animated.ScrollView
+        ref={scrollViewRef}
         style={styles.content}
         contentContainerStyle={[styles.scrollContent, { paddingBottom }]}
         onScroll={isDesktop ? undefined : scrollHandler}
         scrollEventThrottle={16}
+        onLayout={(e) => {
+          scrollViewHeightRef.current = e.nativeEvent.layout.height;
+          tryScrollToPendingTrack();
+        }}
       >
         {/* Hero (mobile only) — collapses on scroll. Floating action circles
             sit at the bottom-right and overlap the boundary between hero and
@@ -1246,6 +1408,13 @@ export default function RetreatDetailScreen() {
               {/* Track Item */}
               <TouchableOpacity
                 onPress={() => selectTrack(track, trackIndex)}
+                onLayout={(e) => {
+                  const { y, height } = e.nativeEvent.layout;
+                  trackLayoutsRef.current.set(String(track.id), { y, height });
+                  if (pendingScrollTrackIdRef.current === String(track.id)) {
+                    tryScrollToPendingTrack();
+                  }
+                }}
                 style={[
                   styles.trackItem,
                   isActive && styles.currentTrackItem,
@@ -1426,7 +1595,7 @@ export default function RetreatDetailScreen() {
           { top: isDesktop ? 16 : insets.top + 8 },
         ]}
       >
-        {currentLanguageMode && (
+        {isDesktop && currentLanguageMode && (
           <View style={styles.languageDropdownContainerFloating}>
             <TouchableOpacity
               style={styles.languageButtonFloating}
@@ -1473,6 +1642,25 @@ export default function RetreatDetailScreen() {
             )}
           </View>
         )}
+        {isAuthenticated && (
+          <TouchableOpacity
+            onPress={toggleBookmark}
+            disabled={bookmarkBusy}
+            style={styles.floatingTopButtonInline}
+            hitSlop={8}
+            accessibilityLabel={
+              isBookmarked
+                ? t('bookmarks.remove') || 'Remove bookmark'
+                : t('bookmarks.add') || 'Bookmark this event'
+            }
+          >
+            <Ionicons
+              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={22}
+              color={colors.white}
+            />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           onPress={() => setMenuVisible(true)}
           style={styles.floatingTopButtonInline}
@@ -1511,6 +1699,8 @@ export default function RetreatDetailScreen() {
             languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
             onLanguagePress={() => setShowLanguageDropdown(true)}
             onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
+            onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
+            isBookmarked={isCurrentTrackBookmarked}
           />
         </>
       )}
@@ -1622,9 +1812,71 @@ export default function RetreatDetailScreen() {
             languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
             onLanguagePress={() => setShowLanguageDropdown(true)}
             onReadPress={handleCloseReadAlong}
+            onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
+            isBookmarked={isCurrentTrackBookmarked}
           />
         </SafeAreaView>
       </Modal>
+
+      {/* Mobile language popup — anchored above the player toolbar.
+          Replaces the hero pill on mobile; desktop still uses the
+          floating pill in the hero. The bottom offset matches the
+          player's own bottom offset (49 + safe area when the regular
+          player is showing, just safe area inside the read-along
+          modal) plus enough clearance to sit above the toolbar row. */}
+      {!isDesktop && (
+        <Modal
+          visible={showLanguageDropdown}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowLanguageDropdown(false)}
+        >
+          <Pressable
+            style={styles.languagePopupBackdrop}
+            onPress={() => setShowLanguageDropdown(false)}
+          >
+            <View
+              style={[
+                styles.languagePopupContainer,
+                {
+                  bottom:
+                    (readAlongModalVisible
+                      ? insets.bottom
+                      : Platform.OS === 'ios'
+                        ? 49 + insets.bottom
+                        : 49) + 56,
+                },
+              ]}
+            >
+              {(['en', 'en-pt', 'pt'] as const).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[
+                    styles.languageDropdownItem,
+                    currentLanguageMode === mode && styles.languageDropdownItemActive,
+                  ]}
+                  onPress={() => {
+                    updateLanguagePreference(mode);
+                    setShowLanguageDropdown(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.languageDropdownItemText,
+                      currentLanguageMode === mode && styles.languageDropdownItemTextActive,
+                    ]}
+                  >
+                    {getLanguageLabel(mode)}
+                  </Text>
+                  {currentLanguageMode === mode && (
+                    <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Modal>
+      )}
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -1873,6 +2125,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 18,
     backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  languagePopupBackdrop: {
+    flex: 1,
+  },
+  languagePopupContainer: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minWidth: 200,
+    overflow: 'hidden',
   },
   languageButtonFloatingText: {
     fontSize: 13,

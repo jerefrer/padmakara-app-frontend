@@ -91,7 +91,7 @@ function mapEventStatus(
 }
 
 /** Map backend event → frontend Gathering */
-function mapEvent(backend: any): Gathering {
+export function mapEvent(backend: any): Gathering {
   const startDate = backend.startDate || backend.start_date || '';
   const endDate = backend.endDate || backend.end_date || '';
 

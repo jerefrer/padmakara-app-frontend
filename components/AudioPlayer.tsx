@@ -43,6 +43,8 @@ interface AudioPlayerProps {
   onReadPress?: () => void;
   /** Tap on the bookmark button — typically toggles a track-level bookmark. */
   onBookmarkPress?: () => void;
+  /** Whether the current track is bookmarked. Drives the icon (filled vs outlined). */
+  isBookmarked?: boolean;
   /** Optional label shown next to the globe icon (e.g. "En + Pt"). */
   languageLabel?: string;
   /**
@@ -67,6 +69,7 @@ export function AudioPlayer({
   onLanguagePress,
   onReadPress,
   onBookmarkPress,
+  isBookmarked = false,
   languageLabel,
   bottom,
 }: AudioPlayerProps = {}) {
@@ -220,9 +223,24 @@ export function AudioPlayer({
 
       {/* Bottom toolbar */}
       <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.toolbarButton} onPress={onBookmarkPress}>
-          <Ionicons name="bookmark-outline" size={20} color={colors.gray[600]} />
-          <Text style={styles.toolbarLabel}>{t('player.bookmark') || 'bookmark'}</Text>
+        <TouchableOpacity
+          style={[styles.toolbarButton, !onBookmarkPress && styles.toolbarButtonDisabled]}
+          onPress={onBookmarkPress}
+          disabled={!onBookmarkPress}
+        >
+          <Ionicons
+            name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+            size={20}
+            color={isBookmarked ? colors.burgundy[500] : colors.gray[600]}
+          />
+          <Text
+            style={[
+              styles.toolbarLabel,
+              isBookmarked && { color: colors.burgundy[500] },
+            ]}
+          >
+            {t('player.bookmark') || 'bookmark'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.toolbarButton} onPress={changePlaybackSpeed}>
@@ -230,7 +248,11 @@ export function AudioPlayer({
           <Text style={styles.toolbarLabel}>{t('player.speed') || 'speed'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.toolbarButton} onPress={onReadPress}>
+        <TouchableOpacity
+          style={[styles.toolbarButton, !onReadPress && styles.toolbarButtonDisabled]}
+          onPress={onReadPress}
+          disabled={!onReadPress}
+        >
           <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
           <Text style={styles.toolbarLabel}>{t('player.read') || 'read'}</Text>
         </TouchableOpacity>
@@ -359,6 +381,9 @@ const styles = StyleSheet.create({
   toolbarButton: {
     alignItems: 'center',
     paddingHorizontal: 8,
+  },
+  toolbarButtonDisabled: {
+    opacity: 0.4,
   },
   toolbarLabel: {
     fontSize: 10,

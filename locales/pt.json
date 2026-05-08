@@ -248,8 +248,8 @@
     "trackMetadata": "Detalhes da Faixa",
     "close": "Fechar",
     "noTrack": "Nenhuma faixa selecionada",
-    "speed": "velocidade",
-    "read": "ler",
+    "speed": "Velocidade",
+    "read": "Ler",
     "transcript": "transcrição",
     "language": "En + Pt"
   },
@@ -448,5 +448,15 @@
     "notifications": "Notificações",
     "activeSubscription": "Subscrição ativa",
     "inactiveSubscription": "Subscrição inativa"
+  },
+  "bookmarks": {
+    "add": "Marcar este evento",
+    "remove": "Remover marcador",
+    "empty": "Toque no ícone de marcador num evento ou no leitor para o guardar aqui.",
+    "signInPrompt": "Inicie sessão para guardar marcadores.",
+    "eventsHeader": "Eventos",
+    "tracksHeader": "Faixas",
+    "noEventBookmarks": "Ainda sem eventos marcados.",
+    "noTrackBookmarks": "Ainda sem faixas marcadas."
   }
 }
