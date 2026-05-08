@@ -10,6 +10,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, API_ENDPOINTS, buildApiUrl, getAuthHeaders } from './apiConfig';
+import entityCacheService from './entityCacheService';
 import type { Publication } from '../types';
 
 const CACHE_METADATA_KEY = '@publication_cache:metadata';
@@ -34,16 +35,48 @@ class PublicationService {
   private isWeb = Platform.OS === 'web';
 
   /**
-   * Fetch list of publications from the API.
+   * Synchronous companion for getPublications — consults the in-memory mirror
+   * only. Returns null when the mirror is cold or empty (no cache yet), or
+   * the cached list wrapped in the same shape as the async method.
+   * Never hits the network.
+   */
+  getPublicationsSync(): { publications: Publication[]; hasHiddenPublications: boolean } | null {
+    const cached = entityCacheService.getListSync<Publication>('publications');
+    if (cached === undefined || cached === null) return null;
+    return { publications: cached, hasHiddenPublications: false };
+  }
+
+  /**
+   * Fetch list of publications — cache-first (SWR pattern).
+   *
+   * On cache hit: returns the cached publication list immediately. The
+   * `hasHiddenPublications` flag cannot be derived from the list alone, so it
+   * defaults to `false` on cache hits. The activation banner is therefore
+   * hidden until the next background sync populates fresher data — acceptable
+   * because the banner is informational, not structural.
+   *
+   * On cache miss: falls back to the network, persists the returned array via
+   * entityCacheService, and returns the full wrapper including the live
+   * `hasHiddenPublications` flag.
+   *
    * Works with or without authentication (public publications are always visible).
-   * Returns the publications array plus the backend-computed `hasHiddenPublications`
-   * flag, which is true when subscribers-only publications exist that the current
-   * caller cannot see.
    */
   async getPublications(
     sort?: string,
     language?: string,
+    opts: { force?: boolean } = {},
   ): Promise<{ publications: Publication[]; hasHiddenPublications: boolean }> {
+    // 1. Try cache first (only when no sort/language filter is active, so the
+    //    caller always gets the canonical unfiltered list; filtering is done
+    //    on the screen side anyway). Skipped when force=true.
+    if (!sort && !language && !opts.force) {
+      const cached = await entityCacheService.getList<Publication>('publications');
+      if (cached !== null) {
+        return { publications: cached, hasHiddenPublications: false };
+      }
+    }
+
+    // 2. Cache miss (or filtered request) — fall back to network.
     const params = new URLSearchParams();
     if (sort) params.set('sort', sort);
     if (language) params.set('language', language);
@@ -64,8 +97,15 @@ class PublicationService {
     }
 
     const data = await response.json();
+    const publications: Publication[] = data.publications ?? data.data ?? [];
+
+    // Persist the list so future calls can skip the network round-trip.
+    if (!sort && !language) {
+      await entityCacheService.setList('publications', publications);
+    }
+
     return {
-      publications: data.publications ?? data.data ?? [],
+      publications,
       hasHiddenPublications: !!data.hasHiddenPublications,
     };
   }

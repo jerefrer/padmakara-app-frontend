@@ -37,6 +37,14 @@ export const API_ENDPOINTS = {
   // Groups & Events
   GROUPS: '/groups',
   GROUP_EVENTS: (id: string) => `/groups/${id}/events`,
+
+  // Sync (cache invalidation)
+  SYNC_VERSIONS: '/sync/versions',
+
+  // Teacher list/detail (used by entityCache for the teachers namespace)
+  TEACHERS: '/teachers',
+  TEACHER_DETAILS: (abbreviation: string) => `/teachers/${abbreviation}`,
+
   EVENTS: '/events',
   EVENT_DETAILS: (id: string) => `/events/${id}`,
   SESSION_DETAILS: (id: string) => `/events/sessions/${id}`,

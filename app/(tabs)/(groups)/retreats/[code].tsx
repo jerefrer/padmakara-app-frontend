@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -287,8 +287,14 @@ export default function GroupDetailScreen() {
   const { isDesktop } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
-  const [groupData, setGroupData] = useState<RetreatGroup | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [groupData, setGroupData] = useState<RetreatGroup | null>(() =>
+    retreatService.getRetreatGroupDetailsSync(code)
+  );
+  // Show spinner only when the lazy initializer found nothing in the mirror.
+  const [loading, setLoading] = useState(() =>
+    retreatService.getRetreatGroupDetailsSync(code) === null
+  );
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadedRetreatIds, setDownloadedRetreatIds] = useState<Set<string>>(new Set());
 
@@ -332,7 +338,10 @@ export default function GroupDetailScreen() {
 
   const loadGroupData = async () => {
     try {
-      setLoading(true);
+      // Only show the full-screen spinner when the lazy initializer found no
+      // cached data in the mirror. retreatService reads cache-first, so
+      // when the mirror is warm this is a background refresh with no spinner.
+      if (groupData === null) setLoading(true);
       setError(null);
       const response = await retreatService.getRetreatGroupDetails(code);
       if (response.success && response.data) {
@@ -346,6 +355,13 @@ export default function GroupDetailScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await retreatService.getRetreatGroupDetails(code, { force: true });
+    await loadGroupData();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -457,6 +473,13 @@ export default function GroupDetailScreen() {
           style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.burgundy[500]}
+            />
+          }
         >
           {/* Collapsing hero — same edge-to-edge banner pattern on mobile
               and desktop. Spans full ScrollView width by negating the

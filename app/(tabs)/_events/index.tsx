@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
 import { Stack, router, useGlobalSearchParams, useSegments } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -211,16 +211,24 @@ export default function EventsScreen() {
   const segments = useSegments();
   const isInGroupsStack = (segments as string[]).includes('(groups)');
   const { teacher: teacherFilter } = useGlobalSearchParams<{ teacher?: string }>();
-  const [publicEvents, setPublicEvents] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [publicEvents, setPublicEvents] = useState<any[] | null>(() =>
+    retreatService.getPublicEventsSync()
+  );
+  // Show spinner only when the lazy initializer found nothing in the mirror.
+  const [loading, setLoading] = useState(() =>
+    retreatService.getPublicEventsSync() === null
+  );
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('teachers');
 
-  const loadEvents = async () => {
+  const loadEvents = async (isRefresh = false) => {
+    // Show spinner only when the lazy initializer found no data in the mirror.
+    if (publicEvents === null) setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      const response = await retreatService.getPublicEvents();
+      const response = await retreatService.getPublicEvents({ force: isRefresh });
       if (response.success && response.data) {
         setPublicEvents(response.data);
       } else if (response.error?.includes('404')) {
@@ -239,6 +247,12 @@ export default function EventsScreen() {
   useEffect(() => {
     loadEvents();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadEvents(true);
+    setRefreshing(false);
+  };
 
   // If a teacher filter param is passed, switch to date view filtered by that teacher
   useEffect(() => {
@@ -427,7 +441,16 @@ export default function EventsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <ScrollView style={[styles.scrollView, isDesktop && styles.desktopScrollView]}>
+        <ScrollView
+          style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.burgundy[500]}
+            />
+          }
+        >
           {/* Title with back button */}
           <View style={[styles.header, isDesktop && styles.desktopHeader]}>
             {!isDesktop && (

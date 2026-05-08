@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   SectionList,
   StyleSheet,
   Text,
@@ -28,9 +29,16 @@ export default function PublicationsScreen() {
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
 
-  const [publications, setPublications] = useState<Publication[]>([]);
+  const [publications, setPublications] = useState<Publication[]>(() => {
+    const sync = publicationService.getPublicationsSync();
+    return sync ? sync.publications : [];
+  });
   const [hasHiddenPublications, setHasHiddenPublications] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Show spinner only when the lazy initializer found nothing in the mirror.
+  const [loading, setLoading] = useState(() =>
+    publicationService.getPublicationsSync() === null
+  );
+  const [refreshing, setRefreshing] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('latest');
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
 
@@ -50,10 +58,12 @@ export default function PublicationsScreen() {
     Record<string, boolean>
   >({});
 
-  // Load publications
+  // Load publications — cache-first; spinner only on cold load (nothing yet displayed).
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+
+    // Show spinner only when the lazy initializer found nothing in the mirror.
+    if (publications.length === 0) setLoading(true);
 
     publicationService
       .getPublications()
@@ -74,6 +84,20 @@ export default function PublicationsScreen() {
       cancelled = true;
     };
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const { publications: data, hasHiddenPublications: hidden } =
+        await publicationService.getPublications(undefined, undefined, { force: true });
+      setPublications(data);
+      setHasHiddenPublications(hidden);
+    } catch (err) {
+      console.error('Failed to refresh publications:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Derive available languages from publications
   const availableLanguages = useMemo(() => {
@@ -560,6 +584,9 @@ export default function PublicationsScreen() {
             )}
             contentContainerStyle={styles.listContent}
             stickySectionHeadersEnabled={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           />
         ) : (
           <FlatList
@@ -567,6 +594,9 @@ export default function PublicationsScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderPublicationItem}
             contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           />
         )}
 

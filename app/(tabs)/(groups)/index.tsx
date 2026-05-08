@@ -8,6 +8,7 @@ import { Stack, router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -256,18 +257,37 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
 
-  // Featured event — loaded for everyone (no auth needed)
-  const [featuredEvent, setFeaturedEvent] = useState<Gathering | null>(null);
-  const [featuredLoading, setFeaturedLoading] = useState(true);
-  // Recently added events
-  const [recentEvents, setRecentEvents] = useState<Gathering[]>([]);
+  // Featured event — loaded for everyone (no auth needed).
+  // Lazy initializer reads from the in-memory mirror so the first render
+  // already has data when the cache is warm — no spinner flash.
+  const [featuredEvent, setFeaturedEvent] = useState<Gathering | null>(() =>
+    retreatService.getFeaturedEventSync()
+  );
+  const [featuredLoading, setFeaturedLoading] = useState(() =>
+    retreatService.getFeaturedEventSync() === null
+  );
+  const [refreshing, setRefreshing] = useState(false);
+  // Recently added events — also initialised from mirror.
+  const [recentEvents, setRecentEvents] = useState<Gathering[]>(() => {
+    const publicEvents = retreatService.getPublicEventsSync();
+    if (!publicEvents) return [];
+    const featuredId = retreatService.getFeaturedEventSync()?.id;
+    return [...publicEvents]
+      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+      .filter((e) => e.id !== featuredId)
+      .slice(0, 5);
+  });
 
-  const loadHomeData = async () => {
+  const loadHomeData = async (isRefresh = false) => {
+    // Show spinner only when there is nothing to display yet (mirror was cold
+    // at mount time — lazy initializer returned null/empty).
+    const showSpinner = featuredEvent === null && recentEvents.length === 0;
+    if (showSpinner) setFeaturedLoading(true);
+
     try {
-      setFeaturedLoading(true);
       const [featuredRes, publicRes] = await Promise.all([
-        retreatService.getFeaturedEvent(),
-        retreatService.getPublicEvents(),
+        retreatService.getFeaturedEvent({ force: isRefresh }),
+        retreatService.getPublicEvents({ force: isRefresh }),
       ]);
       if (featuredRes.success && featuredRes.data) {
         setFeaturedEvent(featuredRes.data);
@@ -289,6 +309,12 @@ export default function HomeScreen() {
     } finally {
       setFeaturedLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadHomeData(true);
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -343,6 +369,13 @@ export default function HomeScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.burgundy[500]}
+            />
+          }
         >
           {/* App title — mobile only (desktop has sidebar) */}
           {!isDesktop && (

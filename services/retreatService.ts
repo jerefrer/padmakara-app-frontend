@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
 import apiService from './apiService';
+import entityCacheService from './entityCacheService';
 
 interface UserRetreatData {
   retreat_groups: RetreatGroup[];
@@ -196,12 +197,6 @@ function mapTrack(backend: any): Track {
 
 class RetreatService {
   private static instance: RetreatService;
-  private readonly CACHE_KEYS = {
-    USER_RETREATS: '@retreat_cache:user_retreats',
-    GATHERING_DETAILS: '@retreat_cache:gathering_',
-    RETREAT_GROUP_DETAILS: '@retreat_cache:group_',
-  };
-  private readonly CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
   private activeDownloads = new Map<string, FileSystem.DownloadResumable>();
   private cancelledDownloads = new Set<string>();
 
@@ -212,21 +207,17 @@ class RetreatService {
     return RetreatService.instance;
   }
 
-  // Cache management helpers
+  // Legacy download cache helpers (for download tracking only — NOT retreat metadata)
   private async getCachedData<T>(key: string): Promise<T | null> {
     try {
       const cached = await AsyncStorage.getItem(key);
       if (!cached) return null;
-
-      const { data, timestamp } = JSON.parse(cached);
-      const now = Date.now();
-
-      if (now - timestamp > this.CACHE_EXPIRY) {
-        await AsyncStorage.removeItem(key);
-        return null;
+      const parsed = JSON.parse(cached);
+      // Support both plain objects (downloads) and legacy timestamped wrappers
+      if (parsed && typeof parsed === 'object' && 'data' in parsed && 'timestamp' in parsed) {
+        return parsed.data as T;
       }
-
-      return data;
+      return parsed as T;
     } catch (error) {
       console.error('Cache read error:', error);
       return null;
@@ -235,25 +226,203 @@ class RetreatService {
 
   private async setCachedData<T>(key: string, data: T): Promise<void> {
     try {
-      const cacheItem = { data, timestamp: Date.now() };
-      await AsyncStorage.setItem(key, JSON.stringify(cacheItem));
+      await AsyncStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
       console.error('Cache write error:', error);
     }
   }
 
-  private async clearCache(): Promise<void> {
-    try {
-      const keys = await AsyncStorage.getAllKeys();
-      const cacheKeys = keys.filter(key => key.startsWith('@retreat_cache:'));
-      await AsyncStorage.multiRemove(cacheKeys);
-    } catch (error) {
-      console.error('Cache clear error:', error);
-    }
+  // ─── Assembly helpers ──────────────────────────────────────────────
+
+  /** Build UserRetreatData from raw backend arrays (no network calls). */
+  private assembleUserRetreats(backendGroups: any[], backendEvents: any[]): UserRetreatData {
+    const mappedEvents = backendEvents.map(mapEvent);
+
+    const mappedGroups: RetreatGroup[] = backendGroups.map((bg: any) => {
+      const groupEvents = backendEvents
+        .filter((ev: any) =>
+          ev.eventRetreatGroups?.some(
+            (erg: any) => erg.retreatGroupId === bg.id || erg.retreatGroup?.id === bg.id
+          )
+        )
+        .map(mapEvent);
+      return mapGroup(bg, groupEvents);
+    });
+
+    const recentGatherings = [...mappedEvents]
+      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+      .slice(0, 5);
+
+    const totalTracks = mappedEvents.reduce((sum, ev) =>
+      sum + (ev.sessions?.reduce((s, sess) => s + (sess.tracks?.length || 0), 0) || 0), 0);
+
+    return {
+      retreat_groups: mappedGroups,
+      recent_gatherings: recentGatherings,
+      total_stats: {
+        total_groups: mappedGroups.length,
+        total_gatherings: mappedEvents.length,
+        total_tracks: totalTracks,
+        completed_tracks: 0,
+      },
+    };
   }
 
-  // Get public events (no auth required)
-  async getPublicEvents(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  /** Build RetreatGroupDetails from a backend group object and its mapped events. */
+  private assembleGroupDetails(backendGroup: any | undefined, gatherings: Gathering[], groupKey: string): RetreatGroupDetails {
+    return {
+      ...(backendGroup ? mapGroup(backendGroup, gatherings) : {
+        id: groupKey,
+        name: '',
+        gatherings,
+        created_at: '',
+        updated_at: '',
+      }),
+      gatherings,
+      is_member: true,
+    } as RetreatGroupDetails;
+  }
+
+  /** Returns true when the given group row matches the provided key (id / abbreviation / slug). */
+  private groupMatchesKey(g: any, groupKey: string): boolean {
+    const keyLower = groupKey.toLowerCase();
+    return (
+      String(g.id) === groupKey
+      || (g.abbreviation && String(g.abbreviation).toLowerCase() === keyLower)
+      || (g.slug && String(g.slug) === groupKey)
+    );
+  }
+
+  // ─── Synchronous cache companions ─────────────────────────────────────
+  //
+  // These methods ONLY consult the in-memory mirror. They return null when
+  // the mirror is cold (undefined = not yet read this session) or empty
+  // (null = known cache miss). They never hit the network.
+
+  getUserRetreatsSync(): UserRetreatData | null {
+    const groups = entityCacheService.getListSync<any>('groups');
+    const events = entityCacheService.getListSync<any>('events');
+    if (groups === undefined || events === undefined || groups === null || events === null) {
+      return null;
+    }
+    return this.assembleUserRetreats(groups, events);
+  }
+
+  getRetreatGroupDetailsSync(groupKey: string): RetreatGroupDetails | null {
+    const groups = entityCacheService.getListSync<any>('groups');
+    const events = entityCacheService.getListSync<any>('events');
+    if (groups === undefined || events === undefined || groups === null || events === null) {
+      return null;
+    }
+    const backendGroup = groups.find((g: any) => this.groupMatchesKey(g, groupKey));
+    const groupId = backendGroup?.id;
+    const groupEvents = events.filter((ev: any) =>
+      ev.eventRetreatGroups?.some(
+        (erg: any) => erg.retreatGroupId === groupId || erg.retreatGroup?.id === groupId
+      )
+    );
+    const gatherings = groupEvents.map(mapEvent);
+    return this.assembleGroupDetails(backendGroup, gatherings, groupKey);
+  }
+
+  getRetreatDetailsSync(retreatId: string): any | null {
+    const numericId = Number(retreatId);
+    const cached = entityCacheService.getDetailSync<any>('events', numericId);
+    if (cached === undefined || cached === null) return null;
+    return this.assembleEventDetail(cached);
+  }
+
+  getPublicEventsSync(): any[] | null {
+    const events = entityCacheService.getListSync<any>('events');
+    if (events === undefined || events === null) return null;
+    return events.filter((ev: any) => ev.audience?.slug === 'free-anyone').map(mapEvent);
+  }
+
+  getFeaturedEventSync(): any | null {
+    const events = entityCacheService.getListSync<any>('events');
+    if (events === undefined || events === null) return null;
+    let featured: any | null = null;
+    for (const ev of events) {
+      if (!ev.featuredAt) continue;
+      if (!featured || ev.featuredAt > featured.featuredAt) {
+        featured = ev;
+      }
+    }
+    return featured ? mapEvent(featured) : null;
+  }
+
+  getEventsByTeacherSync(abbreviation: string): { teacher: any | null; events: any[] } | null {
+    const events = entityCacheService.getListSync<any>('events');
+    if (events === undefined || events === null) return null;
+    const teacherEvents = events.filter((ev: any) =>
+      ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation)
+    );
+    const mappedEvents = teacherEvents.map(mapEvent);
+    let teacher: any | null = null;
+    if (teacherEvents.length > 0) {
+      const et = teacherEvents[0].eventTeachers?.find(
+        (e: any) => e.teacher?.abbreviation === abbreviation
+      );
+      teacher = et?.teacher ?? null;
+    }
+    return { teacher, events: mappedEvents };
+  }
+
+  // Get all events by teacher abbreviation — cache-first (SWR pattern).
+  // Derives teacher detail and their events from the events cache without a
+  // network round-trip. Falls back to getPublicEvents on cache miss.
+  async getEventsByTeacher(abbreviation: string, opts: { force?: boolean } = {}): Promise<{
+    success: boolean;
+    teacher: any | null;
+    events: any[];
+    error?: string;
+  }> {
+    // 1. Try cache first (skipped when force=true).
+    const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
+    if (cachedEvents !== null) {
+      const teacherEvents = cachedEvents.filter((ev: any) =>
+        ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation),
+      );
+      const mappedEvents = teacherEvents.map(mapEvent);
+      // Derive teacher metadata from the first matching event.
+      let teacher: any | null = null;
+      if (teacherEvents.length > 0) {
+        const et = teacherEvents[0].eventTeachers?.find(
+          (e: any) => e.teacher?.abbreviation === abbreviation,
+        );
+        teacher = et?.teacher ?? null;
+      }
+      return { success: true, teacher, events: mappedEvents };
+    }
+
+    // 2. Cache miss — fall back to public events network path.
+    const res = await this.getPublicEvents(opts);
+    if (!res.success || !res.data) {
+      return { success: false, teacher: null, events: [], error: res.error };
+    }
+    const eventsForTeacher = res.data.filter((ev: any) =>
+      ev.teachers?.some((t: any) => t.abbreviation === abbreviation),
+    );
+    const teacher =
+      eventsForTeacher[0]?.teachers?.find((t: any) => t.abbreviation === abbreviation) ?? null;
+    return { success: true, teacher, events: eventsForTeacher };
+  }
+
+  // Get public events — cache-first (SWR pattern).
+  // When the authenticated events cache is populated, derives public events
+  // locally (audience.slug === "free-anyone"). Falls back to the unauthenticated
+  // /events/public endpoint on cache miss, preserving behaviour for guests.
+  async getPublicEvents(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    // 1. Try cache first (skipped when force=true).
+    const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
+    if (cachedEvents !== null) {
+      const publicRows = cachedEvents.filter(
+        (ev: any) => ev.audience?.slug === 'free-anyone',
+      );
+      return { success: true, data: publicRows.map(mapEvent) };
+    }
+
+    // 2. Cache miss — fall back to the public (unauthenticated) endpoint.
     try {
       const response = await apiService.get<any[]>(API_ENDPOINTS.PUBLIC_EVENTS);
       if (response.success && response.data) {
@@ -266,8 +435,25 @@ class RetreatService {
     }
   }
 
-  // Get the featured event (no auth required)
-  async getFeaturedEvent(): Promise<{ success: boolean; data?: any; error?: string }> {
+  // Get the featured event — cache-first (SWR pattern).
+  // When the events cache is populated, finds the entry with the most recent
+  // non-null featuredAt value. Falls back to /events/featured on cache miss.
+  async getFeaturedEvent(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: any; error?: string }> {
+    // 1. Try cache first (skipped when force=true).
+    const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
+    if (cachedEvents !== null) {
+      // Find the event with the most recent featuredAt timestamp.
+      let featured: any | null = null;
+      for (const ev of cachedEvents) {
+        if (!ev.featuredAt) continue;
+        if (!featured || ev.featuredAt > featured.featuredAt) {
+          featured = ev;
+        }
+      }
+      return { success: true, data: featured ? mapEvent(featured) : null };
+    }
+
+    // 2. Cache miss — fall back to the public endpoint.
     try {
       const response = await apiService.get<any>(API_ENDPOINTS.FEATURED_EVENT);
       if (response.success && response.data) {
@@ -280,12 +466,24 @@ class RetreatService {
     }
   }
 
-  // Get user's retreat groups and recent activity (backend-first with offline fallback)
-  async getUserRetreats(): Promise<{ success: boolean; data?: UserRetreatData; error?: string; authRequired?: boolean }> {
+  // Get user's retreat groups and recent activity (cache-first / SWR pattern)
+  async getUserRetreats(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: UserRetreatData; error?: string; authRequired?: boolean }> {
+    // 1. Try cache first — return immediately on hit (skipped when force=true).
+    if (!opts.force) {
+      const [cachedGroups, cachedEvents] = await Promise.all([
+        entityCacheService.getList<any>('groups'),
+        entityCacheService.getList<any>('events'),
+      ]);
+
+      if (cachedGroups !== null && cachedEvents !== null) {
+        return { success: true, data: this.assembleUserRetreats(cachedGroups, cachedEvents) };
+      }
+    }
+
+    // 2. Cache miss — fetch from network (first launch / post-wipe).
     try {
       console.log('Fetching user groups and events...');
 
-      // Parallel fetch: groups + access-filtered events
       const [groupsRes, eventsRes] = await Promise.all([
         apiService.get<any[]>(API_ENDPOINTS.GROUPS),
         apiService.get<any[]>(API_ENDPOINTS.EVENTS),
@@ -295,79 +493,60 @@ class RetreatService {
         if (groupsRes.authRequired) {
           return { success: false, error: groupsRes.error || 'Authentication required.', authRequired: true };
         }
-        throw new Error(groupsRes.error || 'Failed to load groups');
+        return { success: false, error: groupsRes.error || 'Failed to load groups' };
       }
       if (!eventsRes.success || !eventsRes.data) {
         if (eventsRes.authRequired) {
           return { success: false, error: eventsRes.error || 'Authentication required.', authRequired: true };
         }
-        throw new Error(eventsRes.error || 'Failed to load events');
+        return { success: false, error: eventsRes.error || 'Failed to load events' };
       }
 
-      const backendGroups = groupsRes.data;
-      const backendEvents = eventsRes.data;
-      const mappedEvents = backendEvents.map(mapEvent);
+      await Promise.all([
+        entityCacheService.setList('groups', groupsRes.data),
+        entityCacheService.setList('events', eventsRes.data),
+      ]);
 
-      // For each group, find events that belong to it
-      const mappedGroups: RetreatGroup[] = backendGroups.map((bg: any) => {
-        const groupEvents = backendEvents
-          .filter((ev: any) =>
-            ev.eventRetreatGroups?.some(
-              (erg: any) => erg.retreatGroupId === bg.id || erg.retreatGroup?.id === bg.id
-            )
-          )
-          .map(mapEvent);
-        return mapGroup(bg, groupEvents);
-      });
-
-      // Recent gatherings: sorted by date, take last 5
-      const recentGatherings = [...mappedEvents]
-        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-        .slice(0, 5);
-
-      const totalTracks = mappedEvents.reduce((sum, ev) =>
-        sum + (ev.sessions?.reduce((s, sess) => s + (sess.tracks?.length || 0), 0) || 0), 0);
-
-      const data: UserRetreatData = {
-        retreat_groups: mappedGroups,
-        recent_gatherings: recentGatherings,
-        total_stats: {
-          total_groups: mappedGroups.length,
-          total_gatherings: mappedEvents.length,
-          total_tracks: totalTracks,
-          completed_tracks: 0,
-        },
-      };
-
-      console.log(`Loaded ${mappedGroups.length} groups, ${mappedEvents.length} events`);
-      await this.setCachedData(this.CACHE_KEYS.USER_RETREATS, data);
-      return { success: true, data };
+      console.log(`Loaded ${groupsRes.data.length} groups, ${eventsRes.data.length} events`);
+      return { success: true, data: this.assembleUserRetreats(groupsRes.data, eventsRes.data) };
     } catch (error) {
-      console.error('Backend request failed:', error);
-
-      const cachedData = await this.getCachedData<UserRetreatData>(this.CACHE_KEYS.USER_RETREATS);
-      if (cachedData) {
-        console.log('Using cached retreat data');
-        return { success: true, data: cachedData };
-      }
-
+      console.error('getUserRetreats network failure:', error);
       return { success: false, error: 'No retreat data available. Please check your connection and try again.' };
     }
   }
 
-  // Get detailed information about a specific retreat group.
+  // Get detailed information about a specific retreat group (cache-first / SWR pattern).
   // `groupKey` may be a numeric id, abbreviation (case-insensitive), or slug —
   // the backend resolves all three. The groups list is matched the same way
   // so we can hydrate the metadata from cache.
-  async getRetreatGroupDetails(groupKey: string): Promise<{
+  async getRetreatGroupDetails(groupKey: string, opts: { force?: boolean } = {}): Promise<{
     success: boolean;
     data?: RetreatGroupDetails;
     error?: string
   }> {
+    // 1. Try cache first (skipped when force=true).
+    const [cachedGroups, cachedEvents] = await Promise.all([
+      opts.force ? Promise.resolve(null) : entityCacheService.getList<any>('groups'),
+      opts.force ? Promise.resolve(null) : entityCacheService.getList<any>('events'),
+    ]);
+
+    if (cachedGroups !== null && cachedEvents !== null) {
+      const backendGroup = cachedGroups.find((g: any) => this.groupMatchesKey(g, groupKey));
+      const groupId = backendGroup?.id;
+      const groupEvents = cachedEvents
+        .filter((ev: any) =>
+          ev.eventRetreatGroups?.some(
+            (erg: any) => erg.retreatGroupId === groupId || erg.retreatGroup?.id === groupId
+          )
+        );
+      const gatherings = groupEvents.map(mapEvent);
+      return { success: true, data: this.assembleGroupDetails(backendGroup, gatherings, groupKey) };
+    }
+
+    // 2. Cache miss — fetch from network.
     try {
       console.log(`Fetching group ${groupKey} events...`);
 
-      // Parallel: group events + group info
       const [eventsRes, groupsRes] = await Promise.all([
         apiService.get<any[]>(API_ENDPOINTS.GROUP_EVENTS(groupKey)),
         apiService.get<any[]>(API_ENDPOINTS.GROUPS),
@@ -378,40 +557,89 @@ class RetreatService {
       }
 
       const gatherings = eventsRes.data.map(mapEvent);
-      const keyLower = groupKey.toLowerCase();
-      const backendGroup = groupsRes.data?.find((g: any) =>
-        String(g.id) === groupKey
-        || (g.abbreviation && String(g.abbreviation).toLowerCase() === keyLower)
-        || (g.slug && String(g.slug) === groupKey),
-      );
+      const backendGroup = groupsRes.data?.find((g: any) => this.groupMatchesKey(g, groupKey));
 
-      const data: RetreatGroupDetails = {
-        ...(backendGroup ? mapGroup(backendGroup, gatherings) : {
-          id: groupKey,
-          name: '',
-          gatherings,
-          created_at: '',
-          updated_at: '',
-        }),
-        gatherings,
-        is_member: true,
-      };
-
-      return { success: true, data };
+      return { success: true, data: this.assembleGroupDetails(backendGroup, gatherings, groupKey) };
     } catch (error) {
       console.error('Get retreat group details error:', error);
       return { success: false, error: 'Failed to load retreat group details' };
     }
   }
 
-  // Get detailed information about a specific retreat/event (backend-first with offline fallback)
-  async getRetreatDetails(retreatId: string): Promise<{
+  /**
+   * Map and enrich a raw backend event response into the shape expected by
+   * the retreat detail screen. This is the single source of truth for the
+   * raw→mapped transformation so that both the cache-hit and cache-miss
+   * paths return an identical shape.
+   *
+   * The cache always stores RAW backend data (matching what syncService
+   * writes). Consumers always call assembleEventDetail on the way out.
+   */
+  private assembleEventDetail(rawData: any): any {
+    const mapped = mapEvent(rawData);
+
+    const retreatGroup = rawData.eventRetreatGroups?.[0]?.retreatGroup;
+
+    const transcripts = rawData.transcripts?.map((tr: any) => ({
+      id: tr.id,
+      language: tr.language,
+      pageCount: tr.pageCount || tr.page_count,
+      updatedAt: tr.updatedAt || tr.updated_at || '',
+      originalFilename: tr.originalFilename || tr.original_filename || '',
+    })) || [];
+
+    return {
+      ...mapped,
+      transcripts,
+      retreat_group: retreatGroup ? {
+        id: String(retreatGroup.id),
+        name: retreatGroup.nameEn || retreatGroup.name_en || '',
+        name_translations: {
+          en: retreatGroup.nameEn || retreatGroup.name_en || '',
+          ...(retreatGroup.namePt || retreatGroup.name_pt
+            ? { pt: retreatGroup.namePt || retreatGroup.name_pt }
+            : {}),
+        },
+        avatarUrl: retreatGroup.avatarUrl ?? null,
+        heroUrl: retreatGroup.heroUrl ?? null,
+        heroMobileUrl: retreatGroup.heroMobileUrl ?? null,
+        heroFocalX: retreatGroup.heroFocalX ?? 50,
+        heroFocalY: retreatGroup.heroFocalY ?? 50,
+        heroScale: retreatGroup.heroScale ?? 100,
+        avatarUpdatedAt: retreatGroup.avatarUpdatedAt ?? null,
+        heroUpdatedAt: retreatGroup.heroUpdatedAt ?? null,
+      } : undefined,
+      // Pass through relatedPublications if present in the raw response.
+      ...(rawData.relatedPublications !== undefined
+        ? { relatedPublications: rawData.relatedPublications }
+        : {}),
+    };
+  }
+
+  // Get detailed information about a specific retreat/event (cache-first / SWR pattern).
+  // Note: presigned audio/video URLs are NOT stored in event detail responses —
+  // they are fetched on-demand via getAudioPresignedUrl / getSessionVideoPlaybackUrls.
+  // So the full mapped event object is safe to cache.
+  //
+  // Contract: the cache always stores RAW backend data (consistent with what
+  // syncService.syncNamespace writes). assembleEventDetail maps on every read,
+  // so cache-hit and cache-miss both return the same mapped+enriched shape.
+  async getRetreatDetails(retreatId: string, opts: { force?: boolean } = {}): Promise<{
     success: boolean;
     data?: any;
     error?: string
   }> {
-    const cacheKey = `${this.CACHE_KEYS.GATHERING_DETAILS}${retreatId}`;
+    const numericId = Number(retreatId);
 
+    // 1. Try cache first — map raw→frontend shape on read (skipped when force=true).
+    if (!opts.force) {
+      const cached = await entityCacheService.getDetail<any>('events', numericId);
+      if (cached !== null) {
+        return { success: true, data: this.assembleEventDetail(cached) };
+      }
+    }
+
+    // 2. Cache miss — fetch from network.
     try {
       console.log(`Fetching event details for ID: ${retreatId}`);
 
@@ -419,64 +647,22 @@ class RetreatService {
       let response = await apiService.get<any>(API_ENDPOINTS.EVENT_DETAILS(retreatId));
 
       if (!response.success) {
-        // Try public endpoint as fallback (for unauthenticated users viewing public events)
         console.log('Auth event endpoint failed, trying public endpoint...');
         response = await apiService.get<any>(API_ENDPOINTS.PUBLIC_EVENT_DETAILS(retreatId));
       }
 
       if (response.success && response.data) {
-        const mapped = mapEvent(response.data);
-
-        // Add retreat_group info from the event's groups
-        const retreatGroup = response.data.eventRetreatGroups?.[0]?.retreatGroup;
-
-        // Map transcripts (event-level PDFs)
-        const transcripts = response.data.transcripts?.map((tr: any) => ({
-          id: tr.id,
-          language: tr.language,
-          pageCount: tr.pageCount || tr.page_count,
-          updatedAt: tr.updatedAt || tr.updated_at || '',
-          originalFilename: tr.originalFilename || tr.original_filename || '',
-        })) || [];
-
-        const data = {
-          ...mapped,
-          transcripts,
-          retreat_group: retreatGroup ? {
-            id: String(retreatGroup.id),
-            name: retreatGroup.nameEn || retreatGroup.name_en || '',
-            name_translations: {
-              en: retreatGroup.nameEn || retreatGroup.name_en || '',
-              ...(retreatGroup.namePt || retreatGroup.name_pt
-                ? { pt: retreatGroup.namePt || retreatGroup.name_pt }
-                : {}),
-            },
-            avatarUrl: retreatGroup.avatarUrl ?? null,
-            heroUrl: retreatGroup.heroUrl ?? null,
-            heroMobileUrl: retreatGroup.heroMobileUrl ?? null,
-            heroFocalX: retreatGroup.heroFocalX ?? 50,
-            heroFocalY: retreatGroup.heroFocalY ?? 50,
-            heroScale: retreatGroup.heroScale ?? 100,
-            avatarUpdatedAt: retreatGroup.avatarUpdatedAt ?? null,
-            heroUpdatedAt: retreatGroup.heroUpdatedAt ?? null,
-          } : undefined,
-        };
-
+        // Store RAW backend data so syncService and retreatService share the
+        // same cache shape. assembleEventDetail handles the mapping on read.
+        await entityCacheService.setDetail('events', numericId, response.data);
+        const data = this.assembleEventDetail(response.data);
         console.log(`Loaded event details: ${data.name}`);
-        await this.setCachedData(cacheKey, data);
         return { success: true, data };
       } else {
         throw new Error(response.error || 'API request failed');
       }
     } catch (error) {
-      console.error('Backend request failed:', error);
-
-      const cachedData = await this.getCachedData<any>(cacheKey);
-      if (cachedData) {
-        console.log('Using cached event details');
-        return { success: true, data: cachedData };
-      }
-
+      console.error('getRetreatDetails network failure:', error);
       return { success: false, error: 'Retreat details not available. Please check your connection and try again.' };
     }
   }
@@ -487,7 +673,7 @@ class RetreatService {
     data?: any;
     error?: string
   }> {
-    const cacheKey = `${this.CACHE_KEYS.GATHERING_DETAILS}session_${sessionId}`;
+    const cacheKey = `@session_cache:${sessionId}`;
 
     try {
       console.log(`Fetching session details for ID: ${sessionId}`);
@@ -873,9 +1059,10 @@ class RetreatService {
     }
   }
 
-  // Clear all cached data
+  // No-op: legacy retreat cache is superseded by entityCacheService.
+  // Kept for compatibility; cache invalidation is now handled by syncService.
   async clearAllCache(): Promise<void> {
-    await this.clearCache();
+    // No-op — entityCacheService invalidation is handled by syncService
   }
 
   // Clear all downloads and clean up files
@@ -922,17 +1109,13 @@ class RetreatService {
     }
   }
 
-  // Force clear all retreat-related cache (for development)
+  // Force clear all download tracking entries (for development)
   async forceClearAllRetreatCache(): Promise<void> {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const retreatKeys = keys.filter(key =>
-        key.startsWith('@retreat_cache:') ||
-        key.startsWith('@download:')
-      );
-
-      if (retreatKeys.length > 0) {
-        await AsyncStorage.multiRemove(retreatKeys);
+      const downloadKeys = keys.filter(key => key.startsWith('@download:'));
+      if (downloadKeys.length > 0) {
+        await AsyncStorage.multiRemove(downloadKeys);
       }
     } catch (error) {
       console.error('Error force clearing cache:', error);

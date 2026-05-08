@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -95,28 +95,33 @@ export default function TeacherDetailScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
 
-  const [loading, setLoading] = useState(true);
-  const [teacher, setTeacher] = useState<GatheringTeacher | null>(null);
-  const [events, setEvents] = useState<Gathering[]>([]);
+  const [teacher, setTeacher] = useState<GatheringTeacher | null>(() => {
+    const sync = retreatService.getEventsByTeacherSync(abbreviation);
+    return sync ? (sync.teacher as GatheringTeacher | null) : null;
+  });
+  const [events, setEvents] = useState<Gathering[]>(() => {
+    const sync = retreatService.getEventsByTeacherSync(abbreviation);
+    return sync ? (sync.events as Gathering[]) : [];
+  });
+  // Show spinner only when the lazy initializer found nothing in the mirror.
+  const [loading, setLoading] = useState(() =>
+    retreatService.getEventsByTeacherSync(abbreviation) === null
+  );
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadTeacherEvents();
   }, [abbreviation]);
 
-  async function loadTeacherEvents() {
-    setLoading(true);
+  async function loadTeacherEvents(isRefresh = false) {
+    // Show spinner only when the lazy initializer found nothing in the mirror.
+    if (teacher === null && events.length === 0) setLoading(true);
+
     try {
-      const res = await retreatService.getPublicEvents();
-      if (res.success && res.data) {
-        const allEvents = res.data;
-        const teacherEvents = allEvents.filter((ev: any) =>
-          ev.teachers?.some((t: any) => t.abbreviation === abbreviation)
-        );
-        if (teacherEvents.length > 0) {
-          const found = teacherEvents[0].teachers?.find((t: any) => t.abbreviation === abbreviation) || null;
-          setTeacher(found);
-        }
-        setEvents(teacherEvents);
+      const res = await retreatService.getEventsByTeacher(abbreviation, { force: isRefresh });
+      if (res.success) {
+        setTeacher(res.teacher as GatheringTeacher | null);
+        setEvents(res.events as Gathering[]);
       }
     } catch (err) {
       console.error('Failed to load teacher events:', err);
@@ -124,6 +129,12 @@ export default function TeacherDetailScreen() {
       setLoading(false);
     }
   }
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadTeacherEvents(true);
+    setRefreshing(false);
+  };
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (e) => {
@@ -173,6 +184,13 @@ export default function TeacherDetailScreen() {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.burgundy500}
+          />
+        }
       >
         {/* Collapsible hero — extends to the very top of the screen, behind
             the status bar. Plain 'cover' rendering with the focal point set

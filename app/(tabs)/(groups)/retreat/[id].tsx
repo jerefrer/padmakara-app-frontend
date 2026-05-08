@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert, Image, RefreshControl } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -170,9 +170,15 @@ export default function RetreatDetailScreen() {
   const audioContext = useAudioPlayerContext();
   const { isAuthenticated } = useAuth();
   const { setMeta: setSidebarMeta } = useRelatedEvents();
-  const [retreat, setRetreat] = useState<RetreatDetails | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [retreat, setRetreat] = useState<RetreatDetails | null>(() =>
+    retreatService.getRetreatDetailsSync(id)
+  );
+  // Show spinner only when the lazy initializer found nothing in the mirror.
+  const [loading, setLoading] = useState(() =>
+    retreatService.getRetreatDetailsSync(id) === null
+  );
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -560,7 +566,9 @@ export default function RetreatDetailScreen() {
 
   const loadRetreatDetails = async () => {
     try {
-      setLoading(true);
+      // Only show the full-screen spinner when lazy initializer found no
+      // cached data in the mirror. This is a background refresh otherwise.
+      if (retreat === null) setLoading(true);
       setError(null);
 
       // Load language preference
@@ -590,6 +598,13 @@ export default function RetreatDetailScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await retreatService.getRetreatDetails(id, { force: true });
+    await loadRetreatDetails();
+    setRefreshing(false);
   };
 
   // Default content tab when the event loads: 'video' if any session has
@@ -1233,6 +1248,13 @@ export default function RetreatDetailScreen() {
           scrollViewHeightRef.current = e.nativeEvent.layout.height;
           tryScrollToPendingTrack();
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.burgundy[500]}
+          />
+        }
       >
         {/* Hero (mobile only) — collapses on scroll. Floating action circles
             sit at the bottom-right and overlap the boundary between hero and

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { User } from '@/types';
 import authService from '@/services/authService';
@@ -7,6 +7,7 @@ import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import imagePrefetchService, { type PrefetchTarget } from '@/services/imagePrefetch';
 import { ImagePrewarmer } from '@/components/ImagePrewarmer';
+import syncService from '@/services/syncService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -77,9 +78,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [isInitialized, isAuthenticated]);
 
+  // Fire initial sync once after auth becomes truthy. The ref guard
+  // prevents re-firing on every re-render; syncService's internal
+  // debounce also protects against spurious calls.
+  const initialSyncDone = useRef(false);
+  useEffect(() => {
+    if (isAuthenticated && !initialSyncDone.current) {
+      initialSyncDone.current = true;
+      syncService.checkAndSync().catch((err) =>
+        console.warn('[sync] initial sync failed:', err),
+      );
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     initializeAuth();
-    
+
     // Listen for auth state changes from API service (401 responses)
     const handleAuthStateChange = async () => {
       logDebugInfo('Auth state change detected, reinitializing...', {

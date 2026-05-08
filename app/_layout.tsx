@@ -14,9 +14,13 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import 'react-native-reanimated';
 import '../global.css';
+import { useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
+import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
+import syncService from '@/services/syncService';
 
 Sentry.init({
   dsn: Constants.expoConfig?.extra?.sentryDsn ?? '',
@@ -34,6 +38,23 @@ Sentry.init({
 });
 
 export default function RootLayout() {
+  useEffect(() => {
+    ensureCacheSchemaCurrent().catch((err) =>
+      console.warn('[cache] schema check failed:', err),
+    );
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') {
+        syncService.checkAndSync().catch((err) =>
+          console.warn('[sync] foreground sync failed:', err),
+        );
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     MinionPro: require('../assets/fonts/MinionPro-Regular.otf'),

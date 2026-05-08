@@ -9,6 +9,7 @@ import { Stack, router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -131,14 +132,18 @@ export default function RetreatsListScreen() {
     retreat_groups: RetreatGroup[];
     recent_gatherings: Gathering[];
     total_stats: any;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+  } | null>(() => retreatService.getUserRetreatsSync());
+  // Show spinner only when there is no cached data to display yet.
+  const [loading, setLoading] = useState(() => retreatService.getUserRetreatsSync() === null);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
 
   const loadContent = async () => {
     try {
-      setLoading(true);
+      // Only show the full-screen spinner when there is no data yet (lazy
+      // initializer didn't find anything in the mirror).
+      if (retreatData === null) setLoading(true);
       setError(null);
       setAuthRequired(false);
       const response = await retreatService.getUserRetreats();
@@ -155,6 +160,13 @@ export default function RetreatsListScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await retreatService.getUserRetreats({ force: true });
+    await loadContent();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -255,6 +267,13 @@ export default function RetreatsListScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.burgundy[500]}
+            />
+          }
         >
           {/* Title with back button */}
           <View style={[styles.titleRow, isDesktop && styles.desktopTitleRow]}>
