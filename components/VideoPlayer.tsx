@@ -444,7 +444,6 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
   const saveBookmark = async () => {
     if (!session || bookmarkSavedAt === null) return;
     const note = bookmarkNote.trim();
-    if (note.length === 0) return;
     try {
       const key = bookmarksKeyFor(session.id);
       const existing = await AsyncStorage.getItem(key);
@@ -592,6 +591,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
           transparent
           animationType="slide"
           onRequestClose={() => setBookmarkListVisible(false)}
+          supportedOrientations={['portrait', 'landscape']}
         >
           <View style={styles.bookmarkListOverlay}>
             <View style={styles.bookmarkListSheet}>
@@ -662,6 +662,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
           transparent
           animationType="fade"
           onRequestClose={() => setBookmarkModalVisible(false)}
+          supportedOrientations={['portrait', 'landscape']}
         >
           <View style={styles.bookmarkOverlay}>
             <View style={styles.bookmarkSheet}>
@@ -688,12 +689,8 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
                   <Text style={styles.bookmarkCancelText}>{t('common.cancel') || 'Cancel'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[
-                    styles.bookmarkSave,
-                    bookmarkNote.trim().length === 0 && styles.bookmarkSaveDisabled,
-                  ]}
+                  style={styles.bookmarkSave}
                   onPress={saveBookmark}
-                  disabled={bookmarkNote.trim().length === 0}
                 >
                   <Text style={styles.bookmarkSaveText}>{t('common.ok') || 'OK'}</Text>
                 </TouchableOpacity>
