@@ -242,4 +242,67 @@ describe("EntityCacheService", () => {
       expect(AsyncStorage.getItem).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("graceful degradation on storage quota errors", () => {
+    const makeQuotaError = () => {
+      const err = new Error("Failed to execute 'setItem' on 'Storage': Setting the value of 'x' exceeded the quota.");
+      err.name = "QuotaExceededError";
+      return err;
+    };
+
+    it("setList swallows QuotaExceededError and keeps the mirror populated", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(makeQuotaError());
+
+      const list = [{ id: 1, updatedAt: "x" }];
+      await expect(svc.setList("events", list)).resolves.toBeUndefined();
+
+      // Mirror is populated despite persistent storage failing
+      expect(svc.getListSync("events")).toEqual(list);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/quota/i),
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it("setDetail swallows QuotaExceededError and keeps the mirror populated", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(makeQuotaError());
+
+      const detail = { id: 42, title: "X" };
+      await expect(svc.setDetail("events", 42, detail)).resolves.toBeUndefined();
+
+      expect(svc.getDetailSync("events", 42)).toEqual(detail);
+      warnSpy.mockRestore();
+    });
+
+    it("setNamespaceVersion swallows QuotaExceededError and keeps the mirror populated", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(makeQuotaError());
+
+      const v: NamespaceVersion = { global: 42, user: 7 };
+      await expect(svc.setNamespaceVersion("events", v)).resolves.toBeUndefined();
+
+      expect(svc.getNamespaceVersionSync("events")).toEqual(v);
+      warnSpy.mockRestore();
+    });
+
+    it("non-quota errors still propagate", async () => {
+      const otherErr = new Error("Disk full");
+      otherErr.name = "OtherError";
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(otherErr);
+
+      await expect(svc.setList("events", [{ id: 1 }])).rejects.toThrow("Disk full");
+    });
+
+    it("recognises Firefox-style QuotaExceededError (code 22)", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      const err = Object.assign(new Error("quota"), { code: 22 });
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(err);
+
+      await expect(svc.setList("events", [{ id: 1 }])).resolves.toBeUndefined();
+      warnSpy.mockRestore();
+    });
+  });
 });

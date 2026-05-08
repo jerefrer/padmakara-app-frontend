@@ -75,8 +75,11 @@ export class EntityCacheService {
   }
 
   async setList<T = unknown>(ns: Namespace, items: T[]): Promise<void> {
-    await AsyncStorage.setItem(this.listKey(ns), JSON.stringify(items));
+    // Mirror first: in-memory always succeeds and keeps the session live
+    // even if persistent storage rejects the write (e.g. localStorage quota
+    // on web).
     this.memoryList.set(ns, items);
+    await this.safeSetItem(this.listKey(ns), JSON.stringify(items));
   }
 
   async getDetail<T = unknown>(ns: Namespace, id: number | string): Promise<T | null> {
@@ -101,8 +104,8 @@ export class EntityCacheService {
   }
 
   async setDetail<T = unknown>(ns: Namespace, id: number | string, detail: T): Promise<void> {
-    await AsyncStorage.setItem(this.detailKey(ns, id), JSON.stringify(detail));
     this.memoryDetail.set(`${ns}:${id}`, detail);
+    await this.safeSetItem(this.detailKey(ns, id), JSON.stringify(detail));
   }
 
   /**
@@ -136,8 +139,41 @@ export class EntityCacheService {
   }
 
   async setNamespaceVersion(ns: Namespace, version: NamespaceVersion): Promise<void> {
-    await AsyncStorage.setItem(this.versionKey(ns), JSON.stringify(version));
     this.memoryVersion.set(ns, version);
+    await this.safeSetItem(this.versionKey(ns), JSON.stringify(version));
+  }
+
+  // ─── Safe write helper ────────────────────────────────────────────────
+
+  /**
+   * Attempt to persist a key/value to AsyncStorage. On web the underlying
+   * localStorage has a tight per-origin quota (~5 MB) which the events
+   * list with all its nested data can exceed. When that happens we log a
+   * warning and continue — the in-memory mirror keeps the session
+   * functional and the next page load will refetch from the network.
+   */
+  private async safeSetItem(key: string, value: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch (err) {
+      if (this.isQuotaError(err)) {
+        console.warn(
+          `[cache] storage quota exceeded writing ${key} (${value.length} chars); falling back to in-memory only`,
+        );
+        return;
+      }
+      throw err;
+    }
+  }
+
+  private isQuotaError(err: unknown): boolean {
+    if (err == null || typeof err !== "object") return false;
+    const e = err as { name?: unknown; message?: unknown; code?: unknown };
+    if (e.name === "QuotaExceededError") return true;
+    // Firefox uses code 22, Safari uses 1014, the message text is consistent
+    if (e.code === 22 || e.code === 1014) return true;
+    if (typeof e.message === "string" && /quota/i.test(e.message)) return true;
+    return false;
   }
 
   // ─── Synchronous read methods (mirror only) ───────────────────────────
