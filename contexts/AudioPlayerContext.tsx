@@ -113,6 +113,10 @@ async function readSavedPosition(trackId: string): Promise<number> {
     const raw = await AsyncStorage.getItem(`progress_${trackId}`);
     if (!raw) return 0;
     const parsed = JSON.parse(raw);
+    // A completed track should restart from the beginning when re-opened —
+    // resuming at the saved position would immediately re-fire the
+    // completion handler and the user couldn't replay without scrubbing.
+    if (parsed.completed) return 0;
     return typeof parsed.position === 'number' ? parsed.position : 0;
   } catch {
     return 0;
@@ -579,10 +583,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // both on mount (auto-load) and on user tap; treating same-track taps
     // as track switches would reset position and cancel playback.
     if (track?.id !== newTrack.id) {
+      // Save the outgoing track's position before swapping. The 10-second
+      // cadence effect would otherwise drop the last <10s of progress.
+      if (track && status?.currentTime != null) {
+        void saveProgress(status.currentTime * 1000);
+      }
       setTrack(newTrack);
     }
     void saveLastPlayedTrack(newTrack, meta);
-  }, [track, saveLastPlayedTrack]);
+  }, [track, status?.currentTime, saveProgress, saveLastPlayedTrack]);
 
   const resumeLastPlayed = useCallback(() => {
     if (!idleTrack) return;
@@ -622,14 +631,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // Ready: drive the engine directly.
     if (phase === 'ready' && player) {
       try {
-        if (status?.playing) player.pause();
+        if (status?.playing) {
+          player.pause();
+          // Save progress on the pause edge — the cadence effect runs only
+          // while playing, so without this, the last <10s of progress is
+          // lost when the user pauses and closes the app.
+          void saveProgress((status.currentTime ?? 0) * 1000);
+        }
         else player.play();
       } catch (error) {
         console.error('togglePlayPause error:', error);
       }
       setPendingPlay(false);
     }
-  }, [phase, player, status?.playing, idleTrack, playTrack]);
+  }, [phase, player, status?.playing, status?.currentTime, idleTrack, playTrack, saveProgress]);
 
   const seekTo = useCallback((positionMs: number) => {
     if (phase !== 'ready' || !player) return;
