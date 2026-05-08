@@ -344,6 +344,11 @@ export default function HomeScreen() {
           style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
         >
+          {/* App title — mobile only (desktop has sidebar) */}
+          {!isDesktop && (
+            <Text style={styles.appTitle}>PADMAKARA</Text>
+          )}
+
           {/* Category navigation — mobile only (desktop has sidebar) */}
           {!isDesktop && (
             <>
@@ -458,6 +463,16 @@ const styles = StyleSheet.create({
   },
   scrollContentDesktop: {
     paddingTop: 32,
+  },
+
+  // App title (mobile)
+  appTitle: {
+    fontFamily: "EBGaramond_500Medium",
+    fontSize: 28,
+    color: colors.burgundy[500],
+    textAlign: "center",
+    letterSpacing: 4,
+    marginBottom: 24,
   },
 
   // Category rows
