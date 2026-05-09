@@ -254,7 +254,7 @@ export function AudioPlayer({
           disabled={!onReadPress}
         >
           <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
-          <Text style={styles.toolbarLabel}>{t('player.read') || 'read'}</Text>
+          <Text style={styles.toolbarLabel}>{t('player.read') || 'Read Along'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.toolbarButton} onPress={onLanguagePress}>

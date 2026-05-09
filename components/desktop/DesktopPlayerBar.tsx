@@ -251,7 +251,7 @@ export function DesktopPlayerBar() {
             >
               <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
               <Text style={styles.toolbarLabel}>
-                {t('player.transcript') || 'transcript'}
+                {t('player.transcript') || 'Transcript'}
               </Text>
             </TouchableOpacity>
           )}
@@ -265,7 +265,7 @@ export function DesktopPlayerBar() {
           >
             <Ionicons name="book-outline" size={20} color={colors.gray[600]} />
             <Text style={styles.toolbarLabel}>
-              {t('player.read') || 'read'}
+              {t('player.read') || 'Read Along'}
             </Text>
           </TouchableOpacity>
 
