@@ -195,16 +195,7 @@ export interface DownloadedContent {
 export interface PDFProgress {
   transcriptId: string;
   page: number;
-  highlights: PDFHighlight[];
   lastRead: string;
-}
-
-export interface PDFHighlight {
-  id: string;
-  page: number;
-  text: string;
-  color: string;
-  createdAt: string;
 }
 
 // ─── Publications ───────────────────────────────────────────────────

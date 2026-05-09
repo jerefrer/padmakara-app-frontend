@@ -59,8 +59,6 @@ export const API_ENDPOINTS = {
   EVENT_BOOKMARK_DETAIL: (eventId: string) => `/content/event-bookmarks/${eventId}`,
   TRACK_BOOKMARKS_V2: '/content/track-bookmarks',
   TRACK_BOOKMARK_DETAIL: (trackId: string) => `/content/track-bookmarks/${trackId}`,
-  PDF_HIGHLIGHTS: '/content/pdf-highlights',
-  USER_NOTES: '/content/notes',
   DOWNLOADED_CONTENT: '/content/downloads',
   
   // Audio & File Access (Media endpoints)

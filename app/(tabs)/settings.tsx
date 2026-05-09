@@ -41,7 +41,6 @@ interface UserStats {
   totalTracks: number;
   completedTracks: number;
   totalListeningTime: number;
-  totalHighlights: number;
   totalBookmarks: number;
 }
 
@@ -55,7 +54,6 @@ export default function SettingsScreen() {
     totalTracks: 0,
     completedTracks: 0,
     totalListeningTime: 0,
-    totalHighlights: 0,
     totalBookmarks: 0,
   });
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -142,17 +140,13 @@ export default function SettingsScreen() {
     try {
       console.log(`📊 [${Platform.OS}] Loading user stats...`);
       const listeningStats = await progressService.getListeningStats();
-      const allPDFProgress = await progressService.getAllPDFProgress();
 
-      // Calculate highlights and bookmarks (simulated)
-      const totalHighlights = allPDFProgress.reduce((sum, pdf) => sum + pdf.highlights.length, 0);
       const totalBookmarks = 15; // Simulated - would get from actual bookmarks
 
       setStats({
         totalTracks: listeningStats.totalTracks,
         completedTracks: listeningStats.completedTracks,
         totalListeningTime: listeningStats.totalListeningTime,
-        totalHighlights,
         totalBookmarks,
       });
 
@@ -165,7 +159,6 @@ export default function SettingsScreen() {
         totalTracks: 0,
         completedTracks: 0,
         totalListeningTime: 0,
-        totalHighlights: 0,
         totalBookmarks: 0,
       });
     }
