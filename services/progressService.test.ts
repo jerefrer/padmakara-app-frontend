@@ -133,3 +133,165 @@ describe('progressService', () => {
     });
   });
 });
+
+// ─── Remote audio progress (cross-device sync) ─────────────────────────
+
+import apiService from './apiService';
+
+jest.mock('./apiService', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+const apiPost = apiService.post as jest.Mock;
+const apiGet = apiService.get as jest.Mock;
+
+describe('progressService — remote audio progress', () => {
+  beforeEach(() => {
+    apiPost.mockReset();
+    apiGet.mockReset();
+  });
+
+  it('C13 — saveAudioProgressRemote posts the right body', async () => {
+    apiPost.mockResolvedValueOnce({ success: true, data: {} });
+    await progressService.saveAudioProgressRemote('42', 47, 200, false);
+    expect(apiPost).toHaveBeenCalledWith('/content/progress', {
+      trackId: 42,
+      positionSeconds: 47,
+      durationSeconds: 200,
+    });
+  });
+
+  it('C14 — saveAudioProgressRemote swallows errors', async () => {
+    apiPost.mockRejectedValueOnce(new Error('offline'));
+    await expect(
+      progressService.saveAudioProgressRemote('42', 47, 200, false),
+    ).resolves.toBeUndefined();
+  });
+
+  it('C15 — getAudioProgressRemote returns parsed payload when row exists', async () => {
+    apiGet.mockResolvedValueOnce({
+      success: true,
+      data: {
+        positionSeconds: 47,
+        completionPct: 23,
+        isCompleted: false,
+        lastPlayed: '2026-05-08T10:00:00Z',
+      },
+    });
+    const result = await progressService.getAudioProgressRemote('42');
+    expect(result?.positionSeconds).toBe(47);
+    expect(result?.lastPlayed).toBe('2026-05-08T10:00:00Z');
+  });
+
+  it('C16 — getAudioProgressRemote returns null when no lastPlayed (server zero shape)', async () => {
+    apiGet.mockResolvedValueOnce({
+      success: true,
+      data: { positionSeconds: 0, completionPct: 0, isCompleted: false },
+    });
+    expect(await progressService.getAudioProgressRemote('42')).toBeNull();
+  });
+
+  it('C17 — getAudioProgressRemote returns null on api throw', async () => {
+    apiGet.mockRejectedValueOnce(new Error('network'));
+    expect(await progressService.getAudioProgressRemote('42')).toBeNull();
+  });
+
+  it('C18 — getLastPlayedTrackRemote returns parsed object', async () => {
+    apiGet.mockResolvedValueOnce({
+      success: true,
+      data: {
+        trackId: 42,
+        positionSeconds: 47,
+        durationSeconds: 200,
+        isCompleted: false,
+        lastPlayed: '2026-05-08T10:00:00Z',
+        track: { id: 42, title: 'Track A' },
+        session: { id: 7, name: 'Morning' },
+        event: { id: 99, titleEn: 'Spring Retreat' },
+      },
+    });
+    const result = await progressService.getLastPlayedTrackRemote();
+    expect(result?.trackId).toBe('42');
+    expect(result?.meta.retreatName).toBe('Spring Retreat');
+  });
+
+  it('C19 — getLastPlayedTrackRemote returns null when server returns null', async () => {
+    apiGet.mockResolvedValueOnce({ success: true, data: null });
+    expect(await progressService.getLastPlayedTrackRemote()).toBeNull();
+  });
+
+  it('C20 — getLastPlayedTrackRemote returns null on api throw', async () => {
+    apiGet.mockRejectedValueOnce(new Error('network'));
+    expect(await progressService.getLastPlayedTrackRemote()).toBeNull();
+  });
+
+  it('C21 — runInitialAudioSync pushes all entries with position > 0 and sets the flag', async () => {
+    await progressService.saveProgress({
+      trackId: '1',
+      position: 30,
+      completed: false,
+      lastPlayed: '2026-05-08T10:00:00Z',
+      bookmarks: [],
+    });
+    await progressService.saveProgress({
+      trackId: '2',
+      position: 50,
+      completed: false,
+      lastPlayed: '2026-05-08T10:00:00Z',
+      bookmarks: [],
+    });
+    await progressService.saveProgress({
+      trackId: '3',
+      position: 0,
+      completed: false,
+      lastPlayed: '2026-05-08T10:00:00Z',
+      bookmarks: [],
+    });
+
+    apiPost.mockResolvedValue({ success: true, data: {} });
+
+    await progressService.runInitialAudioSync('user-1');
+
+    // Two pushes (1 and 2), 3 is skipped because position === 0.
+    expect(apiPost).toHaveBeenCalledTimes(2);
+    const flag = await AsyncStorage.getItem('audio_initial_sync_done_user-1');
+    expect(flag).toBe('true');
+  });
+
+  it('C22 — runInitialAudioSync returns early if flag already set', async () => {
+    await AsyncStorage.setItem('audio_initial_sync_done_user-2', 'true');
+    await progressService.saveProgress({
+      trackId: '1',
+      position: 30,
+      completed: false,
+      lastPlayed: '',
+      bookmarks: [],
+    });
+
+    await progressService.runInitialAudioSync('user-2');
+
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+
+  it('C23 — runInitialAudioSync sets flag even if individual posts reject', async () => {
+    await progressService.saveProgress({
+      trackId: '1',
+      position: 30,
+      completed: false,
+      lastPlayed: '',
+      bookmarks: [],
+    });
+    apiPost.mockRejectedValue(new Error('offline'));
+
+    await progressService.runInitialAudioSync('user-3');
+
+    const flag = await AsyncStorage.getItem('audio_initial_sync_done_user-3');
+    expect(flag).toBe('true');
+  });
+});

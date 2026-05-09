@@ -10,6 +10,33 @@ interface RemoteVideoProgress {
   updatedAt: string | null;
 }
 
+interface RemoteAudioProgress {
+  positionSeconds: number;
+  durationSeconds?: number | null;
+  completionPct: number;
+  isCompleted: boolean;
+  lastPlayed: string | null;
+}
+
+interface RemoteLastPlayedTrackPayload {
+  trackId: number;
+  positionSeconds: number;
+  durationSeconds: number | null;
+  isCompleted: boolean;
+  lastPlayed: string;
+  track: any;
+  session: any;
+  event: { id: number; titleEn?: string; titlePt?: string; name?: string };
+}
+
+interface RemoteLastPlayedTrack {
+  trackId: string;
+  positionSeconds: number;
+  lastPlayed: string;
+  track: any;
+  meta: { retreatId: string; retreatName: string; groupName: string };
+}
+
 class ProgressService {
   private static instance: ProgressService;
   
@@ -237,20 +264,121 @@ class ProgressService {
   }
 
   // Sync with backend (placeholder for future AWS integration)
-  async syncWithBackend(): Promise<void> {
+  // ─── Audio Progress (cross-device, track-scoped) ───
+  //
+  // Mirrors the video-progress methods below but talks to the existing
+  // /content/progress endpoints. Track IDs come into the app as strings
+  // (Track.id) but the backend body schema expects an integer, so we coerce
+  // on POST. Best-effort fire-and-forget; playback never breaks if the
+  // network is unavailable.
+
+  async saveAudioProgressRemote(
+    trackId: string,
+    positionSeconds: number,
+    durationSeconds: number,
+    completed: boolean,
+  ): Promise<void> {
     try {
-      // This would sync local progress with AWS/backend
-      // For now, just log that sync would happen here
-      console.log('Syncing progress with backend...');
-      
-      // const allProgress = await this.getAllProgress();
-      // const allBookmarks = ... get all bookmarks
-      // const allPDFProgress = await this.getAllPDFProgress();
-      // Send to backend API
-      // Handle conflicts, merge data, etc.
-      
+      const numericId = parseInt(trackId, 10);
+      if (Number.isNaN(numericId)) return;
+      await apiService.post(API_ENDPOINTS.USER_PROGRESS, {
+        trackId: numericId,
+        positionSeconds: Math.floor(positionSeconds),
+        durationSeconds: durationSeconds > 0 ? Math.floor(durationSeconds) : undefined,
+      });
     } catch (error) {
-      console.error('Error syncing with backend:', error);
+      // eslint-disable-next-line no-console
+      console.warn('saveAudioProgressRemote failed (will retry on next save):', error);
+    }
+    // Suppress unused-parameter warning — `completed` is part of the public
+    // signature for parity with saveVideoProgressRemote, even though the
+    // backend computes isCompleted itself.
+    void completed;
+  }
+
+  async getAudioProgressRemote(trackId: string): Promise<RemoteAudioProgress | null> {
+    try {
+      const res = await apiService.get<RemoteAudioProgress>(
+        API_ENDPOINTS.TRACK_PROGRESS(trackId),
+      );
+      if (!res.success || !res.data) return null;
+      // Backend returns { positionSeconds: 0, completionPct: 0, isCompleted: false }
+      // (no `lastPlayed`) when no row exists. Treat that as "no remote record"
+      // so callers can fall back to local.
+      if (!res.data.lastPlayed) return null;
+      return res.data;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('getAudioProgressRemote failed:', error);
+      return null;
+    }
+  }
+
+  async getLastPlayedTrackRemote(): Promise<RemoteLastPlayedTrack | null> {
+    try {
+      const res = await apiService.get<RemoteLastPlayedTrackPayload | null>(
+        '/content/last-played',
+      );
+      if (!res.success || !res.data) return null;
+      const { trackId, positionSeconds, lastPlayed, track, event } = res.data;
+      if (!track || !event) return null;
+      return {
+        trackId: String(trackId),
+        positionSeconds,
+        lastPlayed,
+        track,
+        meta: {
+          retreatId: String(event.id),
+          retreatName: event.titleEn || event.titlePt || event.name || '',
+          groupName: '',
+        },
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('getLastPlayedTrackRemote failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * One-time bulk sync: push every locally-stored audio progress entry to the
+   * backend on first launch with this feature, so a user with months of local
+   * data on Phone A doesn't have to replay each track for Phone B to know
+   * about them. Idempotent via AsyncStorage flag, fire-and-forget, errors
+   * silent. Concurrency capped at 3 to be polite to the network.
+   */
+  async runInitialAudioSync(userId: string): Promise<void> {
+    const flagKey = `audio_initial_sync_done_${userId}`;
+    try {
+      const done = await AsyncStorage.getItem(flagKey);
+      if (done === 'true') return;
+
+      const all = await this.getAllProgress();
+      const toSync = all.filter((p) => p.position > 0);
+
+      const concurrency = 3;
+      const queue = [...toSync];
+      const workers: Promise<void>[] = [];
+      for (let i = 0; i < concurrency; i++) {
+        workers.push((async () => {
+          while (queue.length > 0) {
+            const entry = queue.shift();
+            if (!entry) return;
+            await this.saveAudioProgressRemote(
+              entry.trackId,
+              entry.position,
+              0,
+              entry.completed,
+            );
+          }
+        })());
+      }
+      await Promise.all(workers);
+
+      await AsyncStorage.setItem(flagKey, 'true');
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('runInitialAudioSync failed:', error);
     }
   }
 
