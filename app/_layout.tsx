@@ -20,6 +20,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
+import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
 
 Sentry.init({
@@ -39,6 +40,9 @@ Sentry.init({
 
 export default function RootLayout() {
   useEffect(() => {
+    cleanupLegacyWebCache().catch((err) =>
+      console.warn('[cache] legacy cleanup failed:', err),
+    );
     ensureCacheSchemaCurrent().catch((err) =>
       console.warn('[cache] schema check failed:', err),
     );
