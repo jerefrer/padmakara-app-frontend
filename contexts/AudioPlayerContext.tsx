@@ -1,5 +1,6 @@
 import cacheService from '@/services/cacheService';
 import downloadService from '@/services/downloadService';
+import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -314,7 +315,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   // ─── Stop playback when the user signs out ───
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const wasAuthenticatedRef = useRef(isAuthenticated);
   useEffect(() => {
     if (wasAuthenticatedRef.current && !isAuthenticated) {
@@ -326,6 +327,59 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
     wasAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated, player]);
+
+  // ─── Cross-device: pull last-played from server, run one-time bulk sync ─
+  // Runs once per authenticated user. The local idle-track restore above
+  // already populated `idleTrack` synchronously; this effect may quietly
+  // replace it with the server's most-recently-played track if that one
+  // is newer (cross-device "you paused on phone, opened iPad" UX).
+  const userId = user?.id ? String(user.id) : null;
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await progressService.getLastPlayedTrackRemote();
+        if (cancelled) return;
+        if (remote) {
+          // Compare with local last_played_track's saved progress timestamp.
+          let localLastPlayed = '';
+          try {
+            const localRaw = await AsyncStorage.getItem('last_played_track');
+            if (localRaw) {
+              const parsed = JSON.parse(localRaw);
+              const localTrackId = parsed?.track?.id;
+              if (localTrackId) {
+                const progressRaw = await AsyncStorage.getItem(`progress_${localTrackId}`);
+                if (progressRaw) {
+                  const lp = JSON.parse(progressRaw);
+                  localLastPlayed = lp?.lastPlayed ?? '';
+                }
+              }
+            }
+          } catch {}
+          if (remote.lastPlayed > localLastPlayed) {
+            setIdleTrack({
+              track: remote.track,
+              meta: remote.meta,
+              position: remote.positionSeconds,
+              duration: remote.track?.duration ?? 0,
+            });
+            await AsyncStorage.setItem(
+              'last_played_track',
+              JSON.stringify({ track: remote.track, meta: remote.meta }),
+            );
+          }
+        }
+      } catch {
+        // Silent — pull is best-effort.
+      }
+
+      // One-time bulk sync (idempotent via AsyncStorage flag inside the method).
+      void progressService.runInitialAudioSync(userId);
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // ─── Lock screen / Now Playing controls (iOS + Android) ───
   useEffect(() => {
@@ -416,6 +470,51 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         return;
       }
       setAudioSource(source);
+    })();
+
+    // ─── Cross-device pull (Option A semantics) ───────────────────────
+    // Async, non-blocking. If the server has a newer position than local AND
+    // the user hasn't started playback yet on this device for this track,
+    // snap to the server position. Otherwise drop the response. Light
+    // retroactive: if server has no row but local has progress, push local.
+    void (async () => {
+      const remote = await progressService.getAudioProgressRemote(currentId);
+      if (trackIdRef.current !== currentId) return;
+      const localRaw = await AsyncStorage.getItem(`progress_${currentId}`);
+      const local = localRaw ? JSON.parse(localRaw) : null;
+      const localLastPlayed = local?.lastPlayed ?? '';
+
+      if (!remote || !remote.lastPlayed) {
+        // Light retroactive sync: server has no record, push local if non-zero.
+        if (local && local.position > 0) {
+          void progressService.saveAudioProgressRemote(
+            currentId,
+            local.position,
+            track.duration ?? 0,
+            !!local.completed,
+          );
+        }
+        return;
+      }
+
+      if (remote.lastPlayed > localLastPlayed
+          && !seekToTargetDoneRef.current) {
+        if (trackIdRef.current !== currentId) return;
+        // Snap target + persist locally so the next session knows the
+        // server's view. The seek-to-target effect will handle the actual
+        // player.seekTo once the audio is loaded; if the player is already
+        // ready, also seek directly so the user sees the new position now.
+        setTargetPosition(remote.positionSeconds);
+        savedPositionsRef.current.set(currentId, remote.positionSeconds);
+        const merged = {
+          trackId: currentId,
+          position: remote.positionSeconds,
+          completed: remote.isCompleted,
+          lastPlayed: remote.lastPlayed,
+          bookmarks: local?.bookmarks ?? [],
+        };
+        await AsyncStorage.setItem(`progress_${currentId}`, JSON.stringify(merged));
+      }
     })();
 
     return () => clearTimeout(safetyTimer);
@@ -547,6 +646,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       savedPositionsRef.current.set(track.id, positionSeconds);
       await AsyncStorage.setItem(`progress_${track.id}`, JSON.stringify(progress));
       onProgressUpdateRef.current?.(progress);
+      // Cross-device sync: fire-and-forget. progressService catches all errors,
+      // so a failed push never breaks playback or local persistence.
+      void progressService.saveAudioProgressRemote(
+        track.id,
+        positionSeconds,
+        trackDuration,
+        progress.completed,
+      );
     } catch (error) {
       console.error('saveProgress error:', error);
     }

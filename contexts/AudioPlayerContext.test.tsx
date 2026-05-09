@@ -6,6 +6,7 @@ import {
   __finishTrack,
   __setDuration,
   __setPlaying,
+  __setIsLoaded,
   __getRate,
   __getLastSeekTo,
   __reset as __resetAudio,
@@ -44,6 +45,16 @@ jest.mock('@/services/retreatService', () => ({
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1' }, isAuthenticated: true }),
+}));
+
+jest.mock('@/services/apiService', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(async () => ({ success: true, data: null })),
+    post: jest.fn(async () => ({ success: true, data: {} })),
+    put: jest.fn(async () => ({ success: true, data: {} })),
+    delete: jest.fn(async () => ({ success: true, data: {} })),
+  },
 }));
 
 // ─── Test fixtures ─────────────────────────────────────────────────
@@ -599,5 +610,236 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
     const all = buildBilingualEvent();
     const filtered = filterTracksByLanguage(all, 'en-pt');
     expect(filtered.map((t) => t.id)).toEqual(['S1-EN', 'S1-PT', 'S2-EN', 'S2-PT']);
+  });
+});
+
+// ─── Cross-device sync (matrix G) ─────────────────────────────────────
+
+import apiService from '@/services/apiService';
+
+const apiGet = apiService.get as jest.Mock;
+const apiPost = apiService.post as jest.Mock;
+
+describe('AudioPlayerContext — cross-device sync (matrix G)', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiPost.mockReset();
+    apiGet.mockResolvedValue({ success: true, data: null });
+    apiPost.mockResolvedValue({ success: true, data: {} });
+  });
+
+  it('G1 — saveProgress fires remote push with correct body after 10s of playback', async () => {
+    const t = makeTrack({ id: '42', duration: 200 });
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    for (let i = 1; i <= 10; i++) act(() => { __advanceTime(1); });
+    await act(async () => { await Promise.resolve(); });
+
+    const progressCalls = apiPost.mock.calls.filter(
+      ([url]) => url === '/content/progress',
+    );
+    expect(progressCalls.length).toBeGreaterThanOrEqual(1);
+    expect(progressCalls[0][1]).toEqual(expect.objectContaining({
+      trackId: 42,
+      positionSeconds: 10,
+    }));
+  });
+
+  it('G2 — track-load: server newer + position 47 → local cache updated to 47', async () => {
+    const t = makeTrack({ id: '42', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 5, completed: false,
+      lastPlayed: '2026-05-01T00:00:00Z', bookmarks: [],
+    }));
+    apiGet.mockImplementation(async (url) => {
+      if (url === '/content/progress/42') {
+        return {
+          success: true,
+          data: { positionSeconds: 47, completionPct: 23, isCompleted: false, lastPlayed: '2026-05-08T10:00:00Z' },
+        };
+      }
+      return { success: true, data: null };
+    });
+
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    // Allow microtasks to flush so the async pull can resolve and apply.
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    const updated = JSON.parse((await AsyncStorage.getItem('progress_42'))!);
+    expect(updated.position).toBe(47);
+    expect(updated.lastPlayed).toBe('2026-05-08T10:00:00Z');
+    expect(result.current.position).toBe(47);
+  });
+
+  it('G3 — track-load: server older → local cache unchanged', async () => {
+    const t = makeTrack({ id: '42', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 60, completed: false,
+      lastPlayed: '2026-05-08T10:00:00Z', bookmarks: [],
+    }));
+    apiGet.mockImplementation(async (url) => {
+      if (url === '/content/progress/42') {
+        return {
+          success: true,
+          data: { positionSeconds: 5, completionPct: 2, isCompleted: false, lastPlayed: '2026-05-01T00:00:00Z' },
+        };
+      }
+      return { success: true, data: null };
+    });
+
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    const updated = JSON.parse((await AsyncStorage.getItem('progress_42'))!);
+    // Local position 60 wins over server's stale 5.
+    expect(updated.position).toBe(60);
+  });
+
+  it('G4 — track-load: server has no row + local progress > 0 → light retroactive push', async () => {
+    const t = makeTrack({ id: '42', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 30, completed: false,
+      lastPlayed: '2026-05-08T10:00:00Z', bookmarks: [],
+    }));
+    apiGet.mockImplementation(async (url) => {
+      if (url === '/content/progress/42') {
+        // Server returns the zero-shape (no lastPlayed) for a track it has no row for.
+        return { success: true, data: { positionSeconds: 0, completionPct: 0, isCompleted: false } };
+      }
+      return { success: true, data: null };
+    });
+
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    const progressPosts = apiPost.mock.calls.filter(([url]) => url === '/content/progress');
+    expect(progressPosts.some(([, body]) => body.trackId === 42 && body.positionSeconds === 30)).toBe(true);
+  });
+
+  it('G5 — track-load: server response arrives AFTER seekToTargetDoneRef set → no override', async () => {
+    const t = makeTrack({ id: '42', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 5, completed: false,
+      lastPlayed: '2026-05-01T00:00:00Z', bookmarks: [],
+    }));
+    // Late server response.
+    apiGet.mockImplementation(async (url) => {
+      if (url === '/content/progress/42') {
+        await new Promise((r) => setTimeout(r, 10));
+        return {
+          success: true,
+          data: { positionSeconds: 99, completionPct: 50, isCompleted: false, lastPlayed: '2026-05-08T10:00:00Z' },
+        };
+      }
+      return { success: true, data: null };
+    });
+
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    // Simulate the seek-to-target effect having completed (loading→ready).
+    // Drive the player into "ready" by setting isLoaded and advancing time.
+    act(() => { __setIsLoaded(true); });
+    act(() => { __setPlaying(true); __advanceTime(15); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+
+    // The user is now playing at 15s. The late server response wanted to
+    // snap to 99 — but seekToTargetDoneRef is set, so the pull should drop.
+    // We assert the local cache wasn't yanked to 99. (User-driven save will
+    // overwrite the file with current position.)
+    const stored = JSON.parse((await AsyncStorage.getItem('progress_42'))!);
+    expect(stored.position).not.toBe(99);
+  });
+
+  it('G6 — track switch: pull for tA returns AFTER user opened tB → response dropped', async () => {
+    const tA = makeTrack({ id: '42' });
+    const tB = makeTrack({ id: '43' });
+    apiGet.mockImplementationOnce(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      return {
+        success: true,
+        data: { positionSeconds: 99, completionPct: 50, isCompleted: false, lastPlayed: '2026-05-08T10:00:00Z' },
+      };
+    });
+    apiGet.mockResolvedValue({ success: true, data: null });
+
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __resetAudio(); __setDuration(200); result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+
+    // tA's late response should not have merged position 99 into progress_42.
+    // (The track-switch save fix writes a 0-position entry for the outgoing
+    // track, so the file may exist — but its `position` must not be 99 from
+    // the dropped late pull.)
+    const a = await AsyncStorage.getItem('progress_42');
+    if (a !== null) {
+      const parsed = JSON.parse(a);
+      expect(parsed.position).not.toBe(99);
+    }
+  });
+
+  it('G7 — apiService.post rejects → saveProgress still works locally', async () => {
+    apiPost.mockRejectedValue(new Error('offline'));
+    const t = makeTrack({ id: '42', duration: 200 });
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    for (let i = 1; i <= 10; i++) act(() => { __advanceTime(1); });
+    await act(async () => { await Promise.resolve(); });
+
+    const saved = await AsyncStorage.getItem('progress_42');
+    expect(saved).not.toBeNull();
+    expect(JSON.parse(saved!).position).toBe(10);
+  });
+
+  it('G8 — app start: getLastPlayedTrackRemote returns newer → idleTrack from remote', async () => {
+    apiGet.mockImplementation(async (url) => {
+      if (url === '/content/last-played') {
+        return {
+          success: true,
+          data: {
+            trackId: 99,
+            positionSeconds: 47,
+            durationSeconds: 200,
+            isCompleted: false,
+            lastPlayed: '2026-05-08T10:00:00Z',
+            track: { id: 99, title: 'Remote', duration: 200, order: 0, session_id: '7', created_at: '', updated_at: '' },
+            session: { id: 7 },
+            event: { id: 99, titleEn: 'Spring' },
+          },
+        };
+      }
+      return { success: true, data: null };
+    });
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack?.track.id).toBe(99);
+    expect(result.current.idleTrack?.position).toBe(47);
+  });
+
+  it('G9 — app start: getLastPlayedTrackRemote returns null → idleTrack stays null', async () => {
+    apiGet.mockResolvedValue({ success: true, data: null });
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('G10 — runInitialAudioSync sets the flag on first launch (idempotent on subsequent)', async () => {
+    apiGet.mockResolvedValue({ success: true, data: null });
+    renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    const flag = await AsyncStorage.getItem('audio_initial_sync_done_u1');
+    expect(flag).toBe('true');
   });
 });
