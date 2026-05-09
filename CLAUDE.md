@@ -47,8 +47,16 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 - **Framework:** Jest + jest-expo preset (Expo SDK 54).
 - **Layers:** pure utilities (`utils/trackFiltering.test.ts`), services (`services/progressService.test.ts`), and context integration (`contexts/AudioPlayerContext.test.tsx`).
 - **Mocks:** custom `expo-audio` mock at `__mocks__/expo-audio.ts` (hook-shaped, with test-only `__advanceTime`/`__finishTrack`/`__setDuration` helpers); AsyncStorage uses the package's built-in jest mock.
-- **What's NOT tested:** `<AudioPlayer />` button rendering, screen-level integration, cross-device sync (planned later).
+- **What's NOT tested:** `<AudioPlayer />` button rendering, screen-level integration.
 - **Spec/plan:** `docs/superpowers/specs/2026-05-08-audio-player-resume-tests-design.md` and `docs/superpowers/plans/2026-05-08-audio-player-resume-tests.md`.
+
+### Cross-Device Sync (audio progress)
+- **Per-track position** syncs via `progressService.saveAudioProgressRemote` / `getAudioProgressRemote` and `POST/GET /api/content/progress`.
+- **Last-played track** syncs via `getLastPlayedTrackRemote` and `GET /api/content/last-played`.
+- **Conflict resolution:** last-write-wins by `lastPlayed` timestamp. Local-first; remote pull is async on track open and runs only when the user hasn't started playback yet (Option A semantics — silent merge, no spinners).
+- **Offline:** silent catches everywhere. Local saves always succeed. Next save on reconnect catches up automatically.
+- **Retroactive sync:** `runInitialAudioSync(userId)` on first launch pushes all local entries to the server (concurrency 3, fire-and-forget), gated by AsyncStorage flag `audio_initial_sync_done_${userId}`. Plus a per-track "light" retroactive: track-open pull pushes local-on-empty.
+- **Spec/plan:** `docs/superpowers/specs/2026-05-09-cross-device-audio-progress-sync-design.md` and `docs/superpowers/plans/2026-05-09-cross-device-audio-progress-sync.md`.
 
 ### Routing System
 - Uses **Expo Router v5** with file-based routing and typed routes
