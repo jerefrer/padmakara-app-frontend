@@ -442,7 +442,8 @@ export default function EventsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
-          style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -513,9 +514,8 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
   },
-  desktopScrollView: {
+  scrollContent: {
     paddingHorizontal: 24,
   },
   inlineBackButton: {

@@ -470,7 +470,8 @@ export default function GroupDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, !hasHero && { paddingTop: insets.top }]}>
         <Animated.ScrollView
-          style={[styles.scrollView, isDesktop && styles.desktopScrollView]}
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, isDesktop && styles.desktopScrollContent]}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={
@@ -590,12 +591,12 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 0,
   },
-  desktopScrollView: {
+  scrollContent: {
+    paddingHorizontal: 24,
+  },
+  desktopScrollContent: {
     paddingHorizontal: 40,
-    paddingTop: 0,
   },
   standaloneBackRow: {
     flexDirection: 'row',
