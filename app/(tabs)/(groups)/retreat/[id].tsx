@@ -187,13 +187,12 @@ export default function RetreatDetailScreen() {
     },
   });
 
+  // Keep the hero at a constant height and only fade its opacity. Animating
+  // `height` previously caused two coupled artifacts: (1) every frame relayed
+  // out the entire scroll tree, leaving a sub-pixel gray strip on the right
+  // edge after returning to the top; (2) shrinking height while content also
+  // scrolls made everything below appear to move at ~2× finger speed.
   const heroStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      scrollY.value,
-      [0, HERO_COLLAPSE_END],
-      [HERO_HEIGHT, 0],
-      Extrapolation.CLAMP,
-    ),
     opacity: interpolate(
       scrollY.value,
       [0, HERO_COLLAPSE_END * 0.4, HERO_COLLAPSE_END],
@@ -2055,6 +2054,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     alignSelf: 'stretch',
+    height: HERO_HEIGHT,
     backgroundColor: colors.gray[200],
     // Break out of scrollContent's horizontal padding (16) so the hero spans
     // edge to edge AND extends to the very top of the screen (under the
