@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import cacheStorage from "./cacheStorage";
 import { CACHE_KEY_PREFIX } from "./cacheSchemaVersion";
 
 export type Namespace = "events" | "groups" | "teachers" | "publications";
@@ -29,13 +29,18 @@ export interface NamespaceVersion {
  * In-memory mirror:
  *   All async reads populate a module-level Map so that subsequent reads can
  *   be answered synchronously via getListSync / getDetailSync / getNamespaceVersionSync.
- *   Writes always update both AsyncStorage and the mirror so the mirror is
- *   always at least as fresh as persistent storage.
+ *   Writes always update both the persistent backend (via cacheStorage)
+ *   and the mirror, so the mirror is always at least as fresh as the
+ *   persistent layer.
+ *
+ * Storage backend: see services/cacheStorage.ts. AsyncStorage on native,
+ * IndexedDB on web — chosen automatically by Metro via the `.web.ts`
+ * platform extension.
  */
 export class EntityCacheService {
   // ─── In-memory mirrors ────────────────────────────────────────────────
-  // `undefined` = not yet read from AsyncStorage in this session
-  // `null`      = read from AsyncStorage and key was absent (cache miss)
+  // `undefined` = not yet read from persistent storage in this session
+  // `null`      = read from persistent storage and key was absent (cache miss)
   // `T`         = populated value
   private memoryList = new Map<Namespace, unknown[] | null>();
   private memoryDetail = new Map<string, unknown | null>();
@@ -53,13 +58,13 @@ export class EntityCacheService {
     return `${CACHE_KEY_PREFIX}${ns}:version`;
   }
 
-  // ─── Async methods (AsyncStorage + mirror) ────────────────────────────
+  // ─── Async methods (persistent storage + mirror) ──────────────────────
 
   async getList<T = unknown>(ns: Namespace): Promise<T[] | null> {
     if (this.memoryList.has(ns)) {
       return this.memoryList.get(ns) as T[] | null;
     }
-    const raw = await AsyncStorage.getItem(this.listKey(ns));
+    const raw = await cacheStorage.getItem(this.listKey(ns));
     if (raw === null) {
       this.memoryList.set(ns, null);
       return null;
@@ -88,7 +93,7 @@ export class EntityCacheService {
       const value = this.memoryDetail.get(key);
       return value === null ? null : (value as T);
     }
-    const raw = await AsyncStorage.getItem(this.detailKey(ns, id));
+    const raw = await cacheStorage.getItem(this.detailKey(ns, id));
     if (raw === null) {
       this.memoryDetail.set(key, null);
       return null;
@@ -116,7 +121,7 @@ export class EntityCacheService {
     if (this.memoryVersion.has(ns)) {
       return this.memoryVersion.get(ns) ?? null;
     }
-    const raw = await AsyncStorage.getItem(this.versionKey(ns));
+    const raw = await cacheStorage.getItem(this.versionKey(ns));
     if (raw === null) {
       this.memoryVersion.set(ns, null);
       return null;
@@ -146,15 +151,16 @@ export class EntityCacheService {
   // ─── Safe write helper ────────────────────────────────────────────────
 
   /**
-   * Attempt to persist a key/value to AsyncStorage. On web the underlying
-   * localStorage has a tight per-origin quota (~5 MB) which the events
-   * list with all its nested data can exceed. When that happens we log a
-   * warning and continue — the in-memory mirror keeps the session
-   * functional and the next page load will refetch from the network.
+   * Attempt to persist a key/value to the cache storage backend. On web
+   * the backend is IndexedDB (multi-GB quota in practice) so this rarely
+   * fires; we keep the guard because a misbehaving browser or a user with
+   * extreme storage pressure can still throw QuotaExceededError, in which
+   * case we log a warning and fall through. The in-memory mirror keeps
+   * the session functional and the next sync will retry the write.
    */
   private async safeSetItem(key: string, value: string): Promise<void> {
     try {
-      await AsyncStorage.setItem(key, value);
+      await cacheStorage.setItem(key, value);
     } catch (err) {
       if (this.isQuotaError(err)) {
         console.warn(
@@ -178,8 +184,9 @@ export class EntityCacheService {
 
   // ─── Synchronous read methods (mirror only) ───────────────────────────
   //
-  // Return `undefined` when the mirror has not been populated yet (AsyncStorage
-  // not yet read this session), `null` when the key is absent, or the value.
+  // Return `undefined` when the mirror has not been populated yet
+  // (persistent storage not yet read this session), `null` when the key
+  // is absent, or the value.
 
   getListSync<T>(ns: Namespace): T[] | null | undefined {
     if (!this.memoryList.has(ns)) return undefined;
@@ -200,8 +207,9 @@ export class EntityCacheService {
 
   // ─── Memory management ────────────────────────────────────────────────
 
-  /** Wipe the in-memory mirror. Call this after AsyncStorage is wiped on
-   *  schema-version mismatch so sync reads don't return stale data. */
+  /** Wipe the in-memory mirror. Call this after persistent storage is
+   *  wiped on schema-version mismatch so sync reads don't return stale
+   *  data. */
   clearMemory(): void {
     this.memoryList.clear();
     this.memoryDetail.clear();
