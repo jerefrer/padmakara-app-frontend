@@ -231,67 +231,35 @@ describe('progressService — remote audio progress', () => {
     expect(await progressService.getLastPlayedTrackRemote()).toBeNull();
   });
 
-  it('C21 — runInitialAudioSync pushes all entries with position > 0 and sets the flag', async () => {
-    await progressService.saveProgress({
-      trackId: '1',
-      position: 30,
-      completed: false,
-      lastPlayed: '2026-05-08T10:00:00Z',
-      bookmarks: [],
+  it('C24 — getAllAudioProgressRemote returns parsed array', async () => {
+    apiGet.mockResolvedValueOnce({
+      success: true,
+      data: [
+        { trackId: 1, positionSeconds: 47, completionPct: 23, isCompleted: false, lastPlayed: '2026-05-08T10:00:00Z' },
+        { trackId: 2, positionSeconds: 12, completionPct: 6, isCompleted: false, lastPlayed: '2026-05-07T10:00:00Z' },
+      ],
     });
-    await progressService.saveProgress({
-      trackId: '2',
-      position: 50,
-      completed: false,
-      lastPlayed: '2026-05-08T10:00:00Z',
-      bookmarks: [],
-    });
-    await progressService.saveProgress({
-      trackId: '3',
-      position: 0,
-      completed: false,
-      lastPlayed: '2026-05-08T10:00:00Z',
-      bookmarks: [],
-    });
-
-    apiPost.mockResolvedValue({ success: true, data: {} });
-
-    await progressService.runInitialAudioSync('user-1');
-
-    // Two pushes (1 and 2), 3 is skipped because position === 0.
-    expect(apiPost).toHaveBeenCalledTimes(2);
-    const flag = await AsyncStorage.getItem('audio_initial_sync_done_user-1');
-    expect(flag).toBe('true');
+    const result = await progressService.getAllAudioProgressRemote();
+    expect(result).toHaveLength(2);
+    expect(result[0].trackId).toBe(1);
+    expect(result[0].positionSeconds).toBe(47);
   });
 
-  it('C22 — runInitialAudioSync returns early if flag already set', async () => {
-    await AsyncStorage.setItem('audio_initial_sync_done_user-2', 'true');
-    await progressService.saveProgress({
-      trackId: '1',
-      position: 30,
-      completed: false,
-      lastPlayed: '',
-      bookmarks: [],
+  it('C25 — getAllAudioProgressRemote filters out entries without lastPlayed', async () => {
+    apiGet.mockResolvedValueOnce({
+      success: true,
+      data: [
+        { trackId: 1, positionSeconds: 47, completionPct: 23, isCompleted: false, lastPlayed: '2026-05-08T10:00:00Z' },
+        { trackId: 2, positionSeconds: 0, completionPct: 0, isCompleted: false, lastPlayed: null },
+      ],
     });
-
-    await progressService.runInitialAudioSync('user-2');
-
-    expect(apiPost).not.toHaveBeenCalled();
+    const result = await progressService.getAllAudioProgressRemote();
+    expect(result).toHaveLength(1);
+    expect(result[0].trackId).toBe(1);
   });
 
-  it('C23 — runInitialAudioSync sets flag even if individual posts reject', async () => {
-    await progressService.saveProgress({
-      trackId: '1',
-      position: 30,
-      completed: false,
-      lastPlayed: '',
-      bookmarks: [],
-    });
-    apiPost.mockRejectedValue(new Error('offline'));
-
-    await progressService.runInitialAudioSync('user-3');
-
-    const flag = await AsyncStorage.getItem('audio_initial_sync_done_user-3');
-    expect(flag).toBe('true');
+  it('C26 — getAllAudioProgressRemote returns [] on api throw', async () => {
+    apiGet.mockRejectedValueOnce(new Error('network'));
+    expect(await progressService.getAllAudioProgressRemote()).toEqual([]);
   });
 });

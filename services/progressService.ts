@@ -11,6 +11,10 @@ interface RemoteVideoProgress {
 }
 
 interface RemoteAudioProgress {
+  // `trackId` is present in the bulk-list endpoint response (/content/progress);
+  // absent from the per-track endpoint (/content/progress/:trackId) since the
+  // caller already knows it.
+  trackId?: number;
   positionSeconds: number;
   durationSeconds?: number | null;
   completionPct: number;
@@ -314,6 +318,30 @@ class ProgressService {
     }
   }
 
+  /**
+   * Bulk fetch every audio-progress row for the current user. Used by the
+   * AudioPlayerContext on mount + foreground resume to seed the in-memory
+   * cache and merge with local AsyncStorage state. Returns [] on any
+   * network error so the caller can fall back to local.
+   *
+   * Filters out rows with no `lastPlayed` (defensive — the backend
+   * shouldn't return such rows from this endpoint, but the per-track
+   * endpoint does for missing rows, and we share the same response type).
+   */
+  async getAllAudioProgressRemote(): Promise<RemoteAudioProgress[]> {
+    try {
+      const res = await apiService.get<RemoteAudioProgress[]>(
+        API_ENDPOINTS.USER_PROGRESS,
+      );
+      if (!res.success || !Array.isArray(res.data)) return [];
+      return res.data.filter((r) => r.lastPlayed);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('getAllAudioProgressRemote failed:', error);
+      return [];
+    }
+  }
+
   async getLastPlayedTrackRemote(): Promise<RemoteLastPlayedTrack | null> {
     try {
       const res = await apiService.get<RemoteLastPlayedTrackPayload | null>(
@@ -337,48 +365,6 @@ class ProgressService {
       // eslint-disable-next-line no-console
       console.warn('getLastPlayedTrackRemote failed:', error);
       return null;
-    }
-  }
-
-  /**
-   * One-time bulk sync: push every locally-stored audio progress entry to the
-   * backend on first launch with this feature, so a user with months of local
-   * data on Phone A doesn't have to replay each track for Phone B to know
-   * about them. Idempotent via AsyncStorage flag, fire-and-forget, errors
-   * silent. Concurrency capped at 3 to be polite to the network.
-   */
-  async runInitialAudioSync(userId: string): Promise<void> {
-    const flagKey = `audio_initial_sync_done_${userId}`;
-    try {
-      const done = await AsyncStorage.getItem(flagKey);
-      if (done === 'true') return;
-
-      const all = await this.getAllProgress();
-      const toSync = all.filter((p) => p.position > 0);
-
-      const concurrency = 3;
-      const queue = [...toSync];
-      const workers: Promise<void>[] = [];
-      for (let i = 0; i < concurrency; i++) {
-        workers.push((async () => {
-          while (queue.length > 0) {
-            const entry = queue.shift();
-            if (!entry) return;
-            await this.saveAudioProgressRemote(
-              entry.trackId,
-              entry.position,
-              0,
-              entry.completed,
-            );
-          }
-        })());
-      }
-      await Promise.all(workers);
-
-      await AsyncStorage.setItem(flagKey, 'true');
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('runInitialAudioSync failed:', error);
     }
   }
 

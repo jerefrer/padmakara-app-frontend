@@ -51,12 +51,15 @@ This is a Padmakara Buddhist learning app built with React Native and Expo Route
 - **Spec/plan:** `docs/superpowers/specs/2026-05-08-audio-player-resume-tests-design.md` and `docs/superpowers/plans/2026-05-08-audio-player-resume-tests.md`.
 
 ### Cross-Device Sync (audio progress)
-- **Per-track position** syncs via `progressService.saveAudioProgressRemote` / `getAudioProgressRemote` and `POST/GET /api/content/progress`.
-- **Last-played track** syncs via `getLastPlayedTrackRemote` and `GET /api/content/last-played`.
-- **Conflict resolution:** last-write-wins by `lastPlayed` timestamp. Local-first; remote pull is async on track open and runs only when the user hasn't started playback yet (Option A semantics — silent merge, no spinners).
-- **Offline:** silent catches everywhere. Local saves always succeed. Next save on reconnect catches up automatically.
-- **Retroactive sync:** `runInitialAudioSync(userId)` on first launch pushes all local entries to the server (concurrency 3, fire-and-forget), gated by AsyncStorage flag `audio_initial_sync_done_${userId}`. Plus a per-track "light" retroactive: track-open pull pushes local-on-empty.
-- **Spec/plan:** `docs/superpowers/specs/2026-05-09-cross-device-audio-progress-sync-design.md` and `docs/superpowers/plans/2026-05-09-cross-device-audio-progress-sync.md`.
+- **Push:** every local `saveProgress` (10s cadence + on pause + on track-switch + on completion) fires `POST /api/content/progress` fire-and-forget. Throttled by the existing local cadence; no extra rate-limit needed.
+- **Pull:** **bulk only**, at session boundaries — runs once on cold start and on background→foreground transitions throttled to ≥5 minutes since the last pull. The bulk pull does both directions: pulls all server rows, merges by `lastPlayed`, and pushes any local-newer rows back. Per-track pulls on track click were removed because they caused slider jitter and added per-tap network traffic; the cache populated by the bulk pull is authoritative within a session.
+- **Last-played track** also pulled at the same cold-start + foreground-throttled boundaries via `GET /api/content/last-played`.
+- **Conflict resolution:** last-write-wins by `lastPlayed` timestamp.
+- **Offline:** silent catches everywhere. Local saves always succeed. Next push on reconnect carries the latest position.
+- **Track click is purely local & instant.** `playTrack` synchronously pre-sets `phase='loading'` and `targetPosition` from the in-memory cache before `setTrack`, so the first render under the new track id is already at the right position (no flash of the previous track's livePosition).
+- **Spec/plan:**
+  - `docs/superpowers/specs/2026-05-09-cross-device-audio-progress-sync-design.md` (original)
+  - `docs/superpowers/plans/2026-05-10-audio-sync-simplification.md` (refactor that replaced per-track pull with bulk sync)
 
 ### Routing System
 - Uses **Expo Router v5** with file-based routing and typed routes

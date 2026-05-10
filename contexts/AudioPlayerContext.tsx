@@ -6,7 +6,7 @@ import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState, type AppStateStatus } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
@@ -328,58 +328,155 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     wasAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated, player]);
 
-  // ─── Cross-device: pull last-played from server, run one-time bulk sync ─
-  // Runs once per authenticated user. The local idle-track restore above
-  // already populated `idleTrack` synchronously; this effect may quietly
-  // replace it with the server's most-recently-played track if that one
-  // is newer (cross-device "you paused on phone, opened iPad" UX).
+  // ─── Cross-device: bulk sync at session boundaries ────────────────
+  // The bulk sync (pull every server row, merge by lastPlayed, push any
+  // local-newer row) replaces the per-track pull that used to fire on
+  // every track click. Runs on:
+  //   - cold start (this useEffect on mount, or when userId changes)
+  //   - background → foreground transitions, throttled to ≥5 minutes
+  //     since the last pull (separate effect below).
+  // The local in-memory cache is the authoritative source within a
+  // session; the slider never waits on a network call.
   const userId = user?.id ? String(user.id) : null;
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    (async () => {
+  const lastBulkPullAt = useRef(0);
+
+  const pullAndMergeLastPlayedRemote = useCallback(async () => {
+    try {
+      const remote = await progressService.getLastPlayedTrackRemote();
+      if (!remote) return;
+      let localLastPlayed = '';
       try {
-        const remote = await progressService.getLastPlayedTrackRemote();
-        if (cancelled) return;
-        if (remote) {
-          // Compare with local last_played_track's saved progress timestamp.
-          let localLastPlayed = '';
-          try {
-            const localRaw = await AsyncStorage.getItem('last_played_track');
-            if (localRaw) {
-              const parsed = JSON.parse(localRaw);
-              const localTrackId = parsed?.track?.id;
-              if (localTrackId) {
-                const progressRaw = await AsyncStorage.getItem(`progress_${localTrackId}`);
-                if (progressRaw) {
-                  const lp = JSON.parse(progressRaw);
-                  localLastPlayed = lp?.lastPlayed ?? '';
-                }
-              }
+        const localRaw = await AsyncStorage.getItem('last_played_track');
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          const localTrackId = parsed?.track?.id;
+          if (localTrackId) {
+            const progressRaw = await AsyncStorage.getItem(`progress_${localTrackId}`);
+            if (progressRaw) {
+              const lp = JSON.parse(progressRaw);
+              localLastPlayed = lp?.lastPlayed ?? '';
             }
-          } catch {}
-          if (remote.lastPlayed > localLastPlayed) {
-            setIdleTrack({
-              track: remote.track,
-              meta: remote.meta,
-              position: remote.positionSeconds,
-              duration: remote.track?.duration ?? 0,
-            });
-            await AsyncStorage.setItem(
-              'last_played_track',
-              JSON.stringify({ track: remote.track, meta: remote.meta }),
-            );
           }
         }
-      } catch {
-        // Silent — pull is best-effort.
+      } catch {}
+      if (remote.lastPlayed > localLastPlayed) {
+        setIdleTrack({
+          track: remote.track,
+          meta: remote.meta,
+          position: remote.positionSeconds,
+          duration: remote.track?.duration ?? 0,
+        });
+        await AsyncStorage.setItem(
+          'last_played_track',
+          JSON.stringify({ track: remote.track, meta: remote.meta }),
+        );
+      }
+    } catch {
+      // Silent — best-effort.
+    }
+  }, []);
+
+  const runBulkAudioSync = useCallback(async () => {
+    try {
+      const [remoteEntries, localAll] = await Promise.all([
+        progressService.getAllAudioProgressRemote(),
+        progressService.getAllProgress(),
+      ]);
+
+      const remoteByTrackId = new Map<string, typeof remoteEntries[0]>();
+      for (const r of remoteEntries) {
+        if (r.trackId != null) remoteByTrackId.set(String(r.trackId), r);
+      }
+      const localByTrackId = new Map<string, UserProgress>();
+      for (const l of localAll) localByTrackId.set(l.trackId, l);
+
+      const allTrackIds = new Set<string>([
+        ...remoteByTrackId.keys(),
+        ...localByTrackId.keys(),
+      ]);
+
+      const pullsToWrite: UserProgress[] = [];
+      const pushesToFire: { trackId: string; position: number; completed: boolean }[] = [];
+
+      for (const trackId of allTrackIds) {
+        const remote = remoteByTrackId.get(trackId);
+        const local = localByTrackId.get(trackId);
+        const remoteLP = remote?.lastPlayed || '';
+        const localLP = local?.lastPlayed || '';
+
+        if (remote && (!local || remoteLP > localLP)) {
+          pullsToWrite.push({
+            trackId,
+            position: remote.positionSeconds,
+            completed: remote.isCompleted,
+            lastPlayed: remote.lastPlayed!,
+            bookmarks: local?.bookmarks ?? [],
+          });
+        } else if (local && local.position > 0 && (!remote || localLP > remoteLP)) {
+          pushesToFire.push({
+            trackId,
+            position: local.position,
+            completed: local.completed,
+          });
+        }
       }
 
-      // One-time bulk sync (idempotent via AsyncStorage flag inside the method).
-      void progressService.runInitialAudioSync(userId);
-    })();
-    return () => { cancelled = true; };
-  }, [userId]);
+      // Apply pulls — local AsyncStorage writes + cache update. Sequential,
+      // negligible cost.
+      for (const p of pullsToWrite) {
+        await progressService.saveProgress(p);
+        savedPositionsRef.current.set(p.trackId, p.position);
+      }
+
+      // Apply pushes with concurrency 3 to be polite to the network.
+      const concurrency = 3;
+      const queue = [...pushesToFire];
+      const workers: Promise<void>[] = [];
+      for (let i = 0; i < concurrency; i++) {
+        workers.push((async () => {
+          while (queue.length > 0) {
+            const t = queue.shift();
+            if (!t) return;
+            await progressService.saveAudioProgressRemote(
+              t.trackId,
+              t.position,
+              0,
+              t.completed,
+            );
+          }
+        })());
+      }
+      await Promise.all(workers);
+    } catch {
+      // Silent — bulk sync is best-effort.
+    }
+  }, []);
+
+  // Cold-start (and userId change): pull last-played + bulk-sync.
+  useEffect(() => {
+    if (!userId) return;
+    lastBulkPullAt.current = Date.now();
+    void pullAndMergeLastPlayedRemote();
+    void runBulkAudioSync();
+  }, [userId, pullAndMergeLastPlayedRemote, runBulkAudioSync]);
+
+  // Background → foreground: same two pulls, throttled to ≥5 min apart.
+  useEffect(() => {
+    if (!userId) return;
+    const appStateRef = { current: AppState.currentState };
+    const handler = (next: AppStateStatus) => {
+      const wasBackgrounded = /inactive|background/.test(appStateRef.current);
+      appStateRef.current = next;
+      if (!wasBackgrounded || next !== 'active') return;
+      const sinceLastPull = Date.now() - lastBulkPullAt.current;
+      if (sinceLastPull < 5 * 60 * 1000) return;
+      lastBulkPullAt.current = Date.now();
+      void pullAndMergeLastPlayedRemote();
+      void runBulkAudioSync();
+    };
+    const sub = AppState.addEventListener('change', handler);
+    return () => sub.remove();
+  }, [userId, pullAndMergeLastPlayedRemote, runBulkAudioSync]);
 
   // ─── Lock screen / Now Playing controls (iOS + Android) ───
   useEffect(() => {
@@ -455,12 +552,24 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }, SAFETY_LOAD_TIMEOUT_MS);
 
     (async () => {
-      // Read saved position FIRST so the slider can be positioned correctly
-      // before the audio source is even resolved. This eliminates the
-      // "slider jumps from 0 to saved position" flicker.
-      const saved = await readSavedPosition(currentId);
-      if (trackIdRef.current !== currentId) return;
-      setTargetPosition(saved);
+      // The in-memory cache (savedPositionsRef) is the authoritative source
+      // for saved positions during a session — it's pre-populated on mount
+      // and updated by every saveProgress + bulk sync. playTrack already
+      // pre-set targetPosition from the cache.
+      //
+      // Fallback: if the cache happened to miss (e.g., user tapped a track
+      // before the mount-effect pre-load completed, or the track was added
+      // to AsyncStorage by a code path other than this context), do a
+      // one-shot AsyncStorage read. Skip this entirely on cache hit so the
+      // common path stays single-setter and jitter-free.
+      if ((savedPositionsRef.current.get(currentId) ?? 0) === 0) {
+        const saved = await readSavedPosition(currentId);
+        if (trackIdRef.current !== currentId) return;
+        if (saved > 0) {
+          setTargetPosition(saved);
+          savedPositionsRef.current.set(currentId, saved);
+        }
+      }
 
       const source = await resolveAudioSource(track);
       if (trackIdRef.current !== currentId) return;
@@ -470,51 +579,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         return;
       }
       setAudioSource(source);
-    })();
-
-    // ─── Cross-device pull (Option A semantics) ───────────────────────
-    // Async, non-blocking. If the server has a newer position than local AND
-    // the user hasn't started playback yet on this device for this track,
-    // snap to the server position. Otherwise drop the response. Light
-    // retroactive: if server has no row but local has progress, push local.
-    void (async () => {
-      const remote = await progressService.getAudioProgressRemote(currentId);
-      if (trackIdRef.current !== currentId) return;
-      const localRaw = await AsyncStorage.getItem(`progress_${currentId}`);
-      const local = localRaw ? JSON.parse(localRaw) : null;
-      const localLastPlayed = local?.lastPlayed ?? '';
-
-      if (!remote || !remote.lastPlayed) {
-        // Light retroactive sync: server has no record, push local if non-zero.
-        if (local && local.position > 0) {
-          void progressService.saveAudioProgressRemote(
-            currentId,
-            local.position,
-            track.duration ?? 0,
-            !!local.completed,
-          );
-        }
-        return;
-      }
-
-      if (remote.lastPlayed > localLastPlayed
-          && !seekToTargetDoneRef.current) {
-        if (trackIdRef.current !== currentId) return;
-        // Snap target + persist locally so the next session knows the
-        // server's view. The seek-to-target effect will handle the actual
-        // player.seekTo once the audio is loaded; if the player is already
-        // ready, also seek directly so the user sees the new position now.
-        setTargetPosition(remote.positionSeconds);
-        savedPositionsRef.current.set(currentId, remote.positionSeconds);
-        const merged = {
-          trackId: currentId,
-          position: remote.positionSeconds,
-          completed: remote.isCompleted,
-          lastPlayed: remote.lastPlayed,
-          bookmarks: local?.bookmarks ?? [],
-        };
-        await AsyncStorage.setItem(`progress_${currentId}`, JSON.stringify(merged));
-      }
     })();
 
     return () => clearTimeout(safetyTimer);
@@ -700,6 +764,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (track && status?.currentTime != null) {
         void saveProgress(status.currentTime * 1000);
       }
+      // Pre-set phase + targetPosition synchronously so the very first render
+      // under track=newTrack already sees phase='loading' and the cached
+      // target. Without this pre-set, the render between setTrack and the
+      // track-change effect briefly shows the OLD player's livePosition
+      // (status.currentTime hasn't updated yet because useAudioPlayer still
+      // has the old source), creating a one-frame flash of the wrong number.
+      setPhase('loading');
+      setTargetPosition(savedPositionsRef.current.get(newTrack.id) ?? 0);
       setTrack(newTrack);
     }
     void saveLastPlayedTrack(newTrack, meta);
