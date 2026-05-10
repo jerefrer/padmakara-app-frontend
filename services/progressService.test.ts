@@ -174,7 +174,7 @@ describe('progressService — remote audio progress', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('C14b — saveAudioProgressRemote deletes orphaned local entry on 404', async () => {
+  it('C14b — saveAudioProgressRemote deletes orphaned local entry on { skipped: true }', async () => {
     await progressService.saveProgress({
       trackId: '99',
       position: 30,
@@ -183,8 +183,8 @@ describe('progressService — remote audio progress', () => {
       bookmarks: [],
     });
     apiPost.mockResolvedValueOnce({
-      success: false,
-      error: 'HTTP 404: Track 99 not found',
+      success: true,
+      data: { skipped: true, reason: 'unknown_track', trackId: 99 },
     });
 
     await progressService.saveAudioProgressRemote('99', 30, 100, false);

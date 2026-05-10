@@ -285,16 +285,21 @@ class ProgressService {
     try {
       const numericId = parseInt(trackId, 10);
       if (Number.isNaN(numericId)) return;
-      const res = await apiService.post(API_ENDPOINTS.USER_PROGRESS, {
-        trackId: numericId,
-        positionSeconds: Math.floor(positionSeconds),
-        durationSeconds: durationSeconds > 0 ? Math.floor(durationSeconds) : undefined,
-      });
-      // Server returns 404 when the trackId doesn't exist in the tracks
-      // table — happens for orphaned local entries (old DB seeds, deleted
-      // tracks, env switches). Clean up the local entry so we don't keep
-      // retrying the same failing push every cold start.
-      if (!res.success && res.error && /\b404\b/.test(res.error)) {
+      const res = await apiService.post<{ skipped?: boolean; reason?: string }>(
+        API_ENDPOINTS.USER_PROGRESS,
+        {
+          trackId: numericId,
+          positionSeconds: Math.floor(positionSeconds),
+          durationSeconds: durationSeconds > 0 ? Math.floor(durationSeconds) : undefined,
+        },
+      );
+      // Server returns 200 + { skipped: true } when the trackId doesn't
+      // exist in the tracks table — happens for orphaned local entries
+      // (old DB seeds, deleted tracks, env switches). Clean up the local
+      // entry so we don't keep retrying the same skipped push every cold
+      // start. (We use 200 + marker rather than 404 so the browser DevTools
+      // network panel doesn't log a red error every time.)
+      if (res.success && res.data && (res.data as any).skipped) {
         // eslint-disable-next-line no-console
         console.warn(`saveAudioProgressRemote: track ${trackId} unknown to server — deleting orphaned local entry.`);
         await this.deleteProgress(trackId);
