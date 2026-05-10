@@ -174,6 +174,24 @@ describe('progressService — remote audio progress', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('C14b — saveAudioProgressRemote deletes orphaned local entry on 404', async () => {
+    await progressService.saveProgress({
+      trackId: '99',
+      position: 30,
+      completed: false,
+      lastPlayed: '2026-05-10T00:00:00Z',
+      bookmarks: [],
+    });
+    apiPost.mockResolvedValueOnce({
+      success: false,
+      error: 'HTTP 404: Track 99 not found',
+    });
+
+    await progressService.saveAudioProgressRemote('99', 30, 100, false);
+
+    expect(await progressService.getProgress('99')).toBeNull();
+  });
+
   it('C15 — getAudioProgressRemote returns parsed payload when row exists', async () => {
     apiGet.mockResolvedValueOnce({
       success: true,

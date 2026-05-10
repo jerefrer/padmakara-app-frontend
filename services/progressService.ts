@@ -285,11 +285,20 @@ class ProgressService {
     try {
       const numericId = parseInt(trackId, 10);
       if (Number.isNaN(numericId)) return;
-      await apiService.post(API_ENDPOINTS.USER_PROGRESS, {
+      const res = await apiService.post(API_ENDPOINTS.USER_PROGRESS, {
         trackId: numericId,
         positionSeconds: Math.floor(positionSeconds),
         durationSeconds: durationSeconds > 0 ? Math.floor(durationSeconds) : undefined,
       });
+      // Server returns 404 when the trackId doesn't exist in the tracks
+      // table — happens for orphaned local entries (old DB seeds, deleted
+      // tracks, env switches). Clean up the local entry so we don't keep
+      // retrying the same failing push every cold start.
+      if (!res.success && res.error && /\b404\b/.test(res.error)) {
+        // eslint-disable-next-line no-console
+        console.warn(`saveAudioProgressRemote: track ${trackId} unknown to server — deleting orphaned local entry.`);
+        await this.deleteProgress(trackId);
+      }
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('saveAudioProgressRemote failed (will retry on next save):', error);
