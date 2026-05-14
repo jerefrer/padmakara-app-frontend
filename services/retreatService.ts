@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
 import apiService from './apiService';
 import entityCacheService from './entityCacheService';
+import { hasExpiredPresignedUrl } from '@/utils/presignedUrlExpiry';
 
 interface UserRetreatData {
   retreat_groups: RetreatGroup[];
@@ -305,6 +306,10 @@ class RetreatService {
     if (groups === undefined || events === undefined || groups === null || events === null) {
       return null;
     }
+    // Both lists carry hero/avatar/photo presigned URLs (1h lifetime). If
+    // either has expired URLs, treat as a miss so the async path
+    // re-fetches with fresh URLs and the hero renders instead of going grey.
+    if (hasExpiredPresignedUrl(groups) || hasExpiredPresignedUrl(events)) return null;
     return this.assembleUserRetreats(groups, events);
   }
 
@@ -314,6 +319,7 @@ class RetreatService {
     if (groups === undefined || events === undefined || groups === null || events === null) {
       return null;
     }
+    if (hasExpiredPresignedUrl(groups) || hasExpiredPresignedUrl(events)) return null;
     const backendGroup = groups.find((g: any) => this.groupMatchesKey(g, groupKey));
     const groupId = backendGroup?.id;
     const groupEvents = events.filter((ev: any) =>
@@ -329,18 +335,28 @@ class RetreatService {
     const numericId = Number(retreatId);
     const cached = entityCacheService.getDetailSync<any>('events', numericId);
     if (cached === undefined || cached === null) return null;
+    // Hero/avatar/photo URLs are AWS presigned with a 1-hour lifetime. The
+    // entity cache has no TTL, so cached entries older than ~1 hour ship
+    // a 403-bound URL — the hero then renders as a grey box on web. Treat
+    // such entries as a miss so the async getRetreatDetails() path
+    // re-fetches and rewrites the cache with fresh URLs.
+    if (hasExpiredPresignedUrl(cached)) return null;
     return this.assembleEventDetail(cached);
   }
 
   getPublicEventsSync(): any[] | null {
     const events = entityCacheService.getListSync<any>('events');
     if (events === undefined || events === null) return null;
+    // Stale presigned URLs anywhere in the list → treat the whole list as
+    // a miss so the async path re-fetches with fresh URLs.
+    if (hasExpiredPresignedUrl(events)) return null;
     return events.filter((ev: any) => ev.audience?.slug === 'free-anyone').map(mapEvent);
   }
 
   getFeaturedEventSync(): any | null {
     const events = entityCacheService.getListSync<any>('events');
     if (events === undefined || events === null) return null;
+    if (hasExpiredPresignedUrl(events)) return null;
     let featured: any | null = null;
     for (const ev of events) {
       if (!ev.featuredAt) continue;
@@ -354,6 +370,7 @@ class RetreatService {
   getEventsByTeacherSync(abbreviation: string): { teacher: any | null; events: any[] } | null {
     const events = entityCacheService.getListSync<any>('events');
     if (events === undefined || events === null) return null;
+    if (hasExpiredPresignedUrl(events)) return null;
     const teacherEvents = events.filter((ev: any) =>
       ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation)
     );
@@ -377,9 +394,10 @@ class RetreatService {
     events: any[];
     error?: string;
   }> {
-    // 1. Try cache first (skipped when force=true).
+    // 1. Try cache first (skipped when force=true or when any embedded
+    //    presigned URL is expired — see retreat-details path for details).
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
-    if (cachedEvents !== null) {
+    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
       const teacherEvents = cachedEvents.filter((ev: any) =>
         ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation),
       );
@@ -413,9 +431,9 @@ class RetreatService {
   // locally (audience.slug === "free-anyone"). Falls back to the unauthenticated
   // /events/public endpoint on cache miss, preserving behaviour for guests.
   async getPublicEvents(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: any[]; error?: string }> {
-    // 1. Try cache first (skipped when force=true).
+    // 1. Try cache first (skipped when force=true or when stale presigned URLs).
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
-    if (cachedEvents !== null) {
+    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
       const publicRows = cachedEvents.filter(
         (ev: any) => ev.audience?.slug === 'free-anyone',
       );
@@ -439,9 +457,9 @@ class RetreatService {
   // When the events cache is populated, finds the entry with the most recent
   // non-null featuredAt value. Falls back to /events/featured on cache miss.
   async getFeaturedEvent(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: any; error?: string }> {
-    // 1. Try cache first (skipped when force=true).
+    // 1. Try cache first (skipped when force=true or when stale presigned URLs).
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
-    if (cachedEvents !== null) {
+    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
       // Find the event with the most recent featuredAt timestamp.
       let featured: any | null = null;
       for (const ev of cachedEvents) {
@@ -475,7 +493,12 @@ class RetreatService {
         entityCacheService.getList<any>('events'),
       ]);
 
-      if (cachedGroups !== null && cachedEvents !== null) {
+      if (
+        cachedGroups !== null
+        && cachedEvents !== null
+        && !hasExpiredPresignedUrl(cachedGroups)
+        && !hasExpiredPresignedUrl(cachedEvents)
+      ) {
         return { success: true, data: this.assembleUserRetreats(cachedGroups, cachedEvents) };
       }
     }
@@ -530,7 +553,12 @@ class RetreatService {
       opts.force ? Promise.resolve(null) : entityCacheService.getList<any>('events'),
     ]);
 
-    if (cachedGroups !== null && cachedEvents !== null) {
+    if (
+      cachedGroups !== null
+      && cachedEvents !== null
+      && !hasExpiredPresignedUrl(cachedGroups)
+      && !hasExpiredPresignedUrl(cachedEvents)
+    ) {
       const backendGroup = cachedGroups.find((g: any) => this.groupMatchesKey(g, groupKey));
       const groupId = backendGroup?.id;
       const groupEvents = cachedEvents
@@ -634,7 +662,12 @@ class RetreatService {
     // 1. Try cache first — map raw→frontend shape on read (skipped when force=true).
     if (!opts.force) {
       const cached = await entityCacheService.getDetail<any>('events', numericId);
-      if (cached !== null) {
+      // Skip the cache when any embedded presigned URL is expired — the
+      // hero/avatar/photo URLs are AWS Sigv4 with a 1-hour lifetime and
+      // the entity cache itself has no TTL, so stale entries would ship
+      // a 403-bound URL and the hero would render as a grey box. Falling
+      // through to the network rewrites the cache with fresh URLs.
+      if (cached !== null && !hasExpiredPresignedUrl(cached)) {
         return { success: true, data: this.assembleEventDetail(cached) };
       }
     }
