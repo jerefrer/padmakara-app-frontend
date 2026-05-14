@@ -475,7 +475,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       void runBulkAudioSync();
     };
     const sub = AppState.addEventListener('change', handler);
-    return () => sub.remove();
+    return () => {
+      // Some test environments / older RN versions return undefined here.
+      // `sub?.remove?.()` covers both cases without breaking real cleanup.
+      sub?.remove?.();
+    };
   }, [userId, pullAndMergeLastPlayedRemote, runBulkAudioSync]);
 
   // ─── Lock screen / Now Playing controls (iOS + Android) ───
@@ -552,23 +556,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }, SAFETY_LOAD_TIMEOUT_MS);
 
     (async () => {
-      // The in-memory cache (savedPositionsRef) is the authoritative source
-      // for saved positions during a session — it's pre-populated on mount
-      // and updated by every saveProgress + bulk sync. playTrack already
-      // pre-set targetPosition from the cache.
-      //
-      // Fallback: if the cache happened to miss (e.g., user tapped a track
-      // before the mount-effect pre-load completed, or the track was added
-      // to AsyncStorage by a code path other than this context), do a
-      // one-shot AsyncStorage read. Skip this entirely on cache hit so the
-      // common path stays single-setter and jitter-free.
-      if ((savedPositionsRef.current.get(currentId) ?? 0) === 0) {
-        const saved = await readSavedPosition(currentId);
-        if (trackIdRef.current !== currentId) return;
-        if (saved > 0) {
-          setTargetPosition(saved);
-          savedPositionsRef.current.set(currentId, saved);
-        }
+      // ALWAYS async-re-read the saved position from AsyncStorage as a
+      // correctness backstop. playTrack pre-set targetPosition from the
+      // in-memory cache (savedPositionsRef) for instant visual response,
+      // but the cache CAN go stale relative to AsyncStorage:
+      //   - the mount pre-load races with first-frame user clicks
+      //   - the bulk sync writes AsyncStorage on a separate task
+      //   - dev hot-reload can rebuild the provider with a fresh empty ref
+      // Reading AsyncStorage here makes the saved-position resume robust
+      // regardless of cache state. If the value matches the pre-set, the
+      // setTargetPosition is a no-op React update. If it differs, we
+      // correct before the seek-to-target effect fires.
+      const saved = await readSavedPosition(currentId);
+      if (trackIdRef.current !== currentId) return;
+      if (saved > 0) {
+        setTargetPosition(saved);
+        savedPositionsRef.current.set(currentId, saved);
       }
 
       const source = await resolveAudioSource(track);
@@ -877,9 +880,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const onSlidingComplete = useCallback((value: number) => {
-    setUserScrubValue(null);
+    // DON'T clear userScrubValue here. The seekTo is async (player.seekTo is
+    // a Promise + the player's status.currentTime takes 50-300 ms to catch
+    // up). If we cleared the scrub value now, the position formula would
+    // immediately fall back to status.currentTime — which is still the
+    // pre-seek value — and the slider would visibly snap back to the OLD
+    // position for a frame, then jump to the new one. Hold the visual
+    // position at the user's release value until status.currentTime
+    // converges (see effect below).
     seekTo(value * 1000);
   }, [seekTo]);
+
+  // Release the visual scrub-hold once the player's currentTime has caught
+  // up to (or moved past) the user's released value. Has a 1.5 s safety
+  // timeout so a failed/silent seek doesn't leave the slider frozen.
+  useEffect(() => {
+    if (userScrubValue === null) return;
+    const live = status?.currentTime ?? 0;
+    if (Math.abs(live - userScrubValue) < 0.75) {
+      setUserScrubValue(null);
+      return;
+    }
+    const t = setTimeout(() => setUserScrubValue(null), 1500);
+    return () => clearTimeout(t);
+  }, [userScrubValue, status?.currentTime]);
 
   // ─── Next / previous (delegated to consumer via callback) ───
   const nextTrackAction = useCallback(() => {

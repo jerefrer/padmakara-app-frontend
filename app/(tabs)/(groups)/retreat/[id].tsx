@@ -376,6 +376,7 @@ export default function RetreatDetailScreen() {
     const ctxTrackInThisEvent = ctxTrack
       ? filteredTracks.some((t) => String(t.id) === String(ctxTrack.id))
       : false;
+
     if (ctxTrackInThisEvent) {
       // The player already has a track from this event — leave it alone;
       // the sync effect will mirror it into local state for the highlight.
@@ -390,42 +391,63 @@ export default function RetreatDetailScreen() {
       autoLoadedRef.current = true;
       return;
     }
+
     autoLoadedRef.current = true;
 
     (async () => {
-      let target = filteredTracks[0];
-      let targetIndex = 0;
-      let resumedFromMemory = false;
-      // Explicit trackId param (e.g. tapped from the Bookmarks tab) wins
-      // over the per-event LAST_TRACK_KEY resume.
+      // An explicit trackId param (e.g. tapped from the Bookmarks tab) is
+      // an explicit user intent — always load and play it, even if
+      // something else is currently playing.
       if (trackIdParam) {
         const idx = filteredTracks.findIndex((t) => String(t.id) === String(trackIdParam));
         if (idx >= 0) {
-          target = filteredTracks[idx];
-          targetIndex = idx;
-          resumedFromMemory = true;
-        }
-      }
-      if (!resumedFromMemory) {
-        try {
-          const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
-          if (lastId) {
-            const idx = filteredTracks.findIndex((t) => String(t.id) === lastId);
-            if (idx >= 0) {
-              target = filteredTracks[idx];
-              targetIndex = idx;
-              resumedFromMemory = true;
-            }
+          selectTrack(filteredTracks[idx], idx);
+          if (idx > 0) {
+            pendingScrollTrackIdRef.current = String(filteredTracks[idx].id);
+            tryScrollToPendingTrack();
           }
-        } catch {
-          // Ignore — fall back to first track.
+          return;
         }
       }
-      selectTrack(target, targetIndex);
-      // Only scroll when the resumed track is past the first one — the
-      // first track is already at the top, so leave the hero visible.
-      if (resumedFromMemory && targetIndex > 0) {
-        pendingScrollTrackIdRef.current = String(target.id);
+
+      // Look up this event's per-event last-played track (highlight target).
+      let highlightTrack = filteredTracks[0];
+      let highlightIndex = 0;
+      let resumedFromMemory = false;
+      try {
+        const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
+        if (lastId) {
+          const idx = filteredTracks.findIndex((t) => String(t.id) === lastId);
+          if (idx >= 0) {
+            highlightTrack = filteredTracks[idx];
+            highlightIndex = idx;
+            resumedFromMemory = true;
+          }
+        }
+      } catch {
+        // Ignore — fall back to first track.
+      }
+
+      if (ctxTrack && !ctxTrackInThisEvent) {
+        // Something is already playing from a DIFFERENT event. Don't
+        // interrupt the user's current listening session by replacing it.
+        // Just update the local highlight state so the user can see which
+        // track in this event they last played; tapping it will switch.
+        setCurrentTrack(highlightTrack);
+        setCurrentTrackIndex(highlightIndex);
+        setSelectedTrack(highlightTrack);
+        if (resumedFromMemory && highlightIndex > 0) {
+          pendingScrollTrackIdRef.current = String(highlightTrack.id);
+          tryScrollToPendingTrack();
+        }
+        return;
+      }
+
+      // No track is currently playing — load this event's last-played track
+      // (or the first one) as the active player track.
+      selectTrack(highlightTrack, highlightIndex);
+      if (resumedFromMemory && highlightIndex > 0) {
+        pendingScrollTrackIdRef.current = String(highlightTrack.id);
         tryScrollToPendingTrack();
       }
     })();

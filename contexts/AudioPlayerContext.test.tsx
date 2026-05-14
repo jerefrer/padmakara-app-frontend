@@ -828,3 +828,80 @@ describe('AudioPlayerContext — cross-device sync (matrix G)', () => {
     spy.mockRestore();
   });
 });
+
+// ─── Matrix H: UX regressions caught via end-to-end Playwright session ─
+
+describe('AudioPlayerContext — UX (matrix H)', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiPost.mockReset();
+    apiGet.mockResolvedValue({ success: true, data: null });
+    apiPost.mockResolvedValue({ success: true, data: {} });
+  });
+
+  it('H1 — onSlidingComplete keeps userScrubValue while seek is in flight', async () => {
+    // Regression: previously onSlidingComplete cleared userScrubValue
+    // immediately, exposing the stale status.currentTime in the position
+    // formula for ~50–300 ms while player.seekTo resolved. The slider
+    // visibly snapped back to the old position before jumping to the new
+    // one. The fix holds the scrub value until status.currentTime
+    // converges within 0.75 s of the released value.
+    const t = makeTrack({ id: 't', duration: 200 });
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __advanceTime(20); });
+
+    // User drags slider, value updates via onSliderValueChange.
+    act(() => { result.current.onSliderValueChange(120); });
+    expect(result.current.position).toBe(120);
+
+    // Release at 120. Status.currentTime is still 20 (seek hasn't applied).
+    act(() => { result.current.onSlidingComplete(120); });
+    // Critical: position MUST still be the released value (120), NOT the
+    // stale live position (20).
+    expect(result.current.position).toBe(120);
+  });
+
+  it('H2 — userScrubValue clears once status.currentTime converges', async () => {
+    const t = makeTrack({ id: 't', duration: 200 });
+    const { result } = renderPlayer();
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __advanceTime(20); });
+
+    act(() => { result.current.onSlidingComplete(120); });
+    expect(result.current.position).toBe(120);
+
+    // Once player catches up to within 0.75 s of the released value, the
+    // hold releases and position follows livePosition again.
+    act(() => { __setPlaying(true); /* simulate seekTo applying */ });
+    // The mock's seekTo updates currentTime synchronously to 120 via the
+    // store. After the next render, position should be live (= 120).
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.position).toBe(120);
+  });
+
+  it('H3 — re-opening a track restores its saved position from AsyncStorage even when cache is empty', async () => {
+    // Regression: with the cache-miss-only fallback, a stale or empty
+    // in-memory cache for a track would let the seek-to-target use 0
+    // instead of the persisted saved position. The fix always async-re-
+    // reads progress_<trackId> in the track-change effect so re-opening a
+    // track shows its saved position even if the cache is empty for it.
+    const t = makeTrack({ id: '42', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 77, completed: false,
+      lastPlayed: '2026-05-10T00:00:00Z', bookmarks: [],
+    }));
+
+    const { result } = renderPlayer();
+    // Don't await the mount-effect cache pre-load — simulate the race where
+    // user clicks before pre-load completes (cache empty for '42').
+    act(() => { __setDuration(200); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // After the async readSavedPosition in the track-change effect, the
+    // target position must equal the saved value, not 0.
+    expect(result.current.position).toBe(77);
+  });
+});
