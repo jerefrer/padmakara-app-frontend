@@ -239,21 +239,64 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // animation right away, even though the underlying engine is still
   // buffering.
   const isPlaying = !!status?.playing || (phase !== 'ready' && pendingPlay);
-  // While loading, ignore status?.duration — the player object can briefly
+
+  // Detect a stale status snapshot from a previous player. expo-audio's
+  // `useEvent` hook (from `expo`) uses `useState(initialValue)` — useState
+  // only consumes initialValue on the first render, so when the emitter
+  // (player) changes, the cached state from the OLD player persists until
+  // the NEW player fires its first event. That first event can be ~1
+  // second away on web (waiting for `onloadeddata` / `onseeked` on the
+  // freshly-created HTMLAudioElement), during which `status` silently
+  // returns the PREVIOUS track's currentTime + duration.
+  //
+  // Symptom: when the user switches tracks on web, the slider and time
+  // display flash to the previous track's position/duration for ~1 s
+  // after the new track's seek completes, before snapping back to the
+  // correct values. (iOS doesn't hit this — the native emitter fires
+  // a status event synchronously when the new player is attached.)
+  //
+  // We detect the stale window via `status.id !== player.id` — every
+  // emitted status carries its source player's id, and a mismatch means
+  // the value is from a player we're no longer using. In that window we
+  // read `player.currentTime` / `player.duration` directly: those are
+  // synchronous getters on the underlying media element, so they always
+  // reflect the player React is currently rendering.
+  //
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerId = (player as any)?.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const statusId = (status as any)?.id;
+  const statusIsCurrentPlayer =
+    !player || status == null || statusId == null || playerId == null || statusId === playerId;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerCurrentTime = (player as any)?.currentTime;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerDuration = (player as any)?.duration;
+
+  const livePosition = statusIsCurrentPlayer
+    ? (status?.currentTime ?? 0)
+    : (typeof playerCurrentTime === 'number' && !Number.isNaN(playerCurrentTime) ? playerCurrentTime : 0);
+
+  const liveDuration = statusIsCurrentPlayer
+    ? status?.duration
+    : (typeof playerDuration === 'number' && !Number.isNaN(playerDuration) ? playerDuration : undefined);
+
+  // While loading, ignore liveDuration — the player object can briefly
   // carry over the previous track's duration during the source switch,
   // which would show e.g. "3:36 remaining" on a 130-minute track until
   // playback actually started. Use the metadata duration the listing
   // already gave us.
   const duration = phase === 'ready'
-    ? (status?.duration || track?.duration || 0)
+    ? (liveDuration || track?.duration || 0)
     : (track?.duration || 0);
 
   // Position display priority:
   //   1. While the user is dragging the slider, show their value
   //   2. While loading, show the target (saved or seek-to) position so the
   //      slider appears at the right place from the very first frame
-  //   3. While ready, follow live playback
-  const livePosition = status?.currentTime ?? 0;
+  //   3. While ready, follow live playback (from a non-stale status, or
+  //      from the player directly if status is stale from a prior emitter)
   const position = userScrubValue !== null
     ? userScrubValue
     : phase === 'ready'

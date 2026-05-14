@@ -253,4 +253,124 @@ test.describe('audio resume — A→B→A round trip', () => {
     );
     expect(stored.position).toBe(FIXTURE.savedPosA);
   });
+
+  test('switching tracks never flashes the previous track\'s position or duration', async ({ page }) => {
+    // Regression: expo-audio's useEvent hook caches the previous emitter's
+    // last event in useState. When the player object changes (track switch
+    // → new HTMLAudioElement), the cached state from the old player is
+    // returned by useAudioPlayerStatus until the new player fires its
+    // first event (~1 s away on web while metadata loads). During that
+    // window, the position-formula's `phase === 'ready' → livePosition`
+    // branch reads the OLD currentTime and OLD duration, making the slider
+    // visibly flash the previous track's values for ~1 s before snapping
+    // back to the correct ones. iOS doesn't hit this because its native
+    // emitter fires synchronously.
+    //
+    // The fix detects status staleness via `status.id !== player.id` and
+    // falls back to `player.currentTime` / `player.duration` (synchronous
+    // getters that always reflect the player React is rendering).
+    //
+    // This test sets up A with a distinct saved position+duration from B,
+    // opens A, waits for it to settle, then taps B and polls the visible
+    // time strings for ~2.5 s. It asserts that the time strings NEVER show
+    // A's MM:SS during that window.
+    await setupInstrumentation(page);
+    await page.goto(FIXTURE.eventPath);
+
+    // Open A and wait for the seek + ready transition to settle.
+    await clickTrackRow(page, FIXTURE.trackA.label);
+    await page.waitForFunction(
+      ({ pos }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const log = (window as any).__seekLog as Array<{ value?: number }>;
+        return log.some((e) => e.value === pos);
+      },
+      { pos: FIXTURE.savedPosA },
+      { timeout: 5000 },
+    );
+    // Tiny pad so the status update event has time to flow through.
+    await page.waitForTimeout(200);
+
+    // A's expected MM:SS string (position) — the value we must NOT see
+    // appear on screen after we click B.
+    const formatTime = (s: number) =>
+      `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+    const aPositionString = formatTime(FIXTURE.savedPosA);
+    const bPositionString = formatTime(FIXTURE.savedPosB);
+
+    // Start the trace, then immediately tap B.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__flashTrace = [] as Array<{ t: number; times: string[] }>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any;
+      w.__flashStart = performance.now();
+      w.__flashInterval = setInterval(() => {
+        const times = (document.body.innerText.match(/\d{1,3}:\d{2}/g) || []).slice(0, 4);
+        w.__flashTrace.push({ t: Math.round(performance.now() - w.__flashStart), times });
+      }, 16);
+    });
+
+    await clickTrackRow(page, FIXTURE.trackB.label);
+    // Collect ~2.5 s of frames — long enough to cover the previous
+    // ~1.2 s flash window with margin.
+    await page.waitForTimeout(2500);
+
+    const trace = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any;
+      clearInterval(w.__flashInterval);
+      return w.__flashTrace as Array<{ t: number; times: string[] }>;
+    });
+
+    // Compress consecutive duplicates for an easier-to-read diagnostic.
+    const transitions: Array<{ t: number; times: string[] }> = [];
+    let last = '';
+    for (const frame of trace) {
+      const sig = JSON.stringify(frame.times);
+      if (sig !== last) {
+        transitions.push(frame);
+        last = sig;
+      }
+    }
+
+    // The slider must show B's position from the very first transition
+    // (or 0:00 / target while loading) and never A's position once we've
+    // clicked B. Anywhere A's position appears in the trace post-click is
+    // a flash regression.
+    // Sanity: the trace must observe B's correct saved position at some
+    // point — otherwise this test would pass vacuously if e.g. the click
+    // never registered.
+    const firstBFrameIdx = trace.findIndex((f) => f.times.includes(bPositionString));
+    if (firstBFrameIdx === -1) {
+      // eslint-disable-next-line no-console
+      console.error('  ✗ Trace never showed B\'s position (' + bPositionString + '). Transitions:');
+      for (const t of transitions) {
+        // eslint-disable-next-line no-console
+        console.error('    t=' + t.t + 'ms ' + JSON.stringify(t.times));
+      }
+    }
+    expect(firstBFrameIdx).toBeGreaterThanOrEqual(0);
+
+    // Core assertion: once the slider has shown B's correct position,
+    // it must NEVER show anything else for the rest of the observation
+    // window. Any transition back to A's position, to 0:00, or to any
+    // other value is a flash regression — the stale-status race
+    // described in the AudioPlayerContext fix comment.
+    //
+    // (The fix detects status.id !== player.id and uses player.currentTime
+    // / player.duration directly, so the displayed position remains
+    // stable from the very first render where it's correct.)
+    const flashAfter = trace.slice(firstBFrameIdx).find((f) => !f.times.includes(bPositionString));
+    if (flashAfter) {
+      // eslint-disable-next-line no-console
+      console.error('  ✗ Slider flashed to ' + JSON.stringify(flashAfter.times) +
+        ' at t=' + flashAfter.t + 'ms after settling at ' + bPositionString + '. Transitions:');
+      for (const t of transitions) {
+        // eslint-disable-next-line no-console
+        console.error('    t=' + t.t + 'ms ' + JSON.stringify(t.times));
+      }
+    }
+    expect(flashAfter).toBeUndefined();
+  });
 });
