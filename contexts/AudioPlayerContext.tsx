@@ -187,6 +187,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Guards the "audio loaded → seek to target" transition so it only runs
   // once per track load.
   const seekToTargetDoneRef = useRef<string | null>(null);
+  // The track id that `audioSource` was most recently resolved FOR. Critical
+  // gate against the cross-track stale-render race:
+  //
+  // When the user switches A → B → A, playTrack sets phase='loading' /
+  // target=savedA / track=A synchronously, but audioSource is still B's URL
+  // until the track-change effect runs setAudioSource(null) and the async
+  // resolveAudioSource then sets the new URL. There is therefore a render
+  // where `track === A` but `audioSource === B-url` and `player === B-player`.
+  //
+  // Without this gate, the seek-to-target effect fires in that render,
+  // calls B-player.seekTo(savedA) (wrong player!), and then setPhase('ready').
+  // When the NEW A-player is eventually created (audioSource updates to a
+  // fresh URL → useMemo creates a new player), the seek effect re-fires
+  // but bails on `phase !== 'loading'`, leaving the new player's media at
+  // currentTime=0. The slider then shows 0:00 on web and play starts from
+  // 0 on iOS — exactly the bug the user kept reporting.
+  //
+  // We set this ref to the track id immediately BEFORE calling
+  // setAudioSource(url) in the async resolve, and reset to null at the top
+  // of the track-change effect. The seek effect only runs when
+  // audioSourceTrackIdRef.current === track.id — i.e. only when audioSource
+  // is known to be for this track.
+  const audioSourceTrackIdRef = useRef<string | null>(null);
   // Guards against the completion callback firing more than once per track.
   const hasCompletedRef = useRef(false);
   // Throttles the every-10s progress save.
@@ -510,6 +533,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       // No track selected: drop everything back to idle.
       trackIdRef.current = null;
       seekToTargetDoneRef.current = null;
+      audioSourceTrackIdRef.current = null;
       setAudioSource(null);
       setPhase('idle');
       setTargetPosition(0);
@@ -522,6 +546,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const currentId = track.id;
     trackIdRef.current = currentId;
     seekToTargetDoneRef.current = null;
+    // Invalidate audioSourceTrackIdRef immediately so the seek effect
+    // bails out in the render where `track` has changed to the new track
+    // but `audioSource` is still the previous track's URL. The async
+    // resolve below restores this ref to the new track id atomically
+    // before calling setAudioSource(url).
+    audioSourceTrackIdRef.current = null;
     setUserScrubValue(null);
     lastSavedSecondRef.current = -1;
     hasCompletedRef.current = false;
@@ -581,6 +611,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         // Stay in loading; safety timer will eventually unstick the UI.
         return;
       }
+      // Mark audioSource as belonging to this track BEFORE calling
+      // setAudioSource. The seek effect uses this ref to verify that
+      // (track, audioSource) are in sync before seeking — without this
+      // line, the seek effect would still bail with the audioSourceTrackIdRef
+      // check after audioSource updates.
+      audioSourceTrackIdRef.current = currentId;
       setAudioSource(source);
     })();
 
@@ -599,6 +635,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (phase !== 'loading') return;
     if (!track || !audioSource || !status?.isLoaded || !player) return;
+    // Verify that audioSource is for the CURRENT track. In the render
+    // immediately after playTrack() switches to a new track, audioSource
+    // is still the previous track's URL (and `player` is the previous
+    // player). Without this gate we would seek the wrong player to the
+    // new track's targetPosition, then setPhase('ready') prematurely,
+    // leaving the new player (created when audioSource updates later)
+    // never seeked. See the audioSourceTrackIdRef declaration for the
+    // full story.
+    if (audioSourceTrackIdRef.current !== track.id) return;
+    // Prevent re-running for the same track (e.g. when targetPosition
+    // changes after the initial seek due to the async readSavedPosition
+    // correction — we don't want to overwrite the already-applied seek).
     if (seekToTargetDoneRef.current === track.id) return;
 
     const currentId = track.id;
@@ -764,8 +812,46 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (track?.id !== newTrack.id) {
       // Save the outgoing track's position before swapping. The 10-second
       // cadence effect would otherwise drop the last <10s of progress.
-      if (track && status?.currentTime != null) {
-        void saveProgress(status.currentTime * 1000);
+      //
+      // Two timing hazards must be avoided when reading "current position":
+      //
+      // 1. phase !== 'ready': the audio hasn't been loaded / seeked yet,
+      //    so currentTime is meaningless (it would save 0 over a real
+      //    saved position). Gated below by `phase === 'ready'`.
+      //
+      // 2. `status.currentTime` is event-driven: a fresh `seekTo(N)` sets
+      //    media.currentTime=N synchronously but the PLAYBACK_STATUS_UPDATE
+      //    event only fires when the browser's `onseeked` event resolves
+      //    (which can be 10s of ms later, longer if data needs to buffer).
+      //    A rapid track switch right after a fresh seek would therefore
+      //    read the stale, pre-seek `status.currentTime` (usually 0) and
+      //    save THAT as the outgoing track's position — overwriting the
+      //    real saved value. We hit this bug in the e2e Playwright test:
+      //    open A (saved at 77) → seek fires → click B fast → outgoing
+      //    save reads status.currentTime=0 → progress_A written as 0.
+      //
+      //    Reading `player.currentTime` instead bypasses the event hop:
+      //    it's a direct getter on `media.currentTime` so it reflects
+      //    any synchronous setter call, including the one inside seekTo.
+      //    We still fall back to status.currentTime if the player has
+      //    been released or the read throws for any reason.
+      if (track && phase === 'ready' && player) {
+        let liveSec: number | null = null;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const c = (player as any).currentTime;
+          if (typeof c === 'number' && !Number.isNaN(c)) liveSec = c;
+        } catch {}
+        if (liveSec == null && status?.currentTime != null) {
+          liveSec = status.currentTime;
+        }
+        // Don't overwrite a saved position with 0 — if we genuinely read
+        // 0 here, it means the user hasn't actually played the track
+        // (e.g. they switched away within milliseconds of opening it),
+        // and we want to preserve the existing AsyncStorage value.
+        if (liveSec != null && liveSec > 0.5) {
+          void saveProgress(liveSec * 1000);
+        }
       }
       // Pre-set phase + targetPosition synchronously so the very first render
       // under track=newTrack already sees phase='loading' and the cached
@@ -778,7 +864,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setTrack(newTrack);
     }
     void saveLastPlayedTrack(newTrack, meta);
-  }, [track, status?.currentTime, saveProgress, saveLastPlayedTrack]);
+  }, [track, phase, status?.currentTime, saveProgress, saveLastPlayedTrack]);
 
   const resumeLastPlayed = useCallback(() => {
     if (!idleTrack) return;
