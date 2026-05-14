@@ -9,6 +9,7 @@ import {
   __setIsLoaded,
   __getRate,
   __getLastSeekTo,
+  __getCurrentPlayer,
   __reset as __resetAudio,
 } from 'expo-audio';
 import { AudioPlayerProvider, useAudioPlayerContext } from './AudioPlayerContext';
@@ -903,5 +904,183 @@ describe('AudioPlayerContext — UX (matrix H)', () => {
     // After the async readSavedPosition in the track-change effect, the
     // target position must equal the saved value, not 0.
     expect(result.current.position).toBe(77);
+  });
+
+  it('H4 — playTrack does NOT save outgoing track when outgoing was still in loading phase', async () => {
+    // Regression: the user reported that switching from a track they had
+    // saved progress on (e.g. track A at 77 s), to a different track B,
+    // then back to A, would show A at 0 — A's saved position was lost.
+    //
+    // Root cause #1 (this test): playTrack's "save outgoing track before
+    // swap" block used to fire whenever `status.currentTime != null`. If
+    // the outgoing track was still in phase='loading' (audio buffering,
+    // seek-to-target hadn't run), status.currentTime was 0, and the save
+    // wrote 0 to AsyncStorage AND fired a remote push with 0 — both
+    // overwriting whatever real position the user had saved earlier. By
+    // the time they came back to A, the saved-position lookup returned 0.
+    //
+    // Fix: gate the outgoing-track save on `phase === 'ready'`. If the
+    // outgoing track wasn't ready, status.currentTime is meaningless and
+    // we must not save it.
+    const tA = makeTrack({ id: '42', duration: 200 });
+    const tB = makeTrack({ id: '43', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 77, completed: false,
+      lastPlayed: '2026-05-10T00:00:00Z', bookmarks: [],
+    }));
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // Tap track A. Don't let it finish loading — simulate the user
+    // changing their mind and tapping B before A's seek completes.
+    act(() => { result.current.playTrack(tA, [tA, tB], 0); });
+    // At this point phase is still 'loading' and status.currentTime is 0.
+    // The user taps B.
+    act(() => { result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await Promise.resolve(); });
+
+    // A's saved position in AsyncStorage MUST still be 77 — the rapid
+    // switch must not have overwritten it.
+    const savedA = JSON.parse((await AsyncStorage.getItem('progress_42'))!);
+    expect(savedA.position).toBe(77);
+  });
+
+  it('H5 — round-trip A → B → A: A\'s targetPosition resumes at saved value, not 0', async () => {
+    // Regression: the user reported (via Playwright on web) that the slider
+    // returned to 0:00 when navigating away from a track and back, even
+    // though `progress_<trackId>` in storage still had the right position.
+    //
+    // Root cause: playTrack used to do `setPhase('loading')`,
+    // `setTargetPosition(saved)`, `setTrack(newTrack)` — but it did NOT
+    // invalidate audioSource. In the SAME effect batch, the seek-to-target
+    // effect ran with the new `track` and `targetPosition`, but with the
+    // STALE `audioSource` (still the previous track's URL) and STALE
+    // `player`. It seeked the WRONG player's media to the new target,
+    // marked seek-as-done for the new track, and exited. When the
+    // track-change effect later updated audioSource to the new track's
+    // URL (creating a fresh player), the seek-to-target effect re-fired
+    // but bailed because `seekToTargetDoneRef.current === track.id`.
+    // The new player was never seeked — its media stayed at 0.
+    //
+    // Fix: setAudioSource(null) in playTrack synchronously BEFORE
+    // setTrack, so the first render after playTrack has audioSource=null
+    // and the seek effect bails out. The seek then only runs once the
+    // track-change effect resolves the new audio source — on the correct
+    // (newest) player.
+    //
+    // The mock's useAudioPlayer ignores source and returns the same
+    // player instance, so the full "wrong player seeked" race can't be
+    // reproduced here (Playwright verified that part end-to-end). What
+    // this test asserts is the user-visible round-trip contract: after
+    // switching A → B → A, A's targetPosition (what the slider shows
+    // while loading) is the saved value, not 0.
+    const tA = makeTrack({ id: '42', duration: 200 });
+    const tB = makeTrack({ id: '43', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 77, completed: false,
+      lastPlayed: '2026-05-10T00:00:00Z', bookmarks: [],
+    }));
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // Open A. Position should resume to 77.
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.position).toBe(77);
+    // Saved position must not have been overwritten by 0 in the meantime.
+    expect(JSON.parse((await AsyncStorage.getItem('progress_42'))!).position).toBe(77);
+
+    // Switch to B.
+    act(() => { result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    // A's saved position MUST still be 77 — switching away must not
+    // overwrite it (this is the regression: H4's gate keeps phase==='ready'
+    // honest; here we verify it through a full round-trip).
+    expect(JSON.parse((await AsyncStorage.getItem('progress_42'))!).position).toBe(77);
+
+    // Switch back to A. A's targetPosition (the value the slider renders
+    // while audio loads) MUST be 77 again.
+    act(() => { result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(JSON.parse((await AsyncStorage.getItem('progress_42'))!).position).toBe(77);
+  });
+
+  it('H6 — round-trip A → B → A: the NEW A-player gets seeked to A\'s saved position', async () => {
+    // This is the test that H5 *should* have been. H5 only asserted on
+    // user-visible side effects (slider's `position` value, AsyncStorage
+    // not being overwritten with 0) — both of which can be SATISFIED even
+    // when the underlying audio engine is in the wrong state, because the
+    // singleton mock store hides which player actually got seeked.
+    //
+    // The real bug the user reported was: after switching A → B → A, the
+    // NEW A-player (created when audioSource resolves to a fresh URL) was
+    // never seeked. On web the slider then showed 0:00; on iOS the slider
+    // looked right (stale state from previous player) but pressing play
+    // started from 0 because the underlying player.currentTime was 0.
+    //
+    // Root cause: in the render immediately after playTrack(A) — when
+    // playTrack has set phase='loading' + target=savedA + track=A but the
+    // track-change effect hasn't run setAudioSource(null) yet — audioSource
+    // is still the previous track's URL and `player` is the previous
+    // track's player. The seek-to-target effect fired here, seeked the
+    // wrong player, and called setPhase('ready'). When the NEW A-player
+    // was eventually created (audioSource updated to a fresh URL → useMemo
+    // recreated the player), the seek effect re-fired but bailed on
+    // phase !== 'loading'.
+    //
+    // To actually catch this, we need to look at the NEW A-player's
+    // lastSeekTo (per-player record, not the shared store.lastSeekTo
+    // which gets clobbered by any seek regardless of target player).
+    // With the bug: the new A-player.lastSeekTo === null (it was never
+    // seeked, only the stale B-player was). With the fix: the new
+    // A-player.lastSeekTo === 77 (the saved position).
+    const tA = makeTrack({ id: '42', duration: 200 });
+    const tB = makeTrack({ id: '43', duration: 200 });
+    await AsyncStorage.setItem('progress_42', JSON.stringify({
+      trackId: '42', position: 77, completed: false,
+      lastPlayed: '2026-05-10T00:00:00Z', bookmarks: [],
+    }));
+
+    const { result } = renderPlayer();
+    // Let mount-effect cache pre-load run so playTrack can use the cached
+    // saved position synchronously.
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // Open A. After the async resolve completes, audioSource should be
+    // set, a new player created, and the seek effect should seek it to 77.
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const aPlayer1 = __getCurrentPlayer();
+    expect(aPlayer1).not.toBeNull();
+    expect(aPlayer1!.lastSeekTo).toBe(77);
+
+    // Switch to B (no saved progress → seeks to 0).
+    act(() => { __setDuration(200); result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const bPlayer = __getCurrentPlayer();
+    expect(bPlayer).not.toBe(aPlayer1);
+    expect(bPlayer!.lastSeekTo).toBe(0);
+
+    // Switch back to A. This is where the bug used to fire: the seek
+    // effect would run in the first render with stale audioSource (=B's URL)
+    // and stale player (=B-player), seek THAT player to 77, then
+    // setPhase('ready'). The new A-player created when audioSource updates
+    // to a fresh A URL would never get seeked.
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const aPlayer2 = __getCurrentPlayer();
+
+    // The new A-player must be a different object from both the previous
+    // A-player and the B-player.
+    expect(aPlayer2).not.toBe(aPlayer1);
+    expect(aPlayer2).not.toBe(bPlayer);
+
+    // Critical assertion: the NEW A-player must have been seeked to A's
+    // saved position. This is what was failing before — the old
+    // `seekedPlayerRef === player` gate didn't catch the stale-render
+    // race, and the seek went to the wrong player object.
+    expect(aPlayer2!.lastSeekTo).toBe(77);
   });
 });
