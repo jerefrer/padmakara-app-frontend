@@ -43,11 +43,13 @@ function ResultEventCard({
   language,
   t,
   onSessionPress,
+  testID,
 }: {
   result: SearchResultEvent;
   language: string;
   t: (key: string) => string;
   onSessionPress: (eventId: number) => void;
+  testID?: string;
 }) {
   const eventTitle =
     language === 'pt' && result.event.titlePt
@@ -82,6 +84,7 @@ function ResultEventCard({
       style={styles.resultCard}
       onPress={() => onSessionPress(result.event.id)}
       activeOpacity={0.7}
+      testID={testID}
     >
       <Text style={styles.resultEventTitle} numberOfLines={2}>
         {eventTitle}
@@ -201,6 +204,7 @@ export default function SearchScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
+              testID="search-input"
             />
             {query.length > 0 && (
               <TouchableOpacity
@@ -277,6 +281,7 @@ export default function SearchScreen() {
                   language={language}
                   t={t}
                   onSessionPress={handleEventPress}
+                  testID={`search-result-${result.event.id}`}
                 />
               ))}
             </>

@@ -118,8 +118,8 @@ export function BookmarksManager({ trackId, currentPosition, onSeekToBookmark }:
   };
 
   const renderBookmarkItem = ({ item }: { item: Bookmark }) => (
-    <View style={styles.bookmarkItem}>
-      <TouchableOpacity 
+    <View style={styles.bookmarkItem} testID={`bookmark-${item.id}`}>
+      <TouchableOpacity
         onPress={() => seekToBookmark(item)}
         style={styles.bookmarkContent}
       >
@@ -182,6 +182,7 @@ export function BookmarksManager({ trackId, currentPosition, onSeekToBookmark }:
             <TouchableOpacity
               onPress={() => setShowAddModal(true)}
               style={styles.addBookmarkButton}
+              testID="bookmark-add"
             >
               <Ionicons name="add" size={20} color="white" />
               <Text style={styles.addBookmarkButtonText}>Add Bookmark</Text>

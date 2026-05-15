@@ -89,7 +89,7 @@ function GroupRow({ group, onPress, language, t }: GroupRowProps) {
   const groupImage = getGroupImage(groupName);
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.groupRow}>
+    <TouchableOpacity onPress={onPress} style={styles.groupRow} testID={`group-card-${group.id}`}>
       {/* Round avatar */}
       <View style={styles.avatarContainer}>
         {groupImage ? (

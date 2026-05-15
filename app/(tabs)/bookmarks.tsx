@@ -47,10 +47,12 @@ function EventRow({
   bookmark,
   onPress,
   language,
+  testID,
 }: {
   bookmark: EventBookmark;
   onPress: () => void;
   language: string;
+  testID?: string;
 }) {
   const event = bookmark.event;
   const title =
@@ -63,7 +65,7 @@ function EventRow({
     event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row}>
+    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
       <View style={styles.avatar}>
         {teacherPhoto ? (
           <Image source={{ uri: teacherPhoto }} style={styles.avatarImg} contentFit="cover" />
@@ -90,10 +92,12 @@ function TrackRow({
   bookmark,
   onPress,
   language,
+  testID,
 }: {
   bookmark: TrackBookmark;
   onPress: () => void;
   language: string;
+  testID?: string;
 }) {
   const track = bookmark.track;
   const event = track.event;
@@ -108,7 +112,7 @@ function TrackRow({
   const subtitle = [eventTitle, sessionTitle].filter(Boolean).join(" — ");
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row}>
+    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
       <View style={styles.avatar}>
         {teacherPhoto ? (
           <Image source={{ uri: teacherPhoto }} style={styles.avatarImg} contentFit="cover" />
@@ -219,6 +223,7 @@ export default function BookmarksScreen() {
                     key={`event-${bm.id}`}
                     bookmark={bm}
                     language={language}
+                    testID={`bookmark-${bm.id}`}
                     onPress={() =>
                       router.push({
                         pathname: "/(tabs)/(groups)/retreat/[id]",
@@ -245,6 +250,7 @@ export default function BookmarksScreen() {
                     key={`track-${bm.id}`}
                     bookmark={bm}
                     language={language}
+                    testID={`bookmark-${bm.id}`}
                     onPress={() =>
                       router.push({
                         pathname: "/(tabs)/(groups)/retreat/[id]",

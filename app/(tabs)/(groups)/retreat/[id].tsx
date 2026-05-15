@@ -1420,6 +1420,7 @@ export default function RetreatDetailScreen() {
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
                   nextIsContinuation && styles.trackItemSiblingAbove,
                 ]}
+                testID={`track-row-${track.id}`}
               >
                 <View style={styles.trackNumberContainer}>
                   {!isContinuation && (

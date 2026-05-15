@@ -61,9 +61,10 @@ interface FeaturedEventProps {
   language: string;
   isDesktop?: boolean;
   highlightLabel?: string;
+  testID?: string;
 }
 
-function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel }: FeaturedEventProps) {
+function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel, testID }: FeaturedEventProps) {
   const title =
     language === "pt" && event.name_translations?.pt
       ? event.name_translations.pt
@@ -108,6 +109,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     <TouchableOpacity
       onPress={onPress}
       style={[styles.featuredCard, isDesktop && styles.featuredCardDesktop]}
+      testID={testID}
     >
       <View style={[styles.featuredImageContainer, isDesktop && styles.featuredImageContainerDesktop]}>
         {teacherImage ? (
@@ -172,6 +174,7 @@ function RecentEventCard({
   event,
   onPress,
   language,
+  testID,
 }: FeaturedEventProps) {
   const title =
     language === "pt" && event.name_translations?.pt
@@ -205,7 +208,7 @@ function RecentEventCard({
   const metaParts = [eventTypeName, event.startDate ? formatDate(event.startDate) : ""].filter(Boolean);
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.recentCard}>
+    <TouchableOpacity onPress={onPress} style={styles.recentCard} testID={testID}>
       <View style={styles.recentImageContainer}>
         {teacherImage ? (
           <Image
@@ -431,6 +434,7 @@ export default function HomeScreen() {
                 onPress={handleFeaturedPress}
                 isDesktop={isDesktop}
                 highlightLabel={t("home.monthlyHighlight") || "Our monthly highlight"}
+                testID={`event-card-${featuredEvent.id}`}
               />
             </View>
           ) : null}
@@ -447,6 +451,7 @@ export default function HomeScreen() {
                   key={event.id}
                   event={event}
                   language={language}
+                  testID={`event-card-${event.id}`}
                   onPress={() =>
                     router.push({
                       pathname: "/(tabs)/(groups)/retreat/[id]",

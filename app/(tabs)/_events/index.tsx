@@ -73,7 +73,7 @@ function TeacherRow({ teacher, onPress, t }: { teacher: TeacherGroup; onPress: (
 
 // ── Event card (for "by date" view) ─────────────────────────────────────────
 
-function EventCard({ event, onPress, language }: { event: any; onPress: () => void; language: string }) {
+function EventCard({ event, onPress, language, testID }: { event: any; onPress: () => void; language: string; testID?: string }) {
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
@@ -92,7 +92,7 @@ function EventCard({ event, onPress, language }: { event: any; onPress: () => vo
   const teacherPhoto = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.eventCard}>
+    <TouchableOpacity onPress={onPress} style={styles.eventCard} testID={testID}>
       <View style={styles.eventCardAvatar}>
         {teacherPhoto ? (
           <Image source={{ uri: teacherPhoto }} style={styles.eventCardAvatarImg} contentFit="cover" />
@@ -171,7 +171,7 @@ function TeacherAvatars({ teachers }: { teachers?: any[] }) {
   );
 }
 
-function DesktopEventRow({ event, onPress, language }: { event: any; onPress: () => void; language: string }) {
+function DesktopEventRow({ event, onPress, language, testID }: { event: any; onPress: () => void; language: string; testID?: string }) {
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
@@ -187,6 +187,7 @@ function DesktopEventRow({ event, onPress, language }: { event: any; onPress: ()
       onPress={onPress}
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
+      testID={testID}
     >
       <TeacherAvatars teachers={event.teachers} />
       <View style={styles.desktopRowMain}>
@@ -390,6 +391,7 @@ export default function EventsScreen() {
                 event={event}
                 onPress={() => handleEventPress(event.id)}
                 language={language}
+                testID={`event-card-${event.id}`}
               />
             ))}
           </View>
@@ -408,6 +410,7 @@ export default function EventsScreen() {
             event={event}
             onPress={() => handleEventPress(event.id)}
             language={language}
+            testID={`event-card-${event.id}`}
           />
         ))}
       </View>

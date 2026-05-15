@@ -156,12 +156,13 @@ export function AudioPlayer({
           minimumTrackTintColor={colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[200]}
           thumbTintColor={colors.burgundy[500]}
+          testID="audio-seek"
         />
       </View>
 
       {/* Transport row: time | controls | time */}
       <View style={styles.transportRow}>
-        <Text style={styles.timeText}>{formatTime(position)}</Text>
+        <Text style={styles.timeText} testID="audio-current-time">{formatTime(position)}</Text>
 
         <View style={styles.controls}>
           {/* Previous track */}
@@ -174,7 +175,7 @@ export function AudioPlayer({
           </TouchableOpacity>
 
           {/* -10s button */}
-          <TouchableOpacity onPress={skipBackward} style={styles.circularSkipButton}>
+          <TouchableOpacity onPress={skipBackward} style={styles.circularSkipButton} testID="audio-skip-back">
             <RotateLeftThinIcon size={28} color={colors.gray[700]} strokeWidth={1.5} />
             <Text style={styles.skipNumber}>10</Text>
           </TouchableOpacity>
@@ -188,7 +189,7 @@ export function AudioPlayer({
                 style={[styles.loadingRing, { transform: [{ rotate: ringRotation }] }]}
               />
             )}
-            <TouchableOpacity onPress={togglePlayPause} style={styles.playButton}>
+            <TouchableOpacity onPress={togglePlayPause} style={styles.playButton} testID="audio-play-pause">
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={28}
@@ -198,7 +199,7 @@ export function AudioPlayer({
           </View>
 
           {/* +10s button */}
-          <TouchableOpacity onPress={skipForward} style={styles.circularSkipButton}>
+          <TouchableOpacity onPress={skipForward} style={styles.circularSkipButton} testID="audio-skip-forward">
             <RotateRightThinIcon size={28} color={colors.gray[700]} strokeWidth={1.5} />
             <Text style={styles.skipNumber}>10</Text>
           </TouchableOpacity>

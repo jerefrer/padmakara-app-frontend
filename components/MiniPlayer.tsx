@@ -64,6 +64,7 @@ export function MiniPlayer() {
         onPress={handleOpenSession}
         accessibilityRole="button"
         accessibilityLabel={t('miniPlayer.openSession')}
+        testID="miniplayer"
       >
         <View style={styles.iconCircle}>
           <Ionicons name="musical-notes-outline" size={24} color={BURGUNDY} />
@@ -87,6 +88,7 @@ export function MiniPlayer() {
         accessibilityRole="button"
         accessibilityLabel={playLabel}
         hitSlop={8}
+        testID="miniplayer-play-pause"
       >
         <Ionicons
           name={isPlaying ? 'pause' : 'play'}
