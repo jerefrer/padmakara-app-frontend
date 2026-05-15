@@ -163,7 +163,23 @@ function maxAudioElId(log: SeekLogEntry[]): number {
   return max;
 }
 
-test.describe('audio resume — A→B→A round trip', () => {
+/**
+ * SKIPPED in the automated suite.
+ *
+ * This spec predates the seeded-database e2e harness. It hard-codes
+ * production event/track ids (event 672, tracks 54277/54279) that do NOT
+ * exist in the deterministic `padmakara_test` seed dataset, so it cannot
+ * run against the automated stack started by playwright.config.ts.
+ *
+ * It is kept (not deleted) because the A→B→A resume instrumentation it
+ * contains is still a valuable manual regression check. To run it, point a
+ * dev server at a backend that has event 672, then run this file directly
+ * with `test.describe.skip` removed.
+ *
+ * The automated suite covers audio-player UI behaviour in audio-player.spec.ts
+ * against the seeded fixtures instead.
+ */
+test.describe.skip('audio resume — A→B→A round trip', () => {
   test('the NEW A-player created on re-tap is seeked to A\'s saved position', async ({ page }) => {
     await setupInstrumentation(page);
 
