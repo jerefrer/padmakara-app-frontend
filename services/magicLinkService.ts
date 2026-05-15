@@ -3,6 +3,13 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import apiService from './apiService';
 import { API_ENDPOINTS } from './apiConfig';
+import {
+  getAuthToken,
+  setAuthToken,
+  setRefreshToken,
+  deleteAuthToken,
+  deleteRefreshToken,
+} from './tokenStorage';
 
 interface DeviceInfo {
   fingerprint: string;
@@ -206,16 +213,20 @@ class MagicLinkService {
 
       // If device already activated, store tokens and activation flags
       if (response.data.status === 'already_activated' && response.data.access_token) {
-        const storageResults = await Promise.all([
-          this.safeSetItem('auth_token', response.data.access_token),
-          this.safeSetItem('refresh_token', response.data.refresh_token || ''),
-          this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-          this.safeSetItem('device_activated', 'true'),
-          this.safeSetItem('activation_date', new Date().toISOString())
-        ]);
-        
-        if (!storageResults.every(result => result)) {
-          console.warn('Some activation tokens failed to save to AsyncStorage');
+        try {
+          // auth_token and refresh_token are written to SecureStore on native.
+          await setAuthToken(response.data.access_token);
+          await setRefreshToken(response.data.refresh_token || '');
+          const metaResults = await Promise.all([
+            this.safeSetItem('user_data', JSON.stringify(response.data.user)),
+            this.safeSetItem('device_activated', 'true'),
+            this.safeSetItem('activation_date', new Date().toISOString())
+          ]);
+          if (!metaResults.every(result => result)) {
+            console.warn('Some activation metadata failed to save to AsyncStorage');
+          }
+        } catch (storeError) {
+          console.warn('Some activation tokens failed to save to secure storage', storeError);
         }
       }
 
@@ -275,7 +286,8 @@ class MagicLinkService {
       
       const [activated, token] = await Promise.all([
         this.safeGetItem('device_activated'),
-        this.safeGetItem('auth_token')
+        // auth_token is stored in SecureStore on native; tokenStorage handles fallback.
+        getAuthToken().catch(() => null)
       ]);
       
       const isActivated = activated === 'true' && !!token;
@@ -363,14 +375,15 @@ class MagicLinkService {
     try {
       console.log('📱 Clearing local device activation data...');
       
+      // auth_token and refresh_token live in SecureStore on native.
+      await deleteAuthToken();
+      await deleteRefreshToken();
       const success = await this.safeMultiRemove([
         'device_activated',
         'activation_date',
-        'auth_token',
-        'refresh_token',
         'user_data'
       ]);
-      
+
       if (success) {
         console.log('✅ Device activation cleared successfully');
       } else {
@@ -433,25 +446,31 @@ class MagicLinkService {
         
         if (isActivated && response.data.access_token) {
           console.log('🎉 Device discovered as activated on backend - storing tokens');
-          
-          const storageResults = await Promise.all([
-            this.safeSetItem('auth_token', response.data.access_token),
-            this.safeSetItem('refresh_token', response.data.refresh_token || ''),
-            this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-            this.safeSetItem('device_activated', 'true'),
-            this.safeSetItem('activation_date', response.data.device?.activated_at || new Date().toISOString())
-          ]);
-          
-          if (storageResults.every(result => result)) {
-            console.log('✅ Discovered activation tokens stored locally');
-            return {
-              success: true,
-              data: {
-                isActivated: true,
-                user: response.data.user
-              }
-            };
-          } else {
+
+          try {
+            // auth_token and refresh_token go to SecureStore on native.
+            await setAuthToken(response.data.access_token);
+            await setRefreshToken(response.data.refresh_token || '');
+            const metaResults = await Promise.all([
+              this.safeSetItem('user_data', JSON.stringify(response.data.user)),
+              this.safeSetItem('device_activated', 'true'),
+              this.safeSetItem('activation_date', response.data.device?.activated_at || new Date().toISOString())
+            ]);
+            if (metaResults.every(result => result)) {
+              console.log('✅ Discovered activation tokens stored locally');
+              return {
+                success: true,
+                data: {
+                  isActivated: true,
+                  user: response.data.user
+                }
+              };
+            }
+          } catch (_storeErr) {
+            // fall through to the failure return below
+          }
+
+          {
             console.warn('⚠️ Some tokens failed to store locally');
             return {
               success: false,
@@ -534,16 +553,20 @@ class MagicLinkService {
 
       // Store tokens if auto-activation successful
       if (response.data.access_token) {
-        const storageResults = await Promise.all([
-          this.safeSetItem('auth_token', response.data.access_token),
-          this.safeSetItem('refresh_token', response.data.refresh_token || ''),
-          this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-          this.safeSetItem('device_activated', 'true'),
-          this.safeSetItem('activation_date', new Date().toISOString())
-        ]);
-        
-        if (!storageResults.every(result => result)) {
-          console.warn('Some auto-activation tokens failed to save to AsyncStorage');
+        try {
+          // auth_token and refresh_token go to SecureStore on native.
+          await setAuthToken(response.data.access_token);
+          await setRefreshToken(response.data.refresh_token || '');
+          const metaResults = await Promise.all([
+            this.safeSetItem('user_data', JSON.stringify(response.data.user)),
+            this.safeSetItem('device_activated', 'true'),
+            this.safeSetItem('activation_date', new Date().toISOString())
+          ]);
+          if (!metaResults.every(result => result)) {
+            console.warn('Some auto-activation metadata failed to save to AsyncStorage');
+          }
+        } catch (storeError) {
+          console.warn('Some auto-activation tokens failed to save to secure storage', storeError);
         }
       }
 

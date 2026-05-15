@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_CONFIG, API_ENDPOINTS, ApiResponse, ApiError, getAuthHeaders } from './apiConfig';
+import {
+  getAuthToken,
+  setAuthToken,
+  getRefreshToken,
+  setRefreshToken,
+  deleteAllTokens,
+} from './tokenStorage';
 
 type RefreshResult = 'refreshed' | 'rejected' | 'transient';
 
@@ -46,9 +53,9 @@ class ApiService {
     
     // Clear all auth-related data with platform-specific handling
     try {
+      // Tokens live in SecureStore on native; other keys stay in AsyncStorage.
+      await deleteAllTokens();
       await AsyncStorage.multiRemove([
-        'auth_token', 
-        'refresh_token',
         'user_data',
         'device_activated',
         'activation_date'
@@ -56,12 +63,12 @@ class ApiService {
       console.log('✅ Auth data cleared successfully');
     } catch (clearError) {
       console.error('❌ Failed to clear auth data:', clearError);
-      
+
       // Platform-specific error handling
       if (Platform.OS === 'web') {
         console.warn('🌐 Web storage clear failed - user may have disabled localStorage');
       } else {
-        console.warn('📱 Native storage clear failed - AsyncStorage may be corrupted');
+        console.warn('📱 Native storage clear failed - storage may be corrupted');
       }
     }
     
@@ -74,7 +81,7 @@ class ApiService {
 
   private async getAuthToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem('auth_token');
+      return await getAuthToken();
     } catch (error) {
       console.error('Error getting auth token:', error);
       return null;
@@ -104,7 +111,7 @@ class ApiService {
 
     this.refreshInFlight = (async (): Promise<RefreshResult> => {
       try {
-        const refreshToken = await AsyncStorage.getItem('refresh_token');
+        const refreshToken = await getRefreshToken();
         if (!refreshToken) {
           console.log('🔐 No refresh token available');
           return 'rejected';
@@ -130,9 +137,9 @@ class ApiService {
 
         const data = await response.json();
         if (data.accessToken) {
-          await AsyncStorage.setItem('auth_token', data.accessToken);
+          await setAuthToken(data.accessToken);
           if (data.refreshToken) {
-            await AsyncStorage.setItem('refresh_token', data.refreshToken);
+            await setRefreshToken(data.refreshToken);
           }
           console.log('✅ Token refreshed successfully');
           return 'refreshed';
@@ -481,7 +488,8 @@ class ApiService {
 
   // Clear auth state (for logout)
   async clearAuthState(): Promise<void> {
-    await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+    await deleteAllTokens();
+    await AsyncStorage.removeItem('user_data');
   }
 }
 

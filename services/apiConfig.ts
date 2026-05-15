@@ -126,13 +126,13 @@ export const buildApiUrl = (endpoint: string): string => {
 // Helper function to get auth headers
 export const getAuthHeaders = async () => {
   try {
-    const AsyncStorage = await import('@react-native-async-storage/async-storage');
-    const token = await AsyncStorage.default.getItem('auth_token');
-    
+    const { getAuthToken } = await import('./tokenStorage');
+    const token = await getAuthToken();
+
     if (!token) {
       throw new Error('No authentication token found');
     }
-    
+
     return {
       ...API_CONFIG.headers,
       'Authorization': `Bearer ${token}`,
