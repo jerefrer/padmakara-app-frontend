@@ -11,8 +11,7 @@
     "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:e2e": "playwright test --config=e2e/playwright.config.ts --project=chromium",
-    "test:e2e:setup": "playwright test --config=e2e/playwright.config.ts --project=setup"
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts --project=chromium"
   },
   "dependencies": {
     "@expo-google-fonts/eb-garamond": "^0.4.2",
