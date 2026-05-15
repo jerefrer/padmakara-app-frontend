@@ -3,6 +3,12 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { User } from '@/types';
 import apiService from './apiService';
 import { API_ENDPOINTS } from './apiConfig';
+import {
+  getAuthToken,
+  setAuthToken,
+  deleteAuthToken,
+  deleteRefreshToken,
+} from './tokenStorage';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -27,8 +33,9 @@ class AuthService {
       console.log('📱 Getting auth state from AsyncStorage...');
       
       // Use Promise.all with timeout for better performance and error handling
+      // auth_token is retrieved via tokenStorage (SecureStore on native, AsyncStorage on web).
       const storagePromises = [
-        this.safeGetItem('auth_token'),
+        getAuthToken().catch(() => null),
         this.safeGetItem('user_data')
       ];
       
@@ -55,7 +62,7 @@ class AuthService {
           console.error('Error parsing user data:', parseError);
           // Clear corrupted user data
           await this.safeRemoveItem('user_data');
-          await this.safeRemoveItem('auth_token');
+          await deleteAuthToken();
           return {
             isAuthenticated: false,
             user: null,
@@ -84,7 +91,8 @@ class AuthService {
       if (error instanceof Error && error.message.includes('timeout')) {
         console.warn('AsyncStorage timeout - attempting recovery');
         try {
-          await this.safeMultiRemove(['auth_token', 'user_data']);
+          await deleteAuthToken();
+          await this.safeRemoveItem('user_data');
         } catch (clearError) {
           console.error('Failed to clear corrupted auth data:', clearError);
         }
@@ -187,12 +195,10 @@ class AuthService {
       // Note: No backend logout call needed for magic link auth
       // Device deactivation is handled separately in the logout flow
       
-      // Clear local storage with error handling
-      await this.safeMultiRemove([
-        'auth_token',
-        'refresh_token',
-        'user_data',
-      ]);
+      // auth_token and refresh_token live in SecureStore on native.
+      await deleteAuthToken();
+      await deleteRefreshToken();
+      await this.safeRemoveItem('user_data');
     } catch (error) {
       console.error('Logout error:', error);
     }

@@ -3,6 +3,7 @@ import { Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
+import { getAuthToken } from './tokenStorage';
 import apiService from './apiService';
 import entityCacheService from './entityCacheService';
 import { hasExpiredPresignedUrl } from '@/utils/presignedUrlExpiry';
@@ -876,7 +877,7 @@ class RetreatService {
     error?: string;
   }> {
     try {
-      const token = await AsyncStorage.getItem('auth_token');
+      const token = await getAuthToken();
       const apiUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.TRANSCRIPT_URL(transcriptId)}`;
 
       // Web: point iframe directly at API URL with token (gets correct filename from headers)
