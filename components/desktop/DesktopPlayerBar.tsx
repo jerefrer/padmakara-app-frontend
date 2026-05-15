@@ -154,6 +154,7 @@ export function DesktopPlayerBar() {
               onPress={skipBackward}
               style={[styles.skipButton, controlsDisabled && styles.transportDisabled]}
               disabled={controlsDisabled}
+              testID="audio-skip-back"
             >
               <RotateLeftThinIcon
                 size={24}
@@ -178,6 +179,7 @@ export function DesktopPlayerBar() {
                 onPress={hasIdleTrack ? resumeLastPlayed : togglePlayPause}
                 style={[styles.playButton, allDisabled && styles.playButtonDisabled]}
                 disabled={allDisabled}
+                testID="audio-play-pause"
               >
                 <Ionicons
                   name={isPlaying ? 'pause' : 'play'}
@@ -193,6 +195,7 @@ export function DesktopPlayerBar() {
               onPress={skipForward}
               style={[styles.skipButton, controlsDisabled && styles.transportDisabled]}
               disabled={controlsDisabled}
+              testID="audio-skip-forward"
             >
               <RotateRightThinIcon
                 size={24}
@@ -221,7 +224,12 @@ export function DesktopPlayerBar() {
           {/* Slider + time — interactive whenever a real track is loaded;
               gray only when there is no track at all. */}
           <View style={styles.sliderRow}>
-            <Text style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}>{formatTime(displayPosition)}</Text>
+            <Text
+              style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}
+              testID="audio-current-time"
+            >
+              {formatTime(displayPosition)}
+            </Text>
             <Slider
               style={styles.slider}
               minimumValue={0}
@@ -234,6 +242,7 @@ export function DesktopPlayerBar() {
               maximumTrackTintColor={colors.gray[300]}
               thumbTintColor={controlsDisabled ? colors.gray[400] : colors.burgundy[500]}
               disabled={controlsDisabled}
+              testID="audio-seek"
             />
             <Text style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}>{formatTime(displayDuration)}</Text>
           </View>

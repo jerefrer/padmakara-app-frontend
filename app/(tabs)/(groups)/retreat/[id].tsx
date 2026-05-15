@@ -1563,7 +1563,7 @@ export default function RetreatDetailScreen() {
         </View>
       )}
       {isDownloadingZip && (
-        <View style={styles.downloadBanner}>
+        <View style={styles.downloadBanner} testID="event-download-banner">
           <ActivityIndicator size="small" color={colors.burgundy[500]} />
           <Text style={styles.downloadBannerText}>{zipDownloadProgress}</Text>
           <TouchableOpacity onPress={handleDownloadRetreatZip}>
@@ -1665,6 +1665,7 @@ export default function RetreatDetailScreen() {
           onPress={() => setMenuVisible(true)}
           style={styles.floatingTopButtonInline}
           hitSlop={8}
+          testID="event-menu-button"
         >
           <Ionicons name="ellipsis-vertical" size={22} color={colors.white} />
         </TouchableOpacity>
@@ -1774,7 +1775,11 @@ export default function RetreatDetailScreen() {
             {Platform.OS === 'web' && (
               <>
                 <View style={styles.menuDivider} />
-                <TouchableOpacity style={styles.menuItem} onPress={handleDownloadRetreatZip}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleDownloadRetreatZip}
+                  testID="event-download-zip"
+                >
                   <Ionicons name="archive-outline" size={22} color={colors.gray[700]} />
                   <Text style={styles.menuItemText}>Download as ZIP</Text>
                 </TouchableOpacity>
