@@ -132,6 +132,7 @@
   },
   "events": {
     "empty": "No events available",
+    "retreats": "Retreats",
     "eventName": "Event",
     "sessions": "Sessions",
     "sessionLabel": "session",

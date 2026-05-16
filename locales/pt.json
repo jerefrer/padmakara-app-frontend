@@ -132,6 +132,7 @@
   },
   "events": {
     "empty": "Sem eventos disponíveis",
+    "retreats": "Retiros",
     "eventName": "Evento",
     "sessions": "Sessões",
     "sessionLabel": "sessão",
