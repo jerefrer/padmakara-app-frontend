@@ -12,6 +12,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DraftBadge } from '@/components/DraftBadge';
 import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
@@ -266,7 +267,10 @@ export default function TeacherDetailScreen() {
                 style={styles.eventCard}
                 onPress={() => router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: String(event.id), from: 'events' } } as any)}
               >
-                <Text style={styles.eventTitle}>{eventTitle}</Text>
+                <View style={styles.eventTitleRow}>
+                  <Text style={[styles.eventTitle, styles.eventTitleFlex]}>{eventTitle}</Text>
+                  {event.status === 'draft' && <DraftBadge />}
+                </View>
                 {statsParts.length > 0 && (
                   <Text style={styles.eventStats}>{statsParts.join('  ')}</Text>
                 )}
@@ -374,6 +378,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray200,
+  },
+  eventTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  eventTitleFlex: {
+    flex: 1,
   },
   eventTitle: {
     fontFamily: 'EBGaramond_600SemiBold',
