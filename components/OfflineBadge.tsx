@@ -9,20 +9,13 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-const colors = {
-  burgundy: {
-    50: '#f8f1f1',
-    500: '#9b1b1b',
-    600: '#7b1616',
-  },
-};
+import { colors } from '@/constants/colors';
 
 export function OfflineBadge() {
   const { t } = useLanguage();
   return (
     <View style={styles.badge}>
-      <Ionicons name="checkmark-circle" size={12} color="#6b7280" />
+      <Ionicons name="checkmark-circle" size={12} color={colors.gray[500]} />
       <Text style={styles.badgeText}>{t('retreats.offline') || 'Offline'}</Text>
     </View>
   );
@@ -42,7 +35,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.gray[500],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
