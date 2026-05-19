@@ -11,6 +11,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DraftBadge } from '@/components/DraftBadge';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -149,6 +150,7 @@ interface RetreatDetails {
     heroUpdatedAt?: string | null;
   };
   transcripts?: TranscriptInfo[];
+  status?: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   relatedPublications?: Array<{
     id: number;
     title: string;
@@ -1324,7 +1326,10 @@ export default function RetreatDetailScreen() {
             the fixed top bar; on desktop it's the main event header. */}
         {(
           <View style={styles.eventTitleSection}>
-            <Text style={styles.eventTitleText}>{titleText}</Text>
+            <View style={styles.eventTitleRow}>
+              <Text style={styles.eventTitleText}>{titleText}</Text>
+              {retreat.status === 'draft' && <DraftBadge />}
+            </View>
             {speakersText ? (
               <Text style={styles.eventSpeakerText}>{speakersText}</Text>
             ) : null}
@@ -2210,11 +2215,18 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.burgundy[500],
     marginBottom: 8,
   },
+  eventTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    flexWrap: 'wrap' as const,
+  },
   eventTitleText: {
     fontFamily: 'EBGaramond_600SemiBold',
     fontSize: 26,
     color: colors.burgundy[500],
     lineHeight: 32,
+    flex: 1,
   },
   eventSpeakerText: {
     fontFamily: 'EBGaramond_600SemiBold',

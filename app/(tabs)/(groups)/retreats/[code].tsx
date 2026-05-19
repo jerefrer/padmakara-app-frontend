@@ -10,6 +10,7 @@ import Animated, {
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { DraftBadge } from '@/components/DraftBadge';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -172,6 +173,7 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameFor
         <View style={styles.retreatCardInfo}>
           <View style={styles.retreatTitleRow}>
             <Text style={styles.retreatTitle} numberOfLines={2}>{displayName}</Text>
+            {retreat.status === 'draft' && <DraftBadge />}
             {isDownloaded && <OfflineBadge />}
           </View>
           {teacherNames ? (
@@ -271,6 +273,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
         </Text>
       </View>
       <View style={styles.desktopRowBadges}>
+        {retreat.status === 'draft' && <DraftBadge />}
         {isDownloaded && <OfflineBadge />}
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />

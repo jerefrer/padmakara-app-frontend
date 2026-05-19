@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
+import { DraftBadge } from '@/components/DraftBadge';
 import { Stack, router, useGlobalSearchParams, useSegments } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -103,7 +104,10 @@ function EventCard({ event, onPress, language, testID }: { event: any; onPress: 
         )}
       </View>
       <View style={styles.eventCardInfo}>
-        <Text style={styles.eventCardTitle} numberOfLines={2}>{title}</Text>
+        <View style={styles.eventCardTitleRow}>
+          <Text style={styles.eventCardTitle} numberOfLines={2}>{title}</Text>
+          {event.status === 'draft' && <DraftBadge />}
+        </View>
         {teacherNames ? (
           <Text style={styles.eventCardTeacher} numberOfLines={1}>{teacherNames}</Text>
         ) : null}
@@ -647,11 +651,18 @@ const styles = StyleSheet.create({
   eventCardInfo: {
     flex: 1,
   },
+  eventCardTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    flexWrap: 'wrap' as const,
+    marginBottom: 2,
+  },
   eventCardTitle: {
     fontSize: 17,
     fontFamily: 'EBGaramond_500Medium',
     color: colors.gray[800],
-    marginBottom: 2,
+    flex: 1,
   },
   eventCardTeacher: {
     fontSize: 14,

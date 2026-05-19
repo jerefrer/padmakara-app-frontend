@@ -1,3 +1,4 @@
+import { DraftBadge } from "@/components/DraftBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import retreatService from "@/services/retreatService";
@@ -145,9 +146,12 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
             {teacherNames}
           </Text>
         ) : null}
-        <Text style={[styles.featuredTitle, isDesktop && styles.featuredTitleDesktop]} numberOfLines={2}>
-          {title}
-        </Text>
+        <View style={styles.featuredTitleRow}>
+          <Text style={[styles.featuredTitle, isDesktop && styles.featuredTitleDesktop]} numberOfLines={2}>
+            {title}
+          </Text>
+          {event.status === 'draft' && <DraftBadge />}
+        </View>
         {metaLine ? (
           <Text style={styles.featuredMeta}>{metaLine}</Text>
         ) : null}
@@ -230,9 +234,12 @@ function RecentEventCard({
         )}
       </View>
       <View style={styles.recentInfo}>
-        <Text style={styles.recentTitle} numberOfLines={2}>
-          {title}
-        </Text>
+        <View style={styles.recentTitleRow}>
+          <Text style={styles.recentTitle} numberOfLines={2}>
+            {title}
+          </Text>
+          {event.status === 'draft' && <DraftBadge />}
+        </View>
         {teacherNames ? (
           <Text style={styles.recentTeacher} numberOfLines={1}>
             {teacherNames}
@@ -608,11 +615,17 @@ const styles = StyleSheet.create({
     fontSize: 30,
     marginBottom: 4,
   },
+  featuredTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    flexWrap: 'wrap' as const,
+    marginBottom: 4,
+  },
   featuredTitle: {
     fontSize: 17,
     fontFamily: "EBGaramond_400Regular",
     color: colors.gray[800],
-    marginBottom: 4,
   },
   featuredTitleDesktop: {
     fontSize: 20,
@@ -668,11 +681,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  recentTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    flexWrap: 'wrap' as const,
+    marginBottom: 2,
+  },
   recentTitle: {
     fontSize: 18,
     fontFamily: "EBGaramond_500Medium",
     color: colors.burgundy[500],
-    marginBottom: 2,
+    flex: 1,
   },
   recentTeacher: {
     fontSize: 15,
