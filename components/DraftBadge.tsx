@@ -9,15 +9,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-const colors = {
-  saffron: {
-    50: '#fffbeb',
-    500: '#f59e0b',
-    600: '#d97706',
-  },
-};
 
 export function DraftBadge() {
   const { t } = useLanguage();
