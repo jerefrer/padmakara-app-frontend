@@ -20,7 +20,8 @@
     "cancel": "Cancelar",
     "close": "Fechar",
     "ok": "OK",
-    "remove": "Remover"
+    "remove": "Remover",
+    "draft": "Rascunho"
   },
   "video": {
     "loading": "A carregar vídeo…",
