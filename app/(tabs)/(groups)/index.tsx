@@ -626,6 +626,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: "EBGaramond_400Regular",
     color: colors.gray[800],
+    flex: 1,
   },
   featuredTitleDesktop: {
     fontSize: 20,

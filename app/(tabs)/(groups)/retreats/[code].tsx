@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   desktopRowBadges: {
-    width: 32,
+    minWidth: 60,
     alignItems: 'center',
   },
 });

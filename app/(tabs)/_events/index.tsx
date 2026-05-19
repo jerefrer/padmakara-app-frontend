@@ -203,6 +203,11 @@ function DesktopEventRow({ event, onPress, language, testID }: { event: any; onP
           {event.teachers?.length > 0 && ` · ${event.teachers.map((t: any) => t.name).filter(Boolean).join(', ')}`}
         </Text>
       </View>
+      {event.status === 'draft' && (
+        <View style={styles.desktopRowBadges}>
+          <DraftBadge />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -806,5 +811,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.gray[600],
+  },
+  desktopRowBadges: {
+    minWidth: 60,
+    alignItems: 'center',
   },
 });
