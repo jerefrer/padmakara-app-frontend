@@ -44,7 +44,8 @@
   },
   "eventTabs": {
     "videos": "Videos",
-    "tracks": "Audio"
+    "tracks": "Audio",
+    "transcript": "Transcript"
   },
   "auth": {
     "welcomeBack": "Welcome Back",
@@ -146,7 +147,11 @@
     "teachings": "Teachings & Talks",
     "recordingsLabel": "Recordings",
     "organizerPrefix": "Org.",
-    "transcriptOnlyMessage": "No audio or video recordings are available for this event. Only the written transcript is available."
+    "transcriptOnlyMessage": "No audio or video recordings are available for this event. Only the written transcript is available.",
+    "preDownload": "Pre-download",
+    "preDownloadRemove": "Remove download",
+    "preDownloadTracks": "tracks",
+    "preDownloadDescription": "These recordings will be saved to your device so you can listen offline, without an internet connection. They won't be removed automatically."
   },
   "home": {
     "greetingMorning": "Good morning",

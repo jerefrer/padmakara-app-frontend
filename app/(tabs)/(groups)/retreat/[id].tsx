@@ -986,8 +986,8 @@ export default function RetreatDetailScreen() {
     const totalSize = formatBytes(calculateTotalRetreatSize());
 
     showModal(
-      'Download for offline listening',
-      `Download all ${tracks.length} tracks (${totalSize}) for offline listening?\n\nThis content won't be automatically removed.`,
+      t('events.preDownload') || 'Pre-download',
+      `${tracks.length} ${t('events.preDownloadTracks') || 'tracks'} · ${totalSize}\n\n${t('events.preDownloadDescription') || "These recordings will be saved to your device so you can listen offline, without an internet connection. They won't be removed automatically."}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1245,10 +1245,28 @@ export default function RetreatDetailScreen() {
     const videoSessions = (retreat?.sessions ?? []).filter((s) => !!s.bunnyVideoId);
     // Tabs only appear when both content types are available; otherwise
     // the screen renders whichever exists.
-    const showContentTabs = hasVideo && hasAudio;
-    const effectiveTab: 'video' | 'tracks' = showContentTabs
-      ? activeContentTab
-      : (hasVideo ? 'video' : 'tracks');
+    // On native mobile the transcript is reached through a pseudo-tab that
+    // opens it full-page (rather than rendering inline), so the tab bar shows
+    // whenever the event has 2+ content types — including the common
+    // audio+transcript case that previously had no tab bar at all. On web the
+    // tab bar keeps its original rule (video AND audio); the transcript there
+    // is still opened from the desktop player bar / overflow menu.
+    const isNativeMobile = Platform.OS !== 'web';
+    const contentTypeCount =
+      (hasVideo ? 1 : 0) + (hasAudio ? 1 : 0) + (hasTranscript ? 1 : 0);
+    const showContentTabs = isNativeMobile
+      ? contentTypeCount >= 2
+      : hasVideo && hasAudio;
+    // The active tab only ever points at a media tab (video/tracks); the
+    // transcript pseudo-tab navigates away instead of becoming "active". Fall
+    // back to whichever media type actually exists so an audio+transcript
+    // event doesn't land on an empty 'video' body.
+    const effectiveTab: 'video' | 'tracks' =
+      activeContentTab === 'video' && hasVideo
+        ? 'video'
+        : activeContentTab === 'tracks' && hasAudio
+          ? 'tracks'
+          : (hasVideo ? 'video' : 'tracks');
 
     // Helper for the video card title — reuses the same session header
     // formatting as the audio track list so the two stay consistent.
@@ -1343,26 +1361,46 @@ export default function RetreatDetailScreen() {
             video recordings. Sits between the title and the content. */}
         {showContentTabs && (
           <View style={styles.contentTabBar}>
-            <Pressable
-              style={[styles.contentTab, effectiveTab === 'video' && styles.contentTabActive]}
-              onPress={() => setActiveContentTab('video')}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: effectiveTab === 'video' }}
-            >
-              <Text style={[styles.contentTabText, effectiveTab === 'video' && styles.contentTabTextActive]}>
-                {t('eventTabs.videos') || 'Videos'}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.contentTab, effectiveTab === 'tracks' && styles.contentTabActive]}
-              onPress={() => setActiveContentTab('tracks')}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: effectiveTab === 'tracks' }}
-            >
-              <Text style={[styles.contentTabText, effectiveTab === 'tracks' && styles.contentTabTextActive]}>
-                {t('eventTabs.tracks') || 'Audio'}
-              </Text>
-            </Pressable>
+            {hasVideo && (
+              <Pressable
+                style={[styles.contentTab, effectiveTab === 'video' && styles.contentTabActive]}
+                onPress={() => setActiveContentTab('video')}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: effectiveTab === 'video' }}
+              >
+                <Text style={[styles.contentTabText, effectiveTab === 'video' && styles.contentTabTextActive]}>
+                  {t('eventTabs.videos') || 'Videos'}
+                </Text>
+              </Pressable>
+            )}
+            {hasAudio && (
+              <Pressable
+                style={[styles.contentTab, effectiveTab === 'tracks' && styles.contentTabActive]}
+                onPress={() => setActiveContentTab('tracks')}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: effectiveTab === 'tracks' }}
+              >
+                <Text style={[styles.contentTabText, effectiveTab === 'tracks' && styles.contentTabTextActive]}>
+                  {t('eventTabs.tracks') || 'Audio'}
+                </Text>
+              </Pressable>
+            )}
+            {/* Transcript pseudo-tab — looks like a tab but, instead of
+                rendering content below, it opens the transcript full-page
+                (same destination as the old overflow-menu shortcut). Native
+                mobile only; web opens the transcript from the player bar. */}
+            {isNativeMobile && hasTranscript && (
+              <Pressable
+                style={styles.contentTab}
+                onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)}
+                accessibilityRole="button"
+                accessibilityLabel={t('transcript.open') || 'Open transcript'}
+              >
+                <Text style={styles.contentTabText}>
+                  {t('eventTabs.transcript') || 'Transcript'}
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -1666,13 +1704,36 @@ export default function RetreatDetailScreen() {
             />
           </TouchableOpacity>
         )}
+        {/* On native mobile the transcript moved to a tab and ZIP downloads
+            aren't offered, so the overflow menu would hold a single action —
+            pre-download. Skip the menu and trigger it directly. Web keeps the
+            kebab menu (download + ZIP + transcript shortcut). */}
         <TouchableOpacity
-          onPress={() => setMenuVisible(true)}
+          onPress={() =>
+            Platform.OS === 'web' ? setMenuVisible(true) : handleDownloadForOffline()
+          }
           style={styles.floatingTopButtonInline}
           hitSlop={8}
           testID="event-menu-button"
+          accessibilityLabel={
+            Platform.OS === 'web'
+              ? undefined
+              : isRetreatDownloaded
+                ? t('events.preDownloadRemove') || 'Remove download'
+                : t('events.preDownload') || 'Pre-download'
+          }
         >
-          <Ionicons name="ellipsis-vertical" size={22} color={colors.white} />
+          <Ionicons
+            name={
+              Platform.OS === 'web'
+                ? 'ellipsis-vertical'
+                : isRetreatDownloaded
+                  ? 'cloud-offline-outline'
+                  : 'download-outline'
+            }
+            size={22}
+            color={colors.white}
+          />
         </TouchableOpacity>
       </View>
 
@@ -1754,13 +1815,17 @@ export default function RetreatDetailScreen() {
                 color={colors.gray[700]}
               />
               <Text style={styles.menuItemText}>
-                {isRetreatDownloaded ? 'Remove Offline Download' : 'Download for offline listening'}
+                {isRetreatDownloaded
+                  ? t('events.preDownloadRemove') || 'Remove download'
+                  : t('events.preDownload') || 'Pre-download'}
               </Text>
             </TouchableOpacity>
 
-            {/* Transcript shortcut — moved here from the (now-removed) top bar
-                so it stays accessible alongside the download action. */}
-            {!isDesktop && retreat.transcripts && retreat.transcripts.length > 0 && (
+            {/* Transcript shortcut — web only. On native mobile the transcript
+                is reached through its own pseudo-tab, so it's removed from this
+                menu (which is why the native overflow button is replaced by a
+                direct pre-download action). */}
+            {Platform.OS === 'web' && !isDesktop && retreat.transcripts && retreat.transcripts.length > 0 && (
               <>
                 <View style={styles.menuDivider} />
                 <TouchableOpacity

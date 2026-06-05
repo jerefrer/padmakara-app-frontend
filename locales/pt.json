@@ -44,7 +44,8 @@
   },
   "eventTabs": {
     "videos": "Vídeos",
-    "tracks": "Áudio"
+    "tracks": "Áudio",
+    "transcript": "Transcrição"
   },
   "auth": {
     "welcomeBack": "Bem-vindo de Volta",
@@ -146,7 +147,11 @@
     "teachings": "Ensinamentos e Palestras",
     "recordingsLabel": "Gravações",
     "organizerPrefix": "Org.",
-    "transcriptOnlyMessage": "Não existem gravações de áudio ou vídeo disponíveis para este evento. Apenas a transcrição escrita está disponível."
+    "transcriptOnlyMessage": "Não existem gravações de áudio ou vídeo disponíveis para este evento. Apenas a transcrição escrita está disponível.",
+    "preDownload": "Pré-transferir",
+    "preDownloadRemove": "Remover transferência",
+    "preDownloadTracks": "faixas",
+    "preDownloadDescription": "Estas gravações serão guardadas no seu dispositivo para poder ouvir sem ligação à internet. Não serão removidas automaticamente."
   },
   "home": {
     "greetingMorning": "Bom dia",
