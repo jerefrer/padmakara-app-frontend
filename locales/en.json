@@ -1,4 +1,14 @@
 {
+  "content": {
+    "allLanguages": "All languages",
+    "language": {
+      "en": "English",
+      "pt": "Portuguese",
+      "tib": "Tibetan",
+      "fr": "French",
+      "es": "Spanish"
+    }
+  },
   "common": {
     "welcome": "Welcome",
     "login": "Login",

@@ -1,5 +1,9 @@
 import { sortTracksForSession } from './trackFiltering';
-import { filterTracksByLanguage } from './trackFiltering';
+import {
+  filterTracksByLanguage,
+  getEventLanguages,
+  trackLanguages,
+} from './trackFiltering';
 import type { TrackWithSession } from './trackFiltering';
 import type { Track } from '@/types';
 
@@ -164,5 +168,90 @@ describe('filterTracksByLanguage', () => {
     expect(filterTracksByLanguage([], 'en')).toEqual([]);
     expect(filterTracksByLanguage([], 'pt')).toEqual([]);
     expect(filterTracksByLanguage([], 'en-pt')).toEqual([]);
+  });
+
+  it('A13 — `all` returns every track unchanged', () => {
+    const tracks = [
+      tws({ id: 'tib', languages: ['tib'] }),
+      tws({ id: 'en', languages: ['en'] }),
+      tws({ id: 'pt', languages: ['pt'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, 'all').map((t) => t.id)).toEqual([
+      'tib',
+      'en',
+      'pt',
+    ]);
+  });
+
+  it('A14 — `tib` filter returns Tibetan tracks (incl. bilingual TIB+ENG)', () => {
+    const tracks = [
+      tws({ id: 'tib-en', languages: ['tib', 'en'] }),
+      tws({ id: 'pt', languages: ['pt'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, 'tib').map((t) => t.id)).toEqual([
+      'tib-en',
+    ]);
+  });
+
+  it('A15 — trilingual event (TIB+ENG set / PT set): each filter isolates its set', () => {
+    const tracks = [
+      tws({ id: 'tib-en', languages: ['tib', 'en'] }),
+      tws({ id: 'pt', languages: ['pt'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['tib-en']);
+    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['pt']);
+    expect(filterTracksByLanguage(tracks, 'tib').map((t) => t.id)).toEqual(['tib-en']);
+    expect(filterTracksByLanguage(tracks, 'all').map((t) => t.id)).toEqual(['tib-en', 'pt']);
+  });
+
+  it('A16 — anti-leak: a TIB-only original does NOT show in the `en` filter', () => {
+    const tracks = [
+      tws({ id: 'en', languages: ['en'] }),
+      tws({ id: 'tib', languages: ['tib'], isOriginal: true }),
+    ];
+    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['en']);
+  });
+});
+
+describe('trackLanguages', () => {
+  it('prefers the `languages` array', () => {
+    expect(trackLanguages(baseTrack({ languages: ['en', 'pt'] }))).toEqual(['en', 'pt']);
+  });
+
+  it('falls back to originalLanguage, then language', () => {
+    expect(trackLanguages(baseTrack({ originalLanguage: 'tib' }))).toEqual(['tib']);
+    expect(trackLanguages(baseTrack({ language: 'pt' }))).toEqual(['pt']);
+  });
+
+  it('returns [] when no language metadata is present', () => {
+    expect(trackLanguages(baseTrack({}))).toEqual([]);
+  });
+});
+
+describe('getEventLanguages', () => {
+  it('returns the distinct languages present, ordered tib < en < pt', () => {
+    const tracks = [
+      tws({ id: 'pt', languages: ['pt'] }),
+      tws({ id: 'tib-en', languages: ['tib', 'en'] }),
+      tws({ id: 'en2', languages: ['en'] }),
+    ];
+    expect(getEventLanguages(tracks)).toEqual(['tib', 'en', 'pt']);
+  });
+
+  it('returns a single language for a monolingual event', () => {
+    const tracks = [tws({ id: 'a', languages: ['en'] }), tws({ id: 'b', languages: ['en'] })];
+    expect(getEventLanguages(tracks)).toEqual(['en']);
+  });
+
+  it('returns [] when no track carries language metadata', () => {
+    expect(getEventLanguages([tws({ id: 'a' }), tws({ id: 'b' })])).toEqual([]);
+  });
+
+  it('places unknown language codes last', () => {
+    const tracks = [
+      tws({ id: 'de', languages: ['de'] }),
+      tws({ id: 'en', languages: ['en'] }),
+    ];
+    expect(getEventLanguages(tracks)).toEqual(['en', 'de']);
   });
 });
