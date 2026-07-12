@@ -164,9 +164,14 @@ function mapSession(backend: any): Session {
     date: backend.sessionDate || backend.session_date || '',
     tracks: backend.tracks?.map(mapTrack) || undefined,
     gathering_id: String(backend.eventId || backend.event_id || backend.retreat_id || ''),
-    bunnyVideoId: backend.bunnyVideoId ?? backend.bunny_video_id ?? null,
-    videoDurationSeconds: backend.videoDurationSeconds ?? backend.video_duration_seconds ?? null,
-    videoPosterUrl: backend.videoPosterUrl ?? backend.video_poster_url ?? null,
+    videos: (backend.videos ?? []).map((v: any) => ({
+      id: v.id,
+      bunnyVideoId: v.bunnyVideoId ?? v.bunny_video_id,
+      position: v.position ?? 0,
+      title: v.title ?? null,
+      durationSeconds: v.durationSeconds ?? v.duration_seconds ?? null,
+      posterUrl: v.posterUrl ?? v.poster_url ?? null,
+    })),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
   };
@@ -793,12 +798,12 @@ class RetreatService {
   }
 
   /**
-   * Get token-signed Bunny Stream playback URLs for a session's video.
+   * Get token-signed Bunny Stream playback URLs for a single session video.
    * Returns the HLS playlist URL (for native expo-video), the iframe embed URL
    * (web fallback), the thumbnail/poster URL, the duration, and the unix-epoch
-   * expiry. Returns success=false when the session has no attached video.
+   * expiry. Returns success=false when the video id is invalid.
    */
-  async getSessionVideoPlaybackUrls(sessionId: string): Promise<{
+  async fetchSessionVideo(sessionVideoId: number): Promise<{
     success: boolean;
     /** Backend HLS proxy URL — primary playback path on every platform.
      *  Per-segment signed via short-lived MAT, full ABR, no shareable
@@ -823,7 +828,7 @@ class RetreatService {
         thumbnail: string;
         durationSeconds: number | null;
         expiresAt: number;
-      }>(API_ENDPOINTS.VIDEO_SESSION_URL(sessionId));
+      }>(API_ENDPOINTS.VIDEO_URL(sessionVideoId));
 
       if (response.success && response.data) {
         return {

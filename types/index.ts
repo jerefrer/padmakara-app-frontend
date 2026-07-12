@@ -108,12 +108,21 @@ export interface Session {
   date: string;
   tracks?: Track[];
   gathering_id: string;
-  /** Bunny Stream video GUID for the full session recording, if available. */
-  bunnyVideoId?: string | null;
-  videoDurationSeconds?: number | null;
-  videoPosterUrl?: string | null;
+  /** Video recordings attached to this session, ordered by `position`.
+   *  A session may have zero, one, or several videos. */
+  videos: SessionVideo[];
   created_at: string;
   updated_at: string;
+}
+
+/** A single Bunny Stream video recording attached to a session. */
+export interface SessionVideo {
+  id: number;
+  bunnyVideoId: string;
+  position: number;
+  title: string | null;
+  durationSeconds: number | null;
+  posterUrl: string | null;
 }
 
 export interface Track {
