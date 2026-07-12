@@ -66,7 +66,7 @@ function eventLanguages(event: Gathering): string[] {
 
 /** Has at least one session with an attached video recording? */
 function eventHasVideo(event: Gathering): boolean {
-  return !!event.sessions?.some((s) => !!s.bunnyVideoId);
+  return !!event.sessions?.some((s) => (s.videos?.length ?? 0) > 0);
 }
 
 /** Has at least one event-level transcript? */

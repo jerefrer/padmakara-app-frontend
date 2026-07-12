@@ -52,6 +52,9 @@
     "addBookmarkAtCurrent": "Adicionar marcador no momento atual",
     "watchSessionVideo": "Ver vídeo"
   },
+  "session": {
+    "part": "Parte {{n}}"
+  },
   "eventTabs": {
     "videos": "Vídeos",
     "tracks": "Áudio",

@@ -26,13 +26,13 @@ import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { OfflineBadge } from '@/components/OfflineBadge';
-import { Session, Track, UserProgress } from '@/types';
+import { Session, SessionVideo, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
-import { VideoGrid } from '@/components/VideoGrid';
+import { VideoGrid, type VideoGridItem } from '@/components/VideoGrid';
 import { getTranslatedName } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -223,8 +223,9 @@ export default function RetreatDetailScreen() {
   const [currentLanguageMode, setCurrentLanguageMode] = useState<string>(ALL_LANGUAGES);
 
   // Video playback (separate from the audio context — opens a full-screen modal).
-  // Videos are session-scoped: tap "Watch video" on a session to open it here.
-  const [videoSession, setVideoSession] = useState<Session | null>(null);
+  // A session may have several videos; tap a card in the Video tab to open
+  // the specific recording here.
+  const [activeVideo, setActiveVideo] = useState<{ session: Session; video: SessionVideo } | null>(null);
   // App-session-of-use ref to remember "I accepted cellular playback" — survives
   // remounts when the user opens different videos in the same screen visit.
   const cellularAcceptedRef = useRef<boolean>(false);
@@ -664,7 +665,7 @@ export default function RetreatDetailScreen() {
   // event is loaded (which remounts the screen).
   useEffect(() => {
     if (!retreat) return;
-    const anyVideo = retreat.sessions?.some((s) => !!s.bunnyVideoId);
+    const anyVideo = retreat.sessions?.some((s) => (s.videos?.length ?? 0) > 0);
     setActiveContentTab(anyVideo ? 'video' : 'tracks');
   }, [retreat]);
 
@@ -843,9 +844,9 @@ export default function RetreatDetailScreen() {
     AsyncStorage.setItem(LAST_TRACK_KEY(retreat!.id), String(track.id)).catch(() => {});
   };
 
-  /** Open the video modal for the given session. */
-  const watchSessionVideo = useCallback((session: Session) => {
-    setVideoSession(session);
+  /** Open the video modal for the given recording. */
+  const watchSessionVideo = useCallback((session: Session, video: SessionVideo) => {
+    setActiveVideo({ session, video });
   }, []);
 
   const goToNextTrack = () => {
@@ -1222,8 +1223,8 @@ export default function RetreatDetailScreen() {
     let trackSessionId: string | null = null;
     let isFirstSession = true;
 
-    // Lookup map for session-level data (notably bunnyVideoId so we can show
-    // a "Watch video" button on sessions with an attached recording).
+    // Lookup map for session-level data (notably session.videos so we can
+    // show a "Watch video" button on sessions with an attached recording).
     const sessionsById = new Map<string, Session>();
     retreat?.sessions?.forEach((s) => sessionsById.set(s.id, s));
 
@@ -1271,12 +1272,19 @@ export default function RetreatDetailScreen() {
 
     // Indicators for the floating circles on the hero.
     const hasAudio = !!retreat?.sessions?.some((s) => (s.tracks?.length ?? 0) > 0);
-    const hasVideo = !!retreat?.sessions?.some((s) => !!s.bunnyVideoId);
+    const hasVideo = !!retreat?.sessions?.some((s) => (s.videos?.length ?? 0) > 0);
     const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
-    const firstVideoSession = retreat?.sessions?.find((s) => !!s.bunnyVideoId) ?? null;
+    const firstVideoSession = retreat?.sessions?.find((s) => (s.videos?.length ?? 0) > 0) ?? null;
 
-    // Sessions that have a recording — used by the Video tab grid.
-    const videoSessions = (retreat?.sessions ?? []).filter((s) => !!s.bunnyVideoId);
+    // One (session, video) pair per recording — used by the Video tab grid.
+    // Sessions are already in event order; sort each session's videos by
+    // position defensively, even though the backend already orders them.
+    const videoItems: VideoGridItem[] = (retreat?.sessions ?? []).flatMap((s) =>
+      (s.videos ?? [])
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .map((video) => ({ session: s, video })),
+    );
     // Tabs only appear when both content types are available; otherwise
     // the screen renders whichever exists.
     // On native mobile the transcript is reached through a pseudo-tab that
@@ -1440,9 +1448,9 @@ export default function RetreatDetailScreen() {
 
         {effectiveTab === 'video' && hasVideo && (
           <VideoGrid
-            sessions={videoSessions as any}
-            onPlay={(s) => watchSessionVideo(s as any)}
-            renderTitle={(s) => renderSessionTitle(s as any)}
+            items={videoItems}
+            onPlay={({ session, video }) => watchSessionVideo(session, video)}
+            renderTitle={(s) => renderSessionTitle(s)}
             formatDuration={formatDurationForGrid}
           />
         )}
@@ -1820,15 +1828,16 @@ export default function RetreatDetailScreen() {
         </>
       )}
 
-      {/* Full-screen video player (opens when a session's "Watch video" is tapped) */}
+      {/* Full-screen video player (opens when a recording's card is tapped) */}
       <VideoPlayer
-        session={videoSession}
+        video={activeVideo?.video ?? null}
+        session={activeVideo?.session ?? null}
         cellularAcceptedRef={cellularAcceptedRef}
-        onClose={() => setVideoSession(null)}
+        onClose={() => setActiveVideo(null)}
         onComplete={() => {
-          // Video reached the end. Close the modal — there's no notion of
-          // "next video" because each session has at most one.
-          setVideoSession(null);
+          // Video reached the end. Close the modal — there's no "next video"
+          // auto-advance within a session yet.
+          setActiveVideo(null);
         }}
       />
 

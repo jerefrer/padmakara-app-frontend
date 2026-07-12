@@ -3,7 +3,7 @@ import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
 import videoPreferencesService from '@/services/videoPreferencesService';
-import type { Bookmark, Session } from '@/types';
+import type { Bookmark, Session, SessionVideo } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
@@ -34,7 +34,10 @@ const colors = {
 };
 
 interface VideoPlayerProps {
-  /** Session whose video is being played. The modal closes when this becomes null. */
+  /** The specific recording being played. The modal closes when this becomes null. */
+  video: SessionVideo | null;
+  /** Parent session — used for titling/context and for the (session-scoped)
+   *  offline-download and watched-progress storage. */
   session: Session | null;
   onClose: () => void;
   /** Optional callback when playback reaches the end. */
@@ -100,7 +103,7 @@ async function saveVideoProgress(
     .catch(() => undefined);
 }
 
-export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef }: VideoPlayerProps) {
+export function VideoPlayer({ video, session, onClose, onComplete, cellularAcceptedRef }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
@@ -183,7 +186,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
     setIsLocal(false);
     setDownloadStatus({ state: 'idle' });
 
-    if (!session) return;
+    if (!session || !video) return;
 
     (async () => {
       // 0. Prefer a local downloaded copy if we have one — no network gate, no
@@ -196,7 +199,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
         setDownloadStatus({ state: 'done', localUri, size: 0 });
         const progress = await progressService.getProgress(videoProgressKey(session.id));
         if (cancelled) return;
-        const duration = session.videoDurationSeconds ?? 0;
+        const duration = video.durationSeconds ?? 0;
         const saved = progress?.position ?? 0;
         const safeResume =
           duration > 0 && saved > 0 && saved < duration * COMPLETE_THRESHOLD_RATIO
@@ -257,7 +260,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
 
       // 2. Fetch playback URL + local + remote progress in parallel.
       const [urlResult, localProgress, remoteProgress] = await Promise.all([
-        retreatService.getSessionVideoPlaybackUrls(session.id),
+        retreatService.fetchSessionVideo(video.id),
         progressService.getProgress(videoProgressKey(session.id)),
         progressService.getVideoProgressRemote(session.id),
       ]);
@@ -300,7 +303,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
       }
 
       // Resume from saved position when not basically at the end.
-      const duration = urlResult.durationSeconds ?? session.videoDurationSeconds ?? 0;
+      const duration = urlResult.durationSeconds ?? video.durationSeconds ?? 0;
       const safeResume =
         duration > 0 && savedPosition > 0 && savedPosition < duration * COMPLETE_THRESHOLD_RATIO
           ? Math.floor(savedPosition)
@@ -319,7 +322,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
     return () => {
       cancelled = true;
     };
-  }, [session, t, cellularAcceptedRef, onClose]);
+  }, [session, video, t, cellularAcceptedRef, onClose]);
 
   // Replace the player source when the URL is ready, then seek to resume.
   useEffect(() => {
@@ -339,8 +342,8 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
 
   // Subscribe to time updates to save progress (no rerender — side-effect only).
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
-    if (!session) return;
-    const duration = player.duration ?? session.videoDurationSeconds ?? 0;
+    if (!session || !video) return;
+    const duration = player.duration ?? video.durationSeconds ?? 0;
     if (!duration || currentTime <= 0) return;
 
     // Throttle progress saves to once every 5 seconds of playback.
@@ -491,9 +494,9 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
 
   // Save progress one last time when closing (so quick taps don't lose state).
   const handleClose = () => {
-    if (session && player) {
+    if (session && video && player) {
       const currentTime = player.currentTime ?? 0;
-      const duration = player.duration ?? session.videoDurationSeconds ?? 0;
+      const duration = player.duration ?? video.durationSeconds ?? 0;
       if (currentTime > 0 && duration > 0) {
         saveVideoProgress(
           session.id,
@@ -513,7 +516,7 @@ export function VideoPlayer({ session, onClose, onComplete, cellularAcceptedRef 
 
   return (
     <Modal
-      visible={session !== null}
+      visible={session !== null && video !== null}
       animationType="slide"
       onRequestClose={handleClose}
       supportedOrientations={['portrait', 'landscape']}

@@ -1,92 +1,85 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import retreatService from '@/services/retreatService';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
-import type { Session } from '@/types';
+import type { Session, SessionVideo } from '@/types';
+
+/** One card in the grid: a single recording, plus the session it belongs to
+ *  (needed for title formatting and for opening the player). */
+export interface VideoGridItem {
+  session: Session;
+  video: SessionVideo;
+}
 
 interface VideoGridProps {
-  sessions: Session[];
-  onPlay: (session: Session) => void;
+  items: VideoGridItem[];
+  onPlay: (item: VideoGridItem) => void;
   /** Renders the session's display title — passed in so the grid stays
-   *  agnostic of how titles are formatted on the parent screen. */
+   *  agnostic of how titles are formatted on the parent screen. When a
+   *  session has more than one video, the grid appends a " — Part N" (or
+   *  the video's own title, if set) suffix automatically. */
   renderTitle: (session: Session) => string;
-  /** Formats `videoDurationSeconds` for the duration chip. */
+  /** Formats a SessionVideo's `durationSeconds` for the duration chip. */
   formatDuration: (seconds: number) => string;
 }
 
-export function VideoGrid({ sessions, onPlay, renderTitle, formatDuration }: VideoGridProps) {
+export function VideoGrid({ items, onPlay, renderTitle, formatDuration }: VideoGridProps) {
   const { isDesktop } = useDesktopLayout();
+  const { t } = useLanguage();
   // 3 columns on desktop, 2 on tablet-ish, 1 on phone.
   const columns = isDesktop ? 3 : 1;
 
   return (
     <View style={[styles.grid, { gap: isDesktop ? 16 : 12 }]}>
-      {sessions.map((session) => (
-        <View
-          key={session.id}
-          style={[
-            styles.cellWrapper,
-            { width: `${100 / columns}%` as any },
-          ]}
-        >
-          <VideoSessionCard
-            session={session}
-            title={renderTitle(session)}
-            onPress={() => onPlay(session)}
-            formatDuration={formatDuration}
-          />
-        </View>
-      ))}
+      {items.map(({ session, video }) => {
+        const baseTitle = renderTitle(session);
+        const hasMultipleVideos = (session.videos?.length ?? 0) > 1;
+        const partLabel =
+          video.title || t('session.part', { n: video.position + 1 }) || `Part ${video.position + 1}`;
+        const title = hasMultipleVideos ? `${baseTitle} — ${partLabel}` : baseTitle;
+
+        return (
+          <View
+            key={video.id}
+            style={[
+              styles.cellWrapper,
+              { width: `${100 / columns}%` as any },
+            ]}
+          >
+            <VideoSessionCard
+              video={video}
+              title={title}
+              onPress={() => onPlay({ session, video })}
+              formatDuration={formatDuration}
+            />
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 interface CardProps {
-  session: Session;
+  video: SessionVideo;
   title: string;
   onPress: () => void;
   formatDuration: (seconds: number) => string;
 }
 
-function VideoSessionCard({ session, title, onPress, formatDuration }: CardProps) {
+function VideoSessionCard({ video, title, onPress, formatDuration }: CardProps) {
   const { t } = useLanguage();
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbError, setThumbError] = useState(false);
   const [hover, setHover] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!session.bunnyVideoId) {
-      setThumbError(true);
-      return;
-    }
-    (async () => {
-      const res = await retreatService.getSessionVideoPlaybackUrls(String(session.id));
-      if (cancelled) return;
-      if (res.success && res.thumbnail) {
-        setThumbnailUrl(res.thumbnail);
-      } else {
-        setThumbError(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [session.id, session.bunnyVideoId]);
-
-  const durationLabel = session.videoDurationSeconds
-    ? formatDuration(session.videoDurationSeconds)
-    : '';
+  const durationLabel = video.durationSeconds ? formatDuration(video.durationSeconds) : '';
 
   return (
     <Pressable
@@ -100,19 +93,16 @@ function VideoSessionCard({ session, title, onPress, formatDuration }: CardProps
       accessibilityLabel={`${t('video.watchSessionVideo') || 'Watch video'} — ${title}`}
     >
       <View style={styles.thumbnailWrapper}>
-        {thumbnailUrl ? (
+        {video.posterUrl && !thumbError ? (
           <ExpoImage
-            source={{ uri: thumbnailUrl }}
+            source={{ uri: video.posterUrl }}
             style={StyleSheet.absoluteFill as any}
             contentFit="cover"
             transition={150}
+            onError={() => setThumbError(true)}
           />
-        ) : thumbError ? (
-          <View style={styles.thumbnailFallback} />
         ) : (
-          <View style={styles.thumbnailLoading}>
-            <ActivityIndicator size="small" color={colors.gray[400]} />
-          </View>
+          <View style={styles.thumbnailFallback} />
         )}
 
         {/* Subtle scrim so the play icon stays legible over any photo. */}
@@ -161,11 +151,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
     position: 'relative',
-  },
-  thumbnailLoading: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   thumbnailFallback: {
     ...StyleSheet.absoluteFillObject,

@@ -29,8 +29,9 @@ function formatEventDate(iso: string | undefined, locale: string): string {
 
 /**
  * Inspects the gathering payload to decide which content-type chips to
- * show. Audio is implied by any session having tracks, video by a
- * bunnyVideoId on a session, transcript by a non-empty transcripts array.
+ * show. Audio is implied by any session having tracks, video by a session
+ * having at least one attached recording, transcript by a non-empty
+ * transcripts array.
  */
 function deriveContentFlags(ev: Gathering): {
   hasAudio: boolean;
@@ -40,7 +41,7 @@ function deriveContentFlags(ev: Gathering): {
   const sessions = ev.sessions || [];
   return {
     hasAudio: sessions.some((s) => s.tracks && s.tracks.length > 0),
-    hasVideo: sessions.some((s) => !!s.bunnyVideoId),
+    hasVideo: sessions.some((s) => (s.videos?.length ?? 0) > 0),
     hasTranscript: (ev.transcripts?.length ?? 0) > 0,
   };
 }

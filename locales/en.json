@@ -52,6 +52,9 @@
     "addBookmarkAtCurrent": "Add bookmark at current time",
     "watchSessionVideo": "Watch video"
   },
+  "session": {
+    "part": "Part {{n}}"
+  },
   "eventTabs": {
     "videos": "Videos",
     "tracks": "Audio",

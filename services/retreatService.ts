@@ -652,7 +652,7 @@ class RetreatService {
 
   // Get detailed information about a specific retreat/event (cache-first / SWR pattern).
   // Note: presigned audio/video URLs are NOT stored in event detail responses —
-  // they are fetched on-demand via getAudioPresignedUrl / getSessionVideoPlaybackUrls.
+  // they are fetched on-demand via getAudioPresignedUrl / fetchSessionVideo.
   // So the full mapped event object is safe to cache.
   //
   // Contract: the cache always stores RAW backend data (consistent with what
