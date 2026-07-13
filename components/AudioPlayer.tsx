@@ -2,6 +2,7 @@ import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React, { useEffect, useRef, useState } from 'react';
@@ -74,7 +75,7 @@ export function AudioPlayer({
   bottom,
 }: AudioPlayerProps = {}) {
   const insets = useSafeAreaInsets();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const TAB_BAR_HEIGHT = 49;
   const defaultBottom = Platform.OS === 'ios' ? TAB_BAR_HEIGHT + insets.bottom : TAB_BAR_HEIGHT;
   const bottomOffset = bottom ?? defaultBottom;
@@ -219,7 +220,7 @@ export function AudioPlayer({
 
       {/* Track info */}
       <Text style={styles.trackTitle} numberOfLines={1}>
-        {currentTrack.title}
+        {getTrackTitle(currentTrack, language)}
       </Text>
 
       {/* Bottom toolbar */}

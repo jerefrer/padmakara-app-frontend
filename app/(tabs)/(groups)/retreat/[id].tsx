@@ -33,7 +33,7 @@ import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import { VideoGrid, type VideoGridItem } from '@/components/VideoGrid';
-import { getTranslatedName } from '@/utils/i18n';
+import { getTranslatedName, getTrackTitle } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import apiService from '@/services/apiService';
@@ -1523,7 +1523,7 @@ export default function RetreatDetailScreen() {
                     styles.trackTitle,
                     isActive && styles.currentTrackTitle
                   ]}>
-                    {track.title}
+                    {getTrackTitle(track, language)}
                   </Text>
                   <View style={styles.trackSubtitleRow}>
                     {track.languages && track.languages.length > 0 && track.languages.map((lang: string) => (
