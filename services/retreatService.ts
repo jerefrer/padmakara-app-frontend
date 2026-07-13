@@ -182,6 +182,10 @@ function mapTrack(backend: any): Track {
   return {
     id: String(backend.id),
     title: backend.title || '',
+    title_translations: {
+      ...(backend.titleEn || backend.title_en ? { en: backend.titleEn || backend.title_en } : {}),
+      ...(backend.titlePt || backend.title_pt ? { pt: backend.titlePt || backend.title_pt } : {}),
+    },
     duration: backend.durationSeconds || backend.duration_seconds || 0,
     file_size: backend.fileSizeBytes || backend.file_size_bytes || undefined,
     order: backend.trackNumber || backend.track_number || 0,

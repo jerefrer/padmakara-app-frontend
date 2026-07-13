@@ -135,4 +135,16 @@ export function getTranslatedName(
   return obj.name_translations?.[lang]?.trim() || obj.name;
 }
 
+/**
+ * Resolve a track's title in the given interface language.
+ * Combined multi-language tracks carry `title_translations`; split tracks
+ * don't, so this falls back to the single `title`.
+ */
+export function getTrackTitle(
+  track: { title: string; title_translations?: { en?: string; pt?: string } },
+  lang: Language,
+): string {
+  return track.title_translations?.[lang]?.trim() || track.title;
+}
+
 export default new I18n();

@@ -128,6 +128,7 @@ export interface SessionVideo {
 export interface Track {
   id: string;
   title: string;
+  title_translations?: { en?: string; pt?: string }; // combined multi-language tracks
   duration: number; // in seconds
   file_size?: number; // in bytes
   audio_file?: string;
