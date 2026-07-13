@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getTrackTitle } from '@/utils/i18n';
 
 const BAR_HEIGHT = 60;
 const TAB_BAR_HEIGHT = 49;
@@ -29,7 +30,7 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
 }
 
 export function MiniPlayer() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT + insets.bottom;
@@ -72,7 +73,7 @@ export function MiniPlayer() {
 
         <View style={styles.textBlock}>
           <Text style={styles.title} numberOfLines={1}>
-            {currentTrack.title}
+            {getTrackTitle(currentTrack, language)}
           </Text>
           {subtitle ? (
             <Text style={styles.subtitle} numberOfLines={1}>

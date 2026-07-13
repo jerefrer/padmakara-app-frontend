@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import eventBookmarkService, { EventBookmark } from "@/services/eventBookmarkService";
 import trackBookmarkService, { TrackBookmark } from "@/services/trackBookmarkService";
+import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
@@ -96,7 +97,7 @@ function TrackRow({
 }: {
   bookmark: TrackBookmark;
   onPress: () => void;
-  language: string;
+  language: Language;
   testID?: string;
 }) {
   const track = bookmark.track;
@@ -123,7 +124,7 @@ function TrackRow({
         )}
       </View>
       <View style={styles.rowInfo}>
-        <Text style={styles.rowTitle} numberOfLines={2}>{track.title}</Text>
+        <Text style={styles.rowTitle} numberOfLines={2}>{getTrackTitle(track, language)}</Text>
         {subtitle ? (
           <Text style={styles.rowTeacher} numberOfLines={1}>{subtitle}</Text>
         ) : null}

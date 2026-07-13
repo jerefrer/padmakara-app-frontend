@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { PDFViewer } from '@/components/PDFViewer';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import retreatService from '@/services/retreatService';
+import { getTrackTitle } from '@/utils/i18n';
 import { Track } from '@/types';
 import { colors } from '@/constants/colors';
 
@@ -199,7 +200,7 @@ export function TrackDetailPanel({ retreat, currentTrack }: TrackDetailPanelProp
                   {t('readAlong.buttonLabel') || 'Read Along'}
                 </Text>
                 <Text style={styles.loadButtonMeta}>
-                  {currentTrack?.title || ''}
+                  {currentTrack ? getTrackTitle(currentTrack, language) : ''}
                 </Text>
               </Pressable>
             )}

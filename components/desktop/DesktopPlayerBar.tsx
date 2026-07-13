@@ -4,6 +4,7 @@ import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { colors } from '@/constants/colors';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React, { useEffect, useRef, useState } from 'react';
@@ -23,7 +24,7 @@ const formatTime = (seconds: number) => {
 };
 
 export function DesktopPlayerBar() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const {
     currentTrack,
     isPlaying,
@@ -58,9 +59,9 @@ export function DesktopPlayerBar() {
 
   // Display info: use active track, or fall back to idle track for display
   const displayTitle = hasTrack
-    ? currentTrack.title
+    ? getTrackTitle(currentTrack, language)
     : hasIdleTrack
-      ? idleTrack.track.title
+      ? getTrackTitle(idleTrack.track, language)
       : null;
   const displaySubtitle = hasTrack
     ? [groupName, retreatName].filter(Boolean).join(' \u00B7 ')
