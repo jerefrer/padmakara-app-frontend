@@ -20,6 +20,7 @@ export interface TrackBookmarkSession {
 export interface TrackBookmarkTrack {
   id: number;
   title: string;
+  title_translations?: { en?: string; pt?: string };
   trackNumber: number;
   durationSeconds: number;
   session: TrackBookmarkSession;
@@ -52,6 +53,10 @@ function toBookmark(raw: RawTrackBookmark): TrackBookmark {
     track: {
       id: track.id,
       title: track.title || '',
+      title_translations: {
+        ...(track.titleEn ? { en: track.titleEn } : {}),
+        ...(track.titlePt ? { pt: track.titlePt } : {}),
+      },
       trackNumber: track.trackNumber || 0,
       durationSeconds: track.durationSeconds || 0,
       session: {
