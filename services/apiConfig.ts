@@ -63,12 +63,13 @@ export const API_ENDPOINTS = {
   
   // Audio & File Access (Media endpoints)
   PRESIGNED_URL: (trackId: string) => `/media/audio/${trackId}`,
-  /** Playback URL for a single session video, keyed by session_video id.
-   *  A session may have multiple videos (see Session.videos). */
-  VIDEO_URL: (sessionVideoId: number) => `/media/video/${sessionVideoId}`,
-  VIDEO_SESSION_DOWNLOAD_URL: (sessionId: string) => `/media/video/session/${sessionId}/download`,
-  /** Cross-device watched-position storage for session videos. */
-  VIDEO_PROGRESS: (sessionId: string) => `/content/video-progress/${sessionId}`,
+  /** Playback URL for a single event video, keyed by EventVideo id.
+   *  Videos are event-level (see Gathering.videos). */
+  VIDEO_URL: (videoId: number) => `/media/video/${videoId}`,
+  /** Signed MP4 download URL for a single event video. */
+  VIDEO_DOWNLOAD_URL: (videoId: number) => `/media/video/${videoId}/download`,
+  /** Cross-device watched-position storage for event videos. */
+  VIDEO_PROGRESS: (videoId: number) => `/content/video-progress/${videoId}`,
   READ_ALONG_URL: (trackId: string) => `/media/readalong/${trackId}`,
   TRANSCRIPT_URL: (transcriptId: string) => `/media/transcript/${transcriptId}`,
   

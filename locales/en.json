@@ -50,7 +50,9 @@
     "bookmarks": "Bookmarks",
     "bookmarksEmpty": "No bookmarks yet — tap Add to save important moments.",
     "addBookmarkAtCurrent": "Add bookmark at current time",
-    "watchSessionVideo": "Watch video"
+    "watchVideo": "Watch video",
+    "part": "Part {{n}}",
+    "untitled": "Video"
   },
   "session": {
     "part": "Part {{n}}"

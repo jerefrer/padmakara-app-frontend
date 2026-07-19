@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
+import { EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
@@ -142,9 +142,28 @@ export function mapEvent(backend: any): Gathering {
       abbreviation: erg.retreatGroup?.abbreviation ?? null,
     })).filter((g: any) => g.id) || undefined,
     transcripts: backend.transcripts?.map((tr: any) => ({ id: tr.id })) || undefined,
+    videos: backend.videos?.map(mapEventVideo) || undefined,
     status: mapEventStatus(backend.status || 'published', startDate, endDate),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
+  };
+}
+
+/** Map backend event video → frontend EventVideo. Videos are event-level
+ *  (not session-level) and arrive ordered by `position`. */
+function mapEventVideo(backend: any): EventVideo {
+  return {
+    id: backend.id,
+    eventId: backend.eventId ?? backend.event_id,
+    bunnyVideoId: backend.bunnyVideoId ?? backend.bunny_video_id,
+    position: backend.position ?? 0,
+    titleEn: backend.titleEn ?? backend.title_en ?? null,
+    titlePt: backend.titlePt ?? backend.title_pt ?? null,
+    videoDate: backend.videoDate ?? backend.video_date ?? null,
+    durationSeconds: backend.durationSeconds ?? backend.duration_seconds ?? null,
+    posterUrl: backend.posterUrl ?? backend.poster_url ?? null,
+    createdAt: backend.createdAt ?? backend.created_at ?? '',
+    updatedAt: backend.updatedAt ?? backend.updated_at ?? '',
   };
 }
 
@@ -164,14 +183,6 @@ function mapSession(backend: any): Session {
     date: backend.sessionDate || backend.session_date || '',
     tracks: backend.tracks?.map(mapTrack) || undefined,
     gathering_id: String(backend.eventId || backend.event_id || backend.retreat_id || ''),
-    videos: (backend.videos ?? []).map((v: any) => ({
-      id: v.id,
-      bunnyVideoId: v.bunnyVideoId ?? v.bunny_video_id,
-      position: v.position ?? 0,
-      title: v.title ?? null,
-      durationSeconds: v.durationSeconds ?? v.duration_seconds ?? null,
-      posterUrl: v.posterUrl ?? v.poster_url ?? null,
-    })),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
   };
@@ -656,7 +667,7 @@ class RetreatService {
 
   // Get detailed information about a specific retreat/event (cache-first / SWR pattern).
   // Note: presigned audio/video URLs are NOT stored in event detail responses —
-  // they are fetched on-demand via getAudioPresignedUrl / fetchSessionVideo.
+  // they are fetched on-demand via getAudioPresignedUrl / fetchVideo.
   // So the full mapped event object is safe to cache.
   //
   // Contract: the cache always stores RAW backend data (consistent with what
@@ -802,12 +813,12 @@ class RetreatService {
   }
 
   /**
-   * Get token-signed Bunny Stream playback URLs for a single session video.
+   * Get token-signed Bunny Stream playback URLs for a single event video.
    * Returns the HLS playlist URL (for native expo-video), the iframe embed URL
    * (web fallback), the thumbnail/poster URL, the duration, and the unix-epoch
    * expiry. Returns success=false when the video id is invalid.
    */
-  async fetchSessionVideo(sessionVideoId: number): Promise<{
+  async fetchVideo(videoId: number): Promise<{
     success: boolean;
     /** Backend HLS proxy URL — primary playback path on every platform.
      *  Per-segment signed via short-lived MAT, full ABR, no shareable
@@ -832,7 +843,7 @@ class RetreatService {
         thumbnail: string;
         durationSeconds: number | null;
         expiresAt: number;
-      }>(API_ENDPOINTS.VIDEO_URL(sessionVideoId));
+      }>(API_ENDPOINTS.VIDEO_URL(videoId));
 
       if (response.success && response.data) {
         return {
@@ -847,7 +858,7 @@ class RetreatService {
       }
       return { success: false, error: response.error || 'Failed to get video URL' };
     } catch (error) {
-      console.error('Get session video URL error:', error);
+      console.error('Get event video URL error:', error);
       return { success: false, error: 'Failed to get video URL' };
     }
   }

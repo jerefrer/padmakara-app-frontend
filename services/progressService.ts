@@ -382,11 +382,11 @@ class ProgressService {
     }
   }
 
-  // ─── Video Progress (cross-device, session-scoped) ───
+  // ─── Video Progress (cross-device, event-video-scoped) ───
   //
   // The native track-progress endpoint is keyed by integer track_id and
-  // doesn't fit videos (which live on sessions). We hit a separate
-  // `/content/video-progress/:sessionId` endpoint and mirror it locally
+  // doesn't fit videos (which are event-level content). We hit a separate
+  // `/content/video-progress/:videoId` endpoint and mirror it locally
   // through the same UserProgress AsyncStorage key the VideoPlayer was
   // already using, so offline reads keep working unchanged.
 
@@ -395,13 +395,13 @@ class ProgressService {
    * fire-and-forget — on network failure the local copy still has it.
    */
   async saveVideoProgressRemote(
-    sessionId: string,
+    videoId: number,
     positionSeconds: number,
     durationSeconds: number,
     completed: boolean,
   ): Promise<void> {
     try {
-      await apiService.post(API_ENDPOINTS.VIDEO_PROGRESS(sessionId), {
+      await apiService.post(API_ENDPOINTS.VIDEO_PROGRESS(videoId), {
         positionSeconds: Math.floor(positionSeconds),
         durationSeconds: durationSeconds > 0 ? Math.floor(durationSeconds) : undefined,
         completed,
@@ -418,10 +418,10 @@ class ProgressService {
    * Fetch the latest server-side video progress. Returns null if no row
    * exists, the request fails, or the response is malformed.
    */
-  async getVideoProgressRemote(sessionId: string): Promise<RemoteVideoProgress | null> {
+  async getVideoProgressRemote(videoId: number): Promise<RemoteVideoProgress | null> {
     try {
       const res = await apiService.get<RemoteVideoProgress>(
-        API_ENDPOINTS.VIDEO_PROGRESS(sessionId),
+        API_ENDPOINTS.VIDEO_PROGRESS(videoId),
       );
       if (!res.success || !res.data) return null;
       // updatedAt is null when the user has never saved progress server-side.

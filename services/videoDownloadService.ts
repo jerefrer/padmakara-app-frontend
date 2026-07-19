@@ -2,14 +2,15 @@
  * Video download service — explicit, user-initiated offline downloads.
  *
  * This is intentionally separate from the audio retreat-ZIP download flow:
- *   - Each video is a single MP4 fetched per-session from Bunny Stream.
+ *   - Each video is a single MP4 fetched from Bunny Stream, keyed by its
+ *     EventVideo id.
  *   - The user explicitly taps "Save offline" — we never auto-download videos
  *     because they're 1-3 GB each.
  *   - Files live in document storage (`videos/` directory) so they survive
  *     OS cache pressure. Audio cache uses `cacheDirectory` because audio
  *     files are small and cheap to re-download.
  *
- * Videos are session-scoped: one session can have one video. The session ID
+ * Videos are event-scoped: one EventVideo is one MP4 file. The video's id
  * is the cache key for local storage.
  */
 
@@ -26,9 +27,9 @@ export type VideoDownloadStatus =
   | { state: 'done'; localUri: string; size: number }
   | { state: 'error'; message: string };
 
-/** Local file path for a downloaded session video. */
-function videoFilePath(sessionId: string): string {
-  return `${VIDEO_DIR}session-${sessionId}.mp4`;
+/** Local file path for a downloaded event video. */
+function videoFilePath(videoId: number): string {
+  return `${VIDEO_DIR}video-${videoId}.mp4`;
 }
 
 async function ensureVideoDir(): Promise<void> {
@@ -38,15 +39,42 @@ async function ensureVideoDir(): Promise<void> {
   }
 }
 
-class VideoDownloadService {
-  /** Active downloads, by sessionId — exposed so the UI can cancel them. */
-  private active = new Map<string, FileSystem.DownloadResumable>();
+let legacyCleanupAttempted = false;
 
-  /** Local URI if the session video is already downloaded; null otherwise. */
-  async getLocalUri(sessionId: string): Promise<string | null> {
+/**
+ * One-time migration: delete old session-keyed video downloads
+ * (`session-*.mp4`). These were downloaded through the now-removed
+ * `/media/video/session/:sessionId/download` route, which never actually
+ * existed on the backend — so any such file is orphaned and unplayable.
+ * Best-effort; runs once per app process.
+ */
+async function cleanupLegacyFiles(): Promise<void> {
+  if (legacyCleanupAttempted || Platform.OS === 'web') return;
+  legacyCleanupAttempted = true;
+  try {
+    const info = await FileSystem.getInfoAsync(VIDEO_DIR);
+    if (!info.exists) return;
+    const files = await FileSystem.readDirectoryAsync(VIDEO_DIR);
+    for (const name of files) {
+      if (name.startsWith('session-') && name.endsWith('.mp4')) {
+        await FileSystem.deleteAsync(`${VIDEO_DIR}${name}`, { idempotent: true });
+      }
+    }
+  } catch {
+    // Best-effort — a failed cleanup just leaves the orphaned file in place.
+  }
+}
+
+class VideoDownloadService {
+  /** Active downloads, by videoId — exposed so the UI can cancel them. */
+  private active = new Map<number, FileSystem.DownloadResumable>();
+
+  /** Local URI if the event video is already downloaded; null otherwise. */
+  async getLocalUri(videoId: number): Promise<string | null> {
+    await cleanupLegacyFiles();
     if (Platform.OS === 'web') return null;
     try {
-      const path = videoFilePath(sessionId);
+      const path = videoFilePath(videoId);
       const info = await FileSystem.getInfoAsync(path);
       return info.exists ? path : null;
     } catch {
@@ -54,16 +82,16 @@ class VideoDownloadService {
     }
   }
 
-  async isDownloaded(sessionId: string): Promise<boolean> {
-    return (await this.getLocalUri(sessionId)) !== null;
+  async isDownloaded(videoId: number): Promise<boolean> {
+    return (await this.getLocalUri(videoId)) !== null;
   }
 
   /**
-   * Download a session video to local storage. Resolves with the local file
+   * Download an event video to local storage. Resolves with the local file
    * URI on success. Reports progress via the callback. Throws on cancel/error.
    */
   async download(
-    sessionId: string,
+    videoId: number,
     quality: '240p' | '360p' | '480p' | '720p' | '1080p' = '720p',
     onProgress?: (status: VideoDownloadStatus) => void,
   ): Promise<string> {
@@ -73,7 +101,7 @@ class VideoDownloadService {
     await ensureVideoDir();
 
     // Already downloaded? Return immediately.
-    const existing = await this.getLocalUri(sessionId);
+    const existing = await this.getLocalUri(videoId);
     if (existing) {
       onProgress?.({ state: 'done', localUri: existing, size: 0 });
       return existing;
@@ -81,13 +109,13 @@ class VideoDownloadService {
 
     // 1. Ask the backend for a signed MP4 download URL.
     const response = await apiService.get<{ url: string; quality: string; expiresAt: number }>(
-      `${API_ENDPOINTS.VIDEO_SESSION_DOWNLOAD_URL(sessionId)}?quality=${quality}`,
+      `${API_ENDPOINTS.VIDEO_DOWNLOAD_URL(videoId)}?quality=${quality}`,
     );
     if (!response.success || !response.data?.url) {
       throw new Error(response.error || 'Failed to get download URL');
     }
 
-    const path = videoFilePath(sessionId);
+    const path = videoFilePath(videoId);
     const downloadResumable = FileSystem.createDownloadResumable(
       response.data.url,
       path,
@@ -104,7 +132,7 @@ class VideoDownloadService {
       },
     );
 
-    this.active.set(sessionId, downloadResumable);
+    this.active.set(videoId, downloadResumable);
     try {
       const result = await downloadResumable.downloadAsync();
       if (!result) {
@@ -119,28 +147,28 @@ class VideoDownloadService {
       onProgress?.({ state: 'error', message });
       throw err;
     } finally {
-      this.active.delete(sessionId);
+      this.active.delete(videoId);
     }
   }
 
   /** Cancel an in-flight download (best-effort). The partial file is removed. */
-  async cancel(sessionId: string): Promise<void> {
-    const active = this.active.get(sessionId);
+  async cancel(videoId: number): Promise<void> {
+    const active = this.active.get(videoId);
     if (active) {
       try {
         await active.pauseAsync();
       } catch {
         // ignore
       }
-      this.active.delete(sessionId);
+      this.active.delete(videoId);
     }
-    await this.delete(sessionId);
+    await this.delete(videoId);
   }
 
-  /** Remove a downloaded session video from local storage. */
-  async delete(sessionId: string): Promise<void> {
+  /** Remove a downloaded event video from local storage. */
+  async delete(videoId: number): Promise<void> {
     if (Platform.OS === 'web') return;
-    const path = videoFilePath(sessionId);
+    const path = videoFilePath(videoId);
     try {
       const info = await FileSystem.getInfoAsync(path);
       if (info.exists) {

@@ -3,7 +3,8 @@ import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
 import videoPreferencesService from '@/services/videoPreferencesService';
-import type { Bookmark, Session, SessionVideo } from '@/types';
+import type { Bookmark, EventVideo } from '@/types';
+import { getVideoTitle } from '@/utils/videoTitle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
@@ -35,10 +36,14 @@ const colors = {
 
 interface VideoPlayerProps {
   /** The specific recording being played. The modal closes when this becomes null. */
-  video: SessionVideo | null;
-  /** Parent session — used for titling/context and for the (session-scoped)
-   *  offline-download and watched-progress storage. */
-  session: Session | null;
+  video: EventVideo | null;
+  /** Parent event's display title — shown as a prefix in the header when
+   *  provided (e.g. "Spring Retreat 2025 · April 18th"). */
+  eventTitle?: string;
+  /** Total number of videos on the parent event — used by the title helper
+   *  to decide whether to append a "Part N" suffix when the video has no
+   *  title of its own. */
+  totalVideos?: number;
   onClose: () => void;
   /** Optional callback when playback reaches the end. */
   onComplete?: () => void;
@@ -65,27 +70,27 @@ const FORWARD_BUFFER_SECONDS = 300;
 /**
  * Synthetic key used to store video progress and bookmarks separately from
  * audio. Audio progress is keyed by trackId; video progress by this synthetic
- * "session-{id}" key, so the two never collide.
+ * "video-{id}" key, so the two never collide.
  */
-function videoProgressKey(sessionId: string): string {
-  return `session-video-${sessionId}`;
+function videoProgressKey(videoId: number): string {
+  return `video-${videoId}`;
 }
 
 /**
- * Save UserProgress for a session video, preserving any existing bookmarks.
+ * Save UserProgress for an event video, preserving any existing bookmarks.
  *
  * Always persists locally (offline-first); also fires a fire-and-forget
  * POST to the backend so the position survives reinstalls and syncs to
  * other devices the same user is signed in on.
  */
 async function saveVideoProgress(
-  sessionId: string,
+  videoId: number,
   position: number,
   duration: number,
   completed: boolean,
 ): Promise<void> {
   try {
-    const key = videoProgressKey(sessionId);
+    const key = videoProgressKey(videoId);
     const existing = await progressService.getProgress(key);
     await progressService.saveProgress({
       trackId: key,
@@ -99,15 +104,22 @@ async function saveVideoProgress(
   }
   // Push to backend in parallel; never block playback on network.
   progressService
-    .saveVideoProgressRemote(sessionId, position, duration, completed)
+    .saveVideoProgressRemote(videoId, position, duration, completed)
     .catch(() => undefined);
 }
 
-export function VideoPlayer({ video, session, onClose, onComplete, cellularAcceptedRef }: VideoPlayerProps) {
+export function VideoPlayer({
+  video,
+  eventTitle,
+  totalVideos,
+  onClose,
+  onComplete,
+  cellularAcceptedRef,
+}: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
-  const { t } = useLanguage();
+  const { t, contentLanguage } = useLanguage();
   // hlsUrl points at our backend's HLS proxy on every platform — see the
   // playback-URL-load effect below. The legacy name is kept so all existing
   // event/render code keeps working without churn.
@@ -125,33 +137,15 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
   const lastSavedAtRef = useRef<number>(0);
   const completedRef = useRef<boolean>(false);
 
-  // Build a richer title than the bare date: "April 18th · Morning · Part 1".
-  // Localized labels for type/part; English month + ordinal to stay consistent
-  // with formatSessionHeader in retreat/[id].tsx.
+  // Title helper is shared with VideoGrid so cards and the player header
+  // agree: localized title first, else a formatted date + "Part N" when
+  // the event has more than one video. Optionally prefixed by the event's
+  // own title for context, since the player opens as a full-screen modal.
   const headerTitle = useMemo(() => {
-    if (!session) return '';
-    const parts: string[] = [];
-    const date = new Date(session.date);
-    if (!isNaN(date.getTime())) {
-      const month = date.toLocaleDateString('en-US', { month: 'long' });
-      const day = date.getDate();
-      const ord = (n: number) => {
-        const s = ['th', 'st', 'nd', 'rd'];
-        const v = n % 100;
-        return n + (s[(v - 20) % 10] || s[v] || s[0]);
-      };
-      parts.push(`${month} ${ord(day)}`);
-    } else if (session.name) {
-      parts.push(session.name);
-    }
-    if (session.type && session.type !== 'other') {
-      parts.push(t(`retreats.${session.type}`) || session.type);
-    }
-    if (session.partNumber) {
-      parts.push(`${t('retreats.part') || 'Part'} ${session.partNumber}`);
-    }
-    return parts.join(' · ');
-  }, [session, t]);
+    if (!video) return '';
+    const title = getVideoTitle(video, { contentLanguage, t, totalVideos });
+    return eventTitle ? `${eventTitle} · ${title}` : title;
+  }, [video, eventTitle, totalVideos, contentLanguage, t]);
 
   // Build the player. We pass `null` until we have a URL — expo-video accepts
   // a null source and waits for replace(). Increase forward buffer so brief
@@ -173,7 +167,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
     };
   });
 
-  // Load presigned URL + saved progress whenever the session changes.
+  // Load presigned URL + saved progress whenever the video changes.
   // First gate on cellular policy: refuse if disallowed in settings, prompt
   // once per session if warning is enabled.
   useEffect(() => {
@@ -186,18 +180,18 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
     setIsLocal(false);
     setDownloadStatus({ state: 'idle' });
 
-    if (!session || !video) return;
+    if (!video) return;
 
     (async () => {
       // 0. Prefer a local downloaded copy if we have one — no network gate, no
       //    presigned URL roundtrip. Just play the file directly.
-      const localUri = await videoDownloadService.getLocalUri(session.id);
+      const localUri = await videoDownloadService.getLocalUri(video.id);
       if (cancelled) return;
       if (localUri) {
         setIsLocal(true);
         setHlsUrl(localUri);
         setDownloadStatus({ state: 'done', localUri, size: 0 });
-        const progress = await progressService.getProgress(videoProgressKey(session.id));
+        const progress = await progressService.getProgress(videoProgressKey(video.id));
         if (cancelled) return;
         const duration = video.durationSeconds ?? 0;
         const saved = progress?.position ?? 0;
@@ -260,9 +254,9 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
 
       // 2. Fetch playback URL + local + remote progress in parallel.
       const [urlResult, localProgress, remoteProgress] = await Promise.all([
-        retreatService.fetchSessionVideo(video.id),
-        progressService.getProgress(videoProgressKey(session.id)),
-        progressService.getVideoProgressRemote(session.id),
+        retreatService.fetchVideo(video.id),
+        progressService.getProgress(videoProgressKey(video.id)),
+        progressService.getVideoProgressRemote(video.id),
       ]);
 
       if (cancelled) return;
@@ -291,7 +285,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
       // If the remote was newer, mirror it into local storage so subsequent
       // offline opens see the same value without needing the network.
       if (remoteWins && remoteProgress) {
-        const key = videoProgressKey(session.id);
+        const key = videoProgressKey(video.id);
         const existing = await progressService.getProgress(key);
         await progressService.saveProgress({
           trackId: key,
@@ -322,7 +316,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
     return () => {
       cancelled = true;
     };
-  }, [session, video, t, cellularAcceptedRef, onClose]);
+  }, [video, t, cellularAcceptedRef, onClose]);
 
   // Replace the player source when the URL is ready, then seek to resume.
   useEffect(() => {
@@ -342,7 +336,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
 
   // Subscribe to time updates to save progress (no rerender — side-effect only).
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
-    if (!session || !video) return;
+    if (!video) return;
     const duration = player.duration ?? video.durationSeconds ?? 0;
     if (!duration || currentTime <= 0) return;
 
@@ -352,7 +346,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
     lastSavedAtRef.current = now;
 
     const completed = currentTime >= duration * COMPLETE_THRESHOLD_RATIO;
-    saveVideoProgress(session.id, currentTime, duration, completed);
+    saveVideoProgress(video.id, currentTime, duration, completed);
 
     if (completed && !completedRef.current) {
       completedRef.current = true;
@@ -360,11 +354,11 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
     }
   });
 
-  const bookmarksKeyFor = (sessionId: string) => `bookmarks_${videoProgressKey(sessionId)}`;
+  const bookmarksKeyFor = (videoId: number) => `bookmarks_${videoProgressKey(videoId)}`;
 
-  const loadBookmarks = async (sessionId: string) => {
+  const loadBookmarks = async (videoId: number) => {
     try {
-      const raw = await AsyncStorage.getItem(bookmarksKeyFor(sessionId));
+      const raw = await AsyncStorage.getItem(bookmarksKeyFor(videoId));
       const list: Bookmark[] = raw ? JSON.parse(raw) : [];
       setBookmarks(list.sort((a, b) => a.position - b.position));
     } catch {
@@ -372,28 +366,28 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
     }
   };
 
-  // Reload bookmarks whenever the session changes.
+  // Reload bookmarks whenever the video changes.
   useEffect(() => {
-    if (session) loadBookmarks(session.id);
+    if (video) loadBookmarks(video.id);
     else setBookmarks([]);
-  }, [session]);
+  }, [video]);
 
   // Allow the device to rotate while the video player is open. The app is
   // locked to portrait globally (app.json), so we unlock here and restore
   // portrait on close. Skipped on web where ScreenOrientation is a no-op.
   useEffect(() => {
-    if (!session || Platform.OS === 'web') return;
+    if (!video || Platform.OS === 'web') return;
     ScreenOrientation.unlockAsync().catch(() => undefined);
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(
         () => undefined,
       );
     };
-  }, [session]);
+  }, [video]);
 
   const openBookmarkList = async () => {
-    if (!session) return;
-    await loadBookmarks(session.id);
+    if (!video) return;
+    await loadBookmarks(video.id);
     try {
       player?.pause();
     } catch {
@@ -414,18 +408,18 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
   };
 
   const deleteBookmark = async (bookmarkId: string) => {
-    if (!session) return;
+    if (!video) return;
     const filtered = bookmarks.filter((b) => b.id !== bookmarkId);
     setBookmarks(filtered);
     try {
-      await AsyncStorage.setItem(bookmarksKeyFor(session.id), JSON.stringify(filtered));
+      await AsyncStorage.setItem(bookmarksKeyFor(video.id), JSON.stringify(filtered));
     } catch {
       // ignore
     }
   };
 
   const openBookmarkModal = () => {
-    if (!session || !player) return;
+    if (!video || !player) return;
     setBookmarkSavedAt(player.currentTime ?? 0);
     setBookmarkNote('');
     try {
@@ -437,15 +431,15 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
   };
 
   const saveBookmark = async () => {
-    if (!session || bookmarkSavedAt === null) return;
+    if (!video || bookmarkSavedAt === null) return;
     const note = bookmarkNote.trim();
     try {
-      const key = bookmarksKeyFor(session.id);
+      const key = bookmarksKeyFor(video.id);
       const existing = await AsyncStorage.getItem(key);
       const list: Bookmark[] = existing ? JSON.parse(existing) : [];
       list.push({
         id: `bookmark_${Date.now()}`,
-        trackId: videoProgressKey(session.id),
+        trackId: videoProgressKey(video.id),
         position: Math.floor(bookmarkSavedAt),
         note,
         createdAt: new Date().toISOString(),
@@ -461,9 +455,9 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
   };
 
   const handleDownload = async () => {
-    if (!session) return;
+    if (!video) return;
     try {
-      await videoDownloadService.download(session.id, '720p', (status) => {
+      await videoDownloadService.download(video.id, '720p', (status) => {
         setDownloadStatus(status);
       });
       setIsLocal(true);
@@ -473,7 +467,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
   };
 
   const handleDeleteLocal = async () => {
-    if (!session) return;
+    if (!video) return;
     Alert.alert(
       t('video.deleteOfflineTitle') || 'Remove from device',
       t('video.deleteOfflineMessage') || 'This video will be removed from offline storage. You can download it again later.',
@@ -483,7 +477,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
           text: t('common.remove') || 'Remove',
           style: 'destructive',
           onPress: async () => {
-            await videoDownloadService.delete(session.id);
+            await videoDownloadService.delete(video.id);
             setDownloadStatus({ state: 'idle' });
             // Don't switch to streaming mid-playback — let the user reopen.
           },
@@ -494,12 +488,12 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
 
   // Save progress one last time when closing (so quick taps don't lose state).
   const handleClose = () => {
-    if (session && video && player) {
+    if (video && player) {
       const currentTime = player.currentTime ?? 0;
       const duration = player.duration ?? video.durationSeconds ?? 0;
       if (currentTime > 0 && duration > 0) {
         saveVideoProgress(
-          session.id,
+          video.id,
           currentTime,
           duration,
           currentTime >= duration * COMPLETE_THRESHOLD_RATIO,
@@ -516,7 +510,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
 
   return (
     <Modal
-      visible={session !== null && video !== null}
+      visible={video !== null}
       animationType="slide"
       onRequestClose={handleClose}
       supportedOrientations={['portrait', 'landscape']}
@@ -535,7 +529,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
               onPress={openBookmarkList}
               style={styles.iconButton}
               accessibilityLabel={t('video.bookmarks') || 'Bookmarks'}
-              disabled={!session || !hlsUrl}
+              disabled={!video || !hlsUrl}
             >
               <Ionicons
                 name={bookmarks.length > 0 ? 'bookmarks' : 'bookmarks-outline'}
@@ -568,7 +562,7 @@ export function VideoPlayer({ video, session, onClose, onComplete, cellularAccep
               onPress={handleDownload}
               style={styles.iconButton}
               accessibilityLabel={t('video.saveOffline') || 'Save for offline'}
-              disabled={!session}
+              disabled={!video}
             >
               <Ionicons name="cloud-download-outline" size={26} color={colors.white} />
             </TouchableOpacity>

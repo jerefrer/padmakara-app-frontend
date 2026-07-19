@@ -94,6 +94,9 @@ export interface Gathering {
   retreatGroups?: GatheringGroup[];
   eventType?: EventType;
   transcripts?: { id: number }[];
+  /** Video recordings attached to this event, ordered by `position`.
+   *  An event may have zero, one, or several videos. */
+  videos?: EventVideo[];
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;
@@ -108,21 +111,25 @@ export interface Session {
   date: string;
   tracks?: Track[];
   gathering_id: string;
-  /** Video recordings attached to this session, ordered by `position`.
-   *  A session may have zero, one, or several videos. */
-  videos: SessionVideo[];
   created_at: string;
   updated_at: string;
 }
 
-/** A single Bunny Stream video recording attached to a session. */
-export interface SessionVideo {
+/** A single Bunny Stream video recording attached to an event (not a
+ *  session — videos are event-level content). */
+export interface EventVideo {
   id: number;
+  eventId: number;
   bunnyVideoId: string;
   position: number;
-  title: string | null;
+  titleEn: string | null;
+  titlePt: string | null;
+  /** "YYYY-MM-DD", or null when not set. */
+  videoDate: string | null;
   durationSeconds: number | null;
   posterUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Track {

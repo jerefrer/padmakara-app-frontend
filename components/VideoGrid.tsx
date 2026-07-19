@@ -10,41 +10,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
-import type { Session, SessionVideo } from '@/types';
-
-/** One card in the grid: a single recording, plus the session it belongs to
- *  (needed for title formatting and for opening the player). */
-export interface VideoGridItem {
-  session: Session;
-  video: SessionVideo;
-}
+import { getVideoTitle } from '@/utils/videoTitle';
+import type { EventVideo } from '@/types';
 
 interface VideoGridProps {
-  items: VideoGridItem[];
-  onPlay: (item: VideoGridItem) => void;
-  /** Renders the session's display title — passed in so the grid stays
-   *  agnostic of how titles are formatted on the parent screen. When a
-   *  session has more than one video, the grid appends a " — Part N" (or
-   *  the video's own title, if set) suffix automatically. */
-  renderTitle: (session: Session) => string;
-  /** Formats a SessionVideo's `durationSeconds` for the duration chip. */
+  /** Videos belonging to a single event, ordered by `position`. */
+  items: EventVideo[];
+  onPlay: (video: EventVideo) => void;
+  /** Formats an EventVideo's `durationSeconds` for the duration chip. */
   formatDuration: (seconds: number) => string;
 }
 
-export function VideoGrid({ items, onPlay, renderTitle, formatDuration }: VideoGridProps) {
+export function VideoGrid({ items, onPlay, formatDuration }: VideoGridProps) {
   const { isDesktop } = useDesktopLayout();
-  const { t } = useLanguage();
+  const { t, contentLanguage } = useLanguage();
   // 3 columns on desktop, 2 on tablet-ish, 1 on phone.
   const columns = isDesktop ? 3 : 1;
 
   return (
     <View style={[styles.grid, { gap: isDesktop ? 16 : 12 }]}>
-      {items.map(({ session, video }) => {
-        const baseTitle = renderTitle(session);
-        const hasMultipleVideos = (session.videos?.length ?? 0) > 1;
-        const partLabel =
-          video.title || t('session.part', { n: video.position + 1 }) || `Part ${video.position + 1}`;
-        const title = hasMultipleVideos ? `${baseTitle} — ${partLabel}` : baseTitle;
+      {items.map((video) => {
+        const title = getVideoTitle(video, { contentLanguage, t, totalVideos: items.length });
 
         return (
           <View
@@ -54,10 +40,10 @@ export function VideoGrid({ items, onPlay, renderTitle, formatDuration }: VideoG
               { width: `${100 / columns}%` as any },
             ]}
           >
-            <VideoSessionCard
+            <VideoCard
               video={video}
               title={title}
-              onPress={() => onPlay({ session, video })}
+              onPress={() => onPlay(video)}
               formatDuration={formatDuration}
             />
           </View>
@@ -68,13 +54,13 @@ export function VideoGrid({ items, onPlay, renderTitle, formatDuration }: VideoG
 }
 
 interface CardProps {
-  video: SessionVideo;
+  video: EventVideo;
   title: string;
   onPress: () => void;
   formatDuration: (seconds: number) => string;
 }
 
-function VideoSessionCard({ video, title, onPress, formatDuration }: CardProps) {
+function VideoCard({ video, title, onPress, formatDuration }: CardProps) {
   const { t } = useLanguage();
   const [thumbError, setThumbError] = useState(false);
   const [hover, setHover] = useState(false);
@@ -90,7 +76,7 @@ function VideoSessionCard({ video, title, onPress, formatDuration }: CardProps) 
       // @ts-ignore
       onHoverOut={() => setHover(false)}
       accessibilityRole="button"
-      accessibilityLabel={`${t('video.watchSessionVideo') || 'Watch video'} — ${title}`}
+      accessibilityLabel={`${t('video.watchVideo') || 'Watch video'} — ${title}`}
     >
       <View style={styles.thumbnailWrapper}>
         {video.posterUrl && !thumbError ? (

@@ -26,13 +26,13 @@ import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { OfflineBadge } from '@/components/OfflineBadge';
-import { Session, SessionVideo, Track, UserProgress } from '@/types';
+import { EventVideo, Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
-import { VideoGrid, type VideoGridItem } from '@/components/VideoGrid';
+import { VideoGrid } from '@/components/VideoGrid';
 import { getTranslatedName, getTrackTitle } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -123,6 +123,8 @@ interface RetreatDetails {
   startDate: string;
   endDate: string;
   sessions: Session[];
+  /** Video recordings attached to this event, ordered by `position`. */
+  videos?: EventVideo[];
   teachers?: Array<{
     id?: number;
     name: string;
@@ -223,9 +225,9 @@ export default function RetreatDetailScreen() {
   const [currentLanguageMode, setCurrentLanguageMode] = useState<string>(ALL_LANGUAGES);
 
   // Video playback (separate from the audio context — opens a full-screen modal).
-  // A session may have several videos; tap a card in the Video tab to open
+  // An event may have several videos; tap a card in the Video tab to open
   // the specific recording here.
-  const [activeVideo, setActiveVideo] = useState<{ session: Session; video: SessionVideo } | null>(null);
+  const [activeVideo, setActiveVideo] = useState<EventVideo | null>(null);
   // App-session-of-use ref to remember "I accepted cellular playback" — survives
   // remounts when the user opens different videos in the same screen visit.
   const cellularAcceptedRef = useRef<boolean>(false);
@@ -660,12 +662,12 @@ export default function RetreatDetailScreen() {
     setRefreshing(false);
   };
 
-  // Default content tab when the event loads: 'video' if any session has
-  // a recording, otherwise 'tracks'. This runs whenever a different
+  // Default content tab when the event loads: 'video' if the event has
+  // any recording, otherwise 'tracks'. This runs whenever a different
   // event is loaded (which remounts the screen).
   useEffect(() => {
     if (!retreat) return;
-    const anyVideo = retreat.sessions?.some((s) => (s.videos?.length ?? 0) > 0);
+    const anyVideo = (retreat.videos?.length ?? 0) > 0;
     setActiveContentTab(anyVideo ? 'video' : 'tracks');
   }, [retreat]);
 
@@ -845,8 +847,8 @@ export default function RetreatDetailScreen() {
   };
 
   /** Open the video modal for the given recording. */
-  const watchSessionVideo = useCallback((session: Session, video: SessionVideo) => {
-    setActiveVideo({ session, video });
+  const watchVideo = useCallback((video: EventVideo) => {
+    setActiveVideo(video);
   }, []);
 
   const goToNextTrack = () => {
@@ -1223,11 +1225,6 @@ export default function RetreatDetailScreen() {
     let trackSessionId: string | null = null;
     let isFirstSession = true;
 
-    // Lookup map for session-level data (notably session.videos so we can
-    // show a "Watch video" button on sessions with an attached recording).
-    const sessionsById = new Map<string, Session>();
-    retreat?.sessions?.forEach((s) => sessionsById.set(s.id, s));
-
     // Mobile-only: collapsing hero. Use the parent group's photo when set;
     // otherwise fall back to the principal teacher's hero so public talks
     // (which are not attached to any retreat group) still get a portrait.
@@ -1272,19 +1269,14 @@ export default function RetreatDetailScreen() {
 
     // Indicators for the floating circles on the hero.
     const hasAudio = !!retreat?.sessions?.some((s) => (s.tracks?.length ?? 0) > 0);
-    const hasVideo = !!retreat?.sessions?.some((s) => (s.videos?.length ?? 0) > 0);
+    const hasVideo = (retreat?.videos?.length ?? 0) > 0;
     const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
-    const firstVideoSession = retreat?.sessions?.find((s) => (s.videos?.length ?? 0) > 0) ?? null;
 
-    // One (session, video) pair per recording — used by the Video tab grid.
-    // Sessions are already in event order; sort each session's videos by
-    // position defensively, even though the backend already orders them.
-    const videoItems: VideoGridItem[] = (retreat?.sessions ?? []).flatMap((s) =>
-      (s.videos ?? [])
-        .slice()
-        .sort((a, b) => a.position - b.position)
-        .map((video) => ({ session: s, video })),
-    );
+    // Videos are event-level — used directly by the Video tab grid. Sort
+    // defensively by position, even though the backend already orders them.
+    const videoItems: EventVideo[] = (retreat?.videos ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position);
     // Tabs only appear when both content types are available; otherwise
     // the screen renders whichever exists.
     // On native mobile the transcript is reached through a pseudo-tab that
@@ -1310,14 +1302,6 @@ export default function RetreatDetailScreen() {
           ? 'tracks'
           : (hasVideo ? 'video' : 'tracks');
 
-    // Helper for the video card title — reuses the same session header
-    // formatting as the audio track list so the two stay consistent.
-    const renderSessionTitle = (s: Session) => formatSessionHeader({
-      sessionName: s.name,
-      sessionDate: s.date,
-      sessionType: s.type,
-      sessionPartNumber: s.partNumber ?? null,
-    });
     const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
 
     return (
@@ -1449,8 +1433,7 @@ export default function RetreatDetailScreen() {
         {effectiveTab === 'video' && hasVideo && (
           <VideoGrid
             items={videoItems}
-            onPlay={({ session, video }) => watchSessionVideo(session, video)}
-            renderTitle={(s) => renderSessionTitle(s)}
+            onPlay={(video) => watchVideo(video)}
             formatDuration={formatDurationForGrid}
           />
         )}
@@ -1830,13 +1813,14 @@ export default function RetreatDetailScreen() {
 
       {/* Full-screen video player (opens when a recording's card is tapped) */}
       <VideoPlayer
-        video={activeVideo?.video ?? null}
-        session={activeVideo?.session ?? null}
+        video={activeVideo}
+        eventTitle={retreat ? (getTranslatedName(retreat as any, language) || retreat.name) : undefined}
+        totalVideos={retreat?.videos?.length}
         cellularAcceptedRef={cellularAcceptedRef}
         onClose={() => setActiveVideo(null)}
         onComplete={() => {
           // Video reached the end. Close the modal — there's no "next video"
-          // auto-advance within a session yet.
+          // auto-advance within the event yet.
           setActiveVideo(null);
         }}
       />

@@ -50,7 +50,9 @@
     "bookmarks": "Marcadores",
     "bookmarksEmpty": "Ainda sem marcadores — toque em Adicionar para guardar momentos importantes.",
     "addBookmarkAtCurrent": "Adicionar marcador no momento atual",
-    "watchSessionVideo": "Ver vídeo"
+    "watchVideo": "Ver vídeo",
+    "part": "Parte {{n}}",
+    "untitled": "Vídeo"
   },
   "session": {
     "part": "Parte {{n}}"
