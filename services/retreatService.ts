@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { EventDocument, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
+import { EventDocument, EventFile, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
@@ -700,9 +700,27 @@ class RetreatService {
       originalFilename: tr.originalFilename || tr.original_filename || '',
     })) || [];
 
+    // Non-transcript event files (images, slides, docs, etc.) — carries the
+    // full fields buildEventDocuments() needs to build the merged Documents
+    // list. mapEvent() doesn't map this (unlike transcripts, which it maps
+    // in an id-only shape); the retreat detail screen only ever reads the
+    // assembleEventDetail output, so this is the single place it needs to
+    // be populated.
+    const eventFiles: EventFile[] = (rawData.eventFiles ?? []).map((f: any) => ({
+      id: f.id,
+      title: f.title ?? null,
+      originalFilename: f.originalFilename || f.original_filename || '',
+      extension: f.extension || '',
+      fileType: f.fileType || f.file_type || '',
+      language: f.language ?? null,
+      sensitive: f.sensitive ?? false,
+      sortOrder: f.sortOrder ?? f.sort_order ?? 0,
+    }));
+
     return {
       ...mapped,
       transcripts,
+      eventFiles,
       retreat_group: retreatGroup ? {
         id: String(retreatGroup.id),
         name: retreatGroup.nameEn || retreatGroup.name_en || '',

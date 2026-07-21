@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert, Image, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Pressable, Platform, Alert, Image, RefreshControl, Linking } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -12,6 +13,8 @@ import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftBadge } from '@/components/DraftBadge';
+import { PDFViewer } from '@/components/PDFViewer';
+import { DocumentImageViewer } from '@/components/DocumentImageViewer';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -22,11 +25,11 @@ import { VideoPlayer } from '@/components/VideoPlayer';
 import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
-import retreatService from '@/services/retreatService';
+import retreatService, { buildEventDocuments } from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { OfflineBadge } from '@/components/OfflineBadge';
-import { EventVideo, Session, Track, UserProgress } from '@/types';
+import { EventDocument, EventFile, EventVideo, Session, Track, UserProgress } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
@@ -154,6 +157,8 @@ interface RetreatDetails {
     heroUpdatedAt?: string | null;
   };
   transcripts?: TranscriptInfo[];
+  /** Non-transcript documents attached to this event (images, slides, etc.). */
+  eventFiles?: EventFile[];
   status?: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   relatedPublications?: Array<{
     id: number;
@@ -238,11 +243,18 @@ export default function RetreatDetailScreen() {
   const [readAlongLoading, setReadAlongLoading] = useState(false);
 
   // Overflow menu state
-  // Which tab is showing: 'video' (thumbnail grid of session recordings)
-  // or 'tracks' (audio session list). We default to 'video' on mount and
-  // then sync to whatever the event actually has once it loads.
-  const [activeContentTab, setActiveContentTab] = useState<'video' | 'tracks'>('video');
+  // Which tab is showing: 'video' (thumbnail grid of session recordings),
+  // 'tracks' (audio session list), or 'documents' (transcript + event files
+  // list). We default to 'video' on mount and then sync to whatever the
+  // event actually has once it loads.
+  const [activeContentTab, setActiveContentTab] = useState<'video' | 'tracks' | 'documents'>('video');
   const [menuVisible, setMenuVisible] = useState(false);
+
+  // Documents tab viewer state — which modal (if any) is currently showing,
+  // and which document key is mid-fetch (disables taps + shows a spinner).
+  const [documentImageViewer, setDocumentImageViewer] = useState<{ uri: string; title: string } | null>(null);
+  const [documentPdfViewer, setDocumentPdfViewer] = useState<{ uri: string; title: string } | null>(null);
+  const [documentBusyKey, setDocumentBusyKey] = useState<string | null>(null);
 
   // Language dropdown state
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -1165,6 +1177,76 @@ export default function RetreatDetailScreen() {
     setReadAlongData(null);
   }, []);
 
+  // Handle a tap on a Documents-tab item. Routing depends on the document's
+  // `viewer` (and, for the transcript, its `kind`):
+  // - transcript → existing full-page transcript route (unchanged flow)
+  // - pdf (non-transcript file) → PDFViewer modal fed by getFileUrl
+  // - image → DocumentImageViewer modal fed by getFileUrl
+  // - download → Linking.openURL on web; expo-sharing on native
+  const handleDocumentPress = useCallback(async (doc: EventDocument) => {
+    if (documentBusyKey) return; // a fetch is already in flight
+    if (doc.kind === 'transcript') {
+      router.push(`/(tabs)/(groups)/transcript/${retreat?.id}` as any);
+      return;
+    }
+
+    const openError = () =>
+      showModal(
+        t('documents.openError') || 'Could not open this document',
+        '',
+        [{ text: 'OK' }],
+        'alert-circle-outline'
+      );
+
+    const originalFilename = `${doc.title}.${doc.extension}`;
+    setDocumentBusyKey(doc.key);
+    try {
+      if (doc.viewer === 'image') {
+        const result = await retreatService.getFileUrl(doc.id, { originalFilename });
+        if (result.success && result.url) {
+          setDocumentImageViewer({ uri: result.url, title: doc.title });
+        } else {
+          openError();
+        }
+        return;
+      }
+
+      if (doc.viewer === 'pdf') {
+        const result = await retreatService.getFileUrl(doc.id, { originalFilename });
+        if (result.success && result.url) {
+          setDocumentPdfViewer({ uri: result.url, title: doc.title });
+        } else {
+          openError();
+        }
+        return;
+      }
+
+      // 'download' viewer — web opens the file directly (server sends
+      // Content-Disposition: attachment); native fetches it (getFileUrl
+      // already writes it to a local cache file) then shares it.
+      if (Platform.OS === 'web') {
+        const result = await retreatService.getFileUrl(doc.id, { download: true, originalFilename });
+        if (result.success && result.url) {
+          Linking.openURL(result.url);
+        } else {
+          openError();
+        }
+      } else {
+        const result = await retreatService.getFileUrl(doc.id, { originalFilename });
+        if (result.success && result.url && (await Sharing.isAvailableAsync())) {
+          await Sharing.shareAsync(result.url);
+        } else {
+          openError();
+        }
+      }
+    } catch (err) {
+      console.error('Document open error:', err);
+      openError();
+    } finally {
+      setDocumentBusyKey(null);
+    }
+  }, [retreat?.id, documentBusyKey, t]);
+
   // When the user advances to another track (e.g. via the player's next/prev
   // controls), keep the read-along modal open and load the new track's
   // alignment data — or close the modal if the new track has no read-along.
@@ -1272,35 +1354,34 @@ export default function RetreatDetailScreen() {
     const hasVideo = (retreat?.videos?.length ?? 0) > 0;
     const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
 
+    // Merged "Documents" list — transcript(s) featured first, then the
+    // event's other files (images, slides, etc.) ordered by sortOrder.
+    const documents: EventDocument[] = retreat ? buildEventDocuments(retreat) : [];
+    const hasDocuments = documents.length > 0;
+
     // Videos are event-level — used directly by the Video tab grid. Sort
     // defensively by position, even though the backend already orders them.
     const videoItems: EventVideo[] = (retreat?.videos ?? [])
       .slice()
       .sort((a, b) => a.position - b.position);
-    // Tabs only appear when both content types are available; otherwise
-    // the screen renders whichever exists.
-    // On native mobile the transcript is reached through a pseudo-tab that
-    // opens it full-page (rather than rendering inline), so the tab bar shows
-    // whenever the event has 2+ content types — including the common
-    // audio+transcript case that previously had no tab bar at all. On web the
-    // tab bar keeps its original rule (video AND audio); the transcript there
-    // is still opened from the desktop player bar / overflow menu.
-    const isNativeMobile = Platform.OS !== 'web';
+    // Tabs only appear when 2+ content types are available; otherwise the
+    // screen renders whichever single type exists directly, no tab bar.
+    // Documents counts as a content type alongside video/audio on every
+    // platform — tapping the featured transcript inside it still navigates
+    // to the full-page transcript route (see handleDocumentPress).
     const contentTypeCount =
-      (hasVideo ? 1 : 0) + (hasAudio ? 1 : 0) + (hasTranscript ? 1 : 0);
-    const showContentTabs = isNativeMobile
-      ? contentTypeCount >= 2
-      : hasVideo && hasAudio;
-    // The active tab only ever points at a media tab (video/tracks); the
-    // transcript pseudo-tab navigates away instead of becoming "active". Fall
-    // back to whichever media type actually exists so an audio+transcript
-    // event doesn't land on an empty 'video' body.
-    const effectiveTab: 'video' | 'tracks' =
+      (hasVideo ? 1 : 0) + (hasAudio ? 1 : 0) + (hasDocuments ? 1 : 0);
+    const showContentTabs = contentTypeCount >= 2;
+    // Fall back to whichever content type actually exists so an event with
+    // only one type never lands on an empty tab body.
+    const effectiveTab: 'video' | 'tracks' | 'documents' =
       activeContentTab === 'video' && hasVideo
         ? 'video'
         : activeContentTab === 'tracks' && hasAudio
           ? 'tracks'
-          : (hasVideo ? 'video' : 'tracks');
+          : activeContentTab === 'documents' && hasDocuments
+            ? 'documents'
+            : (hasVideo ? 'video' : hasAudio ? 'tracks' : 'documents');
 
     const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
 
@@ -1383,8 +1464,8 @@ export default function RetreatDetailScreen() {
           </View>
         )}
 
-        {/* Tab bar — only shown when the event has both audio tracks and
-            video recordings. Sits between the title and the content. */}
+        {/* Tab bar — shown whenever 2+ content types are available (video,
+            audio, documents). Sits between the title and the content. */}
         {showContentTabs && (
           <View style={styles.contentTabBar}>
             {hasVideo && (
@@ -1411,19 +1492,15 @@ export default function RetreatDetailScreen() {
                 </Text>
               </Pressable>
             )}
-            {/* Transcript pseudo-tab — looks like a tab but, instead of
-                rendering content below, it opens the transcript full-page
-                (same destination as the old overflow-menu shortcut). Native
-                mobile only; web opens the transcript from the player bar. */}
-            {isNativeMobile && hasTranscript && (
+            {hasDocuments && (
               <Pressable
-                style={styles.contentTab}
-                onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)}
-                accessibilityRole="button"
-                accessibilityLabel={t('transcript.open') || 'Open transcript'}
+                style={[styles.contentTab, effectiveTab === 'documents' && styles.contentTabActive]}
+                onPress={() => setActiveContentTab('documents')}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: effectiveTab === 'documents' }}
               >
-                <Text style={styles.contentTabText}>
-                  {t('eventTabs.transcript') || 'Transcript'}
+                <Text style={[styles.contentTabText, effectiveTab === 'documents' && styles.contentTabTextActive]}>
+                  {t('documents.tab') || 'Documents'}
                 </Text>
               </Pressable>
             )}
@@ -1538,32 +1615,92 @@ export default function RetreatDetailScreen() {
           );
         })}
 
-        {/* Transcript-only fallback: when the event has no audio tracks and no
-            video recording but a transcript exists, surface it here so the
-            content area is never empty for these events. */}
-        {!hasAudio && !hasVideo && hasTranscript && retreat && (
-          <View style={styles.transcriptOnlySection}>
-            <Ionicons
-              name="book-outline"
-              size={40}
-              color={colors.gray[400]}
-              style={styles.transcriptOnlyIcon}
-            />
-            <Text style={styles.transcriptOnlyMessage}>
-              {t('events.transcriptOnlyMessage')
-                || 'No audio or video recordings are available for this event. Only the written transcript is available.'}
-            </Text>
-            <TouchableOpacity
-              style={styles.transcriptOnlyButton}
-              onPress={() => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)}
-              accessibilityRole="button"
-              accessibilityLabel={t('transcript.open') || 'Open transcript'}
-            >
-              <Ionicons name="book" size={18} color={colors.white} />
-              <Text style={styles.transcriptOnlyButtonText}>
-                {t('transcript.open') || 'Open transcript'}
+        {/* Documents tab content — featured transcript(s) as a distinct top
+            card, then the event's other files (images, slides, etc.) as a
+            list below. Covers both the "tab body" case (2+ content types)
+            and the "only content type" case (event has documents but no
+            audio/video), so the content area is never empty for those
+            events. */}
+        {effectiveTab === 'documents' && (
+          <View style={styles.documentsSection}>
+            {documents.filter((doc) => doc.featured).map((doc) => (
+              <TouchableOpacity
+                key={doc.key}
+                style={styles.documentFeaturedCard}
+                onPress={() => handleDocumentPress(doc)}
+                disabled={!!documentBusyKey}
+                accessibilityRole="button"
+                accessibilityLabel={doc.title}
+              >
+                <View style={styles.documentFeaturedIcon}>
+                  <Ionicons name="book-outline" size={26} color={colors.burgundy[500]} />
+                </View>
+                <View style={styles.documentFeaturedInfo}>
+                  <Text style={styles.documentFeaturedTitle} numberOfLines={1}>{doc.title}</Text>
+                  <Text style={styles.documentFeaturedSubtitle}>
+                    {(t('documents.transcript') || 'Transcript')
+                      + (doc.language ? ` · ${doc.language.toUpperCase()}` : '')}
+                  </Text>
+                </View>
+                {documentBusyKey === doc.key ? (
+                  <ActivityIndicator size="small" color={colors.burgundy[500]} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={colors.gray[400]} />
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {documents.filter((doc) => !doc.featured).map((doc) => (
+              <TouchableOpacity
+                key={doc.key}
+                style={styles.documentListItem}
+                onPress={() => handleDocumentPress(doc)}
+                disabled={!!documentBusyKey}
+                accessibilityRole="button"
+                accessibilityLabel={doc.title}
+              >
+                <Ionicons
+                  name={
+                    doc.viewer === 'image'
+                      ? 'image-outline'
+                      : doc.viewer === 'pdf'
+                        ? 'document-text-outline'
+                        : 'document-outline'
+                  }
+                  size={22}
+                  color={colors.gray[600]}
+                />
+                <View style={styles.documentListInfo}>
+                  <Text style={styles.documentListTitle} numberOfLines={1}>{doc.title}</Text>
+                  <Text style={styles.documentListSubtitle}>
+                    {doc.viewer === 'image'
+                      ? (t('documents.image') || 'Image')
+                      : (t('documents.document') || 'Document')}
+                  </Text>
+                </View>
+                {documentBusyKey === doc.key ? (
+                  doc.viewer === 'download' ? (
+                    <Text style={styles.documentListAction}>
+                      {t('documents.downloading') || 'Downloading…'}
+                    </Text>
+                  ) : (
+                    <ActivityIndicator size="small" color={colors.gray[500]} />
+                  )
+                ) : (
+                  <Text style={styles.documentListAction}>
+                    {doc.viewer === 'download'
+                      ? (t('documents.download') || 'Download')
+                      : (t('documents.open') || 'Open')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {documents.length === 0 && (
+              <Text style={styles.documentsEmptyText}>
+                {t('documents.empty') || 'No documents available'}
               </Text>
-            </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -1993,6 +2130,43 @@ export default function RetreatDetailScreen() {
           </Pressable>
         </Modal>
       )}
+
+      {/* Document PDF Viewer Modal — non-transcript PDF files (viewer ===
+          'pdf', kind === 'file'). The event's main transcript still opens
+          via the full-page transcript route, not this modal. */}
+      <Modal
+        visible={!!documentPdfViewer}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setDocumentPdfViewer(null)}
+      >
+        <SafeAreaView style={styles.documentViewerModal}>
+          <View style={styles.documentViewerHeader}>
+            <Text style={styles.documentViewerTitle} numberOfLines={1}>
+              {documentPdfViewer?.title}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setDocumentPdfViewer(null)}
+              accessibilityRole="button"
+              accessibilityLabel={t('documents.close') || 'Close'}
+              style={styles.documentViewerCloseButton}
+            >
+              <Ionicons name="close" size={24} color={colors.gray[700]} />
+            </TouchableOpacity>
+          </View>
+          {documentPdfViewer && (
+            <PDFViewer source={documentPdfViewer.uri} title={documentPdfViewer.title} />
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* Document Image Viewer Modal — image-type event files. */}
+      <DocumentImageViewer
+        visible={!!documentImageViewer}
+        uri={documentImageViewer?.uri ?? null}
+        title={documentImageViewer?.title}
+        onClose={() => setDocumentImageViewer(null)}
+      />
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -2561,37 +2735,101 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  transcriptOnlySection: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 40,
+  // Documents tab — featured transcript card(s) followed by a plain list
+  // of the event's other files (images, slides, etc.).
+  documentsSection: {
+    paddingBottom: 8,
   },
-  transcriptOnlyIcon: {
-    marginBottom: 16,
-    opacity: 0.85,
-  },
-  transcriptOnlyMessage: {
-    fontFamily: 'EBGaramond_400Regular',
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.gray[600],
-    textAlign: 'center',
-    marginBottom: 24,
-    maxWidth: 360,
-  },
-  transcriptOnlyButton: {
+  documentFeaturedCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.burgundy[500],
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    gap: 8,
+    backgroundColor: colors.burgundy[50],
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
   },
-  transcriptOnlyButtonText: {
+  documentFeaturedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  documentFeaturedInfo: {
+    flex: 1,
+  },
+  documentFeaturedTitle: {
     fontFamily: 'EBGaramond_600SemiBold',
     fontSize: 16,
-    color: colors.white,
+    color: colors.gray[700],
+    marginBottom: 2,
+  },
+  documentFeaturedSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    color: colors.burgundy[500],
+    textTransform: 'uppercase',
+  },
+  documentListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    gap: 12,
+  },
+  documentListInfo: {
+    flex: 1,
+  },
+  documentListTitle: {
+    fontFamily: 'EBGaramond_400Regular',
+    fontSize: 15,
+    color: colors.gray[700],
+    marginBottom: 2,
+  },
+  documentListSubtitle: {
+    fontSize: 12,
+    color: colors.gray[500],
+  },
+  documentListAction: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.burgundy[500],
+  },
+  documentsEmptyText: {
+    fontFamily: 'EBGaramond_400Regular',
+    fontSize: 15,
+    color: colors.gray[500],
+    textAlign: 'center',
+    paddingVertical: 40,
+  },
+  // Document viewer modal (non-transcript PDF files) — small header bar
+  // with title + close button, then the PDFViewer fills the rest.
+  documentViewerModal: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  documentViewerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  documentViewerTitle: {
+    flex: 1,
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 16,
+    color: colors.gray[700],
+    marginRight: 12,
+  },
+  documentViewerCloseButton: {
+    padding: 4,
   },
   relatedPublicationsSection: {
     paddingHorizontal: 16,
