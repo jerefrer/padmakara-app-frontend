@@ -265,6 +265,18 @@
     "collapse": "Collapse",
     "pages": "pages"
   },
+  "documents": {
+    "tab": "Documents",
+    "transcript": "Transcript",
+    "empty": "No documents available",
+    "open": "Open",
+    "download": "Download",
+    "downloading": "Downloading…",
+    "openError": "Could not open this document",
+    "close": "Close",
+    "image": "Image",
+    "document": "Document"
+  },
   "player": {
     "nowPlaying": "Now Playing",
     "playbackSpeed": "Playback Speed",

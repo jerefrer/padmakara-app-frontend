@@ -265,6 +265,18 @@
     "collapse": "Recolher",
     "pages": "páginas"
   },
+  "documents": {
+    "tab": "Documentos",
+    "transcript": "Transcrição",
+    "empty": "Nenhum documento disponível",
+    "open": "Abrir",
+    "download": "Descarregar",
+    "downloading": "A descarregar…",
+    "openError": "Não foi possível abrir este documento",
+    "close": "Fechar",
+    "image": "Imagem",
+    "document": "Documento"
+  },
   "player": {
     "nowPlaying": "Tocando Agora",
     "playbackSpeed": "Velocidade de Reprodução",
