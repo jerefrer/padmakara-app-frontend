@@ -94,12 +94,41 @@ export interface Gathering {
   retreatGroups?: GatheringGroup[];
   eventType?: EventType;
   transcripts?: { id: number }[];
+  /** Non-transcript documents attached to this event (images, slides, etc.),
+   *  visible to users alongside the transcript. */
+  eventFiles?: EventFile[];
   /** Video recordings attached to this event, ordered by `position`.
    *  An event may have zero, one, or several videos. */
   videos?: EventVideo[];
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;
+}
+
+/** A single non-transcript document attached to an event (image, slides,
+ *  or other document type), served via GET /api/media/file/:id. */
+export interface EventFile {
+  id: number;
+  title?: string | null;
+  originalFilename: string;
+  fileType: string;
+  extension: string;
+  language?: string | null;
+  sensitive?: boolean;
+  sortOrder?: number;
+}
+
+/** A single item in the merged "Documents" list for an event — either the
+ *  transcript (pinned first, featured) or one of the event's other files. */
+export interface EventDocument {
+  key: string;
+  kind: 'transcript' | 'file';
+  id: number;
+  title: string;
+  language?: string | null;
+  extension: string;
+  viewer: 'pdf' | 'image' | 'download';
+  featured: boolean;
 }
 
 export interface Session {

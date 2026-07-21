@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
+import { EventDocument, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
@@ -213,6 +213,69 @@ function mapTrack(backend: any): Track {
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
   };
+}
+
+// ─── Event Documents ─────────────────────────────────────────────────
+
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg']);
+
+function viewerForExt(ext: string): 'pdf' | 'image' | 'download' {
+  const e = (ext || '').replace(/^\./, '').toLowerCase();
+  if (e === 'pdf') return 'pdf';
+  if (IMAGE_EXTS.has(e)) return 'image';
+  return 'download';
+}
+
+function cleanName(filename: string): string {
+  return filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+}
+
+/** Convert an ArrayBuffer to a base64 string (for writing binary files to disk). */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Merge an event's transcript(s) and non-transcript files into a single
+ * ordered "Documents" list: transcript(s) first (featured, pdf viewer),
+ * then eventFiles ordered by sortOrder, with the viewer derived from
+ * each file's extension.
+ */
+export function buildEventDocuments(event: any): EventDocument[] {
+  const docs: EventDocument[] = [];
+  for (const t of event.transcripts ?? []) {
+    docs.push({
+      key: `t-${t.id}`,
+      kind: 'transcript',
+      id: t.id,
+      title: cleanName(t.originalFilename || `Transcript`),
+      language: t.language ?? null,
+      extension: 'pdf',
+      viewer: 'pdf',
+      featured: true,
+    });
+  }
+  const files = [...(event.eventFiles ?? [])].sort(
+    (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id,
+  );
+  for (const f of files) {
+    docs.push({
+      key: `f-${f.id}`,
+      kind: 'file',
+      id: f.id,
+      title: f.title || cleanName(f.originalFilename),
+      language: f.language ?? null,
+      extension: (f.extension || '').replace(/^\./, '').toLowerCase(),
+      viewer: viewerForExt(f.extension),
+      featured: false,
+    });
+  }
+  return docs;
 }
 
 // ─── Service ────────────────────────────────────────────────────────
@@ -941,6 +1004,75 @@ class RetreatService {
     } catch (error) {
       console.error('Get transcript PDF error:', error);
       return { success: false, error: 'Failed to load transcript' };
+    }
+  }
+
+  /**
+   * Get a URL to view (or download) a non-transcript event document
+   * (image, slides, or other file type). Mirrors getTranscriptPdfUrl's
+   * web/native split and auth handling.
+   * - Web: returns direct API URL with token param (`&download=true` when
+   *   `opts.download` is set, so the server sends the original file with a
+   *   Content-Disposition: attachment header).
+   * - Native: fetches the file and writes it to a temp cache file, returns
+   *   the local file:// URI. Unlike transcripts, event files have no
+   *   `updatedAt` to key a persistent cache on, so this always fetches
+   *   fresh rather than checking a local cache first.
+   */
+  async getFileUrl(fileId: number, opts: { originalFilename?: string; download?: boolean } = {}): Promise<{
+    success: boolean;
+    url?: string;
+    error?: string;
+  }> {
+    try {
+      const token = await getAuthToken();
+      const apiUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.FILE_URL(fileId)}`;
+      const downloadParam = opts.download ? 'download=true' : '';
+
+      // Web: point iframe/link directly at API URL with token (gets correct filename from headers)
+      if (Platform.OS === 'web') {
+        if (!token) return { success: false, error: 'Authentication required' };
+        const params = [`token=${encodeURIComponent(token)}`, downloadParam].filter(Boolean).join('&');
+        return { success: true, url: `${apiUrl}?${params}` };
+      }
+
+      // Native: fetch the file directly (no persistent cache — see note above)
+      const fetchUrl = downloadParam ? `${apiUrl}?${downloadParam}` : apiUrl;
+      const response = await fetch(fetchUrl, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        return { success: false, error: errorText || `HTTP ${response.status}` };
+      }
+
+      // Extract filename from Content-Disposition header if not provided
+      let filename = opts.originalFilename;
+      if (!filename) {
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";\n]+)"?/);
+        if (match) filename = match[1];
+      }
+
+      const fileBytes = await response.arrayBuffer();
+
+      const cacheDir = `${FileSystem.cacheDirectory}event-files/`;
+      const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
+      }
+      const localPath = `${cacheDir}${filename || `file-${fileId}`}`;
+      await FileSystem.writeAsStringAsync(localPath, arrayBufferToBase64(fileBytes), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      return { success: true, url: localPath };
+    } catch (error) {
+      console.error('Get file URL error:', error);
+      return { success: false, error: 'Failed to load file' };
     }
   }
 

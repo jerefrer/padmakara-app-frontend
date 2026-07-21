@@ -72,6 +72,8 @@ export const API_ENDPOINTS = {
   VIDEO_PROGRESS: (videoId: number) => `/content/video-progress/${videoId}`,
   READ_ALONG_URL: (trackId: string) => `/media/readalong/${trackId}`,
   TRANSCRIPT_URL: (transcriptId: string) => `/media/transcript/${transcriptId}`,
+  /** Non-transcript event document (image, slides, etc.). */
+  FILE_URL: (id: number) => `/media/file/${id}`,
   
   // Account Management
   DELETE_ACCOUNT: '/auth/user/delete',
