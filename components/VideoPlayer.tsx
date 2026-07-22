@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer, VideoView, type SubtitleTrack } from 'expo-video';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -119,7 +119,7 @@ export function VideoPlayer({
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
-  const { t, contentLanguage } = useLanguage();
+  const { t, contentLanguage, language } = useLanguage();
   // hlsUrl points at our backend's HLS proxy on every platform — see the
   // playback-URL-load effect below. The legacy name is kept so all existing
   // event/render code keeps working without churn.
@@ -136,6 +136,9 @@ export function VideoPlayer({
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const lastSavedAtRef = useRef<number>(0);
   const completedRef = useRef<boolean>(false);
+  // Auto-enable subtitles once per video. Set-once semantics so we never fight
+  // a user who turns them back off mid-playback.
+  const didAutoSelectSubtitleRef = useRef<boolean>(false);
 
   // Title helper is shared with VideoGrid so cards and the player header
   // agree: localized title first, else a formatted date + "Part N" when
@@ -173,6 +176,7 @@ export function VideoPlayer({
   useEffect(() => {
     let cancelled = false;
     completedRef.current = false;
+    didAutoSelectSubtitleRef.current = false;
     setErrorMsg(null);
     setHlsUrl(null);
     setResumePosition(0);
@@ -352,6 +356,24 @@ export function VideoPlayer({
       completedRef.current = true;
       onComplete?.();
     }
+  });
+
+  // Turn subtitles on by default when the recording has any. Native only —
+  // expo-video's web player exposes no subtitle tracks, so this no-ops there.
+  // Fires when the native player finishes parsing the HLS manifest; the
+  // set-once ref keeps us from re-enabling after the user opts out.
+  useEventListener(player, 'availableSubtitleTracksChange', ({ availableSubtitleTracks }) => {
+    if (Platform.OS === 'web') return;
+    if (didAutoSelectSubtitleRef.current) return;
+    if (!availableSubtitleTracks || availableSubtitleTracks.length === 0) return;
+    const preferred = pickPreferredSubtitle(availableSubtitleTracks, contentLanguage, language);
+    if (!preferred) return;
+    try {
+      player.subtitleTrack = preferred;
+    } catch {
+      // Selecting a subtitle track must never crash playback.
+    }
+    didAutoSelectSubtitleRef.current = true;
   });
 
   const bookmarksKeyFor = (videoId: number) => `bookmarks_${videoProgressKey(videoId)}`;
@@ -925,6 +947,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+/**
+ * Choose which subtitle track to enable by default. Prefers the user's content
+ * language, then their UI language (for bilingual "en-pt" readers), then the
+ * first track offered. Subtitle `language` codes come from the backend
+ * (`en`, `pt`), matched loosely so regional variants like `en-US` still hit.
+ */
+function pickPreferredSubtitle(
+  tracks: SubtitleTrack[],
+  contentLanguage: string,
+  uiLanguage: string,
+): SubtitleTrack | null {
+  if (tracks.length === 0) return null;
+  const order =
+    contentLanguage === 'pt'
+      ? ['pt', 'en']
+      : contentLanguage === 'en'
+        ? ['en', 'pt']
+        : uiLanguage === 'pt'
+          ? ['pt', 'en']
+          : ['en', 'pt']; // "en-pt" bilingual → follow the UI language
+  for (const code of order) {
+    const match = tracks.find((track) => track.language?.toLowerCase().startsWith(code));
+    if (match) return match;
+  }
+  return tracks[0];
+}
 
 // Inline helper duplicated from AudioPlayer to avoid coupling.
 function formatTime(seconds: number): string {
