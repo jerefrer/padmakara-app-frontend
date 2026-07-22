@@ -117,6 +117,58 @@ function formatLongDate(dateStr: string, language: string): string {
   }
 }
 
+/**
+ * Format a start/end date pair as a compact range, factoring out whatever the
+ * two endpoints share:
+ *   - same day:              "14 April 2025"        (one-day event)
+ *   - same month & year:     "14–15 April 2025"
+ *   - same year, diff month: "30 April – 1 May 2025"
+ *   - different year:        "31 December 2024 – 1 January 2025"
+ * Portuguese uses the "14 de abril de 2025" glue. Day/month/year are read via
+ * the local-timezone getters so the pieces stay consistent with what
+ * formatLongDate renders. Falls back to a single date when endStr is missing,
+ * unparseable, or equal to startStr.
+ */
+function formatDateRange(startStr: string, endStr: string | undefined, language: string): string {
+  if (!startStr) return '';
+  if (!endStr) return formatLongDate(startStr, language);
+
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return formatLongDate(startStr, language);
+  }
+
+  const isPt = language === 'pt';
+  const locale = isPt ? 'pt-PT' : 'en-GB';
+  const monthName = (d: Date) => d.toLocaleDateString(locale, { month: 'long' });
+
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+  const sameDay = sameMonth && start.getDate() === end.getDate();
+
+  if (sameDay) return formatLongDate(startStr, language);
+
+  const d1 = start.getDate();
+  const d2 = end.getDate();
+  const m1 = monthName(start);
+  const m2 = monthName(end);
+  const y1 = start.getFullYear();
+
+  if (sameMonth) {
+    // "14–15 April 2025" / "14–15 de abril de 2025"
+    return isPt ? `${d1}–${d2} de ${m1} de ${y1}` : `${d1}–${d2} ${m1} ${y1}`;
+  }
+  if (sameYear) {
+    // "30 April – 1 May 2025" / "30 de abril – 1 de maio de 2025"
+    return isPt
+      ? `${d1} de ${m1} – ${d2} de ${m2} de ${y1}`
+      : `${d1} ${m1} – ${d2} ${m2} ${y1}`;
+  }
+  // Different year — spell both endpoints out in full.
+  return `${formatLongDate(startStr, language)} – ${formatLongDate(endStr, language)}`;
+}
+
 interface RetreatDetails {
   id: string;
   name: string;
@@ -1342,7 +1394,9 @@ export default function RetreatDetailScreen() {
     const eventTypeLabel = retreat?.eventType
       ? (language === 'pt' && retreat.eventType.namePt ? retreat.eventType.namePt : retreat.eventType.nameEn)
       : null;
-    const dateLabel = retreat?.startDate ? formatLongDate(retreat.startDate, language) : '';
+    const dateLabel = retreat?.startDate
+      ? formatDateRange(retreat.startDate, retreat.endDate, language)
+      : '';
     const metaParts = [
       t('events.recordingsLabel') || 'Recordings',
       eventTypeLabel,
