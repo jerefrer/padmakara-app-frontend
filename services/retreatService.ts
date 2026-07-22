@@ -969,7 +969,9 @@ class RetreatService {
 
   /**
    * Get a URL to view a watermarked transcript PDF.
-   * - Web: returns direct API URL with token param (iframe gets proper Content-Disposition/filename)
+   * - Web: fetches the PDF with the Authorization header and returns a blob:
+   *   object URL. (The API no longer accepts tokens via ?token= — JWTs in URLs
+   *   leak into logs/history/Referer — and an <iframe> can't set headers.)
    * - Native: fetches PDF, caches locally, returns file:// URI
    */
   async getTranscriptPdfUrl(transcriptId: string, updatedAt: string, originalFilename?: string): Promise<{
@@ -981,10 +983,20 @@ class RetreatService {
       const token = await getAuthToken();
       const apiUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.TRANSCRIPT_URL(transcriptId)}`;
 
-      // Web: point iframe directly at API URL with token (gets correct filename from headers)
+      // Web: fetch the bytes with the auth header and hand back a blob: object
+      // URL (an <iframe> can't set an Authorization header, and the API no
+      // longer accepts ?token=).
       if (Platform.OS === 'web') {
         if (!token) return { success: false, error: 'Authentication required' };
-        return { success: true, url: `${apiUrl}?token=${encodeURIComponent(token)}` };
+        const response = await fetch(apiUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          return { success: false, error: errorText || `HTTP ${response.status}` };
+        }
+        const blob = await response.blob();
+        return { success: true, url: URL.createObjectURL(blob) };
       }
 
       // Native: check cache first
@@ -1029,9 +1041,9 @@ class RetreatService {
    * Get a URL to view (or download) a non-transcript event document
    * (image, slides, or other file type). Mirrors getTranscriptPdfUrl's
    * web/native split and auth handling.
-   * - Web: returns direct API URL with token param (`&download=true` when
-   *   `opts.download` is set, so the server sends the original file with a
-   *   Content-Disposition: attachment header).
+   * - Web: fetches the file with the Authorization header and returns a blob:
+   *   object URL (`?download=true` when `opts.download` is set). The API no
+   *   longer accepts ?token=, and <img>/<iframe>/<a> can't set headers.
    * - Native: fetches the file and writes it to a temp cache file, returns
    *   the local file:// URI. Unlike transcripts, event files have no
    *   `updatedAt` to key a persistent cache on, so this always fetches
@@ -1047,11 +1059,21 @@ class RetreatService {
       const apiUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.FILE_URL(fileId)}`;
       const downloadParam = opts.download ? 'download=true' : '';
 
-      // Web: point iframe/link directly at API URL with token (gets correct filename from headers)
+      // Web: fetch the bytes with the auth header and hand back a blob: object
+      // URL (an <img>/<iframe>/<a> can't set an Authorization header, and the
+      // API no longer accepts ?token=).
       if (Platform.OS === 'web') {
         if (!token) return { success: false, error: 'Authentication required' };
-        const params = [`token=${encodeURIComponent(token)}`, downloadParam].filter(Boolean).join('&');
-        return { success: true, url: `${apiUrl}?${params}` };
+        const fetchUrl = downloadParam ? `${apiUrl}?${downloadParam}` : apiUrl;
+        const response = await fetch(fetchUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          return { success: false, error: errorText || `HTTP ${response.status}` };
+        }
+        const blob = await response.blob();
+        return { success: true, url: URL.createObjectURL(blob) };
       }
 
       // Native: fetch the file directly (no persistent cache — see note above)
