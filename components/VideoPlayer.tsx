@@ -5,12 +5,15 @@ import videoDownloadService, { type VideoDownloadStatus } from '@/services/video
 import videoPreferencesService from '@/services/videoPreferencesService';
 import type { Bookmark, EventVideo } from '@/types';
 import { getVideoTitle } from '@/utils/videoTitle';
+import { pickPreferredSubtitle } from '@/utils/subtitlePreference';
+import { WebHlsVideo } from './WebHlsVideo';
+import type { WebPlayerHandle } from './WebHlsVideo.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useVideoPlayer, VideoView, type SubtitleTrack } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -139,6 +142,11 @@ export function VideoPlayer({
   // Auto-enable subtitles once per video. Set-once semantics so we never fight
   // a user who turns them back off mid-playback.
   const didAutoSelectSubtitleRef = useRef<boolean>(false);
+  // On web we render our own hls.js `<video>` (WebHlsVideo) instead of
+  // expo-video's, because expo-video's web player has no subtitle support.
+  // This handle exposes the small playback surface the shared logic needs.
+  const isWeb = Platform.OS === 'web';
+  const webPlayerRef = useRef<WebPlayerHandle | null>(null);
 
   // Title helper is shared with VideoGrid so cards and the player header
   // agree: localized title first, else a formatted date + "Part N" when
@@ -323,7 +331,9 @@ export function VideoPlayer({
   }, [video, t, cellularAcceptedRef, onClose]);
 
   // Replace the player source when the URL is ready, then seek to resume.
+  // Web drives playback through WebHlsVideo instead of the expo-video player.
   useEffect(() => {
+    if (isWeb) return;
     if (!hlsUrl || !player) return;
     try {
       player.replace({ uri: hlsUrl });
@@ -336,15 +346,15 @@ export function VideoPlayer({
       console.warn('Video player replace failed', e);
       setErrorMsg(t('video.loadError') ?? 'Failed to load video');
     }
-  }, [hlsUrl, player, resumePosition, t]);
+  }, [hlsUrl, player, resumePosition, t, isWeb]);
 
-  // Subscribe to time updates to save progress (no rerender — side-effect only).
-  useEventListener(player, 'timeUpdate', ({ currentTime }) => {
+  // Shared progress recorder for both playback paths (native timeUpdate event
+  // and the web element's timeupdate). Throttled to once per 5s; fires
+  // onComplete once when playback crosses the completion threshold.
+  const recordProgress = (currentTime: number, duration: number) => {
     if (!video) return;
-    const duration = player.duration ?? video.durationSeconds ?? 0;
     if (!duration || currentTime <= 0) return;
 
-    // Throttle progress saves to once every 5 seconds of playback.
     const now = Date.now();
     if (now - lastSavedAtRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
     lastSavedAtRef.current = now;
@@ -356,6 +366,13 @@ export function VideoPlayer({
       completedRef.current = true;
       onComplete?.();
     }
+  };
+
+  // Subscribe to time updates to save progress (no rerender — side-effect only).
+  // No-op on web, where WebHlsVideo owns the media element.
+  useEventListener(player, 'timeUpdate', ({ currentTime }) => {
+    if (isWeb || !video) return;
+    recordProgress(currentTime, player.duration ?? video.durationSeconds ?? 0);
   });
 
   // Turn subtitles on by default when the recording has any. Native only —
@@ -510,9 +527,13 @@ export function VideoPlayer({
 
   // Save progress one last time when closing (so quick taps don't lose state).
   const handleClose = () => {
-    if (video && player) {
-      const currentTime = player.currentTime ?? 0;
-      const duration = player.duration ?? video.durationSeconds ?? 0;
+    if (video) {
+      const currentTime = isWeb
+        ? (webPlayerRef.current?.getCurrentTime() ?? 0)
+        : (player.currentTime ?? 0);
+      const duration = isWeb
+        ? (webPlayerRef.current?.getDuration() || video.durationSeconds || 0)
+        : (player.duration ?? video.durationSeconds ?? 0);
       if (currentTime > 0 && duration > 0) {
         saveVideoProgress(
           video.id,
@@ -522,7 +543,8 @@ export function VideoPlayer({
         );
       }
       try {
-        player.pause();
+        if (isWeb) webPlayerRef.current?.pause();
+        else player.pause();
       } catch {
         // Ignore — player may already be torn down.
       }
@@ -712,14 +734,31 @@ export function VideoPlayer({
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           ) : hlsUrl ? (
-            <VideoView
-              style={styles.video}
-              player={player}
-              allowsFullscreen
-              allowsPictureInPicture={Platform.OS !== 'web'}
-              contentFit="contain"
-              nativeControls
-            />
+            isWeb ? (
+              <WebHlsVideo
+                ref={webPlayerRef}
+                uri={hlsUrl}
+                resumePosition={resumePosition}
+                contentLanguage={contentLanguage}
+                uiLanguage={language}
+                onTimeUpdate={(currentTime) =>
+                  recordProgress(
+                    currentTime,
+                    webPlayerRef.current?.getDuration() || video?.durationSeconds || 0,
+                  )
+                }
+                onError={() => setErrorMsg(t('video.loadError') ?? 'Failed to load video')}
+              />
+            ) : (
+              <VideoView
+                style={styles.video}
+                player={player}
+                allowsFullscreen
+                allowsPictureInPicture={Platform.OS !== 'web'}
+                contentFit="contain"
+                nativeControls
+              />
+            )
           ) : (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color={colors.white} />
@@ -947,33 +986,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-/**
- * Choose which subtitle track to enable by default. Prefers the user's content
- * language, then their UI language (for bilingual "en-pt" readers), then the
- * first track offered. Subtitle `language` codes come from the backend
- * (`en`, `pt`), matched loosely so regional variants like `en-US` still hit.
- */
-function pickPreferredSubtitle(
-  tracks: SubtitleTrack[],
-  contentLanguage: string,
-  uiLanguage: string,
-): SubtitleTrack | null {
-  if (tracks.length === 0) return null;
-  const order =
-    contentLanguage === 'pt'
-      ? ['pt', 'en']
-      : contentLanguage === 'en'
-        ? ['en', 'pt']
-        : uiLanguage === 'pt'
-          ? ['pt', 'en']
-          : ['en', 'pt']; // "en-pt" bilingual → follow the UI language
-  for (const code of order) {
-    const match = tracks.find((track) => track.language?.toLowerCase().startsWith(code));
-    if (match) return match;
-  }
-  return tracks[0];
-}
 
 // Inline helper duplicated from AudioPlayer to avoid coupling.
 function formatTime(seconds: number): string {
