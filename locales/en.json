@@ -298,7 +298,15 @@
     "downloadComplete": "Download Complete",
     "downloadFailed": "Download Failed",
     "storage": "Storage Used",
-    "manageStorage": "Manage Storage"
+    "manageStorage": "Manage Storage",
+    "preparing": "Preparing download...",
+    "generatingZip": "Generating ZIP file...",
+    "generatingZipPercent": "Generating ZIP... {{percent}}%",
+    "zipReady": "ZIP ready! Starting download...",
+    "offlineTitle": "Downloading for offline listening...",
+    "trackProgress": "{{current}} of {{total}} tracks",
+    "remainingSeconds": "~{{seconds}}s remaining",
+    "remainingMinutes": "~{{minutes}}m remaining"
   },
   "storage": {
     "loadingStorageInfo": "Loading storage info...",

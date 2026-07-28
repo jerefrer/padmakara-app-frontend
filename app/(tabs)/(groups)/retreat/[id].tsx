@@ -319,7 +319,13 @@ export default function RetreatDetailScreen() {
   // ZIP download state (for downloading to computer)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [zipDownloadProgress, setZipDownloadProgress] = useState<string>('');
+  // Kept separate from the message string so the banner can draw a real
+  // progress bar instead of only spelling the percentage out in text.
+  const [zipProgressPercent, setZipProgressPercent] = useState<number | null>(null);
   const [currentDownloadRequestId, setCurrentDownloadRequestId] = useState<string | null>(null);
+  // Flipped when the user dismisses the banner or leaves the screen, so the
+  // 5s status poll stops there instead of running on to its 240-attempt ceiling.
+  const zipCancelledRef = useRef(false);
 
   // Pending download confirmation (triggers download in useEffect)
   const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
@@ -1108,14 +1114,18 @@ export default function RetreatDetailScreen() {
     setMenuVisible(false);
 
     if (isDownloadingZip) {
+      zipCancelledRef.current = true;
       setIsDownloadingZip(false);
       setZipDownloadProgress('');
+      setZipProgressPercent(null);
       await downloadStateService.removeDownloadState(retreat.id);
       return;
     }
 
+    zipCancelledRef.current = false;
     setIsDownloadingZip(true);
-    setZipDownloadProgress('Preparing download...');
+    setZipProgressPercent(null);
+    setZipDownloadProgress(t('downloads.preparing') || 'Preparing download...');
 
     try {
       // Try authenticated endpoint first, fall back to public for unauthenticated users
@@ -1124,6 +1134,8 @@ export default function RetreatDetailScreen() {
       if (!requestResponse.success) {
         requestResponse = await apiService.post(API_ENDPOINTS.PUBLIC_EVENT_DOWNLOAD_REQUEST(retreat.id));
       }
+
+      if (zipCancelledRef.current) return;
 
       if (!requestResponse.success) {
         throw new Error(requestResponse.error || 'Failed to prepare download');
@@ -1142,10 +1154,10 @@ export default function RetreatDetailScreen() {
         retreatName: retreat.name,
         status: 'pending',
         startedAt: new Date().toISOString(),
-        progressMessage: 'Generating ZIP file...'
+        progressMessage: t('downloads.generatingZip') || 'Generating ZIP file...'
       };
       await downloadStateService.saveDownloadState(downloadState);
-      setZipDownloadProgress('Generating ZIP file...');
+      setZipDownloadProgress(t('downloads.generatingZip') || 'Generating ZIP file...');
 
       let isComplete = false;
       let attempt = 0;
@@ -1153,8 +1165,10 @@ export default function RetreatDetailScreen() {
 
       while (!isComplete && attempt < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 5000));
+        if (zipCancelledRef.current) return;
 
         const statusResponse = await apiService.get(API_ENDPOINTS.DOWNLOAD_STATUS(requestId));
+        if (zipCancelledRef.current) return;
 
         if (!statusResponse.success) {
           throw new Error(statusResponse.error || 'Failed to check ZIP status');
@@ -1162,15 +1176,22 @@ export default function RetreatDetailScreen() {
 
         if ((statusResponse.data as any)?.status === 'ready') {
           isComplete = true;
-          setZipDownloadProgress('ZIP ready! Starting download...');
+          setZipProgressPercent(100);
+          setZipDownloadProgress(t('downloads.zipReady') || 'ZIP ready! Starting download...');
         } else if ((statusResponse.data as any)?.status === 'failed') {
           throw new Error((statusResponse.data as any)?.error_message || 'ZIP generation failed');
         } else if ((statusResponse.data as any)?.status === 'processing') {
           const progressPercent = (statusResponse.data as any)?.progress_percent;
-          const progressMsg = progressPercent !== undefined
-            ? `Generating ZIP... ${progressPercent}%`
-            : 'Generating ZIP file...';
-          setZipDownloadProgress(progressMsg);
+          if (typeof progressPercent === 'number') {
+            setZipProgressPercent(Math.max(0, Math.min(100, progressPercent)));
+            setZipDownloadProgress(
+              t('downloads.generatingZipPercent', { percent: progressPercent }) ||
+                `Generating ZIP... ${progressPercent}%`
+            );
+          } else {
+            setZipProgressPercent(null);
+            setZipDownloadProgress(t('downloads.generatingZip') || 'Generating ZIP file...');
+          }
         }
 
         attempt++;
@@ -1181,6 +1202,7 @@ export default function RetreatDetailScreen() {
       }
 
       const downloadResponse = await apiService.get(API_ENDPOINTS.DOWNLOAD_FILE(requestId));
+      if (zipCancelledRef.current) return;
 
       if (!(downloadResponse.data as any)?.success || !(downloadResponse.data as any)?.download_url) {
         throw new Error('Failed to get download URL');
@@ -1203,9 +1225,18 @@ export default function RetreatDetailScreen() {
     } finally {
       setIsDownloadingZip(false);
       setZipDownloadProgress('');
+      setZipProgressPercent(null);
       setCurrentDownloadRequestId(null);
     }
   };
+
+  // Stop the ZIP status poll if the screen goes away mid-download — otherwise
+  // it keeps hitting the status endpoint every 5s with nowhere to render.
+  useEffect(() => {
+    return () => {
+      zipCancelledRef.current = true;
+    };
+  }, []);
 
   // Handle Read Along (mobile)
   const handleOpenReadAlong = useCallback(async () => {
@@ -1795,7 +1826,9 @@ export default function RetreatDetailScreen() {
         <View style={styles.downloadBanner}>
           <View style={styles.downloadBannerContent}>
             <View style={styles.downloadBannerHeader}>
-              <Text style={styles.downloadBannerTitle}>Downloading for offline listening...</Text>
+              <Text style={styles.downloadBannerTitle}>
+                {t('downloads.offlineTitle') || 'Downloading for offline listening...'}
+              </Text>
               <TouchableOpacity onPress={() => downloadService.cancelDownload()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Ionicons name="close" size={20} color={colors.gray[500]} />
               </TouchableOpacity>
@@ -1809,13 +1842,20 @@ export default function RetreatDetailScreen() {
               />
             </View>
             <Text style={styles.downloadBannerSubtext}>
-              {downloadProgress.current} of {downloadProgress.total} tracks
+              {t('downloads.trackProgress', {
+                current: downloadProgress.current,
+                total: downloadProgress.total,
+              }) || `${downloadProgress.current} of ${downloadProgress.total} tracks`}
               {downloadProgress.startTime > 0 && downloadProgress.current > 0 && (() => {
                 const elapsed = (Date.now() - downloadProgress.startTime) / 1000;
                 const perTrack = elapsed / downloadProgress.current;
                 const remaining = (downloadProgress.total - downloadProgress.current) * perTrack;
-                if (remaining < 60) return ` • ~${Math.ceil(remaining)}s remaining`;
-                return ` • ~${Math.ceil(remaining / 60)}m remaining`;
+                if (remaining < 60) {
+                  const seconds = Math.ceil(remaining);
+                  return ` • ${t('downloads.remainingSeconds', { seconds }) || `~${seconds}s remaining`}`;
+                }
+                const minutes = Math.ceil(remaining / 60);
+                return ` • ${t('downloads.remainingMinutes', { minutes }) || `~${minutes}m remaining`}`;
               })()}
             </Text>
           </View>
@@ -1824,10 +1864,29 @@ export default function RetreatDetailScreen() {
       {isDownloadingZip && (
         <View style={styles.downloadBanner} testID="event-download-banner">
           <ActivityIndicator size="small" color={colors.burgundy[500]} />
-          <Text style={styles.downloadBannerText}>{zipDownloadProgress}</Text>
-          <TouchableOpacity onPress={handleDownloadRetreatZip}>
-            <Ionicons name="close" size={20} color={colors.gray[600]} />
-          </TouchableOpacity>
+          <View style={styles.downloadBannerContent}>
+            <View
+              style={[
+                styles.downloadBannerHeader,
+                zipProgressPercent === null && styles.downloadBannerHeaderFlush,
+              ]}
+            >
+              <Text style={styles.downloadBannerText}>{zipDownloadProgress}</Text>
+              <TouchableOpacity
+                onPress={handleDownloadRetreatZip}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color={colors.gray[600]} />
+              </TouchableOpacity>
+            </View>
+            {zipProgressPercent !== null && (
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[styles.progressBarFill, { width: `${zipProgressPercent}%` }]}
+                />
+              </View>
+            )}
+          </View>
         </View>
       )}
     </>
@@ -1953,12 +2012,18 @@ export default function RetreatDetailScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Mobile keeps the full-width strip under the floating controls. On
+          desktop that same strip lands squarely on the track rows, so the
+          banners become a compact card in the bottom-left corner instead —
+          a background task in a background corner. DesktopShell puts the
+          player bar in its own grid row, so `bottom` clears it for free. */}
       {(isDownloadingRetreat || isDownloadingZip) && (
         <View
-          style={[
-            styles.mobileDownloadBannerOverlay,
-            { top: (isDesktop ? 16 : insets.top + 8) + 48 },
-          ]}
+          style={
+            isDesktop
+              ? styles.desktopDownloadToast
+              : [styles.mobileDownloadBannerOverlay, { top: insets.top + 8 + 48 }]
+          }
         >
           {renderDownloadBanners()}
         </View>
@@ -2313,6 +2378,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  // The ZIP banner only draws a progress bar once the server reports a
+  // percentage — without one, drop the gap the bar would have filled.
+  downloadBannerHeaderFlush: {
+    marginBottom: 0,
+  },
   downloadBannerTitle: {
     fontSize: 14,
     fontWeight: '500',
@@ -2500,6 +2570,26 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 15,
+  },
+  // Desktop: bottom-left card so download progress never covers the track
+  // list. Left rather than right — the right edge holds the scrollbar and
+  // the language/bookmark/overflow cluster.
+  desktopDownloadToast: {
+    position: 'absolute',
+    left: 24,
+    bottom: 24,
+    width: 360,
+    zIndex: 15,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.burgundy[100],
+    backgroundColor: colors.burgundy[50],
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
   // Inner wrapper that clips the image. Kept separate from heroContainer
   // so we can still let the action circles overflow the bottom edge.

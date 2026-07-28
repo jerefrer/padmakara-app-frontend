@@ -298,7 +298,15 @@
     "downloadComplete": "Download Concluído",
     "downloadFailed": "Falha no Download",
     "storage": "Armazenamento Usado",
-    "manageStorage": "Gerenciar Armazenamento"
+    "manageStorage": "Gerenciar Armazenamento",
+    "preparing": "A preparar a transferência...",
+    "generatingZip": "A gerar o ficheiro ZIP...",
+    "generatingZipPercent": "A gerar o ZIP... {{percent}}%",
+    "zipReady": "ZIP pronto! A iniciar a transferência...",
+    "offlineTitle": "A transferir para ouvir offline...",
+    "trackProgress": "{{current}} de {{total}} faixas",
+    "remainingSeconds": "~{{seconds}}s restantes",
+    "remainingMinutes": "~{{minutes}}m restantes"
   },
   "storage": {
     "loadingStorageInfo": "Carregando informações de armazenamento...",
