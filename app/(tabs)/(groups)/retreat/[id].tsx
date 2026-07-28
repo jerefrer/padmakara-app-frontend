@@ -2368,6 +2368,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    // Separates the ZIP banner's spinner from its content. Carried by the row
+    // rather than the text so the text and the progress bar under it share a
+    // left edge. (The offline banner has a single child — no effect there.)
+    gap: 8,
   },
   downloadBannerContent: {
     flex: 1,
@@ -2396,7 +2400,6 @@ const styles = StyleSheet.create({
   downloadBannerText: {
     fontSize: 14,
     color: colors.burgundy[700],
-    marginLeft: 8,
     flex: 1,
   },
   progressBarContainer: {
