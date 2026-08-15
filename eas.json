@@ -7,25 +7,37 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "APP_VARIANT": "pt"
+      },
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "APP_VARIANT": "pt"
+      },
       "ios": {
         "simulator": false
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "APP_VARIANT": "pt"
+      }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "frere.jeremy@gmail.com",
-        "appleTeamId": "3J4HCZ8V25"
+        "appleTeamId": "8A879BZ53C",
+        "ascAppId": "6801840375"
       }
     }
   }
