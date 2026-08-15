@@ -10,6 +10,7 @@ import {
 } from '@expo-google-fonts/eb-garamond';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import 'react-native-reanimated';
@@ -22,6 +23,12 @@ import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
 import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
+
+// Keep the native splash (burgundy Padmakara lockup) on screen until fonts are
+// loaded, so it doesn't flash to a blank background while `useFonts` resolves.
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignore — splash may already be hidden */
+});
 
 Sentry.init({
   dsn: Constants.expoConfig?.extra?.sentryDsn ?? '',
@@ -78,6 +85,14 @@ export default function RootLayout() {
     EBGaramond_700Bold,
     EBGaramond_700Bold_Italic,
   });
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync().catch(() => {
+        /* ignore — splash may already be hidden */
+      });
+    }
+  }, [loaded]);
 
   if (!loaded) {
     return null;
