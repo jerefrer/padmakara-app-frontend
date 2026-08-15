@@ -129,22 +129,28 @@ export const buildApiUrl = (endpoint: string): string => {
 
 // Helper function to get auth headers
 export const getAuthHeaders = async () => {
+  const { getAuthToken } = await import('./tokenStorage');
+
+  let token: string | null;
   try {
-    const { getAuthToken } = await import('./tokenStorage');
-    const token = await getAuthToken();
-
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
-    return {
-      ...API_CONFIG.headers,
-      'Authorization': `Bearer ${token}`,
-    };
+    token = await getAuthToken();
   } catch (error) {
-    console.error('Error getting auth headers:', error);
+    // Genuine failure: secure storage is unreadable. Worth surfacing.
+    console.error('Error reading auth token:', error);
     throw error;
   }
+
+  if (!token) {
+    // Expected whenever the user is logged out. Callers that support
+    // unauthenticated access catch this and fall back to public headers,
+    // so it must not be logged as an error.
+    throw new Error('No authentication token found');
+  }
+
+  return {
+    ...API_CONFIG.headers,
+    'Authorization': `Bearer ${token}`,
+  };
 };
 
 export default API_CONFIG;
