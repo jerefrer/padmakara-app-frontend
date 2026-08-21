@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatLongDate } from '@/utils/dateFormat';
 import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import { router, useFocusEffect } from 'expo-router';
@@ -18,7 +19,7 @@ const colors = {
 export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, hasActiveSubscription, refreshUserData } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
 
   // Refresh user data (including subscription status) when screen gains focus
@@ -101,7 +102,7 @@ export default function SubscriptionScreen() {
           <Text style={styles.title}>{t('subscription.active') || 'Active Subscription'}</Text>
           {user.subscription.expiresAt && (
             <Text style={styles.description}>
-              {t('subscription.expiresOn') || 'Renews'}: {new Date(user.subscription.expiresAt).toLocaleDateString()}
+              {t('subscription.expiresOn') || 'Renews'}: {formatLongDate(user.subscription.expiresAt, language)}
             </Text>
           )}
           <Pressable
@@ -131,7 +132,7 @@ export default function SubscriptionScreen() {
           <Text style={styles.title}>{t('subscription.active') || 'Active Subscription'}</Text>
           {user?.subscription?.expiresAt && (
             <Text style={styles.description}>
-              {t('subscription.expiresOn') || 'Expires'}: {new Date(user.subscription.expiresAt).toLocaleDateString()}
+              {t('subscription.expiresOn') || 'Expires'}: {formatLongDate(user.subscription.expiresAt, language)}
             </Text>
           )}
           <Text style={styles.description}>

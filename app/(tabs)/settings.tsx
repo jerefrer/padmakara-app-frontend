@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatLongDate } from '@/utils/dateFormat';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import progressService from '@/services/progressService';
 import videoPreferencesService from '@/services/videoPreferencesService';
@@ -551,7 +552,7 @@ export default function SettingsScreen() {
                           </Text>
                           {user.subscription?.status === 'active' && user.subscription.expiresAt && (
                             <Text style={styles.settingSubtitle}>
-                              {t('subscription.expiresOn') || 'Expires'}: {new Date(user.subscription.expiresAt).toLocaleDateString()}
+                              {t('subscription.expiresOn') || 'Expires'}: {formatLongDate(user.subscription.expiresAt, language)}
                             </Text>
                           )}
                           {user.subscription?.status !== 'active' && (

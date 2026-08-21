@@ -1,4 +1,4 @@
-import { formatMonthDay } from './dateFormat';
+import { formatMonthDay, formatLongDate, formatDateRange } from './dateFormat';
 
 describe('formatMonthDay()', () => {
   it('formats English as "Month Nth"', () => {
@@ -33,5 +33,49 @@ describe('formatMonthDay()', () => {
   it('returns an empty string for an unparseable date', () => {
     expect(formatMonthDay(new Date('nope'), 'en')).toBe('');
     expect(formatMonthDay(new Date('nope'), 'pt')).toBe('');
+  });
+});
+
+describe('formatLongDate()', () => {
+  it('formats English as "D Month YYYY"', () => {
+    expect(formatLongDate('2025-11-12', 'en')).toBe('12 November 2025');
+  });
+
+  it('formats Portuguese as "D de mês de YYYY"', () => {
+    expect(formatLongDate('2025-11-12', 'pt')).toBe('12 de novembro de 2025');
+  });
+
+  it('returns an empty string for an empty input', () => {
+    expect(formatLongDate('', 'en')).toBe('');
+  });
+});
+
+describe('formatDateRange()', () => {
+  it('collapses a same-day range to a single date', () => {
+    expect(formatDateRange('2025-04-14', '2025-04-14', 'en')).toBe('14 April 2025');
+    expect(formatDateRange('2025-04-14', '2025-04-14', 'pt')).toBe('14 de abril de 2025');
+  });
+
+  it('factors out a shared month and year', () => {
+    expect(formatDateRange('2025-04-14', '2025-04-15', 'en')).toBe('14–15 April 2025');
+    expect(formatDateRange('2025-04-14', '2025-04-15', 'pt')).toBe('14–15 de abril de 2025');
+  });
+
+  it('factors out a shared year across months', () => {
+    expect(formatDateRange('2025-04-30', '2025-05-01', 'en')).toBe('30 April – 1 May 2025');
+    expect(formatDateRange('2025-04-30', '2025-05-01', 'pt')).toBe('30 de abril – 1 de maio de 2025');
+  });
+
+  it('spells both endpoints out across a year boundary', () => {
+    expect(formatDateRange('2024-12-31', '2025-01-01', 'en')).toBe('31 December 2024 – 1 January 2025');
+  });
+
+  it('falls back to the start date when the end is missing or unparseable', () => {
+    expect(formatDateRange('2025-04-14', undefined, 'en')).toBe('14 April 2025');
+    expect(formatDateRange('2025-04-14', 'nonsense', 'en')).toBe('14 April 2025');
+  });
+
+  it('returns an empty string with no start date', () => {
+    expect(formatDateRange('', '2025-04-15', 'en')).toBe('');
   });
 });

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { colors } from '@/constants/colors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PDFViewerProps {
   source: string;
@@ -15,6 +16,7 @@ interface PDFViewerProps {
 const LazyImpl = lazy(() => import('./PDFViewerWebImpl'));
 
 export function PDFViewer(props: PDFViewerProps) {
+  const { t } = useLanguage();
   if (typeof window === 'undefined') {
     return <View style={styles.placeholder} />;
   }
@@ -23,7 +25,7 @@ export function PDFViewer(props: PDFViewerProps) {
       fallback={
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.loadingText}>Loading PDF viewer...</Text>
+          <Text style={styles.loadingText}>{t('pdfViewer.loadingViewer') || 'Loading PDF viewer...'}</Text>
         </View>
       }
     >

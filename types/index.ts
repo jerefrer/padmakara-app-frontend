@@ -135,7 +135,11 @@ export interface Session {
   id: string;
   name: string;
   name_translations?: Record<string, string>;
-  type: 'morning' | 'afternoon' | 'evening' | 'other';
+  /** Time of day the session was recorded. Mirrors the API's free-text
+   *  `time_period` column, normalized by retreatService.mapSession(); anything
+   *  unrecognized (including null) becomes 'other', which the UI renders
+   *  without a period label. */
+  type: 'morning' | 'afternoon' | 'evening' | 'full_day' | 'other';
   partNumber?: number | null;
   date: string;
   tracks?: Track[];

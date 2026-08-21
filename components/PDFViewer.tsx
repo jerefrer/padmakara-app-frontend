@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/colors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PDFViewerProps {
   source: string;
@@ -18,6 +19,7 @@ interface PDFViewerProps {
  * For Android, uses Google Docs viewer as fallback.
  */
 export function PDFViewer({ source }: PDFViewerProps) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -26,13 +28,13 @@ export function PDFViewer({ source }: PDFViewerProps) {
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
-          <Text style={styles.loadingText}>Loading PDF...</Text>
+          <Text style={styles.loadingText}>{t('pdfViewer.loading') || 'Loading PDF...'}</Text>
         </View>
       )}
       {error ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={32} color={colors.gray[400]} />
-          <Text style={styles.errorText}>Failed to load PDF</Text>
+          <Text style={styles.errorText}>{t('pdfViewer.loadError') || 'Failed to load PDF'}</Text>
         </View>
       ) : (
         <WebView

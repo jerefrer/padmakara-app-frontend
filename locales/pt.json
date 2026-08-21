@@ -306,6 +306,18 @@
     "sessionComplete": "Sessão Concluída",
     "sessionCompleteMessage": "Você terminou todas as faixas desta sessão!"
   },
+  "pdfViewer": {
+    "loading": "A carregar PDF...",
+    "loadingViewer": "A carregar visualizador de PDF...",
+    "loadError": "Falha ao carregar o PDF",
+    "singlePage": "Página única",
+    "twoPages": "Duas páginas",
+    "twoPagesCover": "Duas páginas com capa",
+    "fitWidth": "Ajustar à largura",
+    "fitHeight": "Ajustar à altura",
+    "enterFullscreen": "Entrar em ecrã inteiro",
+    "exitFullscreen": "Sair do ecrã inteiro"
+  },
   "transcript": {
     "transcriptNotFound": "Transcrição não encontrada",
     "transcript": "Transcrição",

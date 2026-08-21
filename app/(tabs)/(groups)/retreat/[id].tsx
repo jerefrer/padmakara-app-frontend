@@ -11,7 +11,8 @@ import Animated, {
 import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
-import { formatMonthDay } from '@/utils/dateFormat';
+import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
+import { formatSessionHeader } from '@/utils/sessionHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftBadge } from '@/components/DraftBadge';
 import { PDFViewer } from '@/components/PDFViewer';
@@ -101,73 +102,6 @@ interface TranscriptInfo {
   pageCount?: number;
   updatedAt?: string;
   originalFilename?: string;
-}
-
-/** Format an ISO date as "12 November 2025" / "12 de novembro de 2025". */
-function formatLongDate(dateStr: string, language: string): string {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(language === 'pt' ? 'pt-PT' : 'en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-/**
- * Format a start/end date pair as a compact range, factoring out whatever the
- * two endpoints share:
- *   - same day:              "14 April 2025"        (one-day event)
- *   - same month & year:     "14–15 April 2025"
- *   - same year, diff month: "30 April – 1 May 2025"
- *   - different year:        "31 December 2024 – 1 January 2025"
- * Portuguese uses the "14 de abril de 2025" glue. Day/month/year are read via
- * the local-timezone getters so the pieces stay consistent with what
- * formatLongDate renders. Falls back to a single date when endStr is missing,
- * unparseable, or equal to startStr.
- */
-function formatDateRange(startStr: string, endStr: string | undefined, language: string): string {
-  if (!startStr) return '';
-  if (!endStr) return formatLongDate(startStr, language);
-
-  const start = new Date(startStr);
-  const end = new Date(endStr);
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return formatLongDate(startStr, language);
-  }
-
-  const isPt = language === 'pt';
-  const locale = isPt ? 'pt-PT' : 'en-GB';
-  const monthName = (d: Date) => d.toLocaleDateString(locale, { month: 'long' });
-
-  const sameYear = start.getFullYear() === end.getFullYear();
-  const sameMonth = sameYear && start.getMonth() === end.getMonth();
-  const sameDay = sameMonth && start.getDate() === end.getDate();
-
-  if (sameDay) return formatLongDate(startStr, language);
-
-  const d1 = start.getDate();
-  const d2 = end.getDate();
-  const m1 = monthName(start);
-  const m2 = monthName(end);
-  const y1 = start.getFullYear();
-
-  if (sameMonth) {
-    // "14–15 April 2025" / "14–15 de abril de 2025"
-    return isPt ? `${d1}–${d2} de ${m1} de ${y1}` : `${d1}–${d2} ${m1} ${y1}`;
-  }
-  if (sameYear) {
-    // "30 April – 1 May 2025" / "30 de abril – 1 de maio de 2025"
-    return isPt
-      ? `${d1} de ${m1} – ${d2} de ${m2} de ${y1}`
-      : `${d1} ${m1} – ${d2} ${m2} ${y1}`;
-  }
-  // Different year — spell both endpoints out in full.
-  return `${formatLongDate(startStr, language)} – ${formatLongDate(endStr, language)}`;
 }
 
 interface RetreatDetails {
@@ -1009,32 +943,6 @@ export default function RetreatDetailScreen() {
     return `${minutes}m`;
   };
 
-  // Format session date header — "Day 1 · April 18th · Morning · Part 1" in
-  // English, "Dia 1 · 18 de abril · Manhã · Parte 1" in Portuguese.
-  const formatSessionHeader = (session: { sessionName: string; sessionDate: string; sessionType: string; sessionPartNumber?: number | null }) => {
-    const sessionType = t(`retreats.${session.sessionType}`) || session.sessionType;
-    const partLabel = t('retreats.part') || 'Part';
-    const partSuffix = session.sessionPartNumber ? ` · ${partLabel} ${session.sessionPartNumber}` : '';
-
-    const sessionDate = new Date(session.sessionDate);
-    if (isNaN(sessionDate.getTime())) {
-      // Session has no valid date — degrade gracefully instead of "Day NaN · Invalid Date NaNth"
-      return sessionType ? `${sessionType}${partSuffix}` : (session.sessionName || '');
-    }
-
-    const dateLabel = formatMonthDay(sessionDate, language);
-
-    const retreatStartDate = retreat ? new Date(retreat.startDate) : sessionDate;
-    if (isNaN(retreatStartDate.getTime())) {
-      return `${dateLabel} · ${sessionType}${partSuffix}`;
-    }
-
-    const diffTime = sessionDate.getTime() - retreatStartDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const dayNumber = diffDays + 1;
-    return `${t('retreats.dayNumber', { n: dayNumber })} · ${dateLabel} · ${sessionType}${partSuffix}`;
-  };
-
   const calculateTotalRetreatSize = () => {
     if (!retreat) return 0;
     return retreat.sessions.reduce((total, session) => {
@@ -1624,7 +1532,7 @@ export default function RetreatDetailScreen() {
               {showSessionHeader && (
                 <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent]}>
                   <Text style={styles.sessionHeaderText}>
-                    {formatSessionHeader(track)}
+                    {formatSessionHeader(track, retreat?.startDate, language, t)}
                   </Text>
                 </View>
               )}
@@ -2129,7 +2037,7 @@ export default function RetreatDetailScreen() {
                   testID="event-download-zip"
                 >
                   <Ionicons name="archive-outline" size={22} color={colors.gray[700]} />
-                  <Text style={styles.menuItemText}>Download as ZIP</Text>
+                  <Text style={styles.menuItemText}>{t('common.downloadRetreatZip') || 'Download as ZIP'}</Text>
                 </TouchableOpacity>
               </>
             )}

@@ -306,6 +306,18 @@
     "sessionComplete": "Session Complete",
     "sessionCompleteMessage": "You have finished all tracks in this session!"
   },
+  "pdfViewer": {
+    "loading": "Loading PDF...",
+    "loadingViewer": "Loading PDF viewer...",
+    "loadError": "Failed to load PDF",
+    "singlePage": "Single page",
+    "twoPages": "Two pages",
+    "twoPagesCover": "Two pages with cover",
+    "fitWidth": "Fit width",
+    "fitHeight": "Fit height",
+    "enterFullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen"
+  },
   "transcript": {
     "transcriptNotFound": "Transcript not found",
     "transcript": "Transcript",

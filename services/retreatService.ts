@@ -167,6 +167,23 @@ function mapEventVideo(backend: any): EventVideo {
   };
 }
 
+/** Session time periods the UI has a translated label for. */
+const KNOWN_SESSION_TYPES = ['morning', 'afternoon', 'evening', 'full_day'] as const;
+
+/**
+ * Narrow the API's free-text `time_period` to the Session['type'] union.
+ * The column is untyped text with no DB constraint, and roughly a quarter of
+ * production sessions leave it null — so anything unrecognized becomes
+ * 'other' rather than being cast through unchecked. That guarantee is what
+ * lets the session header look the label up by key without risking a miss.
+ */
+export function normalizeSessionType(raw: unknown): Session['type'] {
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  return (KNOWN_SESSION_TYPES as readonly string[]).includes(value)
+    ? (value as Session['type'])
+    : 'other';
+}
+
 /** Map backend session → frontend Session */
 function mapSession(backend: any): Session {
   return {
@@ -178,7 +195,7 @@ function mapSession(backend: any): Session {
         ? { pt: backend.titlePt || backend.title_pt }
         : {}),
     },
-    type: (backend.timePeriod || backend.time_period || 'other') as Session['type'],
+    type: normalizeSessionType(backend.timePeriod ?? backend.time_period),
     partNumber: backend.partNumber ?? backend.part_number ?? null,
     date: backend.sessionDate || backend.session_date || '',
     tracks: backend.tracks?.map(mapTrack) || undefined,

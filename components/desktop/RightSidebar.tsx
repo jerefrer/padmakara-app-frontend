@@ -157,7 +157,7 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
             style={[styles.loginRow, isNarrow && styles.loginRowNarrow]}
             onPress={() => router.push('/(auth)/magic-link' as any)}
             accessibilityRole="link"
-            accessibilityLabel="Login"
+            accessibilityLabel={t('common.login') || 'Login'}
           >
             <Ionicons name="person-outline" size={isNarrow ? 18 : 16} color={colors.white} />
             {!isNarrow && (

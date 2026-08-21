@@ -9,6 +9,7 @@ import { FitHeightIcon } from './icons/FitHeightIcon';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { colors } from '@/constants/colors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Configure PDF.js worker via CDN pinned to the installed version.
 // Using a CDN keeps the Metro/Vite bundle slim and avoids worker setup in each
@@ -38,6 +39,7 @@ const TOOLBAR_HEIGHT = 40;
  * localStorage. Annotations are disabled; text selection is kept.
  */
 export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFViewerProps) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -261,19 +263,19 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
             effectiveLayout === 'single',
             () => setLayout('single'),
             SinglePageIcon,
-            'Single page',
+            t('pdfViewer.singlePage') || 'Single page',
           )}
           {customIconButton(
             effectiveLayout === 'spread',
             () => setLayout('spread'),
             SpreadIcon,
-            'Two pages',
+            t('pdfViewer.twoPages') || 'Two pages',
           )}
           {customIconButton(
             effectiveLayout === 'spread-cover',
             () => setLayout('spread-cover'),
             SpreadCoverIcon,
-            'Two pages with cover',
+            t('pdfViewer.twoPagesCover') || 'Two pages with cover',
           )}
         </View>
         <View style={styles.toolbarDivider} />
@@ -282,13 +284,13 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
             fit === 'width',
             () => setFit('width'),
             FitWidthIcon,
-            'Fit width',
+            t('pdfViewer.fitWidth') || 'Fit width',
           )}
           {customIconButton(
             fit === 'height',
             () => setFit('height'),
             FitHeightIcon,
-            'Fit height',
+            t('pdfViewer.fitHeight') || 'Fit height',
           )}
         </View>
 
@@ -301,12 +303,14 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
         ) : null}
 
         <View style={styles.toolbarGroup}>
-          {toolbarButton(false, handleDownload, 'download-outline', 'Download PDF')}
+          {toolbarButton(false, handleDownload, 'download-outline', t('transcript.downloadPdf') || 'Download PDF')}
           {toolbarButton(
             false,
             toggleFullscreen,
             isFullscreen ? 'contract-outline' : 'expand-outline',
-            isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
+            isFullscreen
+              ? t('pdfViewer.exitFullscreen') || 'Exit fullscreen'
+              : t('pdfViewer.enterFullscreen') || 'Enter fullscreen',
           )}
         </View>
       </View>
@@ -317,7 +321,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
         {error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle-outline" size={32} color={colors.gray[400]} />
-            <Text style={styles.errorText}>Failed to load PDF</Text>
+            <Text style={styles.errorText}>{t('pdfViewer.loadError') || 'Failed to load PDF'}</Text>
           </View>
         ) : (
           <Document
@@ -327,7 +331,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
             loading={
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={colors.burgundy[500]} />
-                <Text style={styles.loadingText}>Loading PDF...</Text>
+                <Text style={styles.loadingText}>{t('pdfViewer.loading') || 'Loading PDF...'}</Text>
               </View>
             }
           >
