@@ -70,7 +70,7 @@ export interface AudioPlayerContextType {
   player: ReturnType<typeof useAudioPlayer> | null;
 
   // Actions
-  playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }) => void;
+  playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }, options?: { autoPlay?: boolean }) => void;
   resumeLastPlayed: () => void;
   clearTrack: () => void;
   togglePlayPause: () => void;
@@ -219,6 +219,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // waiting for an AsyncStorage round-trip — eliminates the brief slider
   // jump from the old track's position to the new one.
   const savedPositionsRef = useRef<Map<string, number>>(new Map());
+  // Mirrors the current render's `isPlaying` value. playTrack reads this
+  // instead of `status` because its useCallback deps key on
+  // `status?.currentTime` — which stops changing the moment playback
+  // pauses, so the captured `status` object would still report
+  // playing: true long after the user hit pause.
+  const isPlayingRef = useRef(false);
+  // "Start playing as soon as the incoming track is ready." Written by
+  // playTrack at the moment of a track switch, read by the track-change
+  // effect below, which owns pendingPlay for the new track.
+  const autoPlayOnLoadRef = useRef(false);
 
   // ─── Callback refs (registered by consumer screens) ───
   const onProgressUpdateRef = useRef<((progress: UserProgress) => void) | undefined>(undefined);
@@ -239,6 +249,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // animation right away, even though the underlying engine is still
   // buffering.
   const isPlaying = !!status?.playing || (phase !== 'ready' && pendingPlay);
+  // Mirror into the ref during render rather than from an effect: playTrack
+  // can be called from an effect that runs earlier in the same commit (the
+  // completion effect drives end-of-track auto-advance), and an effect-based
+  // mirror would still hold the previous render's value at that point.
+  isPlayingRef.current = isPlaying;
 
   // Detect a stale status snapshot from a previous player. expo-audio's
   // `useEvent` hook (from `expo`) uses `useState(initialValue)` — useState
@@ -577,6 +592,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       trackIdRef.current = null;
       seekToTargetDoneRef.current = null;
       audioSourceTrackIdRef.current = null;
+      autoPlayOnLoadRef.current = false;
       setAudioSource(null);
       setPhase('idle');
       setTargetPosition(0);
@@ -598,7 +614,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setUserScrubValue(null);
     lastSavedSecondRef.current = -1;
     hasCompletedRef.current = false;
-    setPendingPlay(false);
+    // Carry the play intent captured by playTrack across the switch. When
+    // the user hits next/previous mid-playback (or a track auto-advances
+    // on completion), the incoming track must keep playing — the
+    // phase→ready effect below fires the actual play(). An unconditional
+    // reset here would silently stop playback on every track change.
+    setPendingPlay(autoPlayOnLoadRef.current);
 
     // Stop any audio that may already be playing from a previous track —
     // we don't want overlap during the brief moment the new source is
@@ -839,6 +860,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     newTrackList: Track[],
     index: number,
     meta?: { retreatId: string; retreatName: string; groupName: string },
+    options?: { autoPlay?: boolean },
   ) => {
     setIdleTrack(null);
     setTrackListState(newTrackList);
@@ -853,6 +875,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // both on mount (auto-load) and on user tap; treating same-track taps
     // as track switches would reset position and cancel playback.
     if (track?.id !== newTrack.id) {
+      // Playback intent for the incoming track. Callers can force it
+      // (resume-from-idle), otherwise it follows whatever the player was
+      // doing: playing → keep playing, paused → stay paused. Read by the
+      // track-change effect once `track` has actually changed.
+      autoPlayOnLoadRef.current = options?.autoPlay ?? isPlayingRef.current;
       // Save the outgoing track's position before swapping. The 10-second
       // cadence effect would otherwise drop the last <10s of progress.
       //
@@ -911,9 +938,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const resumeLastPlayed = useCallback(() => {
     if (!idleTrack) return;
-    setPendingPlay(true);
     const { track: idleT, meta } = idleTrack;
-    playTrack(idleT, [idleT], 0, meta || undefined);
+    playTrack(idleT, [idleT], 0, meta || undefined, { autoPlay: true });
   }, [idleTrack, playTrack]);
 
   const clearTrack = useCallback(() => {
@@ -932,9 +958,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // play as pending and resume the track; once it loads, playback will
     // start automatically.
     if (phase === 'idle' && idleTrack) {
-      setPendingPlay(true);
       const { track: idleT, meta } = idleTrack;
-      playTrack(idleT, [idleT], 0, meta || undefined);
+      playTrack(idleT, [idleT], 0, meta || undefined, { autoPlay: true });
       return;
     }
     // Loading: the audio engine isn't ready yet. Toggle the optimistic

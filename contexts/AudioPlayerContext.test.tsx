@@ -1084,3 +1084,97 @@ describe('AudioPlayerContext — UX (matrix H)', () => {
     expect(aPlayer2!.lastSeekTo).toBe(77);
   });
 });
+
+// ─── Matrix I — playback continuity across track switches ───────────
+// A track switch must carry the user's playback intent forward: if audio
+// was playing when the switch happened (next/previous button, end-of-track
+// auto-advance), the incoming track plays; if it was paused, it stays
+// paused.
+describe('AudioPlayerContext — playback continuity (matrix I)', () => {
+  it('I1 — nextTrack while playing continues playback on the new track', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 200 });
+    const tB = makeTrack({ id: 'tB', duration: 200 });
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    act(() => { result.current.togglePlayPause(); });
+    expect(result.current.isPlaying).toBe(true);
+
+    // Mirrors retreat/[id].tsx goToNextTrack → selectTrack → playTrack.
+    act(() => {
+      result.current.setOnNextTrack(() => {
+        result.current.playTrack(tB, [tA, tB], 1);
+      });
+    });
+
+    act(() => { result.current.nextTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tB');
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('I2 — nextTrack while paused leaves the new track paused', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 200 });
+    const tB = makeTrack({ id: 'tB', duration: 200 });
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.isPlaying).toBe(false);
+
+    act(() => {
+      result.current.setOnNextTrack(() => {
+        result.current.playTrack(tB, [tA, tB], 1);
+      });
+    });
+
+    act(() => { result.current.nextTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tB');
+    expect(result.current.isPlaying).toBe(false);
+  });
+
+  it('I3 — resumeLastPlayed from idle starts playback', async () => {
+    const savedTrack = makeTrack({ id: 'last', duration: 200 });
+    await AsyncStorage.setItem(
+      'last_played_track',
+      JSON.stringify({ track: savedTrack, meta: null }),
+    );
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.idleTrack?.track.id).toBe('last');
+
+    act(() => { __setDuration(200); result.current.resumeLastPlayed(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('last');
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('I4 — end-of-track auto-advance keeps playing the next track', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 60 });
+    const tB = makeTrack({ id: 'tB', duration: 60 });
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(60); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    act(() => {
+      result.current.setOnNextTrack(() => {
+        result.current.playTrack(tB, [tA, tB], 1);
+      });
+      result.current.setOnTrackComplete(() => { result.current.nextTrack(); });
+    });
+
+    act(() => { __setPlaying(true); __finishTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tB');
+    expect(result.current.isPlaying).toBe(true);
+  });
+});
