@@ -11,6 +11,7 @@ import Animated, {
 import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
+import { formatMonthDay } from '@/utils/dateFormat';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftBadge } from '@/components/DraftBadge';
 import { PDFViewer } from '@/components/PDFViewer';
@@ -1008,7 +1009,8 @@ export default function RetreatDetailScreen() {
     return `${minutes}m`;
   };
 
-  // Format session date header - "Day 1 · April 18th · Morning · Part 1"
+  // Format session date header — "Day 1 · April 18th · Morning · Part 1" in
+  // English, "Dia 1 · 18 de abril · Manhã · Parte 1" in Portuguese.
   const formatSessionHeader = (session: { sessionName: string; sessionDate: string; sessionType: string; sessionPartNumber?: number | null }) => {
     const sessionType = t(`retreats.${session.sessionType}`) || session.sessionType;
     const partLabel = t('retreats.part') || 'Part';
@@ -1020,14 +1022,7 @@ export default function RetreatDetailScreen() {
       return sessionType ? `${sessionType}${partSuffix}` : (session.sessionName || '');
     }
 
-    const month = sessionDate.toLocaleDateString('en-US', { month: 'long' });
-    const dayNum = sessionDate.getDate();
-    const getOrdinal = (n: number) => {
-      const s = ['th', 'st', 'nd', 'rd'];
-      const v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-    };
-    const dateLabel = `${month} ${getOrdinal(dayNum)}`;
+    const dateLabel = formatMonthDay(sessionDate, language);
 
     const retreatStartDate = retreat ? new Date(retreat.startDate) : sessionDate;
     if (isNaN(retreatStartDate.getTime())) {
@@ -1037,7 +1032,7 @@ export default function RetreatDetailScreen() {
     const diffTime = sessionDate.getTime() - retreatStartDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     const dayNumber = diffDays + 1;
-    return `Day ${dayNumber} · ${dateLabel} · ${sessionType}${partSuffix}`;
+    return `${t('retreats.dayNumber', { n: dayNumber })} · ${dateLabel} · ${sessionType}${partSuffix}`;
   };
 
   const calculateTotalRetreatSize = () => {

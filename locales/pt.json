@@ -291,6 +291,7 @@
     "evening": "Noite",
     "full_day": "Dia inteiro",
     "part": "Parte",
+    "dayNumber": "Dia {{n}}",
     "transcript": "Transcrição",
     "audio": "Áudio",
     "notFound": "Retiro não encontrado",

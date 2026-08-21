@@ -291,6 +291,7 @@
     "evening": "Evening",
     "full_day": "Full day",
     "part": "Part",
+    "dayNumber": "Day {{n}}",
     "transcript": "Transcript",
     "audio": "Audio",
     "notFound": "Retreat not found",

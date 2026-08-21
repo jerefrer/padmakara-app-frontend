@@ -1,30 +1,19 @@
 import type { EventVideo } from '@/types';
-import type { ContentLanguage } from '@/utils/i18n';
+import type { ContentLanguage, Language } from '@/utils/i18n';
+import { formatMonthDay } from '@/utils/dateFormat';
 
 interface VideoTitleOptions {
   /** The user's content-language preference. 'pt' prefers the Portuguese
    *  title; 'en' and the bilingual 'en-pt' prefer English. */
   contentLanguage: ContentLanguage;
+  /** The UI language, used for the date fallback. Distinct from
+   *  contentLanguage: the date is app chrome, not teaching content. */
+  language: Language;
   t: (key: string, params?: Record<string, unknown>) => string;
   /** Total number of videos on the parent event. When there's more than
    *  one and neither title is set, a "Part N" suffix is appended to the
    *  date fallback so videos stay distinguishable in lists. */
   totalVideos?: number;
-}
-
-/** Format an ISO date ("YYYY-MM-DD") as "April 18th" — matches the date
- *  format used for session headers elsewhere in the app. */
-function formatVideoDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
-  const month = d.toLocaleDateString('en-US', { month: 'long' });
-  const day = d.getDate();
-  const ordinal = (n: number) => {
-    const s = ['th', 'st', 'nd', 'rd'];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
-  return `${month} ${ordinal(day)}`;
 }
 
 /**
@@ -36,7 +25,7 @@ function formatVideoDate(dateStr: string): string {
  *   3. A generic "Video" fallback.
  */
 export function getVideoTitle(video: EventVideo, opts: VideoTitleOptions): string {
-  const { contentLanguage, t, totalVideos } = opts;
+  const { contentLanguage, language, t, totalVideos } = opts;
   const preferPt = contentLanguage === 'pt';
   const localized = preferPt
     ? video.titlePt?.trim() || video.titleEn?.trim()
@@ -45,7 +34,7 @@ export function getVideoTitle(video: EventVideo, opts: VideoTitleOptions): strin
 
   const parts: string[] = [];
   if (video.videoDate) {
-    const dateLabel = formatVideoDate(video.videoDate);
+    const dateLabel = formatMonthDay(new Date(video.videoDate), language);
     if (dateLabel) parts.push(dateLabel);
   }
   if ((totalVideos ?? 0) > 1) {

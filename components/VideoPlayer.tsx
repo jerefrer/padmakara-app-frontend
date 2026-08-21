@@ -154,7 +154,7 @@ export function VideoPlayer({
   // own title for context, since the player opens as a full-screen modal.
   const headerTitle = useMemo(() => {
     if (!video) return '';
-    const title = getVideoTitle(video, { contentLanguage, t, totalVideos });
+    const title = getVideoTitle(video, { contentLanguage, language, t, totalVideos });
     return eventTitle ? `${eventTitle} · ${title}` : title;
   }, [video, eventTitle, totalVideos, contentLanguage, t]);
 
