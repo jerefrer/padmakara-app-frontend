@@ -179,7 +179,7 @@ export default function CheckEmailScreen() {
     setIsResending(true);
 
     try {
-      const result = await magicLinkService.requestMagicLink(email);
+      const result = await magicLinkService.requestMagicLink(email, language);
 
       if (result.success) {
         Alert.alert(
