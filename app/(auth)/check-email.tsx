@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -41,6 +42,7 @@ const colors = {
 export default function CheckEmailScreen() {
   const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
+  const { language, t } = useLanguage();
   const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -181,16 +183,22 @@ export default function CheckEmailScreen() {
 
       if (result.success) {
         Alert.alert(
-          'Email sent!',
-          'We\'ve sent you a new activation link. Please check your email.',
-          [{ text: 'OK' }]
+          t('auth.magicLink.checkEmail.resentTitle'),
+          t('auth.magicLink.checkEmail.resentMessage'),
+          [{ text: t('common.ok') }]
         );
         setResendCooldown(60); // 60 second cooldown
       } else {
-        Alert.alert('Error', result.error || 'Failed to resend email. Please try again.');
+        Alert.alert(
+          t('auth.magicLink.errorTitle'),
+          result.error || t('auth.magicLink.checkEmail.resendFailed')
+        );
       }
     } catch (error) {
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
+      Alert.alert(
+        t('auth.magicLink.networkErrorTitle'),
+        t('auth.magicLink.networkErrorMessage')
+      );
     } finally {
       setIsResending(false);
     }
@@ -241,14 +249,14 @@ export default function CheckEmailScreen() {
           {/* Success Message with Status */}
           <View style={styles.messageContainer}>
             <Text style={styles.title}>
-              {activationStatus === 'activated' ? 'Activation Successful!' :
-               activationStatus === 'checking' ? 'Checking Status...' :
-               'Check your email'}
+              {activationStatus === 'activated' ? t('auth.magicLink.checkEmail.titleActivated') :
+               activationStatus === 'checking' ? t('auth.magicLink.checkEmail.titleChecking') :
+               t('auth.magicLink.checkEmail.title')}
             </Text>
             <Text style={styles.subtitle}>
-              {activationStatus === 'activated' ? 'Welcome! Redirecting to the app...' :
-               activationStatus === 'checking' ? 'Verifying your device activation...' :
-               'We\'ve sent an activation link to'}
+              {activationStatus === 'activated' ? t('auth.magicLink.checkEmail.subtitleActivated') :
+               activationStatus === 'checking' ? t('auth.magicLink.checkEmail.subtitleChecking') :
+               t('auth.magicLink.checkEmail.subtitle')}
             </Text>
             {activationStatus !== 'activated' && activationStatus !== 'checking' && (
               <Text style={styles.emailText}>{formatEmail(email || '')}</Text>
@@ -259,7 +267,7 @@ export default function CheckEmailScreen() {
               <View style={styles.statusIndicator}>
                 <ActivityIndicator size="small" color={colors.saffron[500]} />
                 <Text style={styles.statusText}>
-                  Waiting for activation...
+                  {t('auth.magicLink.checkEmail.waitingForActivation')}
                 </Text>
               </View>
             )}
@@ -267,7 +275,7 @@ export default function CheckEmailScreen() {
             {activationStatus === 'activated' && (
               <View style={styles.successIndicator}>
                 <Ionicons name="checkmark-circle" size={20} color={colors.burgundy[500]} />
-                <Text style={styles.successStatusText}>Device activated successfully!</Text>
+                <Text style={styles.successStatusText}>{t('auth.magicLink.checkEmail.deviceActivated')}</Text>
               </View>
             )}
           </View>
@@ -280,7 +288,7 @@ export default function CheckEmailScreen() {
                   <Text style={styles.stepText}>1</Text>
                 </View>
                 <Text style={styles.instructionText}>
-                  Check your email for the activation link
+                  {t('auth.magicLink.checkEmail.step1')}
                 </Text>
               </View>
 
@@ -289,7 +297,7 @@ export default function CheckEmailScreen() {
                   <Text style={styles.stepText}>2</Text>
                 </View>
                 <Text style={styles.instructionText}>
-                  Tap the activation button in the email
+                  {t('auth.magicLink.checkEmail.step2')}
                 </Text>
               </View>
 
@@ -298,7 +306,7 @@ export default function CheckEmailScreen() {
                   <Text style={styles.stepText}>3</Text>
                 </View>
                 <Text style={styles.instructionText}>
-                  You'll be automatically signed in
+                  {t('auth.magicLink.checkEmail.step3')}
                 </Text>
               </View>
             </View>
@@ -312,7 +320,7 @@ export default function CheckEmailScreen() {
               color={colors.saffron[500]}
             />
             <Text style={styles.securityText}>
-              The link expires in 1 hour for your security
+              {t('auth.magicLink.checkEmail.expiryNotice')}
             </Text>
           </View>
 
@@ -335,8 +343,8 @@ export default function CheckEmailScreen() {
                     <Ionicons name="refresh" size={18} color="white" />
                     <Text style={styles.resendButtonText}>
                       {resendCooldown > 0
-                        ? `Resend in ${resendCooldown}s`
-                        : 'Resend email'
+                        ? t('auth.magicLink.checkEmail.resendCooldown', { seconds: resendCooldown })
+                        : t('auth.magicLink.checkEmail.resendButton')
                       }
                     </Text>
                   </>
@@ -348,7 +356,7 @@ export default function CheckEmailScreen() {
                 onPress={handleBackToEmail}
                 activeOpacity={0.7}
               >
-                <Text style={styles.backButtonText}>Back</Text>
+                <Text style={styles.backButtonText}>{t('auth.magicLink.checkEmail.backButton')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -356,8 +364,8 @@ export default function CheckEmailScreen() {
           {/* Helpful Tip */}
           <View style={styles.tipContainer}>
             <Text style={styles.tipText}>
-              💡 <Text style={styles.tipBold}>Tip:</Text> If you don't see the email,
-              check your spam or junk folder, or try adding our domain to your safe sender list.
+              💡 <Text style={styles.tipBold}>{t('auth.magicLink.checkEmail.tipLabel')}</Text>{' '}
+              {t('auth.magicLink.checkEmail.tipBody')}
             </Text>
           </View>
         </Animated.View>

@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
   cream: {
@@ -31,6 +32,7 @@ const colors = {
 
 export default function ApprovalPendingScreen() {
   const { email, name } = useLocalSearchParams<{ email: string; name: string }>();
+  const { t } = useLanguage();
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -107,9 +109,9 @@ export default function ApprovalPendingScreen() {
 
           {/* Message Container */}
           <View style={styles.messageContainer}>
-            <Text style={styles.title}>Request Submitted</Text>
+            <Text style={styles.title}>{t('auth.magicLink.approvalPending.title')}</Text>
             <Text style={styles.subtitle}>
-              Thank you, {name}. Your request has been sent to our community administrators for review.
+              {t('auth.magicLink.approvalPending.subtitle', { name })}
             </Text>
           </View>
 
@@ -121,28 +123,28 @@ export default function ApprovalPendingScreen() {
                 size={20}
                 color={colors.saffron[500]}
               />
-              <Text style={styles.statusTitle}>What happens next?</Text>
+              <Text style={styles.statusTitle}>{t('auth.magicLink.approvalPending.nextTitle')}</Text>
             </View>
 
             <View style={styles.statusSteps}>
               <View style={styles.step}>
                 <View style={styles.stepDot} />
                 <Text style={styles.stepText}>
-                  Our team will review your request within 24-48 hours
+                  {t('auth.magicLink.approvalPending.step1')}
                 </Text>
               </View>
 
               <View style={styles.step}>
                 <View style={styles.stepDot} />
                 <Text style={styles.stepText}>
-                  You'll receive an email once your access is approved
+                  {t('auth.magicLink.approvalPending.step2')}
                 </Text>
               </View>
 
               <View style={styles.step}>
                 <View style={styles.stepDot} />
                 <Text style={styles.stepText}>
-                  Return to this app and enter your email to activate your device
+                  {t('auth.magicLink.approvalPending.step3')}
                 </Text>
               </View>
             </View>
@@ -156,14 +158,13 @@ export default function ApprovalPendingScreen() {
               color={colors.gray[600]}
             />
             <Text style={styles.contactText}>
-              We appreciate your interest in joining our dharma community.
-              If you have any questions, please feel free to contact us.
+              {t('auth.magicLink.approvalPending.contactText')}
             </Text>
           </View>
 
           {/* Email Reminder */}
           <View style={styles.emailReminder}>
-            <Text style={styles.emailLabel}>Your request email:</Text>
+            <Text style={styles.emailLabel}>{t('auth.magicLink.approvalPending.emailLabel')}</Text>
             <Text style={styles.emailText}>{email}</Text>
           </View>
 
@@ -174,13 +175,13 @@ export default function ApprovalPendingScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="arrow-back" size={18} color="white" />
-            <Text style={styles.backButtonText}>Back to Login</Text>
+            <Text style={styles.backButtonText}>{t('auth.magicLink.approvalPending.backToLogin')}</Text>
           </TouchableOpacity>
 
           {/* Peaceful Message */}
           <View style={styles.peacefulMessage}>
             <Text style={styles.peacefulText}>
-              🙏 May you find peace while you wait
+              {t('auth.magicLink.approvalPending.peacefulMessage')}
             </Text>
           </View>
         </Animated.View>

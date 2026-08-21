@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const colors = {
   cream: {
@@ -45,6 +46,8 @@ export default function DeviceActivatedScreen() {
     user_name?: string;
     device_name?: string;
   }>();
+
+  const { t } = useLanguage();
 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string>('');
@@ -98,7 +101,7 @@ export default function DeviceActivatedScreen() {
         } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
           setBiometricType('Touch ID');
         } else {
-          setBiometricType('Biometric');
+          setBiometricType(t('auth.magicLink.deviceActivated.biometricGeneric'));
         }
       }
     } catch (error) {
@@ -111,18 +114,18 @@ export default function DeviceActivatedScreen() {
 
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: `Enable ${biometricType} for Padmakara`,
-        cancelLabel: 'Not now',
+        promptMessage: t('auth.magicLink.deviceActivated.biometricPrompt', { biometricType }),
+        cancelLabel: t('auth.magicLink.deviceActivated.biometricCancel'),
       });
 
       if (result.success) {
         // Store biometric preference
         Alert.alert(
-          `${biometricType} Enabled!`,
-          'You can now use biometric authentication to sign in quickly and securely.',
+          t('auth.magicLink.deviceActivated.biometricEnabledTitle', { biometricType }),
+          t('auth.magicLink.deviceActivated.biometricEnabledMessage'),
           [
             {
-              text: 'Continue to App',
+              text: t('auth.magicLink.deviceActivated.continueToApp'),
               onPress: () => router.replace('/(tabs)')
             }
           ]
@@ -134,11 +137,11 @@ export default function DeviceActivatedScreen() {
     } catch (error) {
       console.error('Biometric setup error:', error);
       Alert.alert(
-        'Setup Failed',
-        'Unable to set up biometric authentication. You can enable it later in settings.',
+        t('auth.magicLink.deviceActivated.setupFailedTitle'),
+        t('auth.magicLink.deviceActivated.setupFailedMessage'),
         [
           {
-            text: 'Continue',
+            text: t('auth.magicLink.deviceActivated.continueButton'),
             onPress: () => router.replace('/(tabs)')
           }
         ]
@@ -203,9 +206,11 @@ export default function DeviceActivatedScreen() {
 
           {/* Welcome Message */}
           <View style={styles.welcomeContainer}>
-            <Text style={styles.title}>Welcome!</Text>
+            <Text style={styles.title}>{t('auth.magicLink.deviceActivated.title')}</Text>
             <Text style={styles.subtitle}>
-              {user_name ? `Welcome ${user_name}! ` : ''}Your device has been successfully activated and you now have access to your retreat recordings.
+              {user_name
+                ? t('auth.magicLink.deviceActivated.subtitleNamed', { name: user_name })
+                : t('auth.magicLink.deviceActivated.subtitle')}
             </Text>
           </View>
 
@@ -217,13 +222,13 @@ export default function DeviceActivatedScreen() {
               color={colors.gray[800]}
             />
             <View style={styles.deviceInfo}>
-              <Text style={styles.deviceLabel}>Activated Device</Text>
+              <Text style={styles.deviceLabel}>{t('auth.magicLink.deviceActivated.deviceLabel')}</Text>
               <Text style={styles.deviceName}>
-                {device_name || 'This Device'}
+                {device_name || t('auth.magicLink.deviceActivated.thisDevice')}
               </Text>
             </View>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Active</Text>
+              <Text style={styles.statusText}>{t('auth.magicLink.deviceActivated.statusActive')}</Text>
             </View>
           </View>
 
@@ -237,27 +242,26 @@ export default function DeviceActivatedScreen() {
                   color={colors.saffron[500]}
                 />
                 <Text style={styles.biometricTitle}>
-                  Secure Your Access
+                  {t('auth.magicLink.deviceActivated.biometricTitle')}
                 </Text>
               </View>
 
               <Text style={styles.biometricDescription}>
-                Enable {biometricType} for quick and secure access to your retreat content.
-                This makes signing in effortless while keeping your spiritual practice private.
+                {t('auth.magicLink.deviceActivated.biometricDescription', { biometricType })}
               </Text>
 
               <View style={styles.biometricBenefits}>
                 <View style={styles.benefit}>
                   <Ionicons name="flash" size={16} color={colors.green[500]} />
-                  <Text style={styles.benefitText}>Instant access</Text>
+                  <Text style={styles.benefitText}>{t('auth.magicLink.deviceActivated.benefitInstant')}</Text>
                 </View>
                 <View style={styles.benefit}>
                   <Ionicons name="shield-checkmark" size={16} color={colors.green[500]} />
-                  <Text style={styles.benefitText}>Enhanced security</Text>
+                  <Text style={styles.benefitText}>{t('auth.magicLink.deviceActivated.benefitSecurity')}</Text>
                 </View>
                 <View style={styles.benefit}>
                   <Ionicons name="heart" size={16} color={colors.green[500]} />
-                  <Text style={styles.benefitText}>Peace of mind</Text>
+                  <Text style={styles.benefitText}>{t('auth.magicLink.deviceActivated.benefitPeace')}</Text>
                 </View>
               </View>
             </View>
@@ -284,7 +288,7 @@ export default function DeviceActivatedScreen() {
                         color="white"
                       />
                       <Text style={styles.primaryButtonText}>
-                        Enable {biometricType}
+                        {t('auth.magicLink.deviceActivated.enableBiometric', { biometricType })}
                       </Text>
                     </>
                   )}
@@ -296,7 +300,7 @@ export default function DeviceActivatedScreen() {
                   onPress={handleSkipBiometric}
                   disabled={settingUpBiometric}
                 >
-                  <Text style={styles.skipButtonText}>Skip for now</Text>
+                  <Text style={styles.skipButtonText}>{t('auth.magicLink.deviceActivated.skipForNow')}</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -307,7 +311,7 @@ export default function DeviceActivatedScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>
-                  Continue to App
+                  {t('auth.magicLink.deviceActivated.continueToApp')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -316,9 +320,9 @@ export default function DeviceActivatedScreen() {
           {/* Dharma Quote */}
           <View style={styles.quoteContainer}>
             <Text style={styles.quoteText}>
-              "Like a lamp dispelling darkness, may these teachings illuminate your path."
+              {t('auth.magicLink.deviceActivated.quote')}
             </Text>
-            <Text style={styles.quoteAuthor}>— Buddhist Blessing</Text>
+            <Text style={styles.quoteAuthor}>{t('auth.magicLink.deviceActivated.quoteAuthor')}</Text>
           </View>
         </Animated.View>
       </View>
