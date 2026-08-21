@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PDFViewer } from '@/components/PDFViewer';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
-import retreatService from '@/services/retreatService';
+import retreatService, { transcriptErrorKey } from '@/services/retreatService';
 import { getTrackTitle } from '@/utils/i18n';
 import { Track } from '@/types';
 import { colors } from '@/constants/colors';
@@ -101,12 +101,13 @@ export function TrackDetailPanel({ retreat, currentTrack }: TrackDetailPanelProp
       if (result.success && result.url) {
         setTranscriptUrl(result.url);
       } else {
-        setTranscriptError(result.error || 'Failed to load transcript');
+        const key = transcriptErrorKey(result.errorCode ?? 'generic');
+        setTranscriptError(t(key) || t('transcript.loadError') || 'Failed to load transcript');
       }
       setTranscriptLoading(false);
     }).catch(() => {
       if (!cancelled) {
-        setTranscriptError('Failed to load transcript');
+        setTranscriptError(t('transcript.loadError') || 'Failed to load transcript');
         setTranscriptLoading(false);
       }
     });

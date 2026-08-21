@@ -334,6 +334,8 @@
     "highlightsOnPage": "{{count}} highlights on this page",
     "loadingTranscript": "Loading transcript...",
     "loadError": "Failed to load transcript",
+    "signInRequired": "Sign in to read this transcript",
+    "accessDenied": "You don't have access to this transcript",
     "expand": "Expand",
     "collapse": "Collapse",
     "pages": "pages"

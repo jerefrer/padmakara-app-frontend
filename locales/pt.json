@@ -334,6 +334,8 @@
     "highlightsOnPage": "{{count}} destaques nesta página",
     "loadingTranscript": "A carregar transcrição...",
     "loadError": "Falha ao carregar transcrição",
+    "signInRequired": "Inicie sessão para ler esta transcrição",
+    "accessDenied": "Não tem acesso a esta transcrição",
     "expand": "Expandir",
     "collapse": "Recolher",
     "pages": "páginas"

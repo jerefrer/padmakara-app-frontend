@@ -295,6 +295,30 @@ export function buildEventDocuments(event: any): EventDocument[] {
   return docs;
 }
 
+// ─── Transcript errors ──────────────────────────────────────────────
+
+/** Coarse-grained reason a transcript PDF failed to load, mapped from the
+ *  API's HTTP status so callers never surface raw server text to the user. */
+export type TranscriptErrorCode = 'auth' | 'forbidden' | 'notFound' | 'generic';
+
+function transcriptErrorCode(status: number): TranscriptErrorCode {
+  if (status === 401) return 'auth';
+  if (status === 403) return 'forbidden';
+  if (status === 404) return 'notFound';
+  return 'generic';
+}
+
+/** i18n key for a transcript load failure, so both the mobile screen and the
+ *  desktop panel surface the same localized text instead of raw server output. */
+export function transcriptErrorKey(code: TranscriptErrorCode): string {
+  switch (code) {
+    case 'auth': return 'transcript.signInRequired';
+    case 'forbidden': return 'transcript.accessDenied';
+    case 'notFound': return 'transcript.transcriptNotFound';
+    default: return 'transcript.loadError';
+  }
+}
+
 // ─── Service ────────────────────────────────────────────────────────
 
 class RetreatService {
@@ -986,31 +1010,33 @@ class RetreatService {
 
   /**
    * Get a URL to view a watermarked transcript PDF.
-   * - Web: fetches the PDF with the Authorization header and returns a blob:
-   *   object URL. (The API no longer accepts tokens via ?token= — JWTs in URLs
-   *   leak into logs/history/Referer — and an <iframe> can't set headers.)
+   * - Web: fetches the PDF with the Authorization header (when signed in —
+   *   the API is the authority on access, so public-event transcripts are
+   *   served to anonymous callers too) and returns a blob: object URL. (The
+   *   API no longer accepts tokens via ?token= — JWTs in URLs leak into
+   *   logs/history/Referer — and an <iframe> can't set headers.)
    * - Native: fetches PDF, caches locally, returns file:// URI
    */
   async getTranscriptPdfUrl(transcriptId: string, updatedAt: string, originalFilename?: string): Promise<{
     success: boolean;
     url?: string;
-    error?: string;
+    errorCode?: TranscriptErrorCode;
   }> {
     try {
       const token = await getAuthToken();
       const apiUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.TRANSCRIPT_URL(transcriptId)}`;
 
-      // Web: fetch the bytes with the auth header and hand back a blob: object
-      // URL (an <iframe> can't set an Authorization header, and the API no
-      // longer accepts ?token=).
+      // Web: fetch the bytes with the auth header (when present) and hand
+      // back a blob: object URL (an <iframe> can't set an Authorization
+      // header, and the API no longer accepts ?token=).
       if (Platform.OS === 'web') {
-        if (!token) return { success: false, error: 'Authentication required' };
         const response = await fetch(apiUrl, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
         if (!response.ok) {
-          const errorText = await response.text().catch(() => '');
-          return { success: false, error: errorText || `HTTP ${response.status}` };
+          return { success: false, errorCode: transcriptErrorCode(response.status) };
         }
         const blob = await response.blob();
         return { success: true, url: URL.createObjectURL(blob) };
@@ -1031,8 +1057,7 @@ class RetreatService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        return { success: false, error: errorText || `HTTP ${response.status}` };
+        return { success: false, errorCode: transcriptErrorCode(response.status) };
       }
 
       // Extract filename from Content-Disposition header if not provided
@@ -1050,7 +1075,7 @@ class RetreatService {
       return { success: true, url: localUrl };
     } catch (error) {
       console.error('Get transcript PDF error:', error);
-      return { success: false, error: 'Failed to load transcript' };
+      return { success: false, errorCode: 'generic' };
     }
   }
 

@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PDFViewer } from '@/components/PDFViewer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
-import retreatService from '@/services/retreatService';
+import retreatService, { transcriptErrorKey } from '@/services/retreatService';
 import { transcriptCacheService } from '@/services/transcriptCacheService';
 import * as Sharing from 'expo-sharing';
 
@@ -61,7 +61,8 @@ export default function TranscriptViewerScreen() {
       if (urlResult.success && urlResult.url) {
         setTranscriptUrl(urlResult.url);
       } else {
-        setError(urlResult.error || t('transcript.loadError') || 'Failed to load transcript');
+        const key = transcriptErrorKey(urlResult.errorCode ?? 'generic');
+        setError(t(key) || t('transcript.loadError') || 'Failed to load transcript');
       }
     } catch (err) {
       console.error('Load transcript error:', err);
