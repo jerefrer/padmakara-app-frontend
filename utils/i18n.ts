@@ -86,17 +86,31 @@ class I18n {
     return this.currentContentLanguage;
   }
 
+  /**
+   * Look up a translation for the current interface language.
+   *
+   * A missing key resolves to `''`, never to the key itself. Call sites all
+   * use the `t('some.key') || 'Fallback'` idiom, and a returned key string is
+   * truthy — it would swallow the fallback and render "retreats.other" to the
+   * user. An empty string lets the fallback do its job, and a site with no
+   * fallback renders nothing rather than leaking an internal key.
+   *
+   * Misses are a bug in every case, so they warn in development. `locales.test.ts`
+   * asserts that no static `t()` key in the codebase can miss.
+   */
   t(key: string, params?: Record<string, unknown>): string {
     const keys = key.split('.');
     let value: any = translations[this.currentLanguage];
-    
+
     for (const k of keys) {
       value = value?.[k];
     }
-    
+
     if (typeof value !== 'string') {
-      console.warn(`Translation key "${key}" not found for language "${this.currentLanguage}"`);
-      return key;
+      if (__DEV__) {
+        console.warn(`Translation key "${key}" not found for language "${this.currentLanguage}"`);
+      }
+      return '';
     }
 
     // Replace parameters
