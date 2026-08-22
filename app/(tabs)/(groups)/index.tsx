@@ -56,6 +56,20 @@ function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
 
 // ── Featured Event Card ──────────────────────────────────────────────────────
 
+/**
+ * Does this event have audio tracks?
+ *
+ * The authenticated `/events` list that backs the entity cache omits
+ * `sessions` entirely (only the featured/public endpoints embed them), so an
+ * absent `sessions` field means "unknown", not "no audio". Treat unknown as
+ * audio — every event used to show the note icon unconditionally, and hiding
+ * it on the cache path would be a regression.
+ */
+function eventHasAudio(event: Gathering): boolean {
+  if (event.sessions === undefined) return true;
+  return event.sessions.some((s) => (s.tracks?.length ?? 0) > 0);
+}
+
 interface FeaturedEventProps {
   event: Gathering;
   onPress: () => void;
@@ -98,6 +112,11 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     event.sessions?.some((s) =>
       s.tracks?.some((t) => !!t.transcript_file)
     );
+
+  // Content-type indicators, same order as the event detail hero and the
+  // desktop related-events list: video, audio, transcript.
+  const hasVideo = (event.videos?.length ?? 0) > 0;
+  const hasAudio = eventHasAudio(event);
 
   const metaParts: string[] = [];
   if (eventTypeName) metaParts.push(eventTypeName);
@@ -157,14 +176,14 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
         ) : null}
 
         <View style={styles.featuredIcons}>
-          <Ionicons name="musical-notes-outline" size={18} color={colors.gray[500]} />
+          {hasVideo && (
+            <Ionicons name="videocam-outline" size={18} color={colors.gray[500]} />
+          )}
+          {hasAudio && (
+            <Ionicons name="musical-notes-outline" size={18} color={colors.gray[500]} />
+          )}
           {hasTranscripts && (
-            <Ionicons
-              name="book-outline"
-              size={18}
-              color={colors.gray[500]}
-              style={{ marginLeft: 12 }}
-            />
+            <Ionicons name="book-outline" size={18} color={colors.gray[500]} />
           )}
         </View>
       </View>
@@ -208,6 +227,8 @@ function RecentEventCard({
   };
 
   const hasTranscripts = (event.transcripts?.length ?? 0) > 0;
+  const hasVideo = (event.videos?.length ?? 0) > 0;
+  const hasAudio = eventHasAudio(event);
 
   const metaParts = [eventTypeName, event.startDate ? formatDate(event.startDate) : ""].filter(Boolean);
 
@@ -249,9 +270,14 @@ function RecentEventCard({
           {metaParts.join("  |  ")}
         </Text>
         <View style={styles.recentIcons}>
-          <Ionicons name="musical-notes-outline" size={14} color={colors.gray[400]} />
+          {hasVideo && (
+            <Ionicons name="videocam-outline" size={14} color={colors.gray[400]} />
+          )}
+          {hasAudio && (
+            <Ionicons name="musical-notes-outline" size={14} color={colors.gray[400]} />
+          )}
           {hasTranscripts && (
-            <Ionicons name="book-outline" size={14} color={colors.gray[400]} style={{ marginLeft: 8 }} />
+            <Ionicons name="book-outline" size={14} color={colors.gray[400]} />
           )}
         </View>
       </View>
@@ -642,6 +668,7 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     alignItems: "center" as const,
     marginTop: 10,
+    gap: 12,
   },
 
   // Recently added section
@@ -710,6 +737,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: 4,
+    gap: 8,
   },
 
   // Sign in section — subtle, at the bottom
