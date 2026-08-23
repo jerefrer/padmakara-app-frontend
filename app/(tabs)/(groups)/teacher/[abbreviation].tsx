@@ -239,10 +239,15 @@ export default function TeacherDetailScreen() {
             const langs = eventLanguages(event).join(' + ');
             const dateLabel = formatIsoDate(event.startDate);
             const placeLabel = event.places?.map((p) => p.name).filter(Boolean).join(', ') || '';
-            const orgLabel = event.retreatGroups
-              ?.map((g) => g.abbreviation || g.name)
-              .filter(Boolean)
-              .join(' & ') || '';
+            // The event's own organizer is the real one. Retreat groups name
+            // the practice course (SHA, TM1, ...), not who put the event on, so
+            // they only stand in when no organizer has been recorded.
+            const orgLabel = event.organizer?.trim()
+              || event.retreatGroups
+                ?.map((g) => g.abbreviation || g.name)
+                .filter(Boolean)
+                .join(' & ')
+              || '';
 
             const hasVideo = eventHasVideo(event);
             const hasTranscript = eventHasTranscript(event);

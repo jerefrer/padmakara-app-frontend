@@ -130,6 +130,7 @@ interface RetreatDetails {
   }>;
   places?: Array<{ id: number; name: string }>;
   retreatGroups?: Array<{ id: number; name: string; abbreviation?: string | null }>;
+  organizer?: string | null;
   eventType?: { nameEn: string; namePt?: string };
   retreat_group?: {
     id: string;
@@ -1325,16 +1326,23 @@ export default function RetreatDetailScreen() {
     // Computed bits for the title block under the hero.
     const titleText = retreat ? getTranslatedName(retreat as any, language) : '';
     const speakersText = retreat?.teachers?.map((te) => te.name).filter(Boolean).join(', ') || '';
-    const eventTypeLabel = retreat?.eventType
-      ? (language === 'pt' && retreat.eventType.namePt ? retreat.eventType.namePt : retreat.eventType.nameEn)
-      : null;
     const dateLabel = retreat?.startDate
       ? formatDateRange(retreat.startDate, retreat.endDate, language)
       : '';
+    const placeLabel = retreat?.places?.map((p) => p.name).filter(Boolean).join(', ') || '';
+    // Same fallback order as the teacher screen's event cards: the event's own
+    // organizer first, retreat groups only when none has been recorded.
+    const organizerLabel = retreat?.organizer?.trim()
+      || retreat?.retreatGroups
+        ?.map((g) => g.abbreviation || g.name)
+        .filter(Boolean)
+        .join(' & ')
+      || '';
+    // Date | Place | Organizer — one pattern shared with the teacher screen.
     const metaParts = [
-      t('events.recordingsLabel') || 'Recordings',
-      eventTypeLabel,
       dateLabel,
+      placeLabel,
+      organizerLabel ? `${t('events.organizerPrefix') || 'Org.'} ${organizerLabel}` : '',
     ].filter(Boolean);
 
     // Indicators for the floating circles on the hero.

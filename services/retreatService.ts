@@ -141,6 +141,7 @@ export function mapEvent(backend: any): Gathering {
       name: erg.retreatGroup?.nameEn || erg.retreatGroup?.name_en || '',
       abbreviation: erg.retreatGroup?.abbreviation ?? null,
     })).filter((g: any) => g.id) || undefined,
+    organizer: backend.organizer ?? null,
     transcripts: backend.transcripts?.map((tr: any) => ({ id: tr.id })) || undefined,
     videos: backend.videos?.map(mapEventVideo) || undefined,
     status: mapEventStatus(backend.status || 'published', startDate, endDate),

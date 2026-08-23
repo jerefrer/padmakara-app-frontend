@@ -92,6 +92,9 @@ export interface Gathering {
   teachers?: GatheringTeacher[];
   places?: GatheringPlace[];
   retreatGroups?: GatheringGroup[];
+  /** Free-text organizing body, e.g. "Padmakara Portugal". Distinct from
+   *  `retreatGroups`, which name the practice course, not the organizer. */
+  organizer?: string | null;
   eventType?: EventType;
   transcripts?: { id: number }[];
   /** Non-transcript documents attached to this event (images, slides, etc.),
