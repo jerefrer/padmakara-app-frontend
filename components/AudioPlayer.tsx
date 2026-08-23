@@ -100,6 +100,10 @@ export function AudioPlayer({
     onSliderValueChange,
   } = useAudioPlayerContext();
 
+  // True only while a finger is down on the progress bar. Drives the thumb's
+  // visibility — see the Slider below.
+  const [isSeeking, setIsSeeking] = useState(false);
+
   // Show a thin progress ring around the play button only when loading
   // exceeds 300ms — fast cache hits never paint a spinner, while slower
   // network loads still get visible feedback.
@@ -144,19 +148,29 @@ export function AudioPlayer({
     <View style={[styles.container, { bottom: bottomOffset }]}>
       {/* Progress bar — always interactive. While loading, position
           reflects the saved/seek-to target so the thumb sits where the
-          user expects it before audio is even buffered. */}
+          user expects it before audio is even buffered.
+
+          The thumb is drawn only while the user is scrubbing; at rest the bar
+          reads as a plain progress line. Hiding it is purely a tint change,
+          so the full-width touch target is unaffected. */}
       <View style={styles.progressContainer}>
         <Slider
           style={styles.progressBar}
           minimumValue={0}
           maximumValue={Math.max(duration, 1)}
           value={position}
-          onSlidingStart={onSlidingStart}
-          onSlidingComplete={onSlidingComplete}
+          onSlidingStart={() => {
+            setIsSeeking(true);
+            onSlidingStart();
+          }}
+          onSlidingComplete={(value) => {
+            setIsSeeking(false);
+            onSlidingComplete(value);
+          }}
           onValueChange={onSliderValueChange}
           minimumTrackTintColor={colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[200]}
-          thumbTintColor={colors.burgundy[500]}
+          thumbTintColor={isSeeking ? colors.burgundy[500] : 'transparent'}
           testID="audio-seek"
         />
       </View>
