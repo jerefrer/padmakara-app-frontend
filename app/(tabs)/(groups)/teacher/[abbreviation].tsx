@@ -84,6 +84,7 @@ function formatIsoDate(dateStr: string): string {
 const colors = {
   burgundy500: '#9b1b1b',
   gray200: '#e5e7eb',
+  gray300: '#d1d5db',
   gray500: '#6b7280',
   gray600: '#4b5563',
   gray800: '#2c2c2c',
@@ -381,8 +382,8 @@ const styles = StyleSheet.create({
   },
   eventCard: {
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray200,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray300,
   },
   eventTitleRow: {
     flexDirection: 'row',
