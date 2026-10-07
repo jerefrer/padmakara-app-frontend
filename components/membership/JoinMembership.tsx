@@ -71,13 +71,13 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         : tr(t, 'summaryYear', '{{amount}} every year', { amount: formatEuro(amount, lang) });
   const detail =
     interval === 'month'
-      ? tr(t, 'detailMonth', 'Renews automatically. Cancel anytime from your account.')
-      : tr(t, 'detailYear', 'Paid once a year. Cancel anytime from your account.');
+      ? tr(t, 'detailMonth', 'Renews automatically, cancel anytime from your account.')
+      : tr(t, 'detailYear', 'Paid once a year, cancel anytime from your account.');
 
   return (
     <View style={styles.container}>
       <Text style={styles.title} accessibilityRole="header">
-        {tr(t, 'title', 'Become a member')}
+        {tr(t, 'joinTitle', 'Become a Member')}
       </Text>
 
       {lastPaymentFailedAt && (
@@ -92,17 +92,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         </View>
       )}
 
-      <View style={styles.seg} accessibilityRole="radiogroup">
-        {(['month', 'year'] as const).map((i) => (
-          <IntervalButton key={i} selected={interval === i} onPress={() => chooseInterval(i)}>
-            {i === 'month' ? tr(t, 'monthly', 'Monthly') : tr(t, 'yearly', 'Yearly')}
-          </IntervalButton>
-        ))}
-      </View>
-
-      <AmountPicker key={interval} interval={interval} value={amount} onChange={setAmount} />
-
-      <Text style={styles.why}>
+      <Text style={styles.quote}>
         {tr(
           t,
           'why',
@@ -110,18 +100,32 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         )}
       </Text>
 
+      <View style={styles.tabs} accessibilityRole="tablist">
+        {(['month', 'year'] as const).map((i) => (
+          <IntervalTab key={i} interval={i} selected={interval === i} onPress={() => chooseInterval(i)}>
+            {i === 'month' ? tr(t, 'monthly', 'Monthly') : tr(t, 'yearly', 'Yearly')}
+          </IntervalTab>
+        ))}
+      </View>
+
+      <Text style={styles.sectionLabel}>{tr(t, 'contributionLabel', 'Your contribution')}</Text>
+      <AmountPicker key={interval} interval={interval} value={amount} onChange={setAmount} />
+
       {summary && (
-        <View style={styles.summary}>
-          <Text style={styles.summaryBig}>{summary}</Text>
-          <Text style={styles.summaryDetail}>{detail}</Text>
-        </View>
+        <Text style={styles.summary}>
+          <Text style={styles.summaryBig}>{summary}.</Text> {detail}
+        </Text>
       )}
 
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: amount === null || busy }}
         disabled={amount === null || busy}
-        style={[styles.button, (amount === null || busy) && styles.buttonOff]}
+        style={({ pressed }) => [
+          styles.button,
+          pressed && styles.buttonPressed,
+          (amount === null || busy) && styles.buttonOff,
+        ]}
         onPress={onContinue}
       >
         <Text style={styles.buttonText}>{tr(t, 'continue', 'Continue to payment')}</Text>
@@ -139,44 +143,83 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
   );
 }
 
-function IntervalButton({ selected, onPress, children }: { selected: boolean; onPress: () => void; children: string }) {
+function IntervalTab({
+  interval,
+  selected,
+  onPress,
+  children,
+}: {
+  interval: MembershipInterval;
+  selected: boolean;
+  onPress: () => void;
+  children: string;
+}) {
   const ring = useFocusRing();
   return (
     <Pressable
-      accessibilityRole="button"
+      testID={`interval-tab-${interval}`}
+      accessibilityRole="tab"
       accessibilityState={{ selected }}
-      style={[styles.segBtn, selected && styles.segOn, ring.style]}
+      style={[styles.tab, selected && styles.tabOn, ring.style]}
       onPress={onPress}
       onFocus={ring.onFocus}
       onBlur={ring.onBlur}
     >
-      <Text style={[styles.segText, selected && styles.segTextOn]}>{children}</Text>
+      <Text style={[styles.tabText, selected && styles.tabTextOn]}>{children}</Text>
     </Pressable>
   );
 }
 
+// Page title, section label and primary button reuse the look of app/(tabs)/settings.tsx
+// (desktopPageTitle, sectionTitleOutside, signInButton).
 const styles = StyleSheet.create({
-  container: { width: '100%', maxWidth: 480, alignSelf: 'center', padding: 24, gap: 16 },
-  title: { fontSize: 28, fontFamily: fonts.display, fontWeight: '600', color: c.burgundy[500] },
-  banner: { backgroundColor: c.amber[50], borderRadius: 10, padding: 14, borderWidth: 1, borderColor: c.amber[700] },
-  bannerText: { fontSize: 15, lineHeight: 22, color: c.amber[700] },
-  seg: {
-    flexDirection: 'row',
-    backgroundColor: c.gray[100],
-    borderRadius: 10,
-    padding: 3,
+  container: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 40, gap: 16 },
+  title: {
+    fontSize: 30,
+    fontFamily: 'MinionPro',
+    color: c.burgundy[500],
+    fontVariant: ['small-caps'],
+    letterSpacing: 0.5,
+    marginTop: 24,
   },
-  segBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  segOn: { backgroundColor: c.white },
-  segText: { fontSize: 15, color: c.gray[600] },
-  segTextOn: { color: c.burgundy[500], fontWeight: '600' },
-  why: { fontSize: 15, lineHeight: 22, color: c.gray[600] },
-  summary: { backgroundColor: c.burgundy[50], borderRadius: 10, padding: 16, gap: 4 },
-  summaryBig: { fontSize: 22, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800] },
-  summaryDetail: { fontSize: 14, color: c.gray[600] },
-  button: { backgroundColor: c.burgundy[500], borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
+  banner: { borderLeftWidth: 2, borderLeftColor: c.amber[700], paddingLeft: 12 },
+  bannerText: { fontSize: 15, lineHeight: 22, color: c.amber[700] },
+  quote: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontFamily: 'EBGaramond_400Regular_Italic',
+    fontStyle: 'italic',
+    color: c.gray[800],
+    borderLeftWidth: 2,
+    borderLeftColor: c.burgundy[500],
+    paddingLeft: 12,
+  },
+  tabs: { flexDirection: 'row', gap: 24, borderBottomWidth: 1, borderBottomColor: c.gray[200] },
+  tab: { paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  tabOn: { borderBottomColor: c.burgundy[500] },
+  tabText: { fontSize: 18, fontFamily: fonts.display, fontVariant: ['small-caps'], letterSpacing: 0.7, color: c.gray[600] },
+  tabTextOn: { color: c.burgundy[500] },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: c.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginTop: 8,
+    marginBottom: -8,
+  },
+  summary: { fontSize: 14, lineHeight: 21, color: c.gray[600] },
+  summaryBig: { fontSize: 19, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800] },
+  button: {
+    alignSelf: 'flex-start',
+    backgroundColor: c.burgundy[500],
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 2,
+  },
+  buttonPressed: { backgroundColor: c.burgundy[600] },
   buttonOff: { backgroundColor: c.gray[300] },
-  buttonText: { color: c.white, fontSize: 16, fontWeight: '600' },
+  buttonText: { color: 'white', fontSize: 16, fontWeight: '600', fontFamily: 'EBGaramond_600SemiBold' },
   error: { fontSize: 14, color: c.red[700] },
   fine: { fontSize: 13, color: c.gray[500], lineHeight: 19 },
   link: { color: c.burgundy[500], textDecorationLine: 'underline' },

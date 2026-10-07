@@ -166,7 +166,7 @@ describe('ManageMembership', () => {
     const { getByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
     fireEvent.press(getByText('Change amount'));
     expect(getByText(/Your new contribution applies from your next payment on/)).toBeTruthy();
-    fireEvent.press(getByText('€20'));
+    fireEvent.press(getByText('€20 a month'));
     fireEvent.press(getByText('Save'));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(svc.changeAmount).toHaveBeenCalledWith(20);

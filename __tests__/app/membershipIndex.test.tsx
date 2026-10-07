@@ -49,7 +49,7 @@ describe('membership screen', () => {
     get.mockResolvedValue({ success: true, data: view({ state: 'processing' }) });
     const { getByText, queryByText } = render(<MembershipScreen />);
     await waitFor(() => expect(getByText('Your bank is processing the payment')).toBeTruthy());
-    expect(queryByText('Become a member')).toBeNull();
+    expect(queryByText('Become a Member')).toBeNull();
     fireEvent.press(getByText('Back to Padmakara'));
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
   });
@@ -57,7 +57,7 @@ describe('membership screen', () => {
   it('should show the join screen for a member with no payment in flight', async () => {
     get.mockResolvedValue({ success: true, data: view() });
     const { getByText } = render(<MembershipScreen />);
-    await waitFor(() => expect(getByText('Become a member')).toBeTruthy());
+    await waitFor(() => expect(getByText('Become a Member')).toBeTruthy());
   });
 
   it('should show the failed-payment banner above the picker when the last payment failed', async () => {
@@ -75,7 +75,7 @@ describe('membership screen', () => {
   it('should render a back control on the join screen that goes to the tabs when there is no history', async () => {
     get.mockResolvedValue({ success: true, data: view() });
     const { getByText, getByLabelText } = render(<MembershipScreen />);
-    await waitFor(() => expect(getByText('Become a member')).toBeTruthy());
+    await waitFor(() => expect(getByText('Become a Member')).toBeTruthy());
     fireEvent.press(getByLabelText('Back'));
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     expect(mockBack).not.toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe('membership screen', () => {
     mockCanGoBack = true;
     get.mockResolvedValue({ success: true, data: view() });
     const { getByText, getByLabelText } = render(<MembershipScreen />);
-    await waitFor(() => expect(getByText('Become a member')).toBeTruthy());
+    await waitFor(() => expect(getByText('Become a Member')).toBeTruthy());
     fireEvent.press(getByLabelText('Back'));
     expect(mockBack).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();

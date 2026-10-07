@@ -55,28 +55,32 @@ export function AmountPicker({ interval, value, onChange }: Props) {
     onChange(v.ok ? v.amount : null);
   };
 
+  const rowLabel = (amount: number) =>
+    interval === 'month'
+      ? tr(t, 'rowMonth', '{{amount}} a month', { amount: formatEuro(amount, lang) })
+      : tr(t, 'rowYear', '{{amount}} a year', { amount: formatEuro(amount, lang) });
+
   return (
     <View>
-      <View style={styles.chips} accessibilityRole="radiogroup">
-        {suggested.map((amount) => {
-          const selected = !custom && value === amount;
-          return (
-            <Chip
-              key={amount}
-              selected={selected}
-              label={formatEuro(amount, lang)}
-              onPress={() => {
-                setCustom(false);
-                setText('');
-                setTouched(false);
-                onChange(amount);
-              }}
-            />
-          );
-        })}
-        <Chip
+      <View style={styles.rows} accessibilityRole="radiogroup">
+        {suggested.map((amount) => (
+          <AmountRow
+            key={amount}
+            testID={`amount-row-${amount}`}
+            selected={!custom && value === amount}
+            label={rowLabel(amount)}
+            onPress={() => {
+              setCustom(false);
+              setText('');
+              setTouched(false);
+              onChange(amount);
+            }}
+          />
+        ))}
+        <AmountRow
+          testID="amount-row-other"
           selected={custom}
-          label={tr(t, 'other', 'Other')}
+          label={tr(t, 'otherRow', 'Another amount')}
           onPress={() => {
             if (custom) return;
             openedByPerson.current = true;
@@ -84,90 +88,115 @@ export function AmountPicker({ interval, value, onChange }: Props) {
             const v = validateAmount(text, interval);
             onChange(v.ok ? v.amount : null);
           }}
-        />
+        >
+          {custom && (
+            <View style={styles.field}>
+              <TextInput
+                style={styles.input}
+                value={text}
+                onChangeText={onText}
+                onBlur={() => setTouched(true)}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
+                placeholder={String(MIN_AMOUNT[interval])}
+                placeholderTextColor={c.gray[400]}
+                autoFocus={Platform.OS === 'web' && openedByPerson.current}
+                accessibilityLabel={tr(t, 'amountLabel', 'Amount')}
+              />
+              <Text style={styles.euro}>€</Text>
+            </View>
+          )}
+        </AmountRow>
       </View>
 
       {custom && (
-        <>
-          <View style={styles.field}>
-            <TextInput
-              style={styles.input}
-              value={text}
-              onChangeText={onText}
-              onBlur={() => setTouched(true)}
-              keyboardType="decimal-pad"
-              inputMode="decimal"
-              placeholder={String(MIN_AMOUNT[interval])}
-              placeholderTextColor={c.gray[400]}
-              autoFocus={Platform.OS === 'web' && openedByPerson.current}
-              accessibilityLabel={tr(t, 'amountLabel', 'Amount')}
-            />
-            <Text style={styles.euro}>€</Text>
-          </View>
-          <Text style={styles.unit}>
-            {interval === 'month'
-              ? tr(t, 'otherUnitMonth', 'per month · minimum {{min}}', { min })
-              : tr(t, 'otherUnitYear', 'per year · minimum {{min}}', { min })}
-          </Text>
-        </>
+        <Text style={styles.unit}>
+          {interval === 'month'
+            ? tr(t, 'otherUnitMonth', 'per month · minimum {{min}}', { min })
+            : tr(t, 'otherUnitYear', 'per year · minimum {{min}}', { min })}
+        </Text>
       )}
       {message && <Text style={styles.error}>{message}</Text>}
     </View>
   );
 }
 
-function Chip({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) {
+/** A hairline radio row, like the rows in Settings. The label is the radio; any children sit on the right. */
+function AmountRow({
+  selected,
+  label,
+  onPress,
+  testID,
+  children,
+}: {
+  selected: boolean;
+  label: string;
+  onPress: () => void;
+  testID: string;
+  children?: React.ReactNode;
+}) {
   const ring = useFocusRing();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      style={[styles.chip, selected && styles.chipOn, ring.style]}
-      onPress={onPress}
-      onFocus={ring.onFocus}
-      onBlur={ring.onBlur}
-    >
-      <Text style={[styles.chipText, selected && styles.chipTextOn]}>{label}</Text>
-    </Pressable>
+    <View style={styles.row}>
+      <Pressable
+        testID={testID}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selected }}
+        style={[styles.rowPress, ring.style]}
+        onPress={onPress}
+        onFocus={ring.onFocus}
+        onBlur={ring.onBlur}
+      >
+        <View style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot} />}</View>
+        <Text style={[styles.rowText, selected && styles.rowTextOn]}>{label}</Text>
+      </Pressable>
+      {children}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    minWidth: 64,
+  rows: { borderTopWidth: 1, borderTopColor: c.gray[200] },
+  row: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: c.gray[300],
-    backgroundColor: c.white,
+    borderBottomWidth: 1,
+    borderBottomColor: c.gray[200],
   },
-  chipOn: { borderColor: c.burgundy[500], backgroundColor: c.burgundy[50] },
-  chipText: { fontSize: 16, color: c.gray[700] },
-  chipTextOn: { color: c.burgundy[500], fontWeight: '600' },
+  rowPress: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4 },
+  radio: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: c.gray[400],
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOn: { borderColor: c.burgundy[500] },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.burgundy[500] },
+  rowText: { fontSize: 16, color: c.gray[800] },
+  rowTextOn: { fontWeight: '600' },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    minWidth: 120,
-    borderWidth: 1,
-    borderColor: c.gray[300],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: c.white,
+    minWidth: 90,
+    marginRight: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: c.gray[400],
   },
   input: {
     flex: 1,
     minWidth: 60,
-    paddingVertical: 8,
-    fontSize: 18,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    fontSize: 16,
+    textAlign: 'right',
     color: c.gray[800],
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
-  euro: { fontSize: 18, color: c.gray[500], marginLeft: 8 },
-  unit: { marginTop: 6, fontSize: 13, color: c.gray[500] },
+  euro: { fontSize: 16, color: c.gray[500], marginLeft: 6 },
+  unit: { marginTop: 8, fontSize: 13, color: c.gray[500] },
   error: { marginTop: 8, fontSize: 14, color: c.red[700] },
 });
