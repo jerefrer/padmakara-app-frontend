@@ -9,6 +9,7 @@ import { AmountPicker } from './AmountPicker';
 import { membershipErrorMessage } from './errorMessage';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
+import { useFocusRing } from './focusRing';
 
 interface Props {
   initialInterval?: MembershipInterval;
@@ -93,17 +94,9 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
 
       <View style={styles.seg} accessibilityRole="radiogroup">
         {(['month', 'year'] as const).map((i) => (
-          <Pressable
-            key={i}
-            accessibilityRole="button"
-            accessibilityState={{ selected: interval === i }}
-            style={[styles.segBtn, interval === i && styles.segOn]}
-            onPress={() => chooseInterval(i)}
-          >
-            <Text style={[styles.segText, interval === i && styles.segTextOn]}>
-              {i === 'month' ? tr(t, 'monthly', 'Monthly') : tr(t, 'yearly', 'Yearly')}
-            </Text>
-          </Pressable>
+          <IntervalButton key={i} selected={interval === i} onPress={() => chooseInterval(i)}>
+            {i === 'month' ? tr(t, 'monthly', 'Monthly') : tr(t, 'yearly', 'Yearly')}
+          </IntervalButton>
         ))}
       </View>
 
@@ -143,6 +136,22 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         .
       </Text>
     </View>
+  );
+}
+
+function IntervalButton({ selected, onPress, children }: { selected: boolean; onPress: () => void; children: string }) {
+  const ring = useFocusRing();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={[styles.segBtn, selected && styles.segOn, ring.style]}
+      onPress={onPress}
+      onFocus={ring.onFocus}
+      onBlur={ring.onBlur}
+    >
+      <Text style={[styles.segText, selected && styles.segTextOn]}>{children}</Text>
+    </Pressable>
   );
 }
 

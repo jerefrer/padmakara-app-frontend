@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   MIN_AMOUNT,
@@ -11,6 +11,7 @@ import {
 } from '@/utils/membership';
 import { membershipColors as c } from './theme';
 import { tr } from './tr';
+import { useFocusRing } from './focusRing';
 
 interface Props {
   interval: MembershipInterval;
@@ -25,13 +26,16 @@ export function AmountPicker({ interval, value, onChange }: Props) {
   const startsCustom = value !== null && !suggested.includes(value);
   const [custom, setCustom] = useState(startsCustom);
   const [text, setText] = useState(startsCustom ? String(value) : '');
+  const [touched, setTouched] = useState(false);
+  // Focus the field only when the person opened it, not when it is restored from a saved value.
+  const openedByPerson = useRef(false);
 
   const min = formatEuro(MIN_AMOUNT[interval], lang);
   const max = formatEuro(MAX_AMOUNT, lang);
 
   const validation = custom ? validateAmount(text, interval) : null;
   const message = (() => {
-    if (!validation || validation.ok) return null;
+    if (!touched || !validation || validation.ok) return null;
     switch (validation.reason) {
       case 'min':
         return tr(t, 'errMin', 'Please enter at least {{min}}.', { min });
@@ -46,6 +50,7 @@ export function AmountPicker({ interval, value, onChange }: Props) {
 
   const onText = (next: string) => {
     setText(next);
+    setTouched(true);
     const v = validateAmount(next, interval);
     onChange(v.ok ? v.amount : null);
   };
@@ -56,55 +61,74 @@ export function AmountPicker({ interval, value, onChange }: Props) {
         {suggested.map((amount) => {
           const selected = !custom && value === amount;
           return (
-            <Pressable
+            <Chip
               key={amount}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              style={[styles.chip, selected && styles.chipOn]}
+              selected={selected}
+              label={formatEuro(amount, lang)}
               onPress={() => {
                 setCustom(false);
+                setText('');
+                setTouched(false);
                 onChange(amount);
               }}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextOn]}>{formatEuro(amount, lang)}</Text>
-            </Pressable>
+            />
           );
         })}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: custom }}
-          style={[styles.chip, custom && styles.chipOn]}
+        <Chip
+          selected={custom}
+          label={tr(t, 'other', 'Other')}
           onPress={() => {
+            if (custom) return;
+            openedByPerson.current = true;
             setCustom(true);
             const v = validateAmount(text, interval);
             onChange(v.ok ? v.amount : null);
           }}
-        >
-          <Text style={[styles.chipText, custom && styles.chipTextOn]}>{tr(t, 'other', 'Other')}</Text>
-        </Pressable>
+        />
       </View>
 
       {custom && (
-        <View style={styles.customRow}>
-          <Text style={styles.euro}>€</Text>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={onText}
-            keyboardType="decimal-pad"
-            inputMode="decimal"
-            placeholder={String(MIN_AMOUNT[interval])}
-            accessibilityLabel={tr(t, 'amountLabel', 'Amount')}
-          />
+        <>
+          <View style={styles.field}>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={onText}
+              onBlur={() => setTouched(true)}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder={String(MIN_AMOUNT[interval])}
+              placeholderTextColor={c.gray[400]}
+              autoFocus={Platform.OS === 'web' && openedByPerson.current}
+              accessibilityLabel={tr(t, 'amountLabel', 'Amount')}
+            />
+            <Text style={styles.euro}>€</Text>
+          </View>
           <Text style={styles.unit}>
             {interval === 'month'
               ? tr(t, 'otherUnitMonth', 'per month · minimum {{min}}', { min })
               : tr(t, 'otherUnitYear', 'per year · minimum {{min}}', { min })}
           </Text>
-        </View>
+        </>
       )}
       {message && <Text style={styles.error}>{message}</Text>}
     </View>
+  );
+}
+
+function Chip({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) {
+  const ring = useFocusRing();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={[styles.chip, selected && styles.chipOn, ring.style]}
+      onPress={onPress}
+      onFocus={ring.onFocus}
+      onBlur={ring.onBlur}
+    >
+      <Text style={[styles.chipText, selected && styles.chipTextOn]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -123,19 +147,27 @@ const styles = StyleSheet.create({
   chipOn: { borderColor: c.burgundy[500], backgroundColor: c.burgundy[50] },
   chipText: { fontSize: 16, color: c.gray[700] },
   chipTextOn: { color: c.burgundy[500], fontWeight: '600' },
-  customRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  euro: { fontSize: 18, color: c.gray[700] },
-  input: {
-    minWidth: 80,
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    minWidth: 120,
     borderWidth: 1,
     borderColor: c.gray[300],
     borderRadius: 8,
     paddingHorizontal: 12,
+    backgroundColor: c.white,
+  },
+  input: {
+    flex: 1,
+    minWidth: 60,
     paddingVertical: 8,
     fontSize: 18,
     color: c.gray[800],
-    backgroundColor: c.white,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
-  unit: { fontSize: 14, color: c.gray[500] },
+  euro: { fontSize: 18, color: c.gray[500], marginLeft: 8 },
+  unit: { marginTop: 6, fontSize: 13, color: c.gray[500] },
   error: { marginTop: 8, fontSize: 14, color: c.red[700] },
 });

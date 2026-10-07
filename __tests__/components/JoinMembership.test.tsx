@@ -1,8 +1,10 @@
 import React from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { JoinMembership } from '@/components/membership/JoinMembership';
 import { membershipService } from '@/services/membershipService';
+import { colors } from '@/constants/colors';
 
 const mockPush = jest.fn();
 let mockAuthed = true;
@@ -98,6 +100,107 @@ describe('JoinMembership', () => {
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/(auth)/magic-link',
       params: { returnTo: '/membership' },
+    });
+  });
+
+  describe('Other amount', () => {
+    it('should show the neutral helper, no error and a disabled button right after pressing Other', () => {
+      const { getByText, queryByText, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      expect(getByText('per month · minimum €5')).toBeTruthy();
+      expect(queryByText('Enter an amount.')).toBeNull();
+      expect(getByLabelText('Amount').props.value).toBe('');
+      fireEvent.press(getByText('Continue to payment'));
+      expect(join).not.toHaveBeenCalled();
+    });
+
+    it('should show the error after typing a value below the minimum', () => {
+      const { getByText, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      fireEvent.changeText(getByLabelText('Amount'), '3');
+      expect(getByText(/at least €5/)).toBeTruthy();
+    });
+
+    it('should accept 12, clear the error and enable continue with the summary', async () => {
+      join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x' } });
+      const { getByText, queryByText, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      fireEvent.changeText(getByLabelText('Amount'), '3');
+      fireEvent.changeText(getByLabelText('Amount'), '12');
+      expect(queryByText(/at least/)).toBeNull();
+      expect(getByText('€12 every month')).toBeTruthy();
+      fireEvent.press(getByText('Continue to payment'));
+      await waitFor(() => expect(join).toHaveBeenCalledWith(12, 'month', 'en'));
+    });
+
+    it('should show the error when the field is left empty after being touched', () => {
+      const { getByText, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      fireEvent(getByLabelText('Amount'), 'blur');
+      expect(getByText('Enter an amount.')).toBeTruthy();
+    });
+
+    it('should start empty and untouched again after switching to a chip and back to Other', () => {
+      const { getByText, queryByText, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      fireEvent.changeText(getByLabelText('Amount'), '3');
+      expect(getByText(/at least €5/)).toBeTruthy();
+      fireEvent.press(getByText('€5'));
+      fireEvent.press(getByText('Other'));
+      expect(getByLabelText('Amount').props.value).toBe('');
+      expect(queryByText(/at least/)).toBeNull();
+      expect(queryByText('Enter an amount.')).toBeNull();
+    });
+
+    it('should use a muted placeholder colour', () => {
+      const { getByText, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      expect(getByLabelText('Amount').props.placeholderTextColor).toBe(colors.gray[400]);
+    });
+
+    it('should render the euro symbol after the input, not before', () => {
+      const { getByText, getByLabelText, toJSON } = render(<JoinMembership />);
+      fireEvent.press(getByText('Other'));
+      const json = JSON.stringify(toJSON());
+      const inputAt = json.indexOf('"accessibilityLabel":"Amount"');
+      const euroAt = json.indexOf('"€"');
+      expect(inputAt).toBeGreaterThan(-1);
+      expect(euroAt).toBeGreaterThan(inputAt);
+      expect(getByLabelText('Amount')).toBeTruthy();
+    });
+  });
+
+  describe('focus ring on web', () => {
+    const originalOS = Platform.OS;
+    beforeEach(() => {
+      (Platform as any).OS = 'web';
+    });
+    afterAll(() => {
+      (Platform as any).OS = originalOS;
+    });
+
+    const flat = (node: any) => StyleSheet.flatten(node.props.style);
+
+    it('should hide the browser outline on a chip after a mouse focus', () => {
+      const { getByText } = render(<JoinMembership />);
+      const chip = getByText('€5').parent!.parent!;
+      fireEvent(chip, 'focus', { target: { matches: () => false } });
+      expect(flat(getByText('€5').parent!.parent!).outlineStyle).toBe('none');
+    });
+
+    it('should show a burgundy outline on a chip after a keyboard focus', () => {
+      const { getByText } = render(<JoinMembership />);
+      fireEvent(getByText('€5').parent!.parent!, 'focus', { target: { matches: () => true } });
+      const style = flat(getByText('€5').parent!.parent!);
+      expect(style.outlineStyle).toBe('solid');
+      expect(style.outlineColor).toBe(colors.burgundy[500]);
+    });
+
+    it('should do the same for the Monthly and Yearly toggle', () => {
+      const { getByText } = render(<JoinMembership />);
+      expect(flat(getByText('Yearly').parent!.parent!).outlineStyle).toBe('none');
+      fireEvent(getByText('Yearly').parent!.parent!, 'focus', { target: { matches: () => true } });
+      expect(flat(getByText('Yearly').parent!.parent!).outlineColor).toBe(colors.burgundy[500]);
     });
   });
 });
