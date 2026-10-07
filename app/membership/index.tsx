@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Platform } from 
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService, type MembershipView } from '@/services/membershipService';
+import { ManageMembership } from '@/components/membership/ManageMembership';
 import { JoinMembership } from '@/components/membership/JoinMembership';
 import { ReaderAccountStatus } from '@/components/membership/ReaderAccountStatus';
 import { membershipColors as c } from '@/components/membership/theme';
@@ -19,6 +20,8 @@ function WebMembership() {
   const [view, setView] = useState<MembershipView | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const [reload, setReload] = useState(0);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
@@ -26,14 +29,16 @@ function WebMembership() {
       .get()
       .then((res) => {
         if (cancelled) return;
-        if (res.success && res.data) setView(res.data);
-        else setFailed(true);
+        if (res.success && res.data) {
+          setView(res.data);
+          setFailed(false);
+        } else setFailed(true);
       })
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, reload]);
 
   let body: React.ReactNode;
   if (isLoading || (isAuthenticated && !view && !failed)) {
@@ -43,8 +48,7 @@ function WebMembership() {
   } else if (!isAuthenticated || view?.state === 'none' || view?.state === 'lapsed') {
     body = <JoinMembership />;
   } else {
-    // Replaced by <ManageMembership /> in Task 11.
-    body = <Text style={styles.placeholder}>{tr(t, 'managePlaceholder', 'Your membership')}</Text>;
+    body = <ManageMembership membership={view!} onChanged={() => setReload((n) => n + 1)} />;
   }
 
   return <ScrollView style={styles.screen}>{body}</ScrollView>;
