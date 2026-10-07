@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { ReaderAccountStatus } from '@/components/membership/ReaderAccountStatus';
-import MembershipScreen from '@/app/membership/index';
+import MembershipScreen from '@/app/(tabs)/membership/index';
 
 const mockPush = jest.fn();
 let mockAuth: any;

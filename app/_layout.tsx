@@ -107,7 +107,6 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false, title: "Padmakara" }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="membership" options={{ headerShown: false }} />
             <Stack.Screen name="subscription/[...rest]" options={{ headerShown: false }} />
             <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
             <Stack.Screen name="delete-account" options={{ headerShown: false }} />

@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
-import MembershipScreen from '@/app/membership/index';
+import MembershipScreen from '@/app/(tabs)/membership/index';
 import { membershipService } from '@/services/membershipService';
 
 const mockReplace = jest.fn();

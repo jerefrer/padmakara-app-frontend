@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
-import ClosedScreen from '@/app/membership/closed';
+import ClosedScreen from '@/app/(tabs)/membership/closed';
 
 const mockReplace = jest.fn();
 const mockRedirect = jest.fn();

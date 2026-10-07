@@ -3,9 +3,9 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatLongDate } from '@/utils/dateFormat';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
+import { membershipStatusLine } from './statusLine';
 
 interface Props {
   /** `status` for Settings (state + manage/join link); `invite` for the home screen (join only). */
@@ -37,12 +37,7 @@ export function MembershipCard({ variant }: Props) {
   // Only a membership paid through Easypay can be managed here; an admin grant, cash or bank
   // transfer has nothing to change, so those members are pointed to us instead.
   const managedByUs = hasActiveSubscription && sub?.source !== 'easypay';
-  const endsOn = sub?.cancelledAt && sub.expiresAt ? sub.expiresAt : null;
-  const statusLine = !hasActiveSubscription
-    ? tr(t, 'statusNone', 'No active membership')
-    : endsOn
-      ? tr(t, 'statusEnds', 'Ends {{date}}', { date: formatLongDate(endsOn, lang) })
-      : tr(t, 'statusActive', 'Active');
+  const statusLine = membershipStatusLine(t, lang, hasActiveSubscription, sub);
 
   return (
     <View style={styles.card}>

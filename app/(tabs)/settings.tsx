@@ -7,6 +7,7 @@ import videoPreferencesService from '@/services/videoPreferencesService';
 import { StorageSection } from '@/components/StorageSection';
 import { MembershipCard } from '@/components/membership/MembershipCard';
 import { tr } from '@/components/membership/tr';
+import { membershipStatusLine } from '@/components/membership/statusLine';
 
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -574,6 +575,26 @@ export default function SettingsScreen() {
                     <Text style={styles.accountUserEmail}>{user?.email || 'user@example.com'}</Text>
                   </View>
                 </View>
+
+                {/* Membership row - web only (reader-app rule: no price or link on native) */}
+                {Platform.OS === 'web' && (
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.settingItem, pressed && styles.webPressed]}
+                    onPress={() => router.push('/membership' as any)}
+                  >
+                    <View style={styles.settingLeft}>
+                      <Ionicons name="ribbon-outline" size={20} color={colors.burgundy[500]} />
+                      <Text style={styles.settingTitle}>{tr(t, 'settingsRow', 'Membership')}</Text>
+                    </View>
+                    <View style={styles.settingRight}>
+                      <Text style={styles.settingValue}>
+                        {membershipStatusLine(t, language === 'pt' ? 'pt' : 'en', hasActiveSubscription, user?.subscription)}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
+                    </View>
+                  </Pressable>
+                )}
 
                 <Pressable
                   style={({ pressed }) => [

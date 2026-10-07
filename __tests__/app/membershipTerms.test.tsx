@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
-import TermsScreen from '@/app/membership/terms';
+import TermsScreen from '@/app/(tabs)/membership/terms';
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();

@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
-import ConfirmingScreen from '@/app/membership/confirming';
+import ConfirmingScreen from '@/app/(tabs)/membership/confirming';
 
 const mockReplace = jest.fn();
 const mockRedirect = jest.fn();
