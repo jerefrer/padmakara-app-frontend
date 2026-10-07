@@ -685,6 +685,7 @@
     "payFirstYear": "Primeiro pagamento hoje, depois todos os anos até cancelar.",
     "payUpdateNote": "O novo método de pagamento aplica-se a partir do próximo pagamento.",
     "paySecure": "Os dados do cartão vão para a Easypay, nunca para a Padmakara.",
-    "payFatal": "Não foi possível carregar o formulário de pagamento. Tente novamente."
+    "payFatal": "Não foi possível carregar o formulário de pagamento. Tente novamente.",
+    "payLoading": "A carregar o formulário de pagamento seguro…"
   }
 }

@@ -1,5 +1,8 @@
-import React, { useEffect, useId, useRef } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { membershipColors as c } from './theme';
+import { tr } from './tr';
 import type { EasypayCheckoutProps } from './easypayTypes';
 
 const SDK_SRC = 'https://cdn.easypay.pt/checkout/2.9.1/';
@@ -10,6 +13,10 @@ interface EasypayInstance {
 interface EasypaySdk {
   startCheckout(manifest: { id: string; session: string }, options: Record<string, unknown>): EasypayInstance;
 }
+
+/** Our loader gives up after this long, so a form that never reports `load` is not hidden forever. */
+const LOADER_TIMEOUT_MS = 15000;
+const LOADING_STYLE_ID = 'easypay-loading-style';
 
 let sdkLoading: Promise<void> | null = null;
 
@@ -37,9 +44,20 @@ function loadSdk(): Promise<void> {
   return sdkLoading;
 }
 
+/** Colours Easypay's own spinner, should it show, like ours. Injected once per page. */
+function injectLoadingStyle() {
+  if (typeof document === 'undefined' || document.getElementById(LOADING_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = LOADING_STYLE_ID;
+  style.textContent = '.epcsdk-loading::before { border-color: #9b1b1b !important; border-top-color: transparent !important; }';
+  document.head.appendChild(style);
+}
+
 /** Easypay's inline form, tinted with the app's burgundy, square corners, no shadows. */
 export function EasypayCheckout(props: EasypayCheckoutProps) {
-  const { manifest, testing, language, hideCart } = props;
+  const { manifest, testing, language } = props;
+  const { t } = useLanguage();
+  const [loading, setLoading] = useState(true);
   // Callbacks change on every render of the parent; the form must not remount for that.
   const callbacks = useRef(props);
   callbacks.current = props;
@@ -50,6 +68,26 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
     let cancelled = false;
     let settled = false;
     let instance: EasypayInstance | null = null;
+    injectLoadingStyle();
+    // The form is visible once Easypay's iframe has loaded inside our host element.
+    const hide = () => {
+      if (!cancelled) setLoading(false);
+    };
+    const watchIframe = () => {
+      const iframe = document.getElementById(containerId)?.querySelector('iframe') as HTMLIFrameElement | null;
+      if (iframe && !iframe.onload) {
+        iframe.onload = hide;
+        observer?.disconnect();
+      }
+    };
+    let observer: MutationObserver | null = null;
+    const host = typeof document !== 'undefined' ? document.getElementById(containerId) : null;
+    if (host && typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(watchIframe);
+      observer.observe(host, { childList: true, subtree: true });
+      watchIframe();
+    }
+    const timer = setTimeout(hide, LOADER_TIMEOUT_MS);
     const fatal = () => {
       if (!cancelled) callbacks.current.onFatal();
     };
@@ -70,7 +108,11 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
           buttonBorderRadius: 2,
           buttonBoxShadow: false,
           backgroundColor: '#ffffff',
-          hideCartButton: !!hideCart,
+          showLoading: true,
+          // The amount is already in our summary; the cart badge only adds empty space.
+          hideCartButton: true,
+          // Easypay's default font draws the step numbers off-centre in their circles.
+          fontFamily: 'Arial',
           // The SDK may fire onClose after onSuccess, or anything after unmount: only the first
           // outcome counts, and nothing counts once the component is gone. A decline is retryable.
           onSuccess: () => {
@@ -98,6 +140,8 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      observer?.disconnect();
       try {
         instance?.unmount();
       } catch {
@@ -105,7 +149,22 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
       }
       instance = null;
     };
-  }, [manifest.id, manifest.session, testing, language, hideCart, containerId]);
+  }, [manifest.id, manifest.session, testing, language, containerId]);
 
-  return <View nativeID={containerId} style={{ width: '100%', minHeight: 320 }} />;
+  return (
+    <View style={{ width: '100%', minHeight: 320 }}>
+      <View nativeID={containerId} style={{ width: '100%', minHeight: 320 }} />
+      {loading && (
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingVertical: 48, alignItems: 'center', gap: 14 }}
+        >
+          <ActivityIndicator size="large" color="#9b1b1b" />
+          <Text style={{ fontSize: 14, color: c.gray[500], textAlign: 'center' }}>
+            {tr(t, 'payLoading', 'Loading the secure payment form…')}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }

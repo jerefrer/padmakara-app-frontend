@@ -164,7 +164,6 @@ function PayPage() {
               manifest={{ id, session }}
               testing={testing}
               language={lang}
-              hideCart={isUpdate}
               onSuccess={() => router.replace(confirming as any)}
               onClose={() => router.replace((isUpdate ? '/membership' : '/membership/closed') as any)}
               onPaymentError={() => setDeclined(true)}

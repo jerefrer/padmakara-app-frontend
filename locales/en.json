@@ -685,6 +685,7 @@
     "payFirstYear": "First payment today, then every year until you cancel.",
     "payUpdateNote": "Your new payment method applies from your next payment.",
     "paySecure": "Card details go to Easypay, never to Padmakara.",
-    "payFatal": "The payment form could not be loaded. Please try again."
+    "payFatal": "The payment form could not be loaded. Please try again.",
+    "payLoading": "Loading the secure payment form…"
   }
 }

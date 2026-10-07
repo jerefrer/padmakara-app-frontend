@@ -98,10 +98,9 @@ describe('membership pay screen', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
-  it('should hide the cart total and show no euro amount when updating the payment method', async () => {
+  it('should show no euro amount when updating the payment method', async () => {
     mockParams = { ...valid, mode: 'update' };
     const { queryByText, getByText } = render(<PayScreen />);
-    expect(mockCheckoutProps.hideCart).toBe(true);
     expect(queryByText(/€10/)).toBeNull();
     expect(queryByText('Monthly contribution')).toBeNull();
     expect(getByText('Your new payment method applies from your next payment.')).toBeTruthy();
@@ -116,11 +115,6 @@ describe('membership pay screen', () => {
     await waitFor(() => expect(mockGet).toHaveBeenCalled());
     expect(getByText('Your new payment method applies from your next payment.')).toBeTruthy();
     expect(queryByText('Next payment')).toBeNull();
-  });
-
-  it('should keep the cart visible when joining', () => {
-    render(<PayScreen />);
-    expect(mockCheckoutProps.hideCart).toBeFalsy();
   });
 
   it('should hide the steps and say Back when updating the payment method', () => {

@@ -1,7 +1,12 @@
 import React from 'react';
+import { ActivityIndicator } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 
 import { EasypayCheckout, resetEasypayLoader } from '@/components/membership/EasypayCheckout.web';
+
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ t: () => undefined, language: 'en' }),
+}));
 
 const manifest = { id: 'chk-1', session: 'sess-1' };
 
@@ -36,11 +41,25 @@ afterEach(() => {
 });
 
 describe('EasypayCheckout (web)', () => {
-  it('should pass hideCartButton true to the SDK when hideCart is set', async () => {
+  it('should always pass hideCartButton true to the SDK', async () => {
     const { startCheckout } = setup();
-    render(<EasypayCheckout {...props({ hideCart: true })} />);
+    render(<EasypayCheckout {...props()} />);
     await flush();
     expect((startCheckout.mock.calls[0] as any[])[1].hideCartButton).toBe(true);
+  });
+
+  it('should pass Arial as the font so the step numbers are centred', async () => {
+    const { startCheckout } = setup();
+    render(<EasypayCheckout {...props()} />);
+    await flush();
+    expect((startCheckout.mock.calls[0] as any[])[1].fontFamily).toBe('Arial');
+  });
+
+  it('should ask the SDK to show its own loading spinner', async () => {
+    const { startCheckout } = setup();
+    render(<EasypayCheckout {...props()} />);
+    await flush();
+    expect((startCheckout.mock.calls[0] as any[])[1].showLoading).toBe(true);
   });
 
   it('should start the checkout once with the exact inline options and the manifest', async () => {
@@ -60,7 +79,9 @@ describe('EasypayCheckout (web)', () => {
       buttonBorderRadius: 2,
       buttonBoxShadow: false,
       backgroundColor: '#ffffff',
-      hideCartButton: false,
+      hideCartButton: true,
+      fontFamily: 'Arial',
+      showLoading: true,
       onSuccess: expect.any(Function),
       onClose: expect.any(Function),
       onPaymentError: expect.any(Function),
@@ -225,8 +246,9 @@ describe('EasypayCheckout (web)', () => {
       const scripts: any[] = [];
       (global as any).window = {};
       (global as any).document = {
-        createElement: () => ({ remove: jest.fn() }),
-        head: { appendChild: (s: any) => scripts.push(s) },
+        createElement: (tag: string) => ({ tag, remove: jest.fn() }),
+        getElementById: () => null,
+        head: { appendChild: (s: any) => s.tag === 'script' && scripts.push(s) },
       };
       return scripts;
     }
@@ -250,6 +272,75 @@ describe('EasypayCheckout (web)', () => {
       await flush();
       await act(async () => scripts[0].onerror());
       expect(p.onFatal).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('loading state', () => {
+    function fakeHost() {
+      const iframe: any = {};
+      let callback: () => void = () => {};
+      const host: any = { querySelector: jest.fn(() => null), querySelectorAll: jest.fn(() => []) };
+      const styles: any[] = [];
+      (global as any).document = {
+        createElement: (tag: string) => ({ tag }),
+        getElementById: (id: string) => (id.startsWith('easypay-checkout-') ? host : null),
+        head: { appendChild: (n: any) => n.tag === 'style' && styles.push(n) },
+      };
+      (global as any).MutationObserver = class {
+        constructor(cb: () => void) {
+          callback = cb;
+        }
+        observe() {}
+        disconnect() {}
+      };
+      const insertIframe = () => {
+        host.querySelector.mockImplementation((sel: string) => (sel === 'iframe' ? iframe : null));
+        act(() => callback());
+      };
+      return { iframe, insertIframe, styles };
+    }
+
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.useRealTimers();
+      delete (global as any).MutationObserver;
+    });
+
+    it('should show the spinner as soon as it mounts, before the SDK is ready', () => {
+      setup();
+      fakeHost();
+      const view = render(<EasypayCheckout {...props()} />);
+      expect(view.UNSAFE_getByType(ActivityIndicator).props.color).toBe('#9b1b1b');
+      expect(view.getByText('Loading the secure payment form…')).toBeTruthy();
+    });
+
+    it('should hide the spinner once the Easypay iframe has loaded', async () => {
+      setup();
+      const { iframe, insertIframe } = fakeHost();
+      const view = render(<EasypayCheckout {...props()} />);
+      insertIframe();
+      expect(view.UNSAFE_queryByType(ActivityIndicator)).not.toBeNull();
+      act(() => iframe.onload());
+      expect(view.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
+    });
+
+    it('should hide the spinner after 15 seconds even if no iframe loaded', () => {
+      setup();
+      fakeHost();
+      const view = render(<EasypayCheckout {...props()} />);
+      act(() => jest.advanceTimersByTime(14999));
+      expect(view.UNSAFE_queryByType(ActivityIndicator)).not.toBeNull();
+      act(() => jest.advanceTimersByTime(1));
+      expect(view.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
+    });
+
+    it('should colour the SDK spinner burgundy with one style tag', () => {
+      setup();
+      const { styles } = fakeHost();
+      render(<EasypayCheckout {...props()} />);
+      expect(styles).toHaveLength(1);
+      expect(styles[0].textContent).toContain('.epcsdk-loading::before');
+      expect(styles[0].textContent).toContain('#9b1b1b');
     });
   });
 });
