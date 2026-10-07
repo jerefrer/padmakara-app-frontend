@@ -23,8 +23,9 @@ export function validateAmount(raw: string | number, interval: MembershipInterva
   return { ok: true, amount: value };
 }
 
-export function formatEuro(amount: number, language: "en" | "pt"): string {
+/** `decimals: true` always shows cents ("€10.00"), as in a payment list; default drops ".00". */
+export function formatEuro(amount: number, language: "en" | "pt", options: { decimals?: boolean } = {}): string {
   const whole = Math.abs(amount - Math.round(amount)) < 1e-9;
-  const text = whole ? String(Math.round(amount)) : amount.toFixed(2);
+  const text = whole && !options.decimals ? String(Math.round(amount)) : amount.toFixed(2);
   return language === "pt" ? `${text.replace(".", ",")} €` : `€${text}`;
 }

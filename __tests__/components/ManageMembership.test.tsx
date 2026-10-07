@@ -66,7 +66,7 @@ describe('ManageMembership', () => {
   it('should show the payments section label above the history rows', () => {
     const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
     expect(getByText('Payments')).toBeTruthy();
-    expect(getByText('€10 · Paid')).toBeTruthy();
+    expect(getByText('€10.00 · Paid')).toBeTruthy();
   });
 
   it('should cancel then notify when the member confirms the cancel dialog', async () => {
@@ -201,7 +201,7 @@ describe('ManageMembership', () => {
         onChanged={jest.fn()}
       />,
     );
-    expect(getByText(/€10 · Failed/)).toBeTruthy();
+    expect(getByText('€10.00 · Failed')).toBeTruthy();
   });
 
   it('should save the new amount and notify when the member changes the contribution', async () => {

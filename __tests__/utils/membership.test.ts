@@ -38,6 +38,15 @@ describe("validateAmount", () => {
   });
 });
 
+describe("formatEuro with two decimals", () => {
+  it("should keep two decimals for whole euros when asked, in english", () => {
+    expect(formatEuro(10, "en", { decimals: true })).toBe("€10.00");
+  });
+  it("should keep two decimals for whole euros when asked, in portuguese", () => {
+    expect(formatEuro(10, "pt", { decimals: true })).toBe("10,00 €");
+  });
+});
+
 describe("formatEuro", () => {
   it("should format whole euros without decimals when english", () => {
     expect(formatEuro(10, "en")).toBe("€10");

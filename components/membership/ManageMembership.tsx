@@ -187,7 +187,7 @@ export function ManageMembership({ membership, onChanged }: Props) {
                 <View style={pageStyles.row} key={`${h.date}-${i}`}>
                   <Text style={styles.historyDate}>{date(h.date)}</Text>
                   <Text style={styles.historyVal}>
-                    {h.amount === null ? outcome : `${formatEuro(h.amount, lang)} \u00B7 ${outcome}`}
+                    {h.amount === null ? outcome : `${formatEuro(h.amount, lang, { decimals: true })} \u00B7 ${outcome}`}
                   </Text>
                 </View>
               );
