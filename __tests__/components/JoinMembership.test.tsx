@@ -5,6 +5,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { JoinMembership } from '@/components/membership/JoinMembership';
 import { membershipService } from '@/services/membershipService';
 import { colors } from '@/constants/colors';
+import { space } from '@/components/membership/pageStyles';
 
 const mockPush = jest.fn();
 let mockAuthed = true;
@@ -223,18 +224,6 @@ describe('JoinMembership', () => {
       expect(getByText('Enter an amount.')).toBeTruthy();
     });
 
-    it('should start empty and untouched again after switching to a row and back to Another amount', () => {
-      const { getByText, queryByText, getByLabelText, getByTestId } = render(<JoinMembership />);
-      fireEvent.press(getByTestId('amount-row-other'));
-      fireEvent.changeText(getByLabelText('Amount'), '3');
-      expect(getByText(/at least €5/)).toBeTruthy();
-      fireEvent.press(getByTestId('amount-row-5'));
-      fireEvent.press(getByTestId('amount-row-other'));
-      expect(getByLabelText('Amount').props.value).toBe('');
-      expect(queryByText(/at least/)).toBeNull();
-      expect(queryByText('Enter an amount.')).toBeNull();
-    });
-
     it('should use a muted placeholder colour', () => {
       const { getByText, getByLabelText, getByTestId } = render(<JoinMembership />);
       fireEvent.press(getByTestId('amount-row-other'));
@@ -250,6 +239,118 @@ describe('JoinMembership', () => {
       expect(inputAt).toBeGreaterThan(-1);
       expect(euroAt).toBeGreaterThan(inputAt);
       expect(getByLabelText('Amount')).toBeTruthy();
+    });
+  });
+
+  describe('layout of the Another amount row', () => {
+    it('should put the input right after the label, before the euro sign, left-aligned', () => {
+      const { getByLabelText, getByTestId, toJSON } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      const json = JSON.stringify(toJSON());
+      const labelAt = json.indexOf('Another amount');
+      const inputAt = json.indexOf('"accessibilityLabel":"Amount"');
+      const euroAt = json.indexOf('"€"');
+      expect(labelAt).toBeGreaterThan(-1);
+      expect(inputAt).toBeGreaterThan(labelAt);
+      expect(euroAt).toBeGreaterThan(inputAt);
+      expect(StyleSheet.flatten(getByLabelText('Amount').props.style).textAlign).toBe('left');
+    });
+
+    it('should not stretch the label so the input stays next to it', () => {
+      const { getByTestId } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      expect(StyleSheet.flatten(getByTestId('amount-row-other').props.style).flex).toBeUndefined();
+    });
+  });
+
+  describe('vertical rhythm', () => {
+    const top = (node: any) => StyleSheet.flatten(node.props.style).marginTop;
+    it('should expose the spacing scale as named constants', () => {
+      expect(space).toMatchObject({ title: 20, block: 32, tight: 10, action: 24, fine: 14 });
+    });
+
+    it('should space each block of the join page by the scale', () => {
+      const { getByTestId } = render(<JoinMembership />);
+      expect(top(getByTestId('join-quote'))).toBe(20);
+      expect(top(getByTestId('join-tabs'))).toBe(32);
+      expect(top(getByTestId('join-label'))).toBe(32);
+      expect(StyleSheet.flatten(getByTestId('join-label').props.style).marginBottom).toBe(10);
+      expect(top(getByTestId('join-summary'))).toBe(32);
+      expect(top(getByTestId('join-continue'))).toBe(24);
+      expect(top(getByTestId('join-fine'))).toBe(14);
+    });
+
+    it('should leave 10 above the custom amount helper line', () => {
+      const { getByTestId } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      expect(top(getByTestId('amount-helper'))).toBe(10);
+    });
+
+    it('should not use negative margins on the label', () => {
+      const { getByTestId } = render(<JoinMembership />);
+      expect(StyleSheet.flatten(getByTestId('join-label').props.style).marginBottom).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('remembering choices per interval', () => {
+    it('should start on Monthly with 10 euros selected', () => {
+      const { getByTestId, getByText } = render(<JoinMembership />);
+      expect(getByTestId('interval-tab-month').props.accessibilityState.selected).toBe(true);
+      expect(getByTestId('amount-row-10').props.accessibilityState.checked).toBe(true);
+      expect(getByText('€10 every month.')).toBeTruthy();
+    });
+
+    it('should restore a monthly custom amount after a trip to Yearly, which starts at 120', () => {
+      const { getByTestId, getByLabelText, getByText } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      fireEvent.changeText(getByLabelText('Amount'), '12');
+      fireEvent.press(getByTestId('interval-tab-year'));
+      expect(getByTestId('amount-row-120').props.accessibilityState.checked).toBe(true);
+      expect(getByText('€120 every year.')).toBeTruthy();
+      fireEvent.press(getByTestId('interval-tab-month'));
+      expect(getByTestId('amount-row-other').props.accessibilityState.checked).toBe(true);
+      expect(getByLabelText('Amount').props.value).toBe('12');
+      expect(getByText('€12 every month.')).toBeTruthy();
+    });
+
+    it('should restore a yearly preset after a trip to Monthly', () => {
+      const { getByTestId, getByText } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('interval-tab-year'));
+      fireEvent.press(getByTestId('amount-row-240'));
+      fireEvent.press(getByTestId('interval-tab-month'));
+      expect(getByText('€10 every month.')).toBeTruthy();
+      fireEvent.press(getByTestId('interval-tab-year'));
+      expect(getByTestId('amount-row-240').props.accessibilityState.checked).toBe(true);
+      expect(getByText('€240 every year.')).toBeTruthy();
+    });
+
+    it('should bring the typed amount back when Another amount is chosen again after a preset', () => {
+      const { getByTestId, getByLabelText } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      fireEvent.changeText(getByLabelText('Amount'), '15');
+      fireEvent.press(getByTestId('amount-row-5'));
+      fireEvent.press(getByTestId('amount-row-other'));
+      expect(getByLabelText('Amount').props.value).toBe('15');
+    });
+
+    it('should join with the visible interval state after switching back and forth', async () => {
+      join.mockResolvedValue({ success: true, data: { url: 'u', ...manifestData } });
+      const { getByTestId, getByLabelText, getByText } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      fireEvent.changeText(getByLabelText('Amount'), '12');
+      fireEvent.press(getByTestId('interval-tab-year'));
+      fireEvent.press(getByTestId('interval-tab-month'));
+      fireEvent.press(getByText('Continue to payment'));
+      await waitFor(() => expect(join).toHaveBeenCalledWith(12, 'month', 'en'));
+    });
+
+    it('should keep the neutral helper and no error when Another amount is chosen again untouched', () => {
+      const { getByTestId, getByText, queryByText } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-other'));
+      fireEvent.press(getByTestId('interval-tab-year'));
+      fireEvent.press(getByTestId('interval-tab-month'));
+      expect(getByText('per month · minimum €5')).toBeTruthy();
+      expect(queryByText('Enter an amount.')).toBeNull();
     });
   });
 

@@ -10,7 +10,7 @@ import { ChangeAmountModal } from './ChangeAmountModal';
 import { membershipErrorMessage } from './errorMessage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusRing } from './focusRing';
-import { pageStyles } from './pageStyles';
+import { pageStyles, space } from './pageStyles';
 import { payHref } from './payRoute';
 import { membershipColors as c } from './theme';
 import { tr } from './tr';
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   rows: { borderTopWidth: 1, borderTopColor: c.gray[200] },
   rowTitleBare: { marginLeft: 0 },
   danger: { color: c.burgundy[500] },
-  cancelBlock: { marginTop: 32 },
+  cancelBlock: { marginTop: space.block },
   historyDate: { fontSize: 16, fontWeight: '500', color: c.gray[800] },
   historyVal: { fontSize: 14, color: c.gray[600] },
   primary: { ...pageStyles.button, marginTop: 16 },

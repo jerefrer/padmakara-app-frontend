@@ -4,7 +4,7 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BackButton } from '@/components/membership/BackButton';
 import { EasypayCheckout } from '@/components/membership/EasypayCheckout';
-import { pageStyles } from '@/components/membership/pageStyles';
+import { pageStyles, space } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
 import { tr } from '@/components/membership/tr';
 import { membershipService } from '@/services/membershipService';
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   // Same look as the settings section labels.
   step: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.2, color: c.gray[500] },
   stepOn: { color: c.burgundy[500] },
-  columns: { marginTop: 28, gap: 32 },
+  columns: { marginTop: space.block, gap: space.block },
   columnsWide: { flexDirection: 'row', alignItems: 'flex-start' },
   column: { flex: 1 },
   summaryColumn: { gap: 14 },

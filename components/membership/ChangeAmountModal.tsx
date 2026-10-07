@@ -3,7 +3,7 @@ import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService } from '@/services/membershipService';
 import { MAX_AMOUNT, MIN_AMOUNT, formatEuro, type MembershipInterval } from '@/utils/membership';
-import { AmountPicker } from './AmountPicker';
+import { AmountPicker, choiceAmount, choiceFor, type AmountChoice } from './AmountPicker';
 import { membershipErrorMessage } from './errorMessage';
 import { pageStyles } from './pageStyles';
 import { membershipColors as c } from './theme';
@@ -31,7 +31,8 @@ export function ChangeAmountModal({ visible, ...rest }: Props) {
 function Body({ interval, currentAmount, nextPaymentDate, onClose, onSaved }: Omit<Props, 'visible'>) {
   const { t, language } = useLanguage();
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
-  const [amount, setAmount] = useState<number | null>(currentAmount);
+  const [choice, setChoice] = useState<AmountChoice>(() => choiceFor(interval, currentAmount));
+  const amount = choiceAmount(choice, interval);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,8 +65,7 @@ function Body({ interval, currentAmount, nextPaymentDate, onClose, onSaved }: Om
         <Text style={styles.title} accessibilityRole="header">
           {tr(t, 'changeAmountTitle', 'Change amount')}
         </Text>
-        {/* AmountPicker reads `value` only on mount; key by interval so it remounts if that ever changes. */}
-        <AmountPicker key={interval} interval={interval} value={amount} onChange={setAmount} />
+        <AmountPicker key={interval} interval={interval} choice={choice} onChoice={setChoice} />
         {nextPaymentDate && (
           <Text style={styles.note}>
             {tr(t, 'changeAmountNote', 'Your new contribution applies from your next payment on {{date}}.', {

@@ -4,8 +4,9 @@ import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService } from '@/services/membershipService';
-import { MAX_AMOUNT, MIN_AMOUNT, SUGGESTED, formatEuro, type MembershipInterval } from '@/utils/membership';
-import { AmountPicker } from './AmountPicker';
+import { MAX_AMOUNT, MIN_AMOUNT, formatEuro, type MembershipInterval } from '@/utils/membership';
+import { AmountPicker, choiceAmount, defaultChoice, type AmountChoice } from './AmountPicker';
+import { space } from './pageStyles';
 import { membershipErrorMessage } from './errorMessage';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
@@ -25,14 +26,19 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
 
   const [interval, setInterval] = useState<MembershipInterval>(initialInterval);
-  const [amount, setAmount] = useState<number | null>(SUGGESTED[initialInterval][1]);
+  // One memory per interval, so switching tabs never loses what was chosen on the other one.
+  const [choices, setChoices] = useState<Record<MembershipInterval, AmountChoice>>({
+    month: defaultChoice('month'),
+    year: defaultChoice('year'),
+  });
+  const choice = choices[interval];
+  const amount = choiceAmount(choice, interval);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const chooseInterval = (next: MembershipInterval) => {
     if (next === interval) return;
     setInterval(next);
-    setAmount(SUGGESTED[next][1]);
     setError(null);
   };
 
@@ -97,7 +103,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         </View>
       )}
 
-      <Text style={styles.quote}>
+      <Text testID="join-quote" style={styles.quote}>
         {tr(
           t,
           'why',
@@ -105,7 +111,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         )}
       </Text>
 
-      <View style={styles.tabs} accessibilityRole="tablist">
+      <View testID="join-tabs" style={styles.tabs} accessibilityRole="tablist">
         {(['month', 'year'] as const).map((i) => (
           <IntervalTab key={i} interval={i} selected={interval === i} onPress={() => chooseInterval(i)}>
             {i === 'month' ? tr(t, 'monthly', 'Monthly') : tr(t, 'yearly', 'Yearly')}
@@ -113,16 +119,22 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         ))}
       </View>
 
-      <Text style={styles.sectionLabel}>{tr(t, 'contributionLabel', 'Your contribution')}</Text>
-      <AmountPicker key={interval} interval={interval} value={amount} onChange={setAmount} />
+      <Text testID="join-label" style={styles.sectionLabel}>{tr(t, 'contributionLabel', 'Your contribution')}</Text>
+      <AmountPicker
+        key={interval}
+        interval={interval}
+        choice={choice}
+        onChoice={(next) => setChoices((prev) => ({ ...prev, [interval]: next }))}
+      />
 
       {summary && (
-        <Text style={styles.summary}>
+        <Text testID="join-summary" style={styles.summary}>
           <Text style={styles.summaryBig}>{summary}.</Text> {detail}
         </Text>
       )}
 
       <Pressable
+        testID="join-continue"
         accessibilityRole="button"
         accessibilityState={{ disabled: amount === null || busy }}
         disabled={amount === null || busy}
@@ -137,7 +149,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
       </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Text style={styles.fine}>
+      <Text testID="join-fine" style={styles.fine}>
         {tr(t, 'finePrint', 'By continuing you accept the')}{' '}
         <Text style={styles.link} onPress={() => router.push('/membership/terms' as any)}>
           {tr(t, 'termsLink', 'membership terms')}
@@ -178,7 +190,7 @@ function IntervalTab({
 // Page title, section label and primary button reuse the look of app/(tabs)/settings.tsx
 // (desktopPageTitle, sectionTitleOutside, signInButton).
 const styles = StyleSheet.create({
-  container: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 40, gap: 16 },
+  container: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 40 },
   title: {
     fontSize: 30,
     fontFamily: 'MinionPro',
@@ -187,7 +199,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 24,
   },
-  banner: { borderLeftWidth: 2, borderLeftColor: c.amber[700], paddingLeft: 12 },
+  banner: { borderLeftWidth: 2, borderLeftColor: c.amber[700], paddingLeft: 12, marginTop: space.title },
   bannerText: { fontSize: 15, lineHeight: 22, color: c.amber[700] },
   quote: {
     fontSize: 17,
@@ -198,8 +210,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: c.burgundy[500],
     paddingLeft: 12,
+    marginTop: space.title,
   },
-  tabs: { flexDirection: 'row', gap: 24, borderBottomWidth: 1, borderBottomColor: c.gray[200] },
+  tabs: { marginTop: space.block, flexDirection: 'row', gap: 24, borderBottomWidth: 1, borderBottomColor: c.gray[200] },
   tab: { paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
   tabOn: { borderBottomColor: c.burgundy[500] },
   tabText: { fontSize: 18, fontFamily: fonts.display, fontVariant: ['small-caps'], letterSpacing: 0.7, color: c.gray[600] },
@@ -210,12 +223,13 @@ const styles = StyleSheet.create({
     color: c.gray[500],
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginTop: 8,
-    marginBottom: -8,
+    marginTop: space.block,
+    marginBottom: space.tight,
   },
-  summary: { fontSize: 14, lineHeight: 21, color: c.gray[600] },
+  summary: { marginTop: space.block, fontSize: 14, lineHeight: 21, color: c.gray[600] },
   summaryBig: { fontSize: 19, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800] },
   button: {
+    marginTop: space.action,
     alignSelf: 'flex-start',
     backgroundColor: c.burgundy[500],
     paddingHorizontal: 32,
@@ -225,7 +239,7 @@ const styles = StyleSheet.create({
   buttonPressed: { backgroundColor: c.burgundy[600] },
   buttonOff: { backgroundColor: c.gray[300] },
   buttonText: { color: 'white', fontSize: 16, fontWeight: '600', fontFamily: 'EBGaramond_600SemiBold' },
-  error: { fontSize: 14, color: c.red[700] },
-  fine: { fontSize: 13, color: c.gray[500], lineHeight: 19 },
+  error: { marginTop: space.fine, fontSize: 14, color: c.red[700] },
+  fine: { marginTop: space.fine, fontSize: 13, color: c.gray[500], lineHeight: 19 },
   link: { color: c.burgundy[500], textDecorationLine: 'underline' },
 });

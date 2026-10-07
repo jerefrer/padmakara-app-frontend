@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -10,24 +10,52 @@ import {
   type MembershipInterval,
 } from '@/utils/membership';
 import { membershipColors as c } from './theme';
+import { space } from './pageStyles';
 import { tr } from './tr';
 import { useFocusRing } from './focusRing';
 
-interface Props {
-  interval: MembershipInterval;
-  value: number | null;
-  onChange: (amount: number | null) => void;
+/** What a person has chosen for one interval: a suggested amount or their own typed value. */
+export interface AmountChoice {
+  selected: number | 'other';
+  custom: string;
+  touched: boolean;
 }
 
-export function AmountPicker({ interval, value, onChange }: Props) {
+export const defaultChoice = (interval: MembershipInterval): AmountChoice => ({
+  selected: SUGGESTED[interval][1],
+  custom: '',
+  touched: false,
+});
+
+/** A choice that shows an already known amount (a suggested row, or Another amount with that value). */
+export const choiceFor = (interval: MembershipInterval, amount: number | null): AmountChoice =>
+  amount === null
+    ? defaultChoice(interval)
+    : SUGGESTED[interval].includes(amount)
+      ? { selected: amount, custom: '', touched: false }
+      : { selected: 'other', custom: String(amount), touched: false };
+
+/** The amount a choice stands for, or null while Another amount is empty or invalid. */
+export function choiceAmount(choice: AmountChoice, interval: MembershipInterval): number | null {
+  if (choice.selected !== 'other') return choice.selected;
+  const v = validateAmount(choice.custom, interval);
+  return v.ok ? v.amount : null;
+}
+
+interface Props {
+  interval: MembershipInterval;
+  choice: AmountChoice;
+  onChoice: (choice: AmountChoice) => void;
+}
+
+export function AmountPicker({ interval, choice, onChoice }: Props) {
   const { t, language } = useLanguage();
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
   const suggested = SUGGESTED[interval];
-  const startsCustom = value !== null && !suggested.includes(value);
-  const [custom, setCustom] = useState(startsCustom);
-  const [text, setText] = useState(startsCustom ? String(value) : '');
-  const [touched, setTouched] = useState(false);
-  // Focus the field only when the person opened it, not when it is restored from a saved value.
+  const custom = choice.selected === 'other';
+  const text = choice.custom;
+  const touched = choice.touched;
+  // Focus the field only when the person opened it, not when it is restored from memory.
   const openedByPerson = useRef(false);
 
   const min = formatEuro(MIN_AMOUNT[interval], lang);
@@ -48,12 +76,7 @@ export function AmountPicker({ interval, value, onChange }: Props) {
     }
   })();
 
-  const onText = (next: string) => {
-    setText(next);
-    setTouched(true);
-    const v = validateAmount(next, interval);
-    onChange(v.ok ? v.amount : null);
-  };
+  const onText = (next: string) => onChoice({ ...choice, custom: next, touched: true });
 
   const rowLabel = (amount: number) =>
     interval === 'month'
@@ -67,13 +90,10 @@ export function AmountPicker({ interval, value, onChange }: Props) {
           <AmountRow
             key={amount}
             testID={`amount-row-${amount}`}
-            selected={!custom && value === amount}
+            selected={choice.selected === amount}
             label={rowLabel(amount)}
             onPress={() => {
-              setCustom(false);
-              setText('');
-              setTouched(false);
-              onChange(amount);
+              onChoice({ ...choice, selected: amount });
             }}
           />
         ))}
@@ -84,9 +104,7 @@ export function AmountPicker({ interval, value, onChange }: Props) {
           onPress={() => {
             if (custom) return;
             openedByPerson.current = true;
-            setCustom(true);
-            const v = validateAmount(text, interval);
-            onChange(v.ok ? v.amount : null);
+            onChoice({ ...choice, selected: 'other' });
           }}
         >
           {custom && (
@@ -95,7 +113,7 @@ export function AmountPicker({ interval, value, onChange }: Props) {
                 style={styles.input}
                 value={text}
                 onChangeText={onText}
-                onBlur={() => setTouched(true)}
+                onBlur={() => onChoice({ ...choice, touched: true })}
                 keyboardType="decimal-pad"
                 inputMode="decimal"
                 placeholder={String(MIN_AMOUNT[interval])}
@@ -110,18 +128,18 @@ export function AmountPicker({ interval, value, onChange }: Props) {
       </View>
 
       {custom && (
-        <Text style={styles.unit}>
+        <Text testID="amount-helper" style={styles.unit}>
           {interval === 'month'
             ? tr(t, 'otherUnitMonth', 'per month · minimum {{min}}', { min })
             : tr(t, 'otherUnitYear', 'per year · minimum {{min}}', { min })}
         </Text>
       )}
-      {message && <Text style={styles.error}>{message}</Text>}
+      {message && <Text testID="amount-helper" style={styles.error}>{message}</Text>}
     </View>
   );
 }
 
-/** A hairline radio row, like the rows in Settings. The label is the radio; any children sit on the right. */
+/** A hairline radio row, like the rows in Settings. The label is the radio; any children follow it on the same line. */
 function AmountRow({
   selected,
   label,
@@ -160,10 +178,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    columnGap: 12,
     borderBottomWidth: 1,
     borderBottomColor: c.gray[200],
   },
-  rowPress: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4 },
+  rowPress: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4 },
   radio: {
     width: 16,
     height: 16,
@@ -181,22 +201,20 @@ const styles = StyleSheet.create({
   field: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 90,
-    marginRight: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: c.gray[400],
+    columnGap: 12,
   },
   input: {
-    flex: 1,
-    minWidth: 60,
+    width: 110,
     paddingVertical: 4,
     paddingHorizontal: 2,
     fontSize: 16,
-    textAlign: 'right',
+    textAlign: 'left',
     color: c.gray[800],
+    borderBottomWidth: 1,
+    borderBottomColor: c.gray[400],
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
-  euro: { fontSize: 16, color: c.gray[500], marginLeft: 6 },
-  unit: { marginTop: 8, fontSize: 13, color: c.gray[500] },
-  error: { marginTop: 8, fontSize: 14, color: c.red[700] },
+  euro: { fontSize: 16, color: c.gray[500] },
+  unit: { marginTop: space.tight, fontSize: 13, color: c.gray[500] },
+  error: { marginTop: space.tight, fontSize: 14, color: c.red[700] },
 });

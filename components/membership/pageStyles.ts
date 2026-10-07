@@ -1,6 +1,9 @@
 import { StyleSheet } from 'react-native';
 import { membershipColors as c, fonts } from './theme';
 
+/** Vertical rhythm shared by the membership pages; blocks are separated like the sections of Settings. */
+export const space = { title: 20, block: 32, tight: 10, action: 24, fine: 14 } as const;
+
 /**
  * The look of app/(tabs)/settings.tsx (desktopPageTitle, sectionTitleOutside, settingItem,
  * signInButton), shared by the manage page, the terms page and the outcome screens.
@@ -21,8 +24,8 @@ export const pageStyles = StyleSheet.create({
     color: c.gray[500],
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginTop: 32,
-    marginBottom: 8,
+    marginTop: space.block,
+    marginBottom: space.tight,
   },
   row: {
     flexDirection: 'row',
