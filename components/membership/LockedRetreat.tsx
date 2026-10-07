@@ -24,7 +24,7 @@ export function LockedRetreat({ reason, preview }: Props) {
   const isWeb = Platform.OS === 'web';
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
 
-  const title = preview ? (lang === 'pt' && preview.titlePt ? preview.titlePt : preview.titleEn) : '';
+  const title = preview ? ((lang === 'pt' ? preview.titlePt || preview.titleEn : preview.titleEn || preview.titlePt) ?? '') : '';
   const teachers = preview?.teachers.map((x) => x.name).filter(Boolean).join(', ') ?? '';
   const dates = preview?.startDate ? formatDateRange(preview.startDate, preview.endDate ?? undefined, lang) : '';
   const meta = [teachers, dates].filter(Boolean);

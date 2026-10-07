@@ -305,7 +305,7 @@ export interface SearchResponse {
 /** Unauthenticated teaser for a published members-only event (GET /events/:id/preview). */
 export interface EventPreview {
   id: number;
-  titleEn: string;
+  titleEn: string | null;
   titlePt: string | null;
   startDate: string | null;
   endDate: string | null;

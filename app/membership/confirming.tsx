@@ -17,8 +17,11 @@ export default function ConfirmingScreen() {
 function WebConfirming() {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ checkout?: string | string[] }>();
+  const params = useLocalSearchParams<{ checkout?: string | string[]; mode?: string | string[] }>();
   const checkout = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout;
+  const mode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  // A card update charges nothing while access runs: no welcome, no receipt.
+  const isUpdate = mode === 'update';
   const { phase } = useCheckoutStatus(checkout || undefined);
 
   const toMembership = () => router.replace('/membership' as any);
@@ -39,6 +42,17 @@ function WebConfirming() {
       );
 
     case 'active': {
+      if (isUpdate) {
+        return (
+          <OutcomeLayout
+            icon="✓"
+            iconColor={c.green[700]}
+            title={tr(t, 'methodUpdatedTitle', 'Payment method updated')}
+            body={tr(t, 'methodUpdatedBody', 'Your next contributions will be taken with your new payment method.')}
+            primary={{ label: tr(t, 'backToMembership', 'Back to my membership'), onPress: toMembership }}
+          />
+        );
+      }
       const firstName = user?.name?.trim().split(/\s+/)[0];
       const email = user?.email;
       return (

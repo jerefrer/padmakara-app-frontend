@@ -65,14 +65,33 @@ describe('ManageMembership', () => {
     expect(svc.cancel).not.toHaveBeenCalled();
   });
 
-  it('should show an inline error when cancelling fails', async () => {
-    svc.cancel.mockResolvedValue({ success: false, error: 'Easypay is down' });
+  it('should show a localized generic error, never the raw server text, when cancelling fails', async () => {
+    svc.cancel.mockResolvedValue({ success: false, error: 'No Easypay subscription found for this account' });
     const onChanged = jest.fn();
-    const { getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
+    const { getByText, getAllByText, queryByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
     fireEvent.press(getByText('Cancel membership'));
     fireEvent.press(getAllByText('Cancel membership')[1]);
-    await waitFor(() => expect(getByText('Easypay is down')).toBeTruthy());
+    await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
+    expect(queryByText(/Easypay subscription/)).toBeNull();
     expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it('should show the localized message for a known error code when resuming fails', async () => {
+    svc.resume.mockResolvedValue({ success: false, error: 'raw', code: 'ACCESS_ENDED' });
+    const { getByText } = render(
+      <ManageMembership membership={{ ...base, state: 'cancelled', cancelledAt: '2026-10-08T00:00:00.000Z' }} onChanged={jest.fn()} />,
+    );
+    fireEvent.press(getByText('Resume membership'));
+    await waitFor(() => expect(getByText('Your membership has ended. Please join again.')).toBeTruthy());
+  });
+
+  it('should show the payment-provider message when the update checkout cannot be opened', async () => {
+    svc.updateMethod.mockResolvedValue({ success: false, error: 'raw', code: 'EASYPAY_UNAVAILABLE' });
+    const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    fireEvent.press(getByText('Update payment method'));
+    await waitFor(() =>
+      expect(getByText('We could not reach the payment provider. Nothing was changed. Please try again later.')).toBeTruthy(),
+    );
   });
 
   it('should offer resume and hide cancel and next payment when the membership is cancelled', async () => {
@@ -102,6 +121,21 @@ describe('ManageMembership', () => {
     ).toBeTruthy();
     expect(getByText('Update payment method')).toBeTruthy();
     expect(queryByText('Change amount')).toBeNull();
+  });
+
+  it('should let the member cancel when a payment failed', async () => {
+    svc.cancel.mockResolvedValue({ success: true, data: { url: '', accessUntil: null } });
+    const onChanged = jest.fn();
+    const { getByText, getAllByText } = render(
+      <ManageMembership
+        membership={{ ...base, state: 'payment_failed', graceUntil: '2026-11-14T00:00:00.000Z' }}
+        onChanged={onChanged}
+      />,
+    );
+    fireEvent.press(getByText('Cancel membership'));
+    fireEvent.press(getAllByText('Cancel membership')[1]);
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+    expect(svc.cancel).toHaveBeenCalledTimes(1);
   });
 
   it('should show contact copy and no actions when the membership was granted by an admin', () => {

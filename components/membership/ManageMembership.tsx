@@ -6,6 +6,7 @@ import { membershipService, type MembershipView } from '@/services/membershipSer
 import { formatLongDate } from '@/utils/dateFormat';
 import { formatEuro } from '@/utils/membership';
 import { ChangeAmountModal } from './ChangeAmountModal';
+import { membershipErrorMessage } from './errorMessage';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
 
@@ -32,14 +33,14 @@ export function ManageMembership({ membership, onChanged }: Props) {
   const date = (iso: string | null) => (iso ? formatLongDate(iso, language) : '');
   const generic = tr(t, 'errGeneric', 'Something went wrong. Please try again.');
 
-  const run = async (call: () => Promise<{ success: boolean; error?: string }>, after: () => void) => {
+  const run = async (call: () => Promise<{ success: boolean; code?: string }>, after: () => void) => {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
       const res = await call();
       if (res.success) after();
-      else setError(res.error || generic);
+      else setError(membershipErrorMessage(t, res.code));
     } catch {
       setError(generic);
     } finally {
@@ -55,7 +56,7 @@ export function ManageMembership({ membership, onChanged }: Props) {
           if (Platform.OS === 'web') window.location.href = res.data.url;
           return { success: true };
         }
-        return { success: false, error: res.error };
+        return { success: false, code: res.code };
       },
       () => {},
     );
@@ -141,6 +142,12 @@ export function ManageMembership({ membership, onChanged }: Props) {
         <View style={styles.actions}>
           {actionRow(tr(t, 'changeAmount', 'Change amount'), () => setChangingAmount(true))}
           {actionRow(tr(t, 'updateMethod', 'Update payment method'), updateMethod)}
+          {actionRow(tr(t, 'cancelMembership', 'Cancel membership'), () => setConfirmingCancel(true), true)}
+        </View>
+      )}
+      {/* Easypay keeps retrying a failed charge, so the member must be able to stop it here too. */}
+      {!managedByUs && state === 'payment_failed' && (
+        <View style={styles.actions}>
           {actionRow(tr(t, 'cancelMembership', 'Cancel membership'), () => setConfirmingCancel(true), true)}
         </View>
       )}

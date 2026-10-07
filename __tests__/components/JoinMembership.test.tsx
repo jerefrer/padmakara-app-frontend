@@ -66,11 +66,12 @@ describe('JoinMembership', () => {
     expect(queryByText('raw api text')).toBeNull();
   });
 
-  it('should show the API error inline for other failures', async () => {
-    join.mockResolvedValue({ success: false, error: 'Already a member' });
-    const { getByText } = render(<JoinMembership />);
+  it('should show a localized generic error, never the raw server text, for other failures', async () => {
+    join.mockResolvedValue({ success: false, error: 'You already have an active subscription' });
+    const { getByText, queryByText } = render(<JoinMembership />);
     fireEvent.press(getByText('Continue to payment'));
-    await waitFor(() => expect(getByText('Already a member')).toBeTruthy());
+    await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
+    expect(queryByText(/subscription/)).toBeNull();
   });
 
   it('should route a signed-out visitor to the magic link with returnTo', () => {

@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService } from '@/services/membershipService';
 import { MAX_AMOUNT, MIN_AMOUNT, formatEuro, type MembershipInterval } from '@/utils/membership';
 import { AmountPicker } from './AmountPicker';
+import { membershipErrorMessage } from './errorMessage';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
 
@@ -43,16 +44,12 @@ function Body({ interval, currentAmount, nextPaymentDate, onClose, onSaved }: Om
         onSaved();
         return;
       }
-      if (res.code === 'INVALID_CONTRIBUTION') {
-        setError(
-          tr(t, 'errInvalidContribution', 'The amount must be between {{min}} and {{max}}.', {
-            min: formatEuro(MIN_AMOUNT[interval], lang),
-            max: formatEuro(MAX_AMOUNT, lang),
-          }),
-        );
-      } else {
-        setError(res.error || tr(t, 'errGeneric', 'Something went wrong. Please try again.'));
-      }
+      setError(
+        membershipErrorMessage(t, res.code, {
+          min: formatEuro(MIN_AMOUNT[interval], lang),
+          max: formatEuro(MAX_AMOUNT, lang),
+        }),
+      );
     } catch {
       setError(tr(t, 'errGeneric', 'Something went wrong. Please try again.'));
     } finally {
