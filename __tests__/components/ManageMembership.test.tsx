@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import { ManageMembership } from '@/components/membership/ManageMembership';
 import { membershipService, type MembershipView } from '@/services/membershipService';
@@ -169,5 +170,58 @@ describe('ManageMembership', () => {
     fireEvent.press(getByText('Save'));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(svc.changeAmount).toHaveBeenCalledWith(20);
+  });
+
+  describe('update payment method', () => {
+    const originalOS = Platform.OS;
+    const originalWindow = (global as any).window;
+    afterEach(() => {
+      (Platform as any).OS = originalOS;
+      (global as any).window = originalWindow;
+    });
+
+    it('should send the browser to the checkout URL the server returned', async () => {
+      (Platform as any).OS = 'web';
+      const location = { href: '' };
+      (global as any).window = { ...originalWindow, location };
+      svc.updateMethod.mockResolvedValue({ success: true, data: { url: 'https://api.test/checkout/chk-9?mode=update' } });
+      const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+      fireEvent.press(getByText('Update payment method'));
+      await waitFor(() => expect(location.href).toBe('https://api.test/checkout/chk-9?mode=update'));
+      expect(svc.updateMethod).toHaveBeenCalledWith('en');
+    });
+
+    it('should not navigate when the server returns no URL', async () => {
+      (Platform as any).OS = 'web';
+      const location = { href: 'unchanged' };
+      (global as any).window = { ...originalWindow, location };
+      svc.updateMethod.mockResolvedValue({ success: true, data: {} });
+      const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+      fireEvent.press(getByText('Update payment method'));
+      await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
+      expect(location.href).toBe('unchanged');
+    });
+  });
+
+  it('should show the error and keep the resume button when resuming fails', async () => {
+    svc.resume.mockResolvedValue({ success: false, error: 'raw', code: 'ACCESS_ENDED' });
+    const onChanged = jest.fn();
+    const { getByText } = render(
+      <ManageMembership membership={{ ...base, state: 'cancelled', cancelledAt: '2026-10-08T00:00:00.000Z' }} onChanged={onChanged} />,
+    );
+    fireEvent.press(getByText('Resume membership'));
+    await waitFor(() => expect(getByText('Your membership has ended. Please join again.')).toBeTruthy());
+    expect(getByText('Resume membership')).toBeTruthy();
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it('should show the generic error and keep the resume button when the resume call throws', async () => {
+    svc.resume.mockRejectedValue(new Error('network'));
+    const { getByText } = render(
+      <ManageMembership membership={{ ...base, state: 'cancelled', cancelledAt: '2026-10-08T00:00:00.000Z' }} onChanged={jest.fn()} />,
+    );
+    fireEvent.press(getByText('Resume membership'));
+    await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
+    expect(getByText('Resume membership')).toBeTruthy();
   });
 });
