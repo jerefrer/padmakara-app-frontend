@@ -1,8 +1,14 @@
 import React from 'react';
 import { Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { LockedRetreat } from '@/components/membership/LockedRetreat';
+
+jest.mock('@expo/vector-icons', () => {
+  const { Text } = require('react-native');
+  return { Ionicons: (props: any) => <Text testID={`icon-${props.name}`}>{props.name}</Text> };
+});
 
 const mockPush = jest.fn();
 let mockAuth: any;
@@ -46,6 +52,15 @@ describe('LockedRetreat on web', () => {
     expect(getByText('Recordings for members')).toBeTruthy();
     fireEvent.press(getByText('Become a member · from €5/month'));
     expect(mockPush).toHaveBeenCalledWith('/membership');
+  });
+
+  it('should present the lock as plain text under a thin rule with a lock icon, not a tinted box', () => {
+    const { getByTestId } = render(<LockedRetreat reason="membership" preview={PREVIEW} />);
+    const style = StyleSheet.flatten(getByTestId('locked-retreat-block').props.style) ?? {};
+    expect(style.borderTopWidth).toBe(1);
+    expect(style.borderRadius).toBeUndefined();
+    expect(style.backgroundColor).toBeUndefined();
+    expect(getByTestId('icon-lock-closed-outline')).toBeTruthy();
   });
 
   it('should offer Already a member? Sign in only when signed out', () => {

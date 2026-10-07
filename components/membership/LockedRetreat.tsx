@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatDateRange } from '@/utils/dateFormat';
 import type { EventPreview } from '@/types';
+import { pageStyles } from './pageStyles';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
 
@@ -52,14 +54,14 @@ export function LockedRetreat({ reason, preview }: Props) {
       ))}
 
       {reason === 'other' ? (
-        <View style={styles.lock}>
+        <View testID="locked-retreat-block" style={styles.lock}>
           <Text style={styles.body}>
             {tr(t, 'lockedOther', 'This retreat is available to its participants.')}
           </Text>
         </View>
       ) : isWeb ? (
-        <View style={styles.lock}>
-          <Text style={styles.lockTitle}>{tr(t, 'lockedWebTitle', 'Recordings for members')}</Text>
+        <View testID="locked-retreat-block" style={styles.lock}>
+          <LockHeading>{tr(t, 'lockedWebTitle', 'Recordings for members')}</LockHeading>
           <Text style={styles.body}>
             {tr(
               t,
@@ -67,8 +69,12 @@ export function LockedRetreat({ reason, preview }: Props) {
               'Members of the Padmakara community can listen to every retreat they are part of, and read the transcripts.',
             )}
           </Text>
-          <Pressable accessibilityRole="button" style={styles.button} onPress={() => router.push('/membership' as any)}>
-            <Text style={styles.buttonText}>{tr(t, 'lockedCta', 'Become a member · from €5/month')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [pageStyles.button, pressed && pageStyles.buttonPressed]}
+            onPress={() => router.push('/membership' as any)}
+          >
+            <Text style={pageStyles.buttonText}>{tr(t, 'lockedCta', 'Become a member · from €5/month')}</Text>
           </Pressable>
           {!isAuthenticated && (
             <Pressable accessibilityRole="link" onPress={signIn}>
@@ -77,8 +83,8 @@ export function LockedRetreat({ reason, preview }: Props) {
           )}
         </View>
       ) : (
-        <View style={styles.lock}>
-          <Text style={styles.lockTitle}>{tr(t, 'lockedNativeTitle', 'Available to members')}</Text>
+        <View testID="locked-retreat-block" style={styles.lock}>
+          <LockHeading>{tr(t, 'lockedNativeTitle', 'Available to members')}</LockHeading>
           <Text style={styles.body}>
             {tr(
               t,
@@ -87,7 +93,7 @@ export function LockedRetreat({ reason, preview }: Props) {
             )}
           </Text>
           {!isAuthenticated && (
-            <Pressable accessibilityRole="button" style={styles.ghost} onPress={signIn}>
+            <Pressable accessibilityRole="button" style={({ pressed }) => [styles.ghost, pressed && styles.ghostPressed]} onPress={signIn}>
               <Text style={styles.ghostText}>{tr(t, 'signIn', 'Sign in')}</Text>
             </Pressable>
           )}
@@ -97,32 +103,34 @@ export function LockedRetreat({ reason, preview }: Props) {
   );
 }
 
+function LockHeading({ children }: { children: string }) {
+  return (
+    <View style={styles.lockHeading}>
+      <Ionicons name="lock-closed-outline" size={20} color={c.burgundy[500]} />
+      <Text style={styles.lockTitle}>{children}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 24, gap: 10 },
   hero: { width: '100%', height: 180, borderRadius: 12, backgroundColor: c.gray[100] },
   title: { fontSize: 28, fontFamily: fonts.display, fontWeight: '600', color: c.burgundy[500], marginTop: 6 },
   meta: { fontSize: 15, color: c.gray[600] },
-  lock: {
-    marginTop: 12,
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: c.gray[200],
-    backgroundColor: c.burgundy[50],
-  },
-  lockTitle: { fontSize: 16, fontWeight: '600', color: c.gray[800] },
+  lock: { marginTop: 12, gap: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.gray[200] },
+  lockHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  lockTitle: { fontSize: 16, fontWeight: '500', color: c.gray[800] },
   body: { fontSize: 15, lineHeight: 22, color: c.gray[800] },
-  button: { backgroundColor: c.burgundy[500], borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  buttonText: { color: c.white, fontSize: 15, fontWeight: '600' },
   ghost: {
-    borderRadius: 10,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 32,
     paddingVertical: 12,
-    alignItems: 'center',
+    borderRadius: 2,
     borderWidth: 1,
     borderColor: c.burgundy[500],
     backgroundColor: c.white,
   },
-  ghostText: { color: c.burgundy[500], fontSize: 15, fontWeight: '600' },
-  link: { color: c.burgundy[500], fontSize: 15, textAlign: 'center', textDecorationLine: 'underline' },
+  ghostPressed: { backgroundColor: c.gray[100] },
+  ghostText: { color: c.burgundy[500], fontSize: 16, fontWeight: '600', fontFamily: fonts.display },
+  link: { color: c.burgundy[500], fontSize: 15, textDecorationLine: 'underline' },
 });

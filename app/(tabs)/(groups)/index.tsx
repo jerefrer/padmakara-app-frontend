@@ -424,7 +424,7 @@ export default function HomeScreen() {
               Native (reader app) never shows this. */}
           {Platform.OS === "web" && isAuthenticated && !hasActiveSubscription && (
             <View style={styles.membershipInvite}>
-              <MembershipCard variant="invite" />
+              <MembershipCard />
             </View>
           )}
 
