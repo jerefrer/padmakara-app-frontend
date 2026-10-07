@@ -15,6 +15,9 @@ export interface User {
     status: 'active' | 'expired' | 'none';
     source: string | null;
     expiresAt: string | null;
+    cancelledAt?: string | null;
+    amount?: number | null;
+    hasAccess?: boolean;
   };
   created_at: string;
   last_login: string;

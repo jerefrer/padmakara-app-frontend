@@ -452,6 +452,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Derive subscription status from user data
   const hasActiveSubscription = (() => {
     if (!user?.subscription) return false;
+    // Server-computed access wins; fall back for older cached user objects.
+    if (typeof user.subscription.hasAccess === 'boolean') return user.subscription.hasAccess;
     if (user.subscription.status !== 'active') return false;
     if (user.subscription.expiresAt) {
       return new Date(user.subscription.expiresAt) > new Date();

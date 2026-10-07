@@ -82,6 +82,16 @@ export const API_ENDPOINTS = {
   PAYMENT_SUBSCRIBE: '/payment/subscribe',
   PAYMENT_CANCEL: '/payment/cancel',
 
+  // Membership
+  MEMBERSHIP: '/payment/membership',
+  MEMBERSHIP_JOIN: '/payment/subscribe',
+  MEMBERSHIP_CANCEL: '/payment/cancel',
+  MEMBERSHIP_RESUME: '/payment/resume',
+  MEMBERSHIP_AMOUNT: '/payment/amount',
+  MEMBERSHIP_UPDATE_METHOD: '/payment/update-method',
+  MEMBERSHIP_CHECKOUT_STATUS: (id: string) => `/payment/checkout-status/${encodeURIComponent(id)}`,
+  EVENT_PREVIEW: (id: string) => `/events/${id}/preview`,
+
   // Search
   SEARCH: (query: string, lang?: string) => `/search?q=${encodeURIComponent(query)}${lang ? `&lang=${lang}` : ''}`,
 
@@ -106,6 +116,9 @@ export interface ApiResponse<T> {
   // auth-required endpoint). Screens can use this to show a "sign in"
   // state instead of a generic connection error.
   authRequired?: boolean;
+  // HTTP status and machine-readable error code on non-2xx API responses.
+  status?: number;
+  code?: string;
 }
 
 export interface PaginatedResponse<T> {
