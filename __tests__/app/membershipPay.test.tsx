@@ -144,6 +144,20 @@ describe('membership pay screen', () => {
     expect(mockReplace).toHaveBeenLastCalledWith('/membership');
   });
 
+  it('should skip the form and go straight to confirming in API mock mode', () => {
+    mockParams = { ...valid, session: 'mock' };
+    const { queryByTestId } = render(<PayScreen />);
+    expect(queryByTestId('easypay-checkout')).toBeNull();
+    expect(mockCheckoutProps).toBeNull();
+    expect(mockReplace).toHaveBeenCalledWith('/membership/confirming?checkout=chk-9');
+  });
+
+  it('should keep mode=update when skipping the form in API mock mode', () => {
+    mockParams = { ...valid, session: 'mock', mode: 'update' };
+    render(<PayScreen />);
+    expect(mockReplace).toHaveBeenCalledWith('/membership/confirming?checkout=chk-9&mode=update');
+  });
+
   it('should show the declined sentence above the form on a payment error', () => {
     const { queryByText, getByText, getByTestId } = render(<PayScreen />);
     expect(queryByText('Your payment was declined. Nothing was charged.')).toBeNull();

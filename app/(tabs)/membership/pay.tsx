@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -52,7 +52,19 @@ function PayPage() {
   const rawAmount = Number(first(params.amount));
   const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? rawAmount : null;
 
+  // API mock mode has no Easypay account: there is no form to show, so go on as if it succeeded.
+  const mock = session === 'mock';
+  useEffect(() => {
+    if (mock && id) {
+      router.replace(
+        `/membership/confirming?checkout=${encodeURIComponent(id)}${isUpdate ? '&mode=update' : ''}` as any,
+      );
+    }
+  }, [mock, id, isUpdate]);
+
   const toMembership = () => router.replace('/membership' as any);
+
+  if (mock && id) return null;
 
   if (!id || !session || fatal) {
     return (

@@ -92,6 +92,7 @@ export default function TabLayout() {
         name="membership"
         options={{
           href: null,
+          popToTopOnBlur: true,
         }}
       />
     </Tabs>

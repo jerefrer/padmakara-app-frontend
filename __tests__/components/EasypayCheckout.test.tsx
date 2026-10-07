@@ -43,7 +43,7 @@ describe('EasypayCheckout (web)', () => {
     await flush();
     expect(startCheckout).toHaveBeenCalledTimes(1);
     expect(startCheckout).toHaveBeenCalledWith(manifest, {
-      id: 'easypay-checkout',
+      id: expect.stringMatching(/^easypay-checkout-[A-Za-z0-9]+$/),
       display: 'inline',
       testing: true,
       language: 'en',
@@ -68,15 +68,94 @@ describe('EasypayCheckout (web)', () => {
     const latest = props();
     view.rerender(<EasypayCheckout {...latest} />);
     const options = (startCheckout.mock.calls[0] as any[])[1];
+    options.onPaymentError();
+    options.onSuccess();
+    expect(latest.onPaymentError).toHaveBeenCalledTimes(1);
+    expect(latest.onSuccess).toHaveBeenCalledTimes(1);
+    expect(first.onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('should map onClose and onError to onClose and onFatal', async () => {
+    const closed = setup();
+    const a = props();
+    render(<EasypayCheckout {...a} />);
+    await flush();
+    (closed.startCheckout.mock.calls[0] as any[])[1].onClose();
+    expect(a.onClose).toHaveBeenCalledTimes(1);
+
+    const errored = setup();
+    const b = props();
+    render(<EasypayCheckout {...b} />);
+    await flush();
+    (errored.startCheckout.mock.calls[0] as any[])[1].onError();
+    expect(b.onFatal).toHaveBeenCalledTimes(1);
+  });
+
+  it('should ignore onClose and onError once the payment succeeded', async () => {
+    const { startCheckout } = setup();
+    const p = props();
+    render(<EasypayCheckout {...p} />);
+    await flush();
+    const options = (startCheckout.mock.calls[0] as any[])[1];
+    options.onSuccess();
+    options.onClose();
+    options.onError();
+    options.onSuccess();
+    expect(p.onSuccess).toHaveBeenCalledTimes(1);
+    expect(p.onClose).not.toHaveBeenCalled();
+    expect(p.onFatal).not.toHaveBeenCalled();
+  });
+
+  it('should still report a declined payment after an earlier decline', async () => {
+    const { startCheckout } = setup();
+    const p = props();
+    render(<EasypayCheckout {...p} />);
+    await flush();
+    const options = (startCheckout.mock.calls[0] as any[])[1];
+    options.onPaymentError();
+    options.onPaymentError();
+    expect(p.onPaymentError).toHaveBeenCalledTimes(2);
+  });
+
+  it('should ignore every SDK callback after the component unmounted', async () => {
+    const { startCheckout } = setup();
+    const p = props();
+    const view = render(<EasypayCheckout {...p} />);
+    await flush();
+    const options = (startCheckout.mock.calls[0] as any[])[1];
+    view.unmount();
     options.onSuccess();
     options.onClose();
     options.onPaymentError();
     options.onError();
-    expect(latest.onSuccess).toHaveBeenCalledTimes(1);
-    expect(latest.onClose).toHaveBeenCalledTimes(1);
-    expect(latest.onPaymentError).toHaveBeenCalledTimes(1);
-    expect(latest.onFatal).toHaveBeenCalledTimes(1);
-    expect(first.onSuccess).not.toHaveBeenCalled();
+    expect(p.onSuccess).not.toHaveBeenCalled();
+    expect(p.onClose).not.toHaveBeenCalled();
+    expect(p.onPaymentError).not.toHaveBeenCalled();
+    expect(p.onFatal).not.toHaveBeenCalled();
+  });
+
+  it('should not throw when the SDK instance throws on unmount', async () => {
+    const { instance } = setup();
+    instance.unmount.mockImplementation(() => {
+      throw new Error('already closed');
+    });
+    const view = render(<EasypayCheckout {...props()} />);
+    await flush();
+    expect(() => view.unmount()).not.toThrow();
+  });
+
+  it('should give each instance its own container id', async () => {
+    const { startCheckout } = setup();
+    render(
+      <>
+        <EasypayCheckout {...props()} />
+        <EasypayCheckout {...props()} />
+      </>,
+    );
+    await flush();
+    const ids = startCheckout.mock.calls.map((c: any[]) => c[1].id);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
   });
 
   it('should ask for Portuguese and the live environment when told so', async () => {
@@ -90,8 +169,10 @@ describe('EasypayCheckout (web)', () => {
 
   it('should render the container the form mounts into', () => {
     setup();
-    const { UNSAFE_getByProps } = render(<EasypayCheckout {...props()} />);
-    expect(UNSAFE_getByProps({ nativeID: 'easypay-checkout' })).toBeTruthy();
+    const { UNSAFE_getByProps, UNSAFE_root } = render(<EasypayCheckout {...props()} />);
+    const nodes = UNSAFE_root.findAll((n: any) => /^easypay-checkout-[A-Za-z0-9]+$/.test(n.props?.nativeID ?? ''));
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(UNSAFE_getByProps({ nativeID: nodes[0].props.nativeID })).toBeTruthy();
   });
 
   it('should unmount the form instance when the component unmounts', async () => {

@@ -1,9 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { View } from 'react-native';
 import type { EasypayCheckoutProps } from './easypayTypes';
 
 const SDK_SRC = 'https://cdn.easypay.pt/checkout/2.9.1/';
-const CONTAINER_ID = 'easypay-checkout';
 
 interface EasypayInstance {
   unmount(): void;
@@ -44,9 +43,12 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
   // Callbacks change on every render of the parent; the form must not remount for that.
   const callbacks = useRef(props);
   callbacks.current = props;
+  // One container per instance: a stale pay screen left mounted must not capture this form.
+  const containerId = `easypay-checkout-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   useEffect(() => {
     let cancelled = false;
+    let settled = false;
     let instance: EasypayInstance | null = null;
     const fatal = () => {
       if (!cancelled) callbacks.current.onFatal();
@@ -58,7 +60,7 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
         const sdk = (window as any).easypayCheckout as EasypaySdk | undefined;
         if (!sdk) return fatal();
         instance = sdk.startCheckout(manifest, {
-          id: CONTAINER_ID,
+          id: containerId,
           display: 'inline',
           testing,
           language: language === 'pt' ? 'pt_PT' : 'en',
@@ -68,20 +70,41 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
           buttonBorderRadius: 2,
           buttonBoxShadow: false,
           backgroundColor: '#ffffff',
-          onSuccess: () => callbacks.current.onSuccess(),
-          onClose: () => callbacks.current.onClose(),
-          onPaymentError: () => callbacks.current.onPaymentError(),
-          onError: () => callbacks.current.onFatal(),
+          // The SDK may fire onClose after onSuccess, or anything after unmount: only the first
+          // outcome counts, and nothing counts once the component is gone. A decline is retryable.
+          onSuccess: () => {
+            if (cancelled || settled) return;
+            settled = true;
+            callbacks.current.onSuccess();
+          },
+          onClose: () => {
+            if (cancelled || settled) return;
+            settled = true;
+            callbacks.current.onClose();
+          },
+          onPaymentError: () => {
+            if (cancelled) return;
+            callbacks.current.onPaymentError();
+          },
+          onError: () => {
+            if (cancelled || settled) return;
+            settled = true;
+            callbacks.current.onFatal();
+          },
         });
       })
       .catch(fatal);
 
     return () => {
       cancelled = true;
-      instance?.unmount();
+      try {
+        instance?.unmount();
+      } catch {
+        // The SDK may throw when unmounting an instance it has already closed itself.
+      }
       instance = null;
     };
-  }, [manifest.id, manifest.session, testing, language]);
+  }, [manifest.id, manifest.session, testing, language, containerId]);
 
-  return <View nativeID={CONTAINER_ID} style={{ width: '100%', minHeight: 320 }} />;
+  return <View nativeID={containerId} style={{ width: '100%', minHeight: 320 }} />;
 }
