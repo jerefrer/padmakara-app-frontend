@@ -9,6 +9,8 @@ jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
   return { Ionicons: (props: any) => <Text {...props}>{props.name}</Text> };
 });
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ router: { push: (...a: any[]) => mockPush(...a) } }));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
 }));
@@ -223,26 +225,31 @@ describe('ManageMembership', () => {
       (global as any).window = originalWindow;
     });
 
-    it('should send the browser to the checkout URL the server returned', async () => {
-      (Platform as any).OS = 'web';
-      const location = { href: '' };
-      (global as any).window = { ...originalWindow, location };
-      svc.updateMethod.mockResolvedValue({ success: true, data: { url: 'https://api.test/checkout/chk-9?mode=update' } });
-      const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
-      fireEvent.press(getByTestId('membership-row-paid-with'));
-      await waitFor(() => expect(location.href).toBe('https://api.test/checkout/chk-9?mode=update'));
-      expect(svc.updateMethod).toHaveBeenCalledWith('en');
-    });
-
-    it('should not navigate when the server returns no URL', async () => {
+    it('should navigate to the in-app payment screen in update mode with the manifest and the current contribution', async () => {
       (Platform as any).OS = 'web';
       const location = { href: 'unchanged' };
       (global as any).window = { ...originalWindow, location };
-      svc.updateMethod.mockResolvedValue({ success: true, data: {} });
+      svc.updateMethod.mockResolvedValue({
+        success: true,
+        data: { url: 'https://api.test/checkout/chk-9?mode=update', checkout: { id: 'chk-9', session: 'sess 9' }, testing: true },
+      });
+      const { getByTestId } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+      fireEvent.press(getByTestId('membership-row-paid-with'));
+      await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
+      expect(mockPush).toHaveBeenCalledWith(
+        '/membership/pay?id=chk-9&session=sess%209&amount=10&interval=month&mode=update&testing=1',
+      );
+      expect(svc.updateMethod).toHaveBeenCalledWith('en');
+      expect(location.href).toBe('unchanged');
+    });
+
+    it('should not navigate when the server returns no checkout manifest', async () => {
+      (Platform as any).OS = 'web';
+      svc.updateMethod.mockResolvedValue({ success: true, data: { url: 'https://api.test/x' } });
       const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
       fireEvent.press(getByTestId('membership-row-paid-with'));
       await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
-      expect(location.href).toBe('unchanged');
+      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 

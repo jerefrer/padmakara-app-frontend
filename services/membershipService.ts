@@ -19,14 +19,26 @@ export interface MembershipView {
   lastPaymentFailedAt: string | null;
 }
 
+/** What /payment/subscribe and /payment/update-method return so the app can embed Easypay's form. */
+export interface CheckoutManifest {
+  id: string;
+  session: string;
+}
+export interface CheckoutStart {
+  /** Hosted-page fallback. The app embeds the form from `checkout` instead. */
+  url: string;
+  checkout: CheckoutManifest;
+  testing: boolean;
+}
+
 export type CheckoutState = "active" | "processing" | "failed" | "pending";
 
 export const membershipService = {
   get(): Promise<ApiResponse<MembershipView>> {
     return apiService.get<MembershipView>(API_ENDPOINTS.MEMBERSHIP);
   },
-  join(amount: number, interval: MembershipInterval, language: "en" | "pt"): Promise<ApiResponse<{ url: string }>> {
-    return apiService.post<{ url: string }>(API_ENDPOINTS.MEMBERSHIP_JOIN, { amount, interval, language });
+  join(amount: number, interval: MembershipInterval, language: "en" | "pt"): Promise<ApiResponse<CheckoutStart>> {
+    return apiService.post<CheckoutStart>(API_ENDPOINTS.MEMBERSHIP_JOIN, { amount, interval, language });
   },
   cancel(): Promise<ApiResponse<{ url: string; accessUntil: string | null }>> {
     return apiService.post<{ url: string; accessUntil: string | null }>(API_ENDPOINTS.MEMBERSHIP_CANCEL);
@@ -37,8 +49,8 @@ export const membershipService = {
   changeAmount(amount: number): Promise<ApiResponse<{ amount: number }>> {
     return apiService.post<{ amount: number }>(API_ENDPOINTS.MEMBERSHIP_AMOUNT, { amount });
   },
-  updateMethod(language: "en" | "pt"): Promise<ApiResponse<{ url: string }>> {
-    return apiService.post<{ url: string }>(API_ENDPOINTS.MEMBERSHIP_UPDATE_METHOD, { language });
+  updateMethod(language: "en" | "pt"): Promise<ApiResponse<CheckoutStart>> {
+    return apiService.post<CheckoutStart>(API_ENDPOINTS.MEMBERSHIP_UPDATE_METHOD, { language });
   },
   checkoutStatus(
     checkoutId: string,

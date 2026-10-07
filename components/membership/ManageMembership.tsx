@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { membershipService, type MembershipView } from '@/services/membershipService';
@@ -10,6 +11,7 @@ import { membershipErrorMessage } from './errorMessage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusRing } from './focusRing';
 import { pageStyles } from './pageStyles';
+import { payHref } from './payRoute';
 import { membershipColors as c } from './theme';
 import { tr } from './tr';
 
@@ -59,10 +61,11 @@ export function ManageMembership({ membership, onChanged }: Props) {
     run(
       async () => {
         const res = await membershipService.updateMethod(lang);
-        if (res.success && res.data?.url) {
-          if (Platform.OS === 'web') window.location.href = res.data.url;
+        if (res.success && res.data?.checkout?.id && res.data.checkout.session) {
+          router.push(payHref(res.data, { amount, interval, mode: 'update' }) as any);
           return { success: true };
         }
+        if (res.success) return { success: false };
         return { success: false, code: res.code };
       },
       () => {},

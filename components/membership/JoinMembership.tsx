@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -10,6 +10,7 @@ import { membershipErrorMessage } from './errorMessage';
 import { membershipColors as c, fonts } from './theme';
 import { tr } from './tr';
 import { useFocusRing } from './focusRing';
+import { payHref } from './payRoute';
 
 interface Props {
   initialInterval?: MembershipInterval;
@@ -45,9 +46,13 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
     setError(null);
     try {
       const res = await membershipService.join(amount, interval, lang);
-      if (res.success && res.data?.url) {
+      if (res.success && res.data?.checkout?.id && res.data.checkout.session) {
         onJoined?.(res.data.url);
-        if (Platform.OS === 'web') window.location.href = res.data.url;
+        router.push(payHref(res.data, { amount, interval }) as any);
+        return;
+      }
+      if (res.success) {
+        setError(tr(t, 'errGeneric', 'Something went wrong. Please try again.'));
         return;
       }
       setError(

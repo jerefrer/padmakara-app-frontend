@@ -19,6 +19,7 @@ jest.mock('@/services/membershipService', () => ({
 }));
 
 const join = membershipService.join as jest.Mock;
+const manifestData = { checkout: { id: 'chk-1', session: 'sess 1/x' }, testing: true };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -94,12 +95,52 @@ describe('JoinMembership', () => {
   });
 
   it('should call join with 10, month and the language when continue is pressed', async () => {
-    join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x' } });
+    join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x', ...manifestData } });
     const onJoined = jest.fn();
     const { getByText, getByTestId } = render(<JoinMembership onJoined={onJoined} />);
     fireEvent.press(getByText('Continue to payment'));
     await waitFor(() => expect(join).toHaveBeenCalledWith(10, 'month', 'en'));
     await waitFor(() => expect(onJoined).toHaveBeenCalledWith('https://pay.example/x'));
+  });
+
+  describe('moving on to the in-app payment screen', () => {
+    const originalOS = Platform.OS;
+    const originalWindow = (global as any).window;
+    afterEach(() => {
+      (Platform as any).OS = originalOS;
+      (global as any).window = originalWindow;
+    });
+
+    it('should navigate to /membership/pay with the manifest, amount and interval instead of setting window.location', async () => {
+      (Platform as any).OS = 'web';
+      const location = { href: 'unchanged' };
+      (global as any).window = { ...originalWindow, location };
+      join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x', ...manifestData } });
+      const { getByText, getByTestId } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('amount-row-20'));
+      fireEvent.press(getByText('Continue to payment'));
+      await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
+      expect(mockPush).toHaveBeenCalledWith(
+        '/membership/pay?id=chk-1&session=sess%201%2Fx&amount=20&interval=month&testing=1',
+      );
+      expect(location.href).toBe('unchanged');
+    });
+
+    it('should pass testing=0 and the yearly interval through', async () => {
+      join.mockResolvedValue({ success: true, data: { url: 'u', checkout: { id: 'c', session: 's' }, testing: false } });
+      const { getByText, getByTestId } = render(<JoinMembership />);
+      fireEvent.press(getByTestId('interval-tab-year'));
+      fireEvent.press(getByText('Continue to payment'));
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/membership/pay?id=c&session=s&amount=120&interval=year&testing=0'));
+    });
+
+    it('should show the generic error and not navigate when the answer has no checkout manifest', async () => {
+      join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x' } });
+      const { getByText } = render(<JoinMembership />);
+      fireEvent.press(getByText('Continue to payment'));
+      await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
+      expect(mockPush).not.toHaveBeenCalled();
+    });
   });
 
   it('should show the localized range message on INVALID_CONTRIBUTION', async () => {
@@ -164,7 +205,7 @@ describe('JoinMembership', () => {
     });
 
     it('should accept 12, clear the error and enable continue with the summary', async () => {
-      join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x' } });
+      join.mockResolvedValue({ success: true, data: { url: 'https://pay.example/x', ...manifestData } });
       const { getByText, queryByText, getByLabelText, getByTestId } = render(<JoinMembership />);
       fireEvent.press(getByTestId('amount-row-other'));
       fireEvent.changeText(getByLabelText('Amount'), '3');

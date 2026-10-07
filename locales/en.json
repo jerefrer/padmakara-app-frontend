@@ -673,6 +673,20 @@
     "settingsRow": "Membership",
     "statusNone": "No active membership",
     "manageCta": "Manage membership",
-    "homeCardBody": "Your contribution keeps the teachings available to everyone."
+    "homeCardBody": "Your contribution keeps the teachings available to everyone.",
+    "payTitle": "Payment",
+    "stepContribution": "Contribution",
+    "stepPayment": "Payment",
+    "stepConfirmation": "Confirmation",
+    "payInvalidLink": "This payment link is no longer valid.",
+    "payBackToMembership": "Back to membership",
+    "payYourMembership": "Your membership",
+    "orderMonthly": "Monthly contribution",
+    "orderYearly": "Yearly contribution",
+    "payFirstMonth": "First payment today, then every month until you cancel.",
+    "payFirstYear": "First payment today, then every year until you cancel.",
+    "payUpdateNote": "Your new payment method applies from your next payment.",
+    "paySecure": "Card details go to Easypay, never to Padmakara.",
+    "payFatal": "The payment form could not be loaded. Please try again."
   }
 }

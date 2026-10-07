@@ -673,6 +673,20 @@
     "settingsRow": "Adesão",
     "statusNone": "Sem adesão ativa",
     "manageCta": "Gerir adesão",
-    "homeCardBody": "A sua contribuição mantém os ensinamentos disponíveis para todos."
+    "homeCardBody": "A sua contribuição mantém os ensinamentos disponíveis para todos.",
+    "payTitle": "Pagamento",
+    "stepContribution": "Contribuição",
+    "stepPayment": "Pagamento",
+    "stepConfirmation": "Confirmação",
+    "payInvalidLink": "Esta ligação de pagamento já não é válida.",
+    "payBackToMembership": "Voltar à adesão",
+    "payYourMembership": "A sua adesão",
+    "orderMonthly": "Contribuição mensal",
+    "orderYearly": "Contribuição anual",
+    "payFirstMonth": "Primeiro pagamento hoje, depois todos os meses até cancelar.",
+    "payFirstYear": "Primeiro pagamento hoje, depois todos os anos até cancelar.",
+    "payUpdateNote": "O novo método de pagamento aplica-se a partir do próximo pagamento.",
+    "paySecure": "Os dados do cartão vão para a Easypay, nunca para a Padmakara.",
+    "payFatal": "Não foi possível carregar o formulário de pagamento. Tente novamente."
   }
 }
