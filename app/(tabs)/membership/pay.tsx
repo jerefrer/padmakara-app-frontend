@@ -7,6 +7,8 @@ import { EasypayCheckout } from '@/components/membership/EasypayCheckout';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
 import { tr } from '@/components/membership/tr';
+import { membershipService } from '@/services/membershipService';
+import { formatLongDate } from '@/utils/dateFormat';
 import type { MembershipInterval } from '@/utils/membership';
 
 const TWO_COLUMNS_FROM = 860;
@@ -41,6 +43,7 @@ function PayPage() {
   }>();
   const [declined, setDeclined] = useState(false);
   const [fatal, setFatal] = useState(false);
+  const [nextPayment, setNextPayment] = useState<string | null>(null);
 
   // Everything comes from the URL, so a browser reload shows the same form.
   const id = first(params.id);
@@ -61,6 +64,21 @@ function PayPage() {
       );
     }
   }, [mock, id, isUpdate]);
+
+  // Updating the card takes nothing now; say when the new card is first used, if we know.
+  useEffect(() => {
+    if (!isUpdate) return;
+    let cancelled = false;
+    membershipService
+      .get()
+      .then((res) => {
+        if (!cancelled && res.success && res.data?.accessUntil) setNextPayment(res.data.accessUntil);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isUpdate]);
 
   const toMembership = () => router.replace('/membership' as any);
 
@@ -118,10 +136,16 @@ function PayPage() {
         <View style={[styles.columns, wide && styles.columnsWide]}>
           <View style={[styles.summaryColumn, wide && styles.column]}>
             <Text style={styles.sectionLabel}>{tr(t, 'payYourMembership', 'Your membership')}</Text>
-            {amount !== null && (
+            {!isUpdate && amount !== null && (
               <View style={styles.order}>
                 <Text style={styles.orderLabel}>{orderLabel}</Text>
                 <Text style={styles.orderAmount}>{euroExact(amount, lang)}</Text>
+              </View>
+            )}
+            {isUpdate && nextPayment && (
+              <View style={styles.order}>
+                <Text style={styles.orderLabel}>{tr(t, 'rowNextPayment', 'Next payment')}</Text>
+                <Text style={styles.orderAmount}>{formatLongDate(nextPayment, lang)}</Text>
               </View>
             )}
             <Text style={styles.sentence}>{sentence}</Text>
@@ -140,6 +164,7 @@ function PayPage() {
               manifest={{ id, session }}
               testing={testing}
               language={lang}
+              hideCart={isUpdate}
               onSuccess={() => router.replace(confirming as any)}
               onClose={() => router.replace((isUpdate ? '/membership' : '/membership/closed') as any)}
               onPaymentError={() => setDeclined(true)}
@@ -162,8 +187,9 @@ const styles = StyleSheet.create({
   title: pageStyles.title,
   sectionLabel: { ...pageStyles.sectionLabel, marginTop: 0, marginBottom: 0 },
   steps: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  step: { fontSize: 12, letterSpacing: 1, color: c.gray[500] },
-  stepOn: { color: c.burgundy[500], fontWeight: '600' },
+  // Same look as the settings section labels.
+  step: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.2, color: c.gray[500] },
+  stepOn: { color: c.burgundy[500] },
   columns: { marginTop: 28, gap: 32 },
   columnsWide: { flexDirection: 'row', alignItems: 'flex-start' },
   column: { flex: 1 },

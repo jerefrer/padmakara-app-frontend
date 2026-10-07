@@ -39,7 +39,7 @@ function loadSdk(): Promise<void> {
 
 /** Easypay's inline form, tinted with the app's burgundy, square corners, no shadows. */
 export function EasypayCheckout(props: EasypayCheckoutProps) {
-  const { manifest, testing, language } = props;
+  const { manifest, testing, language, hideCart } = props;
   // Callbacks change on every render of the parent; the form must not remount for that.
   const callbacks = useRef(props);
   callbacks.current = props;
@@ -70,6 +70,7 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
           buttonBorderRadius: 2,
           buttonBoxShadow: false,
           backgroundColor: '#ffffff',
+          hideCartButton: !!hideCart,
           // The SDK may fire onClose after onSuccess, or anything after unmount: only the first
           // outcome counts, and nothing counts once the component is gone. A decline is retryable.
           onSuccess: () => {
@@ -104,7 +105,7 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
       }
       instance = null;
     };
-  }, [manifest.id, manifest.session, testing, language, containerId]);
+  }, [manifest.id, manifest.session, testing, language, hideCart, containerId]);
 
   return <View nativeID={containerId} style={{ width: '100%', minHeight: 320 }} />;
 }

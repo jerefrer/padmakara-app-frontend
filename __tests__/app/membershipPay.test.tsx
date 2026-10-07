@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import PayScreen from '@/app/(tabs)/membership/pay';
 
@@ -36,12 +36,18 @@ jest.mock('@/components/membership/EasypayCheckout', () => {
   };
 });
 
+const mockGet = jest.fn();
+jest.mock('@/services/membershipService', () => ({
+  membershipService: { get: (...a: any[]) => mockGet(...a) },
+}));
+
 const originalOS = Platform.OS;
 const valid = { id: 'chk-9', session: 'sess 9/x', amount: '10', interval: 'month', testing: '1' };
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockCheckoutProps = null;
+  mockGet.mockResolvedValue({ success: true, data: { accessUntil: '2026-11-07T00:00:00.000Z' } });
   mockParams = { ...valid };
   (Platform as any).OS = 'web';
 });
@@ -90,6 +96,31 @@ describe('membership pay screen', () => {
     const { getByLabelText } = render(<PayScreen />);
     fireEvent.press(getByLabelText('Change amount'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('should hide the cart total and show no euro amount when updating the payment method', async () => {
+    mockParams = { ...valid, mode: 'update' };
+    const { queryByText, getByText } = render(<PayScreen />);
+    expect(mockCheckoutProps.hideCart).toBe(true);
+    expect(queryByText(/€10/)).toBeNull();
+    expect(queryByText('Monthly contribution')).toBeNull();
+    expect(getByText('Your new payment method applies from your next payment.')).toBeTruthy();
+    await waitFor(() => expect(getByText('Next payment')).toBeTruthy());
+    expect(getByText('7 November 2026')).toBeTruthy();
+  });
+
+  it('should show only the sentence when the next payment date is not available in update mode', async () => {
+    mockParams = { ...valid, mode: 'update' };
+    mockGet.mockResolvedValue({ success: false });
+    const { queryByText, getByText } = render(<PayScreen />);
+    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    expect(getByText('Your new payment method applies from your next payment.')).toBeTruthy();
+    expect(queryByText('Next payment')).toBeNull();
+  });
+
+  it('should keep the cart visible when joining', () => {
+    render(<PayScreen />);
+    expect(mockCheckoutProps.hideCart).toBeFalsy();
   });
 
   it('should hide the steps and say Back when updating the payment method', () => {

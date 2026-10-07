@@ -36,6 +36,13 @@ afterEach(() => {
 });
 
 describe('EasypayCheckout (web)', () => {
+  it('should pass hideCartButton true to the SDK when hideCart is set', async () => {
+    const { startCheckout } = setup();
+    render(<EasypayCheckout {...props({ hideCart: true })} />);
+    await flush();
+    expect((startCheckout.mock.calls[0] as any[])[1].hideCartButton).toBe(true);
+  });
+
   it('should start the checkout once with the exact inline options and the manifest', async () => {
     const { startCheckout } = setup();
     const p = props();
@@ -53,6 +60,7 @@ describe('EasypayCheckout (web)', () => {
       buttonBorderRadius: 2,
       buttonBoxShadow: false,
       backgroundColor: '#ffffff',
+      hideCartButton: false,
       onSuccess: expect.any(Function),
       onClose: expect.any(Function),
       onPaymentError: expect.any(Function),
