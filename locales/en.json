@@ -562,6 +562,7 @@
   },
   "membership": {
     "title": "Become a member",
+    "back": "Back",
     "monthly": "Monthly",
     "yearly": "Yearly",
     "other": "Other",

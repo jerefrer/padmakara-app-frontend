@@ -562,6 +562,7 @@
   },
   "membership": {
     "title": "Torne-se membro",
+    "back": "Voltar",
     "monthly": "Mensal",
     "yearly": "Anual",
     "other": "Outro",

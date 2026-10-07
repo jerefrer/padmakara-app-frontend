@@ -6,6 +6,8 @@ import ConfirmingScreen from '@/app/membership/confirming';
 
 const mockReplace = jest.fn();
 const mockRedirect = jest.fn();
+const mockBack = jest.fn();
+let mockCanGoBack = false;
 let mockParams: Record<string, string> = {};
 let mockPhase = 'active';
 let mockCheckoutArg: string | undefined;
@@ -15,7 +17,11 @@ jest.mock('expo-router', () => ({
     mockRedirect(href);
     return null;
   },
-  router: { replace: (...a: any[]) => mockReplace(...a) },
+  router: {
+    replace: (...a: any[]) => mockReplace(...a),
+    back: () => mockBack(),
+    canGoBack: () => mockCanGoBack,
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/contexts/LanguageContext', () => ({
@@ -35,6 +41,7 @@ const originalOS = Platform.OS;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCanGoBack = false;
   mockPhase = 'active';
   (Platform as any).OS = 'web';
 });
@@ -155,5 +162,32 @@ describe('membership confirming screen', () => {
     const { queryByText } = render(<ConfirmingScreen />);
     expect(mockRedirect).toHaveBeenCalledWith('/(tabs)');
     expect(queryByText('Welcome to Padmakara')).toBeNull();
+  });
+
+  it.each(['active', 'processing', 'failed', 'timeout'])(
+    'should render one working back control in the %s state',
+    (phase) => {
+      mockPhase = phase;
+      mockParams = { checkout: 'chk-1' };
+      const { getAllByLabelText } = render(<ConfirmingScreen />);
+      const backs = getAllByLabelText('Back');
+      expect(backs).toHaveLength(1);
+      fireEvent.press(backs[0]);
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    },
+  );
+
+  it('should render the back control in the method updated state', () => {
+    mockPhase = 'active';
+    mockParams = { checkout: 'chk-1', mode: 'update' };
+    const { getAllByLabelText } = render(<ConfirmingScreen />);
+    expect(getAllByLabelText('Back')).toHaveLength(1);
+  });
+
+  it('should not render a back control while the payment is still being checked', () => {
+    mockPhase = 'checking';
+    mockParams = { checkout: 'chk-1' };
+    const { queryByLabelText } = render(<ConfirmingScreen />);
+    expect(queryByLabelText('Back')).toBeNull();
   });
 });

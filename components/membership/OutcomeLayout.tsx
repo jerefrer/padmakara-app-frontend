@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { BackButton } from './BackButton';
 import { membershipColors as c, fonts } from './theme';
 
 interface Props {
@@ -10,35 +11,41 @@ interface Props {
   children?: React.ReactNode;
   primary?: { label: string; onPress: () => void };
   secondary?: { label: string; onPress: () => void };
+  /** Show the back control above the card (terminal states only). */
+  showBack?: boolean;
 }
 
 /** Shared centred card for the payment outcome screens. */
-export function OutcomeLayout({ icon, iconColor = c.burgundy[500], title, body, children, primary, secondary }: Props) {
+export function OutcomeLayout({ icon, iconColor = c.burgundy[500], title, body, children, primary, secondary, showBack = false }: Props) {
   return (
-    <View style={styles.screen}>
-      <View style={styles.card}>
-        {icon && <Text style={[styles.icon, { color: iconColor }]}>{icon}</Text>}
-        <Text style={styles.title} accessibilityRole="header">
-          {title}
-        </Text>
-        {body && <Text style={styles.body}>{body}</Text>}
-        {children}
-        {primary && (
-          <Pressable accessibilityRole="button" style={styles.primary} onPress={primary.onPress}>
-            <Text style={styles.primaryText}>{primary.label}</Text>
-          </Pressable>
-        )}
-        {secondary && (
-          <Pressable accessibilityRole="button" style={styles.secondary} onPress={secondary.onPress}>
-            <Text style={styles.secondaryText}>{secondary.label}</Text>
-          </Pressable>
-        )}
+    <View style={styles.wrap}>
+      {showBack && <BackButton />}
+      <View style={styles.screen}>
+        <View style={styles.card}>
+          {icon && <Text style={[styles.icon, { color: iconColor }]}>{icon}</Text>}
+          <Text style={styles.title} accessibilityRole="header">
+            {title}
+          </Text>
+          {body && <Text style={styles.body}>{body}</Text>}
+          {children}
+          {primary && (
+            <Pressable accessibilityRole="button" style={styles.primary} onPress={primary.onPress}>
+              <Text style={styles.primaryText}>{primary.label}</Text>
+            </Pressable>
+          )}
+          {secondary && (
+            <Pressable accessibilityRole="button" style={styles.secondary} onPress={secondary.onPress}>
+              <Text style={styles.secondaryText}>{secondary.label}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: c.cream[100] },
   screen: { flex: 1, backgroundColor: c.cream[100], justifyContent: 'center', padding: 24 },
   card: { width: '100%', maxWidth: 480, alignSelf: 'center', alignItems: 'center', gap: 16 },
   icon: { fontSize: 40 },

@@ -11,6 +11,7 @@ export default function MembershipClosedScreen() {
   if (Platform.OS !== 'web') return <Redirect href="/(tabs)" />;
   return (
     <OutcomeLayout
+      showBack
       title={tr(t, 'closedTitle', 'No payment was made')}
       body={tr(t, 'closedBody', 'You can come back whenever you like.')}
       primary={{ label: tr(t, 'tryAgain', 'Try again'), onPress: () => router.replace('/membership' as any) }}

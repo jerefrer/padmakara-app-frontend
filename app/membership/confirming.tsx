@@ -46,6 +46,7 @@ function WebConfirming() {
       if (isUpdate) {
         return (
           <OutcomeLayout
+            showBack
             icon="✓"
             iconColor={c.green[700]}
             title={tr(t, 'methodUpdatedTitle', 'Payment method updated')}
@@ -58,6 +59,7 @@ function WebConfirming() {
       const email = user?.email;
       return (
         <OutcomeLayout
+          showBack
           icon="✓"
           iconColor={c.green[700]}
           title={tr(t, 'welcomeTitle', 'Welcome to Padmakara')}
@@ -87,6 +89,7 @@ function WebConfirming() {
     case 'failed':
       return (
         <OutcomeLayout
+          showBack
           title={tr(t, 'declinedTitle', 'Your payment was declined. Nothing was charged.')}
           primary={{ label: tr(t, 'tryAgain', 'Try again'), onPress: toMembership }}
         />
@@ -96,6 +99,7 @@ function WebConfirming() {
     default:
       return (
         <OutcomeLayout
+          showBack
           title={tr(t, 'timeoutTitle', "Still confirming. We'll email you as soon as it's done.")}
           primary={{ label: tr(t, 'seeMembership', 'See my membership'), onPress: toMembership }}
         />

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService, type MembershipView } from '@/services/membershipService';
 import { ManageMembership } from '@/components/membership/ManageMembership';
+import { BackButton } from '@/components/membership/BackButton';
 import { ProcessingNotice } from '@/components/membership/ProcessingNotice';
 import { JoinMembership } from '@/components/membership/JoinMembership';
 import { ReaderAccountStatus } from '@/components/membership/ReaderAccountStatus';
@@ -48,14 +49,19 @@ function WebMembership() {
   } else if (failed) {
     body = <Text style={styles.placeholder}>{tr(t, 'errGeneric', 'Something went wrong. Please try again.')}</Text>;
   } else if (isAuthenticated && view?.state === 'processing') {
-    body = <ProcessingNotice onBack={() => router.replace('/(tabs)' as any)} />;
+    body = <ProcessingNotice showBack={false} onBack={() => router.replace('/(tabs)' as any)} />;
   } else if (!isAuthenticated || view?.state === 'none' || view?.state === 'lapsed') {
     body = <JoinMembership lastPaymentFailedAt={view?.state === 'none' ? view.lastPaymentFailedAt : null} />;
   } else {
     body = <ManageMembership membership={view!} onChanged={() => setReload((n) => n + 1)} />;
   }
 
-  return <ScrollView style={styles.screen}>{body}</ScrollView>;
+  return (
+    <ScrollView style={styles.screen}>
+      <BackButton />
+      {body}
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({

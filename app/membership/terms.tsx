@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { BackButton } from '@/components/membership/BackButton';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
 import { tr } from '@/components/membership/tr';
 
@@ -35,6 +36,7 @@ function TermsPage() {
   const { t } = useLanguage();
   return (
     <ScrollView style={styles.screen}>
+      <BackButton />
       <View style={styles.container}>
         <Text style={styles.title} accessibilityRole="header">
           {tr(t, 'termsTitle', 'Membership terms')}

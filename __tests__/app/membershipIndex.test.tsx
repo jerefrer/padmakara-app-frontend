@@ -6,9 +6,16 @@ import MembershipScreen from '@/app/membership/index';
 import { membershipService } from '@/services/membershipService';
 
 const mockReplace = jest.fn();
+const mockBack = jest.fn();
+let mockCanGoBack = false;
 
 jest.mock('expo-router', () => ({
-  router: { replace: (...a: any[]) => mockReplace(...a), push: jest.fn() },
+  router: {
+    replace: (...a: any[]) => mockReplace(...a),
+    push: jest.fn(),
+    back: () => mockBack(),
+    canGoBack: () => mockCanGoBack,
+  },
 }));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
@@ -30,6 +37,7 @@ const view = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCanGoBack = false;
   (Platform as any).OS = 'web';
 });
 afterAll(() => {
@@ -62,5 +70,31 @@ describe('membership screen', () => {
         ),
       ).toBeTruthy(),
     );
+  });
+
+  it('should render a back control on the join screen that goes to the tabs when there is no history', async () => {
+    get.mockResolvedValue({ success: true, data: view() });
+    const { getByText, getByLabelText } = render(<MembershipScreen />);
+    await waitFor(() => expect(getByText('Become a member')).toBeTruthy());
+    fireEvent.press(getByLabelText('Back'));
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('should go back one screen when there is history', async () => {
+    mockCanGoBack = true;
+    get.mockResolvedValue({ success: true, data: view() });
+    const { getByText, getByLabelText } = render(<MembershipScreen />);
+    await waitFor(() => expect(getByText('Become a member')).toBeTruthy());
+    fireEvent.press(getByLabelText('Back'));
+    expect(mockBack).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('should render exactly one back control while a first payment is processing', async () => {
+    get.mockResolvedValue({ success: true, data: view({ state: 'processing' }) });
+    const { getByText, getAllByLabelText } = render(<MembershipScreen />);
+    await waitFor(() => expect(getByText('Your bank is processing the payment')).toBeTruthy());
+    expect(getAllByLabelText('Back')).toHaveLength(1);
   });
 });

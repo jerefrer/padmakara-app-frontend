@@ -6,13 +6,19 @@ import ClosedScreen from '@/app/membership/closed';
 
 const mockReplace = jest.fn();
 const mockRedirect = jest.fn();
+const mockBack = jest.fn();
+let mockCanGoBack = false;
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => {
     mockRedirect(href);
     return null;
   },
-  router: { replace: (...a: any[]) => mockReplace(...a) },
+  router: {
+    replace: (...a: any[]) => mockReplace(...a),
+    back: () => mockBack(),
+    canGoBack: () => mockCanGoBack,
+  },
 }));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
@@ -22,6 +28,7 @@ const originalOS = Platform.OS;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCanGoBack = false;
   (Platform as any).OS = 'web';
 });
 afterAll(() => {
@@ -52,5 +59,11 @@ describe('membership closed screen', () => {
     const { queryByText } = render(<ClosedScreen />);
     expect(mockRedirect).toHaveBeenCalledWith('/(tabs)');
     expect(queryByText('No payment was made')).toBeNull();
+  });
+
+  it('should render a back control that goes to the tabs when there is no history', () => {
+    const { getByLabelText } = render(<ClosedScreen />);
+    fireEvent.press(getByLabelText('Back'));
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
   });
 });
