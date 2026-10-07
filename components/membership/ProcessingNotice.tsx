@@ -9,7 +9,7 @@ export function ProcessingNotice({ onBack, showBack = true }: { onBack: () => vo
   return (
     <OutcomeLayout
       showBack={showBack}
-      icon="⏳"
+      icon="time-outline"
       title={tr(t, 'processingTitle', 'Your bank is processing the payment')}
       body={tr(
         t,

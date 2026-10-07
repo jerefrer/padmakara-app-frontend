@@ -1,10 +1,14 @@
 import React from 'react';
-import { Platform } from 'react-native';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { render, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 
 import { ManageMembership } from '@/components/membership/ManageMembership';
 import { membershipService, type MembershipView } from '@/services/membershipService';
 
+jest.mock('@expo/vector-icons', () => {
+  const { Text } = require('react-native');
+  return { Ionicons: (props: any) => <Text {...props}>{props.name}</Text> };
+});
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
 }));
@@ -37,21 +41,37 @@ beforeEach(() => {
 });
 
 describe('ManageMembership', () => {
-  it('should list the three actions and the card when the membership is active', () => {
-    const { getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
-    expect(getByText('● Active')).toBeTruthy();
-    expect(getByText('€10 / month')).toBeTruthy();
-    expect(getByText('Visa •••• 0000')).toBeTruthy();
-    expect(getByText('Change amount')).toBeTruthy();
-    expect(getByText('Update payment method')).toBeTruthy();
+  it('should show the title, the status line and the three rows when the membership is active', () => {
+    const { getByText, getByTestId, getAllByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    expect(getByText('Membership')).toBeTruthy();
+    expect(getByText('Active member')).toBeTruthy();
+    expect(getByText('Your contribution')).toBeTruthy();
+    expect(within(getByTestId('membership-row-contribution')).getByText('€10 a month')).toBeTruthy();
+    expect(within(getByTestId('membership-row-next-payment')).getByText(/2026/)).toBeTruthy();
+    expect(within(getByTestId('membership-row-paid-with')).getByText('Visa •••• 0000')).toBeTruthy();
+    expect(within(getByTestId('membership-row-cancel')).getByText('Cancel membership')).toBeTruthy();
     expect(getAllByText('Cancel membership')).toHaveLength(1);
+  });
+
+  it('should put a chevron on the rows that open something and none on the next payment row', () => {
+    const { getByTestId, queryByTestId } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    expect(getByTestId('membership-row-contribution-chevron')).toBeTruthy();
+    expect(getByTestId('membership-row-paid-with-chevron')).toBeTruthy();
+    expect(getByTestId('membership-row-cancel-chevron')).toBeTruthy();
+    expect(queryByTestId('membership-row-next-payment-chevron')).toBeNull();
+  });
+
+  it('should show the payments section label above the history rows', () => {
+    const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    expect(getByText('Payments')).toBeTruthy();
+    expect(getByText('€10 · Paid')).toBeTruthy();
   });
 
   it('should cancel then notify when the member confirms the cancel dialog', async () => {
     svc.cancel.mockResolvedValue({ success: true, data: { url: '', accessUntil: null } });
     const onChanged = jest.fn();
-    const { getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
-    fireEvent.press(getByText('Cancel membership'));
+    const { getByTestId, getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
+    fireEvent.press(getByTestId('membership-row-cancel'));
     expect(getByText('Cancel your membership?')).toBeTruthy();
     expect(getByText(/You keep full access until/)).toBeTruthy();
     expect(svc.cancel).not.toHaveBeenCalled();
@@ -61,8 +81,8 @@ describe('ManageMembership', () => {
   });
 
   it('should not cancel when the member keeps the membership', () => {
-    const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
-    fireEvent.press(getByText('Cancel membership'));
+    const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    fireEvent.press(getByTestId('membership-row-cancel'));
     fireEvent.press(getByText('Keep my membership'));
     expect(svc.cancel).not.toHaveBeenCalled();
   });
@@ -70,8 +90,8 @@ describe('ManageMembership', () => {
   it('should show a localized generic error, never the raw server text, when cancelling fails', async () => {
     svc.cancel.mockResolvedValue({ success: false, error: 'No Easypay subscription found for this account' });
     const onChanged = jest.fn();
-    const { getByText, getAllByText, queryByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
-    fireEvent.press(getByText('Cancel membership'));
+    const { getByTestId, getByText, getAllByText, queryByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
+    fireEvent.press(getByTestId('membership-row-cancel'));
     fireEvent.press(getAllByText('Cancel membership')[1]);
     await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
     expect(queryByText(/Easypay subscription/)).toBeNull();
@@ -89,8 +109,8 @@ describe('ManageMembership', () => {
 
   it('should show the payment-provider message when the update checkout cannot be opened', async () => {
     svc.updateMethod.mockResolvedValue({ success: false, error: 'raw', code: 'EASYPAY_UNAVAILABLE' });
-    const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
-    fireEvent.press(getByText('Update payment method'));
+    const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    fireEvent.press(getByTestId('membership-row-paid-with'));
     await waitFor(() =>
       expect(getByText('We could not reach the payment provider. Nothing was changed. Please try again later.')).toBeTruthy(),
     );
@@ -99,55 +119,77 @@ describe('ManageMembership', () => {
   it('should offer resume and hide cancel and next payment when the membership is cancelled', async () => {
     svc.resume.mockResolvedValue({ success: true, data: { accessUntil: '' } });
     const onChanged = jest.fn();
-    const { getByText, queryByText } = render(
+    const { queryByTestId, getByText, queryByText } = render(
       <ManageMembership membership={{ ...base, state: 'cancelled', cancelledAt: '2026-10-08T00:00:00.000Z' }} onChanged={onChanged} />,
     );
     expect(getByText(/^Ends /)).toBeTruthy();
-    expect(queryByText('Cancel membership')).toBeNull();
-    expect(queryByText('Next payment')).toBeNull();
+    expect(queryByTestId('membership-row-cancel')).toBeNull();
+    expect(queryByTestId('membership-row-next-payment')).toBeNull();
     fireEvent.press(getByText('Resume membership'));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(svc.resume).toHaveBeenCalledTimes(1);
   });
 
   it('should show the grace date banner and a primary update button when a payment failed', () => {
-    const { getByText, queryByText } = render(
+    const { queryByTestId, getByTestId, getByText, queryByText } = render(
       <ManageMembership
         membership={{ ...base, state: 'payment_failed', graceUntil: '2026-11-14T00:00:00.000Z' }}
         onChanged={jest.fn()}
       />,
     );
-    expect(getByText('● Payment needed')).toBeTruthy();
+    expect(getByText('Payment needed')).toBeTruthy();
     expect(
       getByText(/Your last payment didn't go through\. Your access continues until .*2026.*\. Update your payment method to keep it\./),
     ).toBeTruthy();
     expect(getByText('Update payment method')).toBeTruthy();
-    expect(queryByText('Change amount')).toBeNull();
+    expect(queryByTestId('membership-row-contribution-chevron')).toBeNull();
+    expect(getByTestId('membership-row-cancel')).toBeTruthy();
   });
 
   it('should let the member cancel when a payment failed', async () => {
     svc.cancel.mockResolvedValue({ success: true, data: { url: '', accessUntil: null } });
     const onChanged = jest.fn();
-    const { getByText, getAllByText } = render(
+    const { getByTestId, getByText, getAllByText } = render(
       <ManageMembership
         membership={{ ...base, state: 'payment_failed', graceUntil: '2026-11-14T00:00:00.000Z' }}
         onChanged={onChanged}
       />,
     );
-    fireEvent.press(getByText('Cancel membership'));
+    fireEvent.press(getByTestId('membership-row-cancel'));
     fireEvent.press(getAllByText('Cancel membership')[1]);
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(svc.cancel).toHaveBeenCalledTimes(1);
   });
 
   it('should show contact copy and no actions when the membership was granted by an admin', () => {
-    const { getByText, queryByText } = render(
+    const { queryByTestId, getByText, queryByText } = render(
       <ManageMembership membership={{ ...base, source: 'admin', method: null }} onChanged={jest.fn()} />,
     );
     expect(getByText('Contact us to change your membership')).toBeTruthy();
-    expect(queryByText('Change amount')).toBeNull();
+    expect(queryByTestId('membership-row-contribution-chevron')).toBeNull();
+    expect(queryByTestId('membership-row-paid-with-chevron')).toBeNull();
+    expect(queryByTestId('membership-row-cancel')).toBeNull();
     expect(queryByText('Update payment method')).toBeNull();
-    expect(queryByText('Cancel membership')).toBeNull();
+  });
+
+  it('should show the failed-payment notice as a plain paragraph without a tinted box', () => {
+    const { getByText } = render(
+      <ManageMembership membership={{ ...base, state: 'payment_failed', graceUntil: '2026-11-14T00:00:00.000Z' }} onChanged={jest.fn()} />,
+    );
+    const style = StyleSheet.flatten(getByText(/Your last payment didn't go through/).props.style);
+    expect(style.color).toBe('#b45309');
+    const box = StyleSheet.flatten(getByText(/Your last payment didn't go through/).parent?.props.style);
+    expect(box?.backgroundColor).toBeUndefined();
+    expect(box?.borderRadius).toBeUndefined();
+  });
+
+  it('should use the settings button and a hairline amount list inside the change amount modal', () => {
+    const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+    fireEvent.press(getByTestId('membership-row-contribution'));
+    expect(getByTestId('amount-row-10').props.accessibilityState.checked).toBe(true);
+    const save = StyleSheet.flatten(getByText('Save').parent!.parent!.props.style);
+    expect(save.borderRadius).toBe(2);
+    expect(save.backgroundColor).toBe('#9b1b1b');
   });
 
   it('should list the payment history with outcomes', () => {
@@ -163,8 +205,9 @@ describe('ManageMembership', () => {
   it('should save the new amount and notify when the member changes the contribution', async () => {
     svc.changeAmount.mockResolvedValue({ success: true, data: { amount: 20 } });
     const onChanged = jest.fn();
-    const { getByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
-    fireEvent.press(getByText('Change amount'));
+    const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
+    fireEvent.press(getByTestId('membership-row-contribution'));
+    expect(getByText('Change amount')).toBeTruthy();
     expect(getByText(/Your new contribution applies from your next payment on/)).toBeTruthy();
     fireEvent.press(getByText('€20 a month'));
     fireEvent.press(getByText('Save'));
@@ -185,8 +228,8 @@ describe('ManageMembership', () => {
       const location = { href: '' };
       (global as any).window = { ...originalWindow, location };
       svc.updateMethod.mockResolvedValue({ success: true, data: { url: 'https://api.test/checkout/chk-9?mode=update' } });
-      const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
-      fireEvent.press(getByText('Update payment method'));
+      const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+      fireEvent.press(getByTestId('membership-row-paid-with'));
       await waitFor(() => expect(location.href).toBe('https://api.test/checkout/chk-9?mode=update'));
       expect(svc.updateMethod).toHaveBeenCalledWith('en');
     });
@@ -196,8 +239,8 @@ describe('ManageMembership', () => {
       const location = { href: 'unchanged' };
       (global as any).window = { ...originalWindow, location };
       svc.updateMethod.mockResolvedValue({ success: true, data: {} });
-      const { getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
-      fireEvent.press(getByText('Update payment method'));
+      const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
+      fireEvent.press(getByTestId('membership-row-paid-with'));
       await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
       expect(location.href).toBe('unchanged');
     });
@@ -250,8 +293,8 @@ describe('ManageMembership', () => {
       let finish!: (v: unknown) => void;
       svc.cancel.mockReturnValue(new Promise((r) => (finish = r)));
       const onChanged = jest.fn();
-      const { getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
-      fireEvent.press(getByText('Cancel membership'));
+      const { getByTestId, getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
+      fireEvent.press(getByTestId('membership-row-cancel'));
       pressTwice(getAllByText('Cancel membership')[1]);
       await act(async () => finish({ success: true, data: { url: '', accessUntil: null } }));
       expect(svc.cancel).toHaveBeenCalledTimes(1);
@@ -261,10 +304,10 @@ describe('ManageMembership', () => {
 
   describe('without a known date', () => {
     it('should show no next payment row when accessUntil is missing', () => {
-      const { queryByText, getByText } = render(
+      const { queryByTestId, queryByText, getByText } = render(
         <ManageMembership membership={{ ...base, accessUntil: null }} onChanged={jest.fn()} />,
       );
-      expect(queryByText('Next payment')).toBeNull();
+      expect(queryByTestId('membership-row-next-payment')).toBeNull();
       expect(getByText('Contribution')).toBeTruthy();
     });
 
@@ -277,10 +320,10 @@ describe('ManageMembership', () => {
     });
 
     it('should word the cancel dialog without a dangling "until ." when accessUntil is missing', () => {
-      const { getByText, queryByText } = render(
+      const { getByTestId, getByText, queryByText } = render(
         <ManageMembership membership={{ ...base, accessUntil: null }} onChanged={jest.fn()} />,
       );
-      fireEvent.press(getByText('Cancel membership'));
+      fireEvent.press(getByTestId('membership-row-cancel'));
       expect(
         getByText(
           'You keep full access until the end of the period you already paid for. No further payments will be taken.',
@@ -314,11 +357,11 @@ describe('ManageMembership', () => {
   });
 
   it('should not offer Change amount when the interval is unknown, since the minimum depends on it', () => {
-    const { queryByText, getByText } = render(
+    const { queryByTestId, getByTestId, queryByText, getByText } = render(
       <ManageMembership membership={{ ...base, interval: null }} onChanged={jest.fn()} />,
     );
-    expect(queryByText('Change amount')).toBeNull();
-    expect(getByText('Update payment method')).toBeTruthy();
-    expect(getByText('Cancel membership')).toBeTruthy();
+    expect(queryByTestId('membership-row-contribution-chevron')).toBeNull();
+    expect(getByTestId('membership-row-paid-with-chevron')).toBeTruthy();
+    expect(getByTestId('membership-row-cancel')).toBeTruthy();
   });
 });

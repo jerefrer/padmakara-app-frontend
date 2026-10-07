@@ -3,7 +3,8 @@ import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BackButton } from '@/components/membership/BackButton';
-import { membershipColors as c, fonts } from '@/components/membership/theme';
+import { pageStyles } from '@/components/membership/pageStyles';
+import { membershipColors as c } from '@/components/membership/theme';
 import { tr } from '@/components/membership/tr';
 
 const SECTIONS = [
@@ -41,14 +42,12 @@ function TermsPage() {
         <Text style={styles.title} accessibilityRole="header">
           {tr(t, 'termsTitle', 'Membership terms')}
         </Text>
-        <View style={styles.draft}>
-          <Text style={styles.draftText}>
-            {tr(t, 'termsDraft', 'Draft — to be completed by Padmakara before launch.')}
-          </Text>
-        </View>
+        <Text style={styles.draftText}>
+          {tr(t, 'termsDraft', 'Draft — to be completed by Padmakara before launch.')}
+        </Text>
         {SECTIONS.map(([heading, headingFallback, body]) => (
-          <View key={heading} style={styles.section}>
-            <Text style={styles.heading} accessibilityRole="header">
+          <View key={heading}>
+            <Text style={pageStyles.sectionLabel} accessibilityRole="header">
               {tr(t, heading, headingFallback)}
             </Text>
             <Text style={styles.body}>{tr(t, body, FALLBACK_BODY[body])}</Text>
@@ -61,11 +60,8 @@ function TermsPage() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.cream[100] },
-  container: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 24, gap: 20 },
-  title: { fontSize: 28, fontFamily: fonts.display, fontWeight: '600', color: c.burgundy[500] },
-  draft: { backgroundColor: c.amber[50], borderRadius: 10, padding: 14, borderWidth: 1, borderColor: c.amber[700] },
-  draftText: { fontSize: 15, color: c.amber[700], fontWeight: '600' },
-  section: { gap: 6 },
-  heading: { fontSize: 20, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800] },
-  body: { fontSize: 16, lineHeight: 24, color: c.gray[700] },
+  container: pageStyles.container,
+  title: pageStyles.title,
+  draftText: { fontSize: 15, lineHeight: 22, color: c.amber[700], marginTop: 16 },
+  body: pageStyles.body,
 });

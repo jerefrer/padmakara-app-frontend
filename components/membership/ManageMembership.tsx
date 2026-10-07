@@ -7,7 +7,10 @@ import { formatLongDate } from '@/utils/dateFormat';
 import { formatEuro } from '@/utils/membership';
 import { ChangeAmountModal } from './ChangeAmountModal';
 import { membershipErrorMessage } from './errorMessage';
-import { membershipColors as c, fonts } from './theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusRing } from './focusRing';
+import { pageStyles } from './pageStyles';
+import { membershipColors as c } from './theme';
 import { tr } from './tr';
 
 interface Props {
@@ -69,13 +72,13 @@ export function ManageMembership({ membership, onChanged }: Props) {
     amount === null
       ? null
       : interval === 'year'
-        ? tr(t, 'perYear', '{{amount}} / year', { amount: formatEuro(amount, lang) })
-        : tr(t, 'perMonth', '{{amount}} / month', { amount: formatEuro(amount, lang) });
+        ? tr(t, 'rowYear', '{{amount}} a year', { amount: formatEuro(amount, lang) })
+        : tr(t, 'rowMonth', '{{amount}} a month', { amount: formatEuro(amount, lang) });
 
   const paidWith = method
     ? method.type === 'direct_debit'
       ? tr(t, 'directDebit', 'Direct Debit')
-      : [method.brand ?? 'Card', method.lastFour ? `•••• ${method.lastFour}` : null].filter(Boolean).join(' ')
+      : [method.brand ?? 'Card', method.lastFour ? `\u2022\u2022\u2022\u2022 ${method.lastFour}` : null].filter(Boolean).join(' ')
     : null;
 
   const status =
@@ -85,29 +88,23 @@ export function ManageMembership({ membership, onChanged }: Props) {
           label: accessUntil
             ? tr(t, 'statusEnds', 'Ends {{date}}', { date: date(accessUntil) })
             : tr(t, 'statusCancelled', 'Cancelled'),
+          dot: c.gray[400],
           tone: styles.statusMuted,
         }
       : state === 'payment_failed'
-        ? { label: `● ${tr(t, 'statusPaymentNeeded', 'Payment needed')}`, tone: styles.statusWarn }
-        : { label: `● ${tr(t, 'statusActive', 'Active')}`, tone: styles.statusOk };
+        ? { label: tr(t, 'statusPaymentNeeded', 'Payment needed'), dot: c.amber[700], tone: styles.statusWarn }
+        : { label: tr(t, 'statusActiveMember', 'Active member'), dot: c.green[700], tone: styles.statusOk };
 
   const managedByUs = source !== 'easypay';
-  const row = (k: string, v: string | null) =>
-    v ? (
-      <View style={styles.kvRow} key={k}>
-        <Text style={styles.kvKey}>{k}</Text>
-        <Text style={styles.kvVal}>{v}</Text>
-      </View>
-    ) : null;
+  const canChange = !managedByUs && state !== 'cancelled';
 
-  const actionRow = (label: string, onPress: () => void, danger = false) => (
-    <Pressable accessibilityRole="button" style={styles.actionRow} onPress={onPress} disabled={busy}>
-      <Text style={[styles.actionText, danger && styles.actionDanger]}>{label}</Text>
-      <Text style={styles.chevron}>›</Text>
-    </Pressable>
-  );
   const primaryButton = (label: string, onPress: () => void) => (
-    <Pressable accessibilityRole="button" style={styles.primary} onPress={onPress} disabled={busy}>
+    <Pressable
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}
+      onPress={onPress}
+      disabled={busy}
+    >
       <Text style={styles.primaryText}>{label}</Text>
     </Pressable>
   );
@@ -115,59 +112,100 @@ export function ManageMembership({ membership, onChanged }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title} accessibilityRole="header">
-        {tr(t, 'manageTitle', 'Your membership')}
+        {tr(t, 'manageTitle', 'Membership')}
       </Text>
 
+      <View style={styles.statusLine}>
+        <Text style={[styles.statusDot, { color: status.dot }]}>{'\u25CF'}</Text>
+        <Text style={[styles.status, status.tone]}>{status.label}</Text>
+      </View>
+
       {state === 'payment_failed' && !managedByUs && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>
-            {graceUntil
-              ? tr(
-                  t,
-                  'failedBanner',
-                  "Your last payment didn't go through. Your access continues until {{date}}. Update your payment method to keep it.",
-                  { date: date(graceUntil) },
-                )
-              : tr(
-                  t,
-                  'failedBannerNoDate',
-                  "Your last payment didn't go through. Update your payment method to keep your access.",
-                )}
-          </Text>
-        </View>
+        <Text style={styles.warning}>
+          {graceUntil
+            ? tr(
+                t,
+                'failedBanner',
+                "Your last payment didn't go through. Your access continues until {{date}}. Update your payment method to keep it.",
+                { date: date(graceUntil) },
+              )
+            : tr(
+                t,
+                'failedBannerNoDate',
+                "Your last payment didn't go through. Update your payment method to keep your access.",
+              )}
+        </Text>
       )}
       {state === 'payment_failed' && !managedByUs && primaryButton(tr(t, 'updateMethod', 'Update payment method'), updateMethod)}
 
-      <View style={styles.card}>
-        <Text style={[styles.status, status.tone]}>{status.label}</Text>
-        {state === 'cancelled' && accessUntil && (
-          <Text style={styles.cardNote}>
-            {tr(t, 'cancelledNote', 'Your access continues until then. No further payments will be taken.')}
-          </Text>
+      {state === 'cancelled' && accessUntil && (
+        <Text style={styles.note}>
+          {tr(t, 'cancelledNote', 'Your access continues until then. No further payments will be taken.')}
+        </Text>
+      )}
+      {managedByUs && <Text style={styles.note}>{tr(t, 'contactUs', 'Contact us to change your membership')}</Text>}
+
+      <Text style={pageStyles.sectionLabel}>{tr(t, 'contributionLabel', 'Your contribution')}</Text>
+      <View style={styles.rows}>
+        {contribution && (
+          <Row
+            id="contribution"
+            icon="heart-outline"
+            label={tr(t, 'rowContribution', 'Contribution')}
+            value={contribution}
+            // The floor depends on the interval; without it the modal would guess "month".
+            onPress={canChange && state === 'active' && interval !== null ? () => setChangingAmount(true) : undefined}
+            disabled={busy}
+          />
         )}
-        {row(tr(t, 'rowContribution', 'Contribution'), contribution)}
-        {state !== 'cancelled' && row(tr(t, 'rowNextPayment', 'Next payment'), date(accessUntil) || null)}
-        {row(tr(t, 'rowPaidWith', 'Paid with'), paidWith)}
+        {state !== 'cancelled' && date(accessUntil) !== '' && (
+          <Row id="next-payment" icon="calendar-outline" label={tr(t, 'rowNextPayment', 'Next payment')} value={date(accessUntil)} />
+        )}
+        {paidWith && (
+          <Row
+            id="paid-with"
+            icon="card-outline"
+            label={tr(t, 'rowPaidWith', 'Paid with')}
+            value={paidWith}
+            onPress={canChange ? updateMethod : undefined}
+            disabled={busy}
+          />
+        )}
       </View>
 
-      {managedByUs && (
-        <Text style={styles.cardNote}>{tr(t, 'contactUs', 'Contact us to change your membership')}</Text>
+      {history.length > 0 && (
+        <>
+          <Text style={pageStyles.sectionLabel}>{tr(t, 'historyTitle', 'Payments')}</Text>
+          <View style={styles.rows}>
+            {history.map((h, i) => {
+              const [key, fallback] = OUTCOME_LABEL[h.outcome];
+              const outcome = tr(t, key, fallback);
+              return (
+                <View style={pageStyles.row} key={`${h.date}-${i}`}>
+                  <Text style={styles.historyDate}>{date(h.date)}</Text>
+                  <Text style={styles.historyVal}>
+                    {h.amount === null ? outcome : `${formatEuro(h.amount, lang)} \u00B7 ${outcome}`}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </>
       )}
 
-      {!managedByUs && state === 'active' && (
-        <View style={styles.actions}>
-          {/* The floor depends on the interval; without it the modal would guess "month". */}
-          {interval !== null && actionRow(tr(t, 'changeAmount', 'Change amount'), () => setChangingAmount(true))}
-          {actionRow(tr(t, 'updateMethod', 'Update payment method'), updateMethod)}
-          {actionRow(tr(t, 'cancelMembership', 'Cancel membership'), () => setConfirmingCancel(true), true)}
-        </View>
-      )}
       {/* Easypay keeps retrying a failed charge, so the member must be able to stop it here too. */}
-      {!managedByUs && state === 'payment_failed' && (
-        <View style={styles.actions}>
-          {actionRow(tr(t, 'cancelMembership', 'Cancel membership'), () => setConfirmingCancel(true), true)}
+      {canChange && (
+        <View style={[styles.rows, styles.cancelBlock]}>
+          <Row
+            id="cancel"
+            label={tr(t, 'cancelMembership', 'Cancel membership')}
+            danger
+            onPress={() => setConfirmingCancel(true)}
+            disabled={busy}
+          />
         </View>
       )}
+
       {!managedByUs &&
         state === 'cancelled' &&
         primaryButton(tr(t, 'resumeMembership', 'Resume membership'), () =>
@@ -175,24 +213,6 @@ export function ManageMembership({ membership, onChanged }: Props) {
         )}
 
       {error && <Text style={styles.error}>{error}</Text>}
-
-      {history.length > 0 && (
-        <View style={styles.history}>
-          <Text style={styles.historyTitle}>{tr(t, 'historyTitle', 'Payments')}</Text>
-          {history.map((h, i) => {
-            const [key, fallback] = OUTCOME_LABEL[h.outcome];
-            const outcome = tr(t, key, fallback);
-            return (
-              <View style={styles.historyRow} key={`${h.date}-${i}`}>
-                <Text style={styles.historyDate}>{date(h.date)}</Text>
-                <Text style={styles.historyVal}>
-                  {h.amount === null ? outcome : `${formatEuro(h.amount, lang)} · ${outcome}`}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
 
       <ConfirmationModal
         visible={confirmingCancel}
@@ -239,31 +259,79 @@ export function ManageMembership({ membership, onChanged }: Props) {
   );
 }
 
+/** A settings-style hairline row: value on the right, chevron only when it opens something. */
+function Row({
+  id,
+  icon,
+  label,
+  value,
+  onPress,
+  danger = false,
+  disabled = false,
+}: {
+  id: string;
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+}) {
+  const ring = useFocusRing();
+  const content = (
+    <>
+      <View style={pageStyles.rowLeft}>
+        {icon && <Ionicons name={icon} size={20} color={c.burgundy[500]} />}
+        <Text style={[pageStyles.rowTitle, !icon && styles.rowTitleBare, danger && styles.danger]}>{label}</Text>
+      </View>
+      <View style={pageStyles.rowRight}>
+        {value !== undefined && <Text style={pageStyles.rowValue}>{value}</Text>}
+        {onPress && <Ionicons testID={`membership-row-${id}-chevron`} name="chevron-forward" size={16} color={c.gray[400]} />}
+      </View>
+    </>
+  );
+  if (!onPress) {
+    return (
+      <View testID={`membership-row-${id}`} style={pageStyles.row}>
+        {content}
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      testID={`membership-row-${id}`}
+      accessibilityRole="button"
+      accessibilityLabel={value !== undefined ? `${label}, ${value}` : label}
+      disabled={disabled}
+      onPress={onPress}
+      onFocus={ring.onFocus}
+      onBlur={ring.onBlur}
+      style={({ pressed }) => [pageStyles.row, pressed && pageStyles.rowPressed, ring.style]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { width: '100%', maxWidth: 480, alignSelf: 'center', padding: 24, gap: 16 },
-  title: { fontSize: 28, fontFamily: fonts.display, fontWeight: '600', color: c.burgundy[500] },
-  card: { backgroundColor: c.white, borderRadius: 12, padding: 16, gap: 10, borderWidth: 1, borderColor: c.gray[200] },
-  status: { fontSize: 14, fontWeight: '600', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' },
-  statusOk: { color: c.green[700], backgroundColor: c.green[50] },
-  statusWarn: { color: c.amber[700], backgroundColor: c.amber[50] },
-  statusMuted: { color: c.gray[600], backgroundColor: c.gray[100] },
-  cardNote: { fontSize: 15, lineHeight: 22, color: c.gray[700] },
-  kvRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  kvKey: { fontSize: 15, color: c.gray[500] },
-  kvVal: { fontSize: 15, color: c.gray[800], fontWeight: '500', flexShrink: 1, textAlign: 'right' },
-  actions: { backgroundColor: c.white, borderRadius: 12, borderWidth: 1, borderColor: c.gray[200], overflow: 'hidden' },
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.gray[200] },
-  actionText: { fontSize: 16, color: c.gray[800] },
-  actionDanger: { color: c.red[700] },
-  chevron: { fontSize: 20, color: c.gray[400] },
-  primary: { backgroundColor: c.burgundy[500], borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
-  primaryText: { color: c.white, fontSize: 16, fontWeight: '600' },
-  banner: { backgroundColor: c.amber[50], borderRadius: 10, padding: 14, borderWidth: 1, borderColor: c.amber[700] },
-  bannerText: { fontSize: 15, lineHeight: 22, color: c.amber[700] },
-  error: { fontSize: 14, color: c.red[700] },
-  history: { gap: 8 },
-  historyTitle: { fontSize: 14, fontWeight: '600', color: c.gray[500] },
-  historyRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  historyDate: { fontSize: 15, fontWeight: '600', color: c.gray[800] },
-  historyVal: { fontSize: 15, color: c.gray[600] },
+  container: pageStyles.container,
+  title: pageStyles.title,
+  statusLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  statusDot: { fontSize: 11 },
+  status: { fontSize: 13, fontWeight: '600' },
+  statusOk: { color: c.green[700] },
+  statusWarn: { color: c.amber[700] },
+  statusMuted: { color: c.gray[600] },
+  warning: { fontSize: 15, lineHeight: 22, color: c.amber[700], marginTop: 16 },
+  note: { fontSize: 15, lineHeight: 22, color: c.gray[700], marginTop: 16 },
+  rows: { borderTopWidth: 1, borderTopColor: c.gray[200] },
+  rowTitleBare: { marginLeft: 0 },
+  danger: { color: c.burgundy[500] },
+  cancelBlock: { marginTop: 32 },
+  historyDate: { fontSize: 16, fontWeight: '500', color: c.gray[800] },
+  historyVal: { fontSize: 14, color: c.gray[600] },
+  primary: { ...pageStyles.button, marginTop: 16 },
+  primaryPressed: pageStyles.buttonPressed,
+  primaryText: pageStyles.buttonText,
+  error: { fontSize: 14, color: c.red[700], marginTop: 16 },
 });

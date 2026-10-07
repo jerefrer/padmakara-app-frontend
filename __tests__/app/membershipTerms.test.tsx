@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import TermsScreen from '@/app/(tabs)/membership/terms';
@@ -35,5 +35,17 @@ describe('membership terms screen', () => {
     fireEvent.press(getByLabelText('Back'));
     expect(mockBack).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('should render the draft note as a plain paragraph, not a tinted box', () => {
+    const { getByText } = render(<TermsScreen />);
+    const note = getByText(/Draft/);
+    expect(StyleSheet.flatten(note.parent?.props.style)?.backgroundColor).toBeUndefined();
+  });
+
+  it('should label each section with the settings section-label style', () => {
+    const { getByText } = render(<TermsScreen />);
+    const style = StyleSheet.flatten(getByText('Contribution').props.style);
+    expect(style.textTransform).toBe('uppercase');
   });
 });

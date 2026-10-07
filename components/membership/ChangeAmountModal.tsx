@@ -5,7 +5,8 @@ import { membershipService } from '@/services/membershipService';
 import { MAX_AMOUNT, MIN_AMOUNT, formatEuro, type MembershipInterval } from '@/utils/membership';
 import { AmountPicker } from './AmountPicker';
 import { membershipErrorMessage } from './errorMessage';
-import { membershipColors as c, fonts } from './theme';
+import { pageStyles } from './pageStyles';
+import { membershipColors as c } from './theme';
 import { tr } from './tr';
 
 interface Props {
@@ -92,13 +93,13 @@ function Body({ interval, currentAmount, nextPaymentDate, onClose, onSaved }: Om
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  sheet: { width: '100%', maxWidth: 420, backgroundColor: c.white, borderRadius: 12, padding: 24, gap: 16 },
-  title: { fontSize: 22, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800] },
+  sheet: { width: '100%', maxWidth: 420, backgroundColor: c.white, borderRadius: 8, padding: 24, gap: 16 },
+  title: { fontSize: 24, fontFamily: 'MinionPro', fontVariant: ['small-caps'], letterSpacing: 0.5, color: c.burgundy[500] },
   note: { fontSize: 14, lineHeight: 20, color: c.gray[600] },
   error: { fontSize: 14, color: c.red[700] },
-  primary: { backgroundColor: c.burgundy[500], borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
+  primary: pageStyles.button,
   primaryOff: { backgroundColor: c.gray[300] },
-  primaryText: { color: c.white, fontSize: 16, fontWeight: '600' },
-  secondary: { paddingVertical: 8, alignItems: 'center' },
-  secondaryText: { color: c.burgundy[500], fontSize: 16 },
+  primaryText: pageStyles.buttonText,
+  secondary: { alignSelf: 'flex-start', paddingVertical: 4 },
+  secondaryText: pageStyles.link,
 });

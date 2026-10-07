@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -47,7 +48,7 @@ function WebConfirming() {
         return (
           <OutcomeLayout
             showBack
-            icon="✓"
+            icon="checkmark-circle-outline"
             iconColor={c.green[700]}
             title={tr(t, 'methodUpdatedTitle', 'Payment method updated')}
             body={tr(t, 'methodUpdatedBody', 'Your next contributions will be taken with your new payment method.')}
@@ -60,7 +61,7 @@ function WebConfirming() {
       return (
         <OutcomeLayout
           showBack
-          icon="✓"
+          icon="checkmark-circle-outline"
           iconColor={c.green[700]}
           title={tr(t, 'welcomeTitle', 'Welcome to Padmakara')}
           body={
@@ -71,12 +72,10 @@ function WebConfirming() {
           primary={{ label: tr(t, 'goToRetreats', 'Go to my retreats'), onPress: toTabs }}
         >
           <View style={styles.ticks}>
-            <Text style={styles.tick}>✓ {tr(t, 'welcomeTickRecordings', 'Recordings and transcripts of your retreats')}</Text>
-            <Text style={styles.tick}>✓ {tr(t, 'welcomeTickApp', 'Listening on the iPhone app with the same account')}</Text>
+            <Tick>{tr(t, 'welcomeTickRecordings', 'Recordings and transcripts of your retreats')}</Tick>
+            <Tick>{tr(t, 'welcomeTickApp', 'Listening on the iPhone app with the same account')}</Tick>
             {email && (
-              <Text style={styles.tick}>
-                ✓ {tr(t, 'welcomeTickConfirmation', 'A confirmation email has been sent to {{email}}', { email })}
-              </Text>
+              <Tick>{tr(t, 'welcomeTickConfirmation', 'A confirmation email has been sent to {{email}}', { email })}</Tick>
             )}
           </View>
         </OutcomeLayout>
@@ -107,7 +106,18 @@ function WebConfirming() {
   }
 }
 
+function Tick({ children }: { children: string }) {
+  return (
+    <View style={styles.tickRow}>
+      <Ionicons name="checkmark" size={16} color={c.green[700]} style={styles.tickIcon} />
+      <Text style={styles.tick}>{children}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   ticks: { alignSelf: 'stretch', gap: 8 },
-  tick: { fontSize: 15, lineHeight: 22, color: c.gray[700] },
+  tickRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  tickIcon: { marginRight: 8, marginTop: 3 },
+  tick: { flex: 1, fontSize: 15, lineHeight: 22, color: c.gray[700] },
 });
