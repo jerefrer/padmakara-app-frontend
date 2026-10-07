@@ -224,4 +224,38 @@ describe('ManageMembership', () => {
     await waitFor(() => expect(getByText('Something went wrong. Please try again.')).toBeTruthy());
     expect(getByText('Resume membership')).toBeTruthy();
   });
+
+  describe('a double press', () => {
+    /** Two presses delivered before React re-renders, as a fast double tap is. */
+    const pressTwice = (el: any) =>
+      act(() => {
+        fireEvent.press(el);
+        fireEvent.press(el);
+      });
+
+    it('should resume once when Resume is pressed twice in a row', async () => {
+      let finish!: (v: unknown) => void;
+      svc.resume.mockReturnValue(new Promise((r) => (finish = r)));
+      const onChanged = jest.fn();
+      const { getByText } = render(
+        <ManageMembership membership={{ ...base, state: 'cancelled', cancelledAt: '2026-10-08T00:00:00.000Z' }} onChanged={onChanged} />,
+      );
+      pressTwice(getByText('Resume membership'));
+      await act(async () => finish({ success: true, data: { accessUntil: '' } }));
+      expect(svc.resume).toHaveBeenCalledTimes(1);
+      expect(onChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it('should cancel once when the confirm button of the cancel dialog is pressed twice in a row', async () => {
+      let finish!: (v: unknown) => void;
+      svc.cancel.mockReturnValue(new Promise((r) => (finish = r)));
+      const onChanged = jest.fn();
+      const { getByText, getAllByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
+      fireEvent.press(getByText('Cancel membership'));
+      pressTwice(getAllByText('Cancel membership')[1]);
+      await act(async () => finish({ success: true, data: { url: '', accessUntil: null } }));
+      expect(svc.cancel).toHaveBeenCalledTimes(1);
+      expect(onChanged).toHaveBeenCalledTimes(1);
+    });
+  });
 });

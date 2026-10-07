@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
@@ -27,6 +27,8 @@ export function ManageMembership({ membership, onChanged }: Props) {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [changingAmount, setChangingAmount] = useState(false);
   const [busy, setBusy] = useState(false);
+  // `busy` alone is not a guard: two taps before React re-renders both see it false.
+  const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const { state, source, amount, interval, accessUntil, graceUntil, method, history } = membership;
@@ -34,7 +36,8 @@ export function ManageMembership({ membership, onChanged }: Props) {
   const generic = tr(t, 'errGeneric', 'Something went wrong. Please try again.');
 
   const run = async (call: () => Promise<{ success: boolean; code?: string }>, after: () => void) => {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -44,6 +47,7 @@ export function ManageMembership({ membership, onChanged }: Props) {
     } catch {
       setError(generic);
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
