@@ -258,4 +258,67 @@ describe('ManageMembership', () => {
       expect(onChanged).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('without a known date', () => {
+    it('should show no next payment row when accessUntil is missing', () => {
+      const { queryByText, getByText } = render(
+        <ManageMembership membership={{ ...base, accessUntil: null }} onChanged={jest.fn()} />,
+      );
+      expect(queryByText('Next payment')).toBeNull();
+      expect(getByText('Contribution')).toBeTruthy();
+    });
+
+    it('should show the failed-payment banner without a dangling "until ." when graceUntil is missing', () => {
+      const { getByText, queryByText } = render(
+        <ManageMembership membership={{ ...base, state: 'payment_failed', graceUntil: null }} onChanged={jest.fn()} />,
+      );
+      expect(getByText("Your last payment didn't go through. Update your payment method to keep your access.")).toBeTruthy();
+      expect(queryByText(/until/)).toBeNull();
+    });
+
+    it('should word the cancel dialog without a dangling "until ." when accessUntil is missing', () => {
+      const { getByText, queryByText } = render(
+        <ManageMembership membership={{ ...base, accessUntil: null }} onChanged={jest.fn()} />,
+      );
+      fireEvent.press(getByText('Cancel membership'));
+      expect(
+        getByText(
+          'You keep full access until the end of the period you already paid for. No further payments will be taken.',
+        ),
+      ).toBeTruthy();
+      expect(queryByText(/until \./)).toBeNull();
+      expect(queryByText(/until ,/)).toBeNull();
+    });
+
+    it('should say Cancelled, not a blank "Ends", and drop "until then" when a cancelled member has no accessUntil', () => {
+      const { getByText, queryByText } = render(
+        <ManageMembership
+          membership={{ ...base, state: 'cancelled', cancelledAt: '2026-10-08T00:00:00.000Z', accessUntil: null }}
+          onChanged={jest.fn()}
+        />,
+      );
+      expect(getByText('Cancelled')).toBeTruthy();
+      expect(queryByText(/Ends/)).toBeNull();
+      expect(queryByText(/until then/)).toBeNull();
+    });
+
+    it('should still show the dated sentences when the dates are known', () => {
+      const { getByText } = render(
+        <ManageMembership
+          membership={{ ...base, state: 'payment_failed', graceUntil: '2026-11-14T00:00:00.000Z' }}
+          onChanged={jest.fn()}
+        />,
+      );
+      expect(getByText(/Your access continues until .*2026/)).toBeTruthy();
+    });
+  });
+
+  it('should not offer Change amount when the interval is unknown, since the minimum depends on it', () => {
+    const { queryByText, getByText } = render(
+      <ManageMembership membership={{ ...base, interval: null }} onChanged={jest.fn()} />,
+    );
+    expect(queryByText('Change amount')).toBeNull();
+    expect(getByText('Update payment method')).toBeTruthy();
+    expect(getByText('Cancel membership')).toBeTruthy();
+  });
 });

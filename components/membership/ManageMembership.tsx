@@ -80,7 +80,13 @@ export function ManageMembership({ membership, onChanged }: Props) {
 
   const status =
     state === 'cancelled'
-      ? { label: tr(t, 'statusEnds', 'Ends {{date}}', { date: date(accessUntil) }), tone: styles.statusMuted }
+      ? {
+          // Never "Ends " with nothing after it.
+          label: accessUntil
+            ? tr(t, 'statusEnds', 'Ends {{date}}', { date: date(accessUntil) })
+            : tr(t, 'statusCancelled', 'Cancelled'),
+          tone: styles.statusMuted,
+        }
       : state === 'payment_failed'
         ? { label: `● ${tr(t, 'statusPaymentNeeded', 'Payment needed')}`, tone: styles.statusWarn }
         : { label: `● ${tr(t, 'statusActive', 'Active')}`, tone: styles.statusOk };
@@ -115,12 +121,18 @@ export function ManageMembership({ membership, onChanged }: Props) {
       {state === 'payment_failed' && !managedByUs && (
         <View style={styles.banner}>
           <Text style={styles.bannerText}>
-            {tr(
-              t,
-              'failedBanner',
-              "Your last payment didn't go through. Your access continues until {{date}}. Update your payment method to keep it.",
-              { date: date(graceUntil) },
-            )}
+            {graceUntil
+              ? tr(
+                  t,
+                  'failedBanner',
+                  "Your last payment didn't go through. Your access continues until {{date}}. Update your payment method to keep it.",
+                  { date: date(graceUntil) },
+                )
+              : tr(
+                  t,
+                  'failedBannerNoDate',
+                  "Your last payment didn't go through. Update your payment method to keep your access.",
+                )}
           </Text>
         </View>
       )}
@@ -128,7 +140,7 @@ export function ManageMembership({ membership, onChanged }: Props) {
 
       <View style={styles.card}>
         <Text style={[styles.status, status.tone]}>{status.label}</Text>
-        {state === 'cancelled' && (
+        {state === 'cancelled' && accessUntil && (
           <Text style={styles.cardNote}>
             {tr(t, 'cancelledNote', 'Your access continues until then. No further payments will be taken.')}
           </Text>
@@ -144,7 +156,8 @@ export function ManageMembership({ membership, onChanged }: Props) {
 
       {!managedByUs && state === 'active' && (
         <View style={styles.actions}>
-          {actionRow(tr(t, 'changeAmount', 'Change amount'), () => setChangingAmount(true))}
+          {/* The floor depends on the interval; without it the modal would guess "month". */}
+          {interval !== null && actionRow(tr(t, 'changeAmount', 'Change amount'), () => setChangingAmount(true))}
           {actionRow(tr(t, 'updateMethod', 'Update payment method'), updateMethod)}
           {actionRow(tr(t, 'cancelMembership', 'Cancel membership'), () => setConfirmingCancel(true), true)}
         </View>
@@ -184,12 +197,20 @@ export function ManageMembership({ membership, onChanged }: Props) {
       <ConfirmationModal
         visible={confirmingCancel}
         title={tr(t, 'cancelTitle', 'Cancel your membership?')}
-        message={tr(
-          t,
-          'cancelMessage',
-          'You keep full access until {{date}}, the end of the period you already paid for. No further payments will be taken.',
-          { date: date(accessUntil) },
-        )}
+        message={
+          accessUntil
+            ? tr(
+                t,
+                'cancelMessage',
+                'You keep full access until {{date}}, the end of the period you already paid for. No further payments will be taken.',
+                { date: date(accessUntil) },
+              )
+            : tr(
+                t,
+                'cancelMessageNoDate',
+                'You keep full access until the end of the period you already paid for. No further payments will be taken.',
+              )
+        }
         buttons={[
           { text: tr(t, 'keepMembership', 'Keep my membership'), style: 'cancel' },
           {
