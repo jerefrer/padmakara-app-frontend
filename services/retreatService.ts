@@ -875,8 +875,12 @@ class RetreatService {
     if (!reason) return null;
 
     const preview = await apiService.get<EventPreview>(API_ENDPOINTS.EVENT_PREVIEW(retreatId));
-    if (!preview.success || !preview.data) return null;
-    return { reason, preview: preview.data };
+    if (preview.success && preview.data) return { reason, preview: preview.data };
+    // No preview means the retreat is not open to all members (a group retreat): joining
+    // alone would not unlock it, so show the neutral participants notice. The API 404s
+    // unknown and draft events before checking access, so a 403 here is a real retreat.
+    // A signed-out 401 comes before that lookup, so it stays "not found".
+    return reason === 'membership' ? { reason: 'other', preview: null } : null;
   }
 
   // Get detailed information about a specific session

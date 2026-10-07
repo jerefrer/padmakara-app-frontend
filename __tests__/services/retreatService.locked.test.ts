@@ -71,7 +71,10 @@ describe("retreatService.getRetreatDetails — locked events", () => {
     expect(result.locked).toEqual({ reason: "auth", preview: PREVIEW });
   });
 
-  it("should not report a lock when no preview exists, so a draft or unknown event reads as not found", async () => {
+  it("should show the participants notice for a member-only retreat that has no preview (group retreats)", async () => {
+    // The API 404s unknown and draft events before checking access, so a 403
+    // SUBSCRIPTION_REQUIRED always means a published retreat exists. Only retreats open to
+    // all members have a preview; a group retreat must not read as "not found".
     mockApi({
       "/events/7": { success: false, status: 403, code: "SUBSCRIPTION_REQUIRED" },
     });
@@ -79,6 +82,16 @@ describe("retreatService.getRetreatDetails — locked events", () => {
     const result = await retreatService.getRetreatDetails("7");
 
     expect(result.success).toBe(false);
+    expect(result.locked).toEqual({ reason: "other", preview: null });
+  });
+
+  it("should not report a lock for a signed-out visitor when no preview exists, since the event may not exist", async () => {
+    mockApi({
+      "/events/7": { success: false, status: 401, authRequired: true },
+    });
+
+    const result = await retreatService.getRetreatDetails("7");
+
     expect(result.locked).toBeUndefined();
   });
 
