@@ -152,6 +152,11 @@ function PayPage() {
             <Text style={styles.link} onPress={() => router.push('/membership/terms' as any)} accessibilityRole="link">
               {tr(t, 'termsTitle', 'Membership terms')}
             </Text>
+            {/* Under the summary, not the form: Easypay's frame reserves a tall fixed height for
+                its later steps, which pushed this line to the bottom of the screen. */}
+            <Text style={styles.secure}>
+              {`🔒 ${tr(t, 'paySecure', 'Card details go to Easypay, never to Padmakara.')}`}
+            </Text>
           </View>
 
           <View style={[styles.formColumn, wide && styles.column]}>
@@ -169,9 +174,6 @@ function PayPage() {
               onPaymentError={() => setDeclined(true)}
               onFatal={() => setFatal(true)}
             />
-            <Text style={styles.secure}>
-              {`🔒 ${tr(t, 'paySecure', 'Card details go to Easypay, never to Padmakara.')}`}
-            </Text>
           </View>
         </View>
       </View>

@@ -55,11 +55,12 @@ describe('EasypayCheckout (web)', () => {
     expect((startCheckout.mock.calls[0] as any[])[1].fontFamily).toBe('Arial');
   });
 
-  it('should ask the SDK to show its own loading spinner', async () => {
+  it('should not ask the SDK for its own spinner, since ours covers the whole load', async () => {
+    // Both spinners stacked on top of each other in the browser.
     const { startCheckout } = setup();
     render(<EasypayCheckout {...props()} />);
     await flush();
-    expect((startCheckout.mock.calls[0] as any[])[1].showLoading).toBe(true);
+    expect((startCheckout.mock.calls[0] as any[])[1].showLoading).toBeUndefined();
   });
 
   it('should start the checkout once with the exact inline options and the manifest', async () => {
@@ -81,7 +82,6 @@ describe('EasypayCheckout (web)', () => {
       backgroundColor: '#ffffff',
       hideCartButton: true,
       fontFamily: 'Arial',
-      showLoading: true,
       onSuccess: expect.any(Function),
       onClose: expect.any(Function),
       onPaymentError: expect.any(Function),
@@ -332,15 +332,6 @@ describe('EasypayCheckout (web)', () => {
       expect(view.UNSAFE_queryByType(ActivityIndicator)).not.toBeNull();
       act(() => jest.advanceTimersByTime(1));
       expect(view.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
-    });
-
-    it('should colour the SDK spinner burgundy with one style tag', () => {
-      setup();
-      const { styles } = fakeHost();
-      render(<EasypayCheckout {...props()} />);
-      expect(styles).toHaveLength(1);
-      expect(styles[0].textContent).toContain('.epcsdk-loading::before');
-      expect(styles[0].textContent).toContain('#9b1b1b');
     });
   });
 });

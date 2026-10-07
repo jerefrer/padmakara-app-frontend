@@ -16,7 +16,6 @@ interface EasypaySdk {
 
 /** Our loader gives up after this long, so a form that never reports `load` is not hidden forever. */
 const LOADER_TIMEOUT_MS = 15000;
-const LOADING_STYLE_ID = 'easypay-loading-style';
 
 let sdkLoading: Promise<void> | null = null;
 
@@ -44,15 +43,6 @@ function loadSdk(): Promise<void> {
   return sdkLoading;
 }
 
-/** Colours Easypay's own spinner, should it show, like ours. Injected once per page. */
-function injectLoadingStyle() {
-  if (typeof document === 'undefined' || document.getElementById(LOADING_STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = LOADING_STYLE_ID;
-  style.textContent = '.epcsdk-loading::before { border-color: #9b1b1b !important; border-top-color: transparent !important; }';
-  document.head.appendChild(style);
-}
-
 /** Easypay's inline form, tinted with the app's burgundy, square corners, no shadows. */
 export function EasypayCheckout(props: EasypayCheckoutProps) {
   const { manifest, testing, language } = props;
@@ -68,7 +58,6 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
     let cancelled = false;
     let settled = false;
     let instance: EasypayInstance | null = null;
-    injectLoadingStyle();
     // The form is visible once Easypay's iframe has loaded inside our host element.
     const hide = () => {
       if (!cancelled) setLoading(false);
@@ -108,7 +97,6 @@ export function EasypayCheckout(props: EasypayCheckoutProps) {
           buttonBorderRadius: 2,
           buttonBoxShadow: false,
           backgroundColor: '#ffffff',
-          showLoading: true,
           // The amount is already in our summary; the cart badge only adds empty space.
           hideCartButton: true,
           // Easypay's default font draws the step numbers off-centre in their circles.
