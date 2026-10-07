@@ -28,6 +28,7 @@ const base: MembershipView = {
   cancelledAt: null,
   method: { type: 'card', lastFour: '0000', brand: 'Visa' },
   history: [{ date: '2026-10-07T00:00:00.000Z', amount: 10, outcome: 'paid' }],
+  lastPaymentFailedAt: null,
 };
 
 beforeEach(() => {

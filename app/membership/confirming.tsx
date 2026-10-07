@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ProcessingNotice } from '@/components/membership/ProcessingNotice';
 import { OutcomeLayout } from '@/components/membership/OutcomeLayout';
 import { useCheckoutStatus } from '@/components/membership/useCheckoutStatus';
 import { membershipColors as c } from '@/components/membership/theme';
@@ -20,7 +21,7 @@ function WebConfirming() {
   const params = useLocalSearchParams<{ checkout?: string | string[]; mode?: string | string[] }>();
   const checkout = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout;
   const mode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
-  // A card update charges nothing while access runs: no welcome, no receipt.
+  // A card update charges nothing while access runs: no welcome.
   const isUpdate = mode === 'update';
   const { phase } = useCheckoutStatus(checkout || undefined);
 
@@ -72,7 +73,7 @@ function WebConfirming() {
             <Text style={styles.tick}>✓ {tr(t, 'welcomeTickApp', 'Listening on the iPhone app with the same account')}</Text>
             {email && (
               <Text style={styles.tick}>
-                ✓ {tr(t, 'welcomeTickReceipt', 'A receipt has been sent to {{email}}', { email })}
+                ✓ {tr(t, 'welcomeTickConfirmation', 'A confirmation email has been sent to {{email}}', { email })}
               </Text>
             )}
           </View>
@@ -81,18 +82,7 @@ function WebConfirming() {
     }
 
     case 'processing':
-      return (
-        <OutcomeLayout
-          icon="⏳"
-          title={tr(t, 'processingTitle', 'Your bank is processing the payment')}
-          body={tr(
-            t,
-            'processingBody',
-            "Direct Debit can take a few days to clear. We'll email you as soon as your membership is active, and the recordings will unlock by themselves.",
-          )}
-          primary={{ label: tr(t, 'backToPadmakara', 'Back to Padmakara'), onPress: toTabs }}
-        />
-      );
+      return <ProcessingNotice onBack={toTabs} />;
 
     case 'failed':
       return (

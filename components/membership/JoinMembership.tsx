@@ -13,9 +13,11 @@ import { tr } from './tr';
 interface Props {
   initialInterval?: MembershipInterval;
   onJoined?: (url: string) => void;
+  /** Set when a first payment failed and was not retried: shows a reassuring banner. */
+  lastPaymentFailedAt?: string | null;
 }
 
-export function JoinMembership({ initialInterval = 'month', onJoined }: Props) {
+export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymentFailedAt }: Props) {
   const { t, language } = useLanguage();
   const { isAuthenticated } = useAuth();
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
@@ -77,6 +79,18 @@ export function JoinMembership({ initialInterval = 'month', onJoined }: Props) {
         {tr(t, 'title', 'Become a member')}
       </Text>
 
+      {lastPaymentFailedAt && (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>
+            {tr(
+              t,
+              'lastPaymentFailedBanner',
+              "Your last payment didn't go through. Nothing was charged. You can try again with another card or bank account.",
+            )}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.seg} accessibilityRole="radiogroup">
         {(['month', 'year'] as const).map((i) => (
           <Pressable
@@ -135,6 +149,8 @@ export function JoinMembership({ initialInterval = 'month', onJoined }: Props) {
 const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: 480, alignSelf: 'center', padding: 24, gap: 16 },
   title: { fontSize: 28, fontFamily: fonts.display, fontWeight: '600', color: c.burgundy[500] },
+  banner: { backgroundColor: c.amber[50], borderRadius: 10, padding: 14, borderWidth: 1, borderColor: c.amber[700] },
+  bannerText: { fontSize: 15, lineHeight: 22, color: c.amber[700] },
   seg: {
     flexDirection: 'row',
     backgroundColor: c.gray[100],

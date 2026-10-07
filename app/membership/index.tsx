@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Platform } from 'react-native';
+import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService, type MembershipView } from '@/services/membershipService';
 import { ManageMembership } from '@/components/membership/ManageMembership';
+import { ProcessingNotice } from '@/components/membership/ProcessingNotice';
 import { JoinMembership } from '@/components/membership/JoinMembership';
 import { ReaderAccountStatus } from '@/components/membership/ReaderAccountStatus';
 import { membershipColors as c } from '@/components/membership/theme';
@@ -45,8 +47,10 @@ function WebMembership() {
     body = <ActivityIndicator style={styles.center} color={c.burgundy[500]} />;
   } else if (failed) {
     body = <Text style={styles.placeholder}>{tr(t, 'errGeneric', 'Something went wrong. Please try again.')}</Text>;
+  } else if (isAuthenticated && view?.state === 'processing') {
+    body = <ProcessingNotice onBack={() => router.replace('/(tabs)' as any)} />;
   } else if (!isAuthenticated || view?.state === 'none' || view?.state === 'lapsed') {
-    body = <JoinMembership />;
+    body = <JoinMembership lastPaymentFailedAt={view?.state === 'none' ? view.lastPaymentFailedAt : null} />;
   } else {
     body = <ManageMembership membership={view!} onChanged={() => setReload((n) => n + 1)} />;
   }

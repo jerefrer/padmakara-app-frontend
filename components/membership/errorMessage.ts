@@ -10,6 +10,7 @@ const BY_CODE: Record<string, readonly [string, string]> = {
   ],
   NOT_CANCELLED: ['errNotCancelled', 'This membership is not cancelled.'],
   ACCESS_ENDED: ['errAccessEnded', 'Your membership has ended. Please join again.'],
+  MEMBERSHIP_PROCESSING: ['errors.processing', 'Your first payment is still being processed.'],
   EASYPAY_UNAVAILABLE: [
     'errEasypayUnavailable',
     'We could not reach the payment provider. Nothing was changed. Please try again later.',

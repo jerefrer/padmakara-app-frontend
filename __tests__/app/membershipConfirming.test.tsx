@@ -40,7 +40,7 @@ describe('membership confirming screen', () => {
     const { getByText, queryByText } = render(<ConfirmingScreen />);
     expect(getByText('Payment method updated')).toBeTruthy();
     expect(queryByText('Welcome to Padmakara')).toBeNull();
-    expect(queryByText(/A receipt has been sent/)).toBeNull();
+    expect(queryByText(/confirmation email has been sent/)).toBeNull();
     fireEvent.press(getByText('Back to my membership'));
     expect(mockReplace).toHaveBeenCalledWith('/membership');
   });
@@ -50,5 +50,12 @@ describe('membership confirming screen', () => {
     const { getByText, queryByText } = render(<ConfirmingScreen />);
     expect(getByText('Welcome to Padmakara')).toBeTruthy();
     expect(queryByText('Payment method updated')).toBeNull();
+  });
+
+  it('should say a confirmation email, not a receipt, was sent on the welcome screen', () => {
+    mockParams = { checkout: 'chk-1' };
+    const { getByText, queryByText } = render(<ConfirmingScreen />);
+    expect(getByText(/A confirmation email has been sent to ana@example.com/)).toBeTruthy();
+    expect(queryByText(/receipt/i)).toBeNull();
   });
 });

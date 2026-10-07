@@ -2,7 +2,7 @@ import apiService from "./apiService";
 import { API_ENDPOINTS, ApiResponse } from "./apiConfig";
 import type { MembershipInterval } from "../utils/membership";
 
-export type MembershipState = "none" | "active" | "cancelled" | "payment_failed" | "lapsed";
+export type MembershipState = "none" | "active" | "cancelled" | "payment_failed" | "lapsed" | "processing";
 export type MembershipSource = "easypay" | "admin" | "cash" | "bank_transfer" | null;
 export type PaymentMethodType = "card" | "direct_debit";
 
@@ -16,6 +16,7 @@ export interface MembershipView {
   cancelledAt: string | null;
   method: { type: PaymentMethodType; lastFour: string | null; brand: string | null } | null;
   history: { date: string; amount: number | null; outcome: "paid" | "failed" | "refunded" }[];
+  lastPaymentFailedAt: string | null;
 }
 
 export type CheckoutState = "active" | "processing" | "failed" | "pending";

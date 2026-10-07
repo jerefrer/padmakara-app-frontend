@@ -74,6 +74,22 @@ describe('JoinMembership', () => {
     expect(queryByText(/subscription/)).toBeNull();
   });
 
+  it('should show the failed-payment banner only when lastPaymentFailedAt is set', () => {
+    const text =
+      "Your last payment didn't go through. Nothing was charged. You can try again with another card or bank account.";
+    const withBanner = render(<JoinMembership lastPaymentFailedAt="2026-10-06T10:00:00.000Z" />);
+    expect(withBanner.getByText(text)).toBeTruthy();
+    const without = render(<JoinMembership lastPaymentFailedAt={null} />);
+    expect(without.queryByText(text)).toBeNull();
+  });
+
+  it('should show the localized processing message on MEMBERSHIP_PROCESSING', async () => {
+    join.mockResolvedValue({ success: false, error: 'raw', code: 'MEMBERSHIP_PROCESSING' });
+    const { getByText } = render(<JoinMembership />);
+    fireEvent.press(getByText('Continue to payment'));
+    await waitFor(() => expect(getByText('Your first payment is still being processed.')).toBeTruthy());
+  });
+
   it('should route a signed-out visitor to the magic link with returnTo', () => {
     mockAuthed = false;
     const { getByText } = render(<JoinMembership />);

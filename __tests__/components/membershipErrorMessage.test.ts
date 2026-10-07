@@ -7,6 +7,7 @@ describe('membershipErrorMessage', () => {
     ['NOT_EASYPAY_MEMBER', 'This membership is not paid by card or Direct Debit, so it cannot be changed here. Please contact us.'],
     ['NOT_CANCELLED', 'This membership is not cancelled.'],
     ['ACCESS_ENDED', 'Your membership has ended. Please join again.'],
+    ['MEMBERSHIP_PROCESSING', 'Your first payment is still being processed.'],
     ['EASYPAY_UNAVAILABLE', 'We could not reach the payment provider. Nothing was changed. Please try again later.'],
   ])('should map %s to its localized message', (code, expected) => {
     expect(membershipErrorMessage(t, code)).toBe(expected);
