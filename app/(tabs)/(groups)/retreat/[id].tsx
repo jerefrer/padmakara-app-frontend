@@ -31,7 +31,8 @@ import retreatService, { buildEventDocuments } from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { OfflineBadge } from '@/components/OfflineBadge';
-import { EventDocument, EventFile, EventVideo, Session, Track, UserProgress } from '@/types';
+import { EventDocument, EventFile, EventPreview, EventVideo, Session, Track, UserProgress } from '@/types';
+import { LockedRetreat } from '@/components/membership/LockedRetreat';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
@@ -176,6 +177,7 @@ export default function RetreatDetailScreen() {
     retreatService.getRetreatDetailsSync(id) === null
   );
   const [error, setError] = useState<string | null>(null);
+  const [locked, setLocked] = useState<{ reason: 'auth' | 'membership' | 'other'; preview: EventPreview | null } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const scrollY = useSharedValue(0);
 
@@ -629,6 +631,7 @@ export default function RetreatDetailScreen() {
       // cached data in the mirror. This is a background refresh otherwise.
       if (retreat === null) setLoading(true);
       setError(null);
+      setLocked(null);
 
       // Load language preference. The global 'en-pt' content language maps to
       // the 'all' filter; any specific code is kept as-is and validated against
@@ -649,6 +652,8 @@ export default function RetreatDetailScreen() {
       const response = await retreatService.getRetreatDetails(id);
       if (response.success && response.data) {
         setRetreat(response.data);
+      } else if (response.locked) {
+        setLocked(response.locked);
       } else {
         setError(response.error || 'Failed to load retreat details');
       }
@@ -1271,6 +1276,17 @@ export default function RetreatDetailScreen() {
           <ActivityIndicator size="large" color={colors.burgundy[500]} />
           <Text style={styles.loadingText}>{t('common.loading') || 'Loading...'}</Text>
         </View>
+      </View>
+    );
+  }
+
+  if (locked) {
+    return (
+      <View style={styles.container}>
+        <LockedRetreat reason={locked.reason} preview={locked.preview} />
+        <TouchableOpacity onPress={handleBack} style={[styles.backButtonError, { alignSelf: 'center', marginBottom: 24 }]}>
+          <Text style={styles.backButtonText}>{t('common.goBack') || 'Go Back'}</Text>
+        </TouchableOpacity>
       </View>
     );
   }

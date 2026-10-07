@@ -302,3 +302,15 @@ export interface SearchResponse {
   totalResults: number;
   query: string;
 }
+/** Unauthenticated teaser for a published members-only event (GET /events/:id/preview). */
+export interface EventPreview {
+  id: number;
+  titleEn: string;
+  titlePt: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  imageUrl: string | null;
+  teachers: { name: string }[];
+  sessionCount: number;
+  audience: 'free-subscribers';
+}

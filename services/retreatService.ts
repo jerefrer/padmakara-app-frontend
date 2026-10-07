@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { EventDocument, EventFile, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse } from '@/types';
+import { EventDocument, EventFile, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse, EventPreview } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
@@ -798,7 +798,9 @@ class RetreatService {
   async getRetreatDetails(retreatId: string, opts: { force?: boolean } = {}): Promise<{
     success: boolean;
     data?: any;
-    error?: string
+    error?: string;
+    /** Set when the event exists but this viewer may not open it. Never cached. */
+    locked?: { reason: 'auth' | 'membership' | 'other'; preview: EventPreview | null };
   }> {
     const numericId = Number(retreatId);
 
@@ -820,11 +822,17 @@ class RetreatService {
       console.log(`Fetching event details for ID: ${retreatId}`);
 
       // Try authenticated endpoint first, fall back to public for unauthenticated users
-      let response = await apiService.get<any>(API_ENDPOINTS.EVENT_DETAILS(retreatId));
+      const authResponse = await apiService.get<any>(API_ENDPOINTS.EVENT_DETAILS(retreatId));
+      let response = authResponse;
 
       if (!response.success) {
         console.log('Auth event endpoint failed, trying public endpoint...');
         response = await apiService.get<any>(API_ENDPOINTS.PUBLIC_EVENT_DETAILS(retreatId));
+      }
+
+      if (!response.success) {
+        const locked = await this.resolveLock(retreatId, authResponse);
+        if (locked) return { success: false, locked };
       }
 
       if (response.success && response.data) {
@@ -841,6 +849,34 @@ class RetreatService {
       console.error('getRetreatDetails network failure:', error);
       return { success: false, error: 'Retreat details not available. Please check your connection and try again.' };
     }
+  }
+
+  // Decide whether a failed event fetch means "locked" rather than "not found".
+  // Only the signed-out / non-member cases get a preview; every other refusal
+  // is a plain "for participants" notice.
+  private async resolveLock(
+    retreatId: string,
+    authResponse: { code?: string; authRequired?: boolean },
+  ): Promise<{ reason: 'auth' | 'membership' | 'other'; preview: EventPreview | null } | null> {
+    const code = authResponse.code;
+    if (
+      code === 'GROUP_MEMBERSHIP_REQUIRED' ||
+      code === 'EVENT_ATTENDANCE_REQUIRED' ||
+      code === 'ACCESS_DENIED'
+    ) {
+      return { reason: 'other', preview: null };
+    }
+    const reason =
+      code === 'AUTH_REQUIRED' || authResponse.authRequired
+        ? 'auth'
+        : code === 'SUBSCRIPTION_REQUIRED'
+          ? 'membership'
+          : null;
+    if (!reason) return null;
+
+    const preview = await apiService.get<EventPreview>(API_ENDPOINTS.EVENT_PREVIEW(retreatId));
+    if (!preview.success || !preview.data) return null;
+    return { reason, preview: preview.data };
   }
 
   // Get detailed information about a specific session
