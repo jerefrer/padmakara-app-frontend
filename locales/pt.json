@@ -581,5 +581,33 @@
     "tracksHeader": "Faixas",
     "noEventBookmarks": "Ainda sem eventos marcados.",
     "noTrackBookmarks": "Ainda sem faixas marcadas."
+  },
+  "membership": {
+    "title": "Torne-se membro",
+    "monthly": "Mensal",
+    "yearly": "Anual",
+    "other": "Outro",
+    "amountLabel": "Valor",
+    "otherUnitMonth": "por mês · mínimo {{min}}",
+    "otherUnitYear": "por ano · mínimo {{min}}",
+    "why": "A sua contribuição mantém os ensinamentos disponíveis. Financia a gravação e o arquivo, e também a tradução, a transcrição e os próprios retiros.",
+    "summaryMonth": "{{amount}} por mês",
+    "summaryYear": "{{amount}} por ano",
+    "detailMonth": "Renova automaticamente. Pode cancelar a qualquer momento na sua conta.",
+    "detailYear": "Pago uma vez por ano. Pode cancelar a qualquer momento na sua conta.",
+    "continue": "Continuar para o pagamento",
+    "finePrint": "Ao continuar, aceita os",
+    "termsLink": "termos de adesão",
+    "errMin": "Indique pelo menos {{min}}.",
+    "errMax": "Indique no máximo {{max}}.",
+    "errDecimals": "Use no máximo duas casas decimais.",
+    "errNan": "Indique um valor.",
+    "errInvalidContribution": "O valor deve estar entre {{min}} e {{max}}.",
+    "errGeneric": "Algo correu mal. Tente novamente.",
+    "managePlaceholder": "A sua adesão",
+    "accountTitle": "Conta",
+    "fullAccess": "Acesso completo",
+    "publicOnly": "Apenas conteúdo público",
+    "signIn": "Entrar"
   }
 }

@@ -581,5 +581,33 @@
     "tracksHeader": "Tracks",
     "noEventBookmarks": "No bookmarked events yet.",
     "noTrackBookmarks": "No bookmarked tracks yet."
+  },
+  "membership": {
+    "title": "Become a member",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "other": "Other",
+    "amountLabel": "Amount",
+    "otherUnitMonth": "per month · minimum {{min}}",
+    "otherUnitYear": "per year · minimum {{min}}",
+    "why": "Your contribution keeps the teachings available. It funds recording and archiving, and also translation, transcription and the retreats themselves.",
+    "summaryMonth": "{{amount}} every month",
+    "summaryYear": "{{amount}} every year",
+    "detailMonth": "Renews automatically. Cancel anytime from your account.",
+    "detailYear": "Paid once a year. Cancel anytime from your account.",
+    "continue": "Continue to payment",
+    "finePrint": "By continuing you accept the",
+    "termsLink": "membership terms",
+    "errMin": "Please enter at least {{min}}.",
+    "errMax": "Please enter at most {{max}}.",
+    "errDecimals": "Use at most two decimals.",
+    "errNan": "Enter an amount.",
+    "errInvalidContribution": "The amount must be between {{min}} and {{max}}.",
+    "errGeneric": "Something went wrong. Please try again.",
+    "managePlaceholder": "Your membership",
+    "accountTitle": "Account",
+    "fullAccess": "Full access",
+    "publicOnly": "Public content only",
+    "signIn": "Sign in"
   }
 }
