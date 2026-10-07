@@ -5,9 +5,8 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import progressService from '@/services/progressService';
 import videoPreferencesService from '@/services/videoPreferencesService';
 import { StorageSection } from '@/components/StorageSection';
-import { MembershipCard } from '@/components/membership/MembershipCard';
+import { SettingsMembership } from '@/components/membership/SettingsMembership';
 import { tr } from '@/components/membership/tr';
-import { membershipStatusLine } from '@/components/membership/statusLine';
 
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -526,39 +525,32 @@ export default function SettingsScreen() {
             </>
           )}
 
-          {/* Account Status - only for authenticated users. Web: membership card
-              leading to /membership. Native (reader app): access state only, no price or link. */}
-          {isAuthenticated && user && (
+          {/* Membership. Web: one section with one row leading to /membership.
+              Native (reader app): access state only, no price or link. */}
+          {isAuthenticated && user && Platform.OS === 'web' && <SettingsMembership />}
+          {isAuthenticated && user && Platform.OS !== 'web' && (
             <>
               <Text style={styles.sectionTitleOutside}>
-                {Platform.OS === 'web' && !(hasActiveSubscription && user.subscription?.source !== 'easypay')
-                  ? (t('membership.manageTitle') || 'Your membership')
-                  : (t('profile.accountStatus') || 'Account Status')}
+                {t('profile.accountStatus') || 'Account Status'}
               </Text>
-              {Platform.OS === 'web' ? (
-                <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
-                  <MembershipCard variant="status" />
-                </View>
-              ) : (
-                <View style={styles.section}>
-                  <View style={styles.settingItem}>
-                    <View style={styles.settingLeft}>
-                      <Ionicons
-                        name={hasActiveSubscription ? 'checkmark-circle' : 'information-circle-outline'}
-                        size={20}
-                        color={hasActiveSubscription ? '#16a34a' : colors.gray[400]}
-                      />
-                      <View style={styles.textContainer}>
-                        <Text style={styles.settingTitle}>
-                          {hasActiveSubscription
-                            ? tr(t, 'fullAccess', 'Full access')
-                            : tr(t, 'publicOnly', 'Public content only')}
-                        </Text>
-                      </View>
+              <View style={styles.section}>
+                <View style={styles.settingItem}>
+                  <View style={styles.settingLeft}>
+                    <Ionicons
+                      name={hasActiveSubscription ? 'checkmark-circle' : 'information-circle-outline'}
+                      size={20}
+                      color={hasActiveSubscription ? '#16a34a' : colors.gray[400]}
+                    />
+                    <View style={styles.textContainer}>
+                      <Text style={styles.settingTitle}>
+                        {hasActiveSubscription
+                          ? tr(t, 'fullAccess', 'Full access')
+                          : tr(t, 'publicOnly', 'Public content only')}
+                      </Text>
                     </View>
                   </View>
                 </View>
-              )}
+              </View>
             </>
           )}
 
@@ -575,26 +567,6 @@ export default function SettingsScreen() {
                     <Text style={styles.accountUserEmail}>{user?.email || 'user@example.com'}</Text>
                   </View>
                 </View>
-
-                {/* Membership row - web only (reader-app rule: no price or link on native) */}
-                {Platform.OS === 'web' && (
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed }) => [styles.settingItem, pressed && styles.webPressed]}
-                    onPress={() => router.push('/membership' as any)}
-                  >
-                    <View style={styles.settingLeft}>
-                      <Ionicons name="ribbon-outline" size={20} color={colors.burgundy[500]} />
-                      <Text style={styles.settingTitle}>{tr(t, 'settingsRow', 'Membership')}</Text>
-                    </View>
-                    <View style={styles.settingRight}>
-                      <Text style={styles.settingValue}>
-                        {membershipStatusLine(t, language === 'pt' ? 'pt' : 'en', hasActiveSubscription, user?.subscription)}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-                    </View>
-                  </Pressable>
-                )}
 
                 <Pressable
                   style={({ pressed }) => [
