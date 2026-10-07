@@ -203,7 +203,6 @@
     "retreatsLabel": "retiros",
     "accountRequired": "Acesso às Gravações de Retiro",
     "accountRequiredMobile": "É necessária uma conta ativa para aceder às suas gravações de retiro.",
-    "accountRequiredDesktop": "Subscreva para ouvir as gravações do seu grupo de retiro.",
     "setupAccount": "Visite app.padmakara.pt para configurar a sua conta"
   },
   "events": {
@@ -548,9 +547,7 @@
     "version": "Versão",
     "appDescription": "O App Padmakara oferece acesso aos ensinamentos de Jigme Khyentse Rinpoche sobre treinamento da mente e as 37 práticas dos bodhisattvas. Construído com amor para a comunidade budista tibetana.",
     "copyright": "© 2024 Associação Padmakara Portugal",
-    "notifications": "Notificações",
-    "activeSubscription": "Subscrição ativa",
-    "inactiveSubscription": "Subscrição inativa"
+    "notifications": "Notificações"
   },
   "bookmarks": {
     "add": "Marcar este evento",
