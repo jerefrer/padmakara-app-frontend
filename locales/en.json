@@ -608,6 +608,25 @@
     "accountTitle": "Account",
     "fullAccess": "Full access",
     "publicOnly": "Public content only",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "confirmingTitle": "Confirming your payment…",
+    "confirmingBody": "This usually takes a few seconds. You can keep this page open.",
+    "welcomeTitle": "Welcome to Padmakara",
+    "welcomeThanks": "Thank you, {{name}}. Your membership is active.",
+    "welcomeThanksAnon": "Thank you. Your membership is active.",
+    "welcomeTickRecordings": "Recordings and transcripts of your retreats",
+    "welcomeTickApp": "Listening on the iPhone app with the same account",
+    "welcomeTickReceipt": "A receipt has been sent to {{email}}",
+    "goToRetreats": "Go to my retreats",
+    "processingTitle": "Your bank is processing the payment",
+    "processingBody": "Direct Debit can take a few days to clear. We'll email you as soon as your membership is active, and the recordings will unlock by themselves.",
+    "backToPadmakara": "Back to Padmakara",
+    "declinedTitle": "Your payment was declined. Nothing was charged.",
+    "tryAgain": "Try again",
+    "timeoutTitle": "Still confirming. We'll email you as soon as it's done.",
+    "seeMembership": "See my membership",
+    "closedTitle": "No payment was made",
+    "closedBody": "You can come back whenever you like.",
+    "notNow": "Not now"
   }
 }

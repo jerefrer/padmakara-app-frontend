@@ -608,6 +608,25 @@
     "accountTitle": "Conta",
     "fullAccess": "Acesso completo",
     "publicOnly": "Apenas conteúdo público",
-    "signIn": "Entrar"
+    "signIn": "Entrar",
+    "confirmingTitle": "A confirmar o seu pagamento…",
+    "confirmingBody": "Costuma demorar alguns segundos. Pode manter esta página aberta.",
+    "welcomeTitle": "Bem-vindo(a) à Padmakara",
+    "welcomeThanks": "Obrigado, {{name}}. A sua adesão está ativa.",
+    "welcomeThanksAnon": "Obrigado. A sua adesão está ativa.",
+    "welcomeTickRecordings": "Gravações e transcrições dos seus retiros",
+    "welcomeTickApp": "Escutar na aplicação para iPhone com a mesma conta",
+    "welcomeTickReceipt": "Foi enviado um recibo para {{email}}",
+    "goToRetreats": "Ir para os meus retiros",
+    "processingTitle": "O seu banco está a processar o pagamento",
+    "processingBody": "O débito direto pode demorar alguns dias a ser concluído. Enviaremos um email assim que a sua adesão estiver ativa, e as gravações serão desbloqueadas automaticamente.",
+    "backToPadmakara": "Voltar à Padmakara",
+    "declinedTitle": "O seu pagamento foi recusado. Nada foi cobrado.",
+    "tryAgain": "Tentar novamente",
+    "timeoutTitle": "Ainda a confirmar. Enviaremos um email assim que estiver concluído.",
+    "seeMembership": "Ver a minha adesão",
+    "closedTitle": "Nenhum pagamento foi efetuado",
+    "closedBody": "Pode voltar quando quiser.",
+    "notNow": "Agora não"
   }
 }
