@@ -84,6 +84,27 @@ describe('LockedRetreat on native', () => {
   });
 });
 
+describe('LockedRetreat sign-in return route', () => {
+  const expected = {
+    pathname: '/(auth)/magic-link',
+    params: { returnTo: '/(tabs)/(groups)/retreat/7' },
+  };
+
+  it('should send the web sign-in link back to this retreat', () => {
+    (Platform as any).OS = 'web';
+    const { getByText } = render(<LockedRetreat reason="auth" preview={PREVIEW} />);
+    fireEvent.press(getByText('Already a member? Sign in'));
+    expect(mockPush).toHaveBeenCalledWith(expected);
+  });
+
+  it('should send the native Sign in button back to this retreat', () => {
+    (Platform as any).OS = 'ios';
+    const { getByText } = render(<LockedRetreat reason="auth" preview={PREVIEW} />);
+    fireEvent.press(getByText('Sign in'));
+    expect(mockPush).toHaveBeenCalledWith(expected);
+  });
+});
+
 describe('LockedRetreat reason other', () => {
   it.each(['web', 'ios'])('should say it is for participants and show no button on %s', (os) => {
     (Platform as any).OS = os;

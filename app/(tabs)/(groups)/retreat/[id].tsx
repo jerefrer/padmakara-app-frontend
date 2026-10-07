@@ -362,9 +362,12 @@ export default function RetreatDetailScreen() {
     if (mode !== currentLanguageMode) setCurrentLanguageMode(mode);
   }, [allTracks, eventLanguages, showLanguagePicker, currentLanguageMode]);
 
+  // Reload when the viewer signs in or out: a locked retreat must open once
+  // sign-in returns to this still-mounted screen. Runs once on mount, so no
+  // extra fetch on first load.
   useEffect(() => {
     loadRetreatDetails();
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     if (retreat) {
