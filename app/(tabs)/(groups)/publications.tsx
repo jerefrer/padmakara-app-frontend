@@ -620,8 +620,11 @@ export default function PublicationsScreen() {
               color={colors.burgundy[500]}
             />
             <Text style={styles.activationText}>
-              {t('publications.activateBanner') ||
-                'Activate your account to access the full library'}
+              {Platform.OS === 'web'
+                ? t('publications.memberBanner') ||
+                  'Become a member to access the full library'
+                : t('publications.activateBanner') ||
+                  'Activate your account to access the full library'}
             </Text>
             <Ionicons
               name="chevron-forward"
