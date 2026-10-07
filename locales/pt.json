@@ -174,7 +174,6 @@
     "downloads": "Conteúdo Salvo",
     "profile": "Perfil",
     "settings": "Configurações",
-    "subscription": "Subscrição",
     "events": "Eventos",
     "search": "Pesquisar",
     "bookmarks": "Marcadores",
@@ -256,25 +255,6 @@
     "translation": "Tradução",
     "totalSessions": "{{count}} sessões",
     "totalTracks": "{{count}} faixas"
-  },
-  "subscription": {
-    "status": "Subscrição",
-    "active": "Ativa",
-    "expired": "Expirada",
-    "none": "Sem subscrição",
-    "manage": "Gerir Subscrição",
-    "expiresOn": "Expira",
-    "manageOnWeb": "Gerir a sua conta em app.padmakara.pt",
-    "subscribe": "Subscrever",
-    "subscribeCta": "Subscreva para aceder às gravações de retiro",
-    "registerCta": "Os participantes de retiro podem iniciar sessão para aceder às gravações do seu grupo.",
-    "success": "Subscrição Ativada!",
-    "successDescription": "Agora tem acesso a todas as gravações de retiro. Boa prática!",
-    "cancelled": "Subscrição Cancelada",
-    "cancelDescription": "Pode subscrever a qualquer momento para aceder às gravações de retiro.",
-    "goToApp": "Ir para o App",
-    "price": "5\u20ac/mês",
-    "contactUs": "Contacte-nos para gerir a sua subscrição"
   },
   "retreats": {
     "myRetreats": "Meus Retiros",
@@ -667,6 +647,16 @@
     "termsRefundsHeading": "Reembolsos",
     "termsRefundsBody": "[[Refund policy to confirm]]",
     "termsWhoHeading": "Quem somos",
-    "termsWhoBody": "A adesão é oferecida por [[Legal name of the association]], NIF [[NIF]], [[Address]]. Questões: [[Contact email]]."
+    "termsWhoBody": "A adesão é oferecida por [[Legal name of the association]], NIF [[NIF]], [[Address]]. Questões: [[Contact email]].",
+    "lockedWebTitle": "Gravações para membros",
+    "lockedWebBody": "Os membros da comunidade Padmakara podem ouvir todos os retiros de que fazem parte e ler as transcrições.",
+    "lockedCta": "Torne-se membro · desde 5 €/mês",
+    "lockedSignInLink": "Já é membro? Entrar",
+    "lockedNativeTitle": "Disponível para membros",
+    "lockedNativeBody": "Quando a sua conta tiver acesso, estas gravações aparecem aqui automaticamente.",
+    "lockedOther": "Este retiro está disponível para os seus participantes.",
+    "statusNone": "Sem adesão ativa",
+    "manageCta": "Gerir adesão",
+    "homeCardBody": "A sua contribuição mantém os ensinamentos disponíveis para todos."
   }
 }

@@ -83,14 +83,6 @@ export default function TabLayout() {
       />
       {/* Hidden tabs - accessible via navigation but not shown in tab bar */}
       <Tabs.Screen
-        name="subscription"
-        options={{
-          href: null,
-          title: t('navigation.subscription') || 'Subscribe',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="card-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="_events"
         options={{
           href: null,

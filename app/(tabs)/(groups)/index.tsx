@@ -1,4 +1,5 @@
 import { DraftBadge } from "@/components/DraftBadge";
+import { MembershipCard } from "@/components/membership/MembershipCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import retreatService from "@/services/retreatService";
@@ -9,6 +10,7 @@ import { Stack, router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -288,7 +290,7 @@ function RecentEventCard({
 // ── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { isAuthenticated, refreshUserData } = useAuth();
+  const { isAuthenticated, hasActiveSubscription, refreshUserData } = useAuth();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
@@ -418,6 +420,14 @@ export default function HomeScreen() {
             <Text style={styles.appTitle}>PADMAKARA</Text>
           )}
 
+          {/* Web only: invite signed-in non-members to the membership page.
+              Native (reader app) never shows this. */}
+          {Platform.OS === "web" && isAuthenticated && !hasActiveSubscription && (
+            <View style={styles.membershipInvite}>
+              <MembershipCard variant="invite" />
+            </View>
+          )}
+
           {/* Category navigation — mobile only (desktop has sidebar) */}
           {!isDesktop && (
             <>
@@ -534,6 +544,9 @@ const styles = StyleSheet.create({
   },
   scrollContentDesktop: {
     paddingTop: 32,
+  },
+  membershipInvite: {
+    marginBottom: 20,
   },
 
   // App title (mobile)

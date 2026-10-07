@@ -174,7 +174,6 @@
     "downloads": "Saved Content",
     "profile": "Profile",
     "settings": "Settings",
-    "subscription": "Subscription",
     "events": "Events",
     "search": "Search",
     "bookmarks": "Bookmarks",
@@ -256,25 +255,6 @@
     "translation": "Translation",
     "totalSessions": "{{count}} sessions",
     "totalTracks": "{{count}} tracks"
-  },
-  "subscription": {
-    "status": "Subscription",
-    "active": "Active",
-    "expired": "Expired",
-    "none": "No subscription",
-    "manage": "Manage Subscription",
-    "expiresOn": "Expires",
-    "manageOnWeb": "Manage your account at app.padmakara.pt",
-    "subscribe": "Subscribe",
-    "subscribeCta": "Subscribe to access retreat recordings",
-    "registerCta": "Retreat participants can sign in to access their group's recordings.",
-    "success": "Subscription Activated!",
-    "successDescription": "You now have access to all retreat recordings. Enjoy your practice!",
-    "cancelled": "Subscription Cancelled",
-    "cancelDescription": "You can subscribe anytime to access retreat recordings.",
-    "goToApp": "Go to App",
-    "price": "\u20ac5/month",
-    "contactUs": "Contact us to manage your subscription"
   },
   "retreats": {
     "myRetreats": "My Retreats",
@@ -667,6 +647,16 @@
     "termsRefundsHeading": "Refunds",
     "termsRefundsBody": "[[Refund policy to confirm]]",
     "termsWhoHeading": "Who we are",
-    "termsWhoBody": "Membership is offered by [[Legal name of the association]], NIF [[NIF]], [[Address]]. Questions: [[Contact email]]."
+    "termsWhoBody": "Membership is offered by [[Legal name of the association]], NIF [[NIF]], [[Address]]. Questions: [[Contact email]].",
+    "lockedWebTitle": "Recordings for members",
+    "lockedWebBody": "Members of the Padmakara community can listen to every retreat they are part of, and read the transcripts.",
+    "lockedCta": "Become a member · from €5/month",
+    "lockedSignInLink": "Already a member? Sign in",
+    "lockedNativeTitle": "Available to members",
+    "lockedNativeBody": "Once your account has access, these recordings appear here automatically.",
+    "lockedOther": "This retreat is available to its participants.",
+    "statusNone": "No active membership",
+    "manageCta": "Manage membership",
+    "homeCardBody": "Your contribution keeps the teachings available to everyone."
   }
 }

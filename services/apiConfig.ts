@@ -78,10 +78,6 @@ export const API_ENDPOINTS = {
   // Account Management
   DELETE_ACCOUNT: '/auth/user/delete',
 
-  // Payment / Subscription
-  PAYMENT_SUBSCRIBE: '/payment/subscribe',
-  PAYMENT_CANCEL: '/payment/cancel',
-
   // Membership
   MEMBERSHIP: '/payment/membership',
   MEMBERSHIP_JOIN: '/payment/subscribe',

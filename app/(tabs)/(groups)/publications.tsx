@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   SectionList,
   StyleSheet,
@@ -600,14 +601,15 @@ export default function PublicationsScreen() {
           />
         )}
 
-        {/* Activation banner */}
-        {hasHiddenPublications && !hasActiveSubscription && (
+        {/* Members banner: web leads to /membership; native (reader app) only
+            offers sign-in to signed-out users and says nothing to signed-in non-members. */}
+        {hasHiddenPublications && !hasActiveSubscription && (Platform.OS === 'web' || !isAuthenticated) && (
           <TouchableOpacity
             style={styles.activationBanner}
             onPress={() =>
               router.push(
-                (isAuthenticated
-                  ? '/(tabs)/settings'
+                (Platform.OS === 'web'
+                  ? '/membership'
                   : '/(auth)/magic-link') as any,
               )
             }

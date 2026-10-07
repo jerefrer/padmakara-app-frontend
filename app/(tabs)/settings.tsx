@@ -1,11 +1,12 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatLongDate } from '@/utils/dateFormat';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import progressService from '@/services/progressService';
 import videoPreferencesService from '@/services/videoPreferencesService';
 import { StorageSection } from '@/components/StorageSection';
+import { MembershipCard } from '@/components/membership/MembershipCard';
+import { tr } from '@/components/membership/tr';
 
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -48,7 +49,7 @@ interface UserStats {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { language, contentLanguage, setLanguage, setContentLanguage, t } = useLanguage();
-  const { user, isAuthenticated, updateUser, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
+  const { user, isAuthenticated, hasActiveSubscription, updateUser, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
   const { isDesktop } = useDesktopLayout();
   const { clearTrack } = useAudioPlayerContext();
   const [_stats, setStats] = useState<UserStats>({
@@ -524,61 +525,39 @@ export default function SettingsScreen() {
             </>
           )}
 
-          {/* Account Status - only for authenticated users */}
+          {/* Account Status - only for authenticated users. Web: membership card
+              leading to /membership. Native (reader app): access state only, no price or link. */}
           {isAuthenticated && user && (
             <>
               <Text style={styles.sectionTitleOutside}>
                 {Platform.OS === 'web'
-                  ? (t('subscription.status') || 'Subscription')
+                  ? (t('membership.manageTitle') || 'Your membership')
                   : (t('profile.accountStatus') || 'Account Status')}
               </Text>
-              <View style={styles.section}>
-                <View style={styles.settingItem}>
-                  <View style={styles.settingLeft}>
-                    <Ionicons
-                      name={user.subscription?.status === 'active' ? 'checkmark-circle' : 'information-circle-outline'}
-                      size={20}
-                      color={user.subscription?.status === 'active' ? '#16a34a' : colors.gray[400]}
-                    />
-                    <View style={styles.textContainer}>
-                      {Platform.OS === 'web' ? (
-                        <>
-                          <Text style={styles.settingTitle}>
-                            {user.subscription?.status === 'active'
-                              ? (t('subscription.active') || 'Active')
-                              : user.subscription?.status === 'expired'
-                              ? (t('subscription.expired') || 'Expired')
-                              : (t('subscription.none') || 'No subscription')}
-                          </Text>
-                          {user.subscription?.status === 'active' && user.subscription.expiresAt && (
-                            <Text style={styles.settingSubtitle}>
-                              {t('subscription.expiresOn') || 'Expires'}: {formatLongDate(user.subscription.expiresAt, language)}
-                            </Text>
-                          )}
-                          {user.subscription?.status !== 'active' && (
-                            <Text style={styles.settingSubtitle}>
-                              {t('subscription.subscribeCta') || 'Subscribe to access retreat recordings'}
-                            </Text>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.settingTitle}>
-                            {user.subscription?.status === 'active'
-                              ? (t('profile.accessGranted') || 'Signed in')
-                              : (t('profile.limitedAccess') || 'Public content only')}
-                          </Text>
-                          <Text style={styles.settingSubtitle}>
-                            {user.subscription?.status === 'active'
-                              ? (t('profile.accessGrantedDescription') || 'You have access to retreat recordings')
-                              : (t('profile.visitWebsite') || 'Visit app.padmakara.pt to manage your account')}
-                          </Text>
-                        </>
-                      )}
+              {Platform.OS === 'web' ? (
+                <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
+                  <MembershipCard variant="status" />
+                </View>
+              ) : (
+                <View style={styles.section}>
+                  <View style={styles.settingItem}>
+                    <View style={styles.settingLeft}>
+                      <Ionicons
+                        name={hasActiveSubscription ? 'checkmark-circle' : 'information-circle-outline'}
+                        size={20}
+                        color={hasActiveSubscription ? '#16a34a' : colors.gray[400]}
+                      />
+                      <View style={styles.textContainer}>
+                        <Text style={styles.settingTitle}>
+                          {hasActiveSubscription
+                            ? tr(t, 'fullAccess', 'Full access')
+                            : tr(t, 'publicOnly', 'Public content only')}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
-              </View>
+              )}
             </>
           )}
 
