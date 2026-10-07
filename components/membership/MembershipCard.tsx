@@ -34,6 +34,9 @@ export function MembershipCard({ variant }: Props) {
   }
 
   const sub = user?.subscription;
+  // Only a membership paid through Easypay can be managed here; an admin grant, cash or bank
+  // transfer has nothing to change, so those members are pointed to us instead.
+  const managedByUs = hasActiveSubscription && sub?.source !== 'easypay';
   const endsOn = sub?.cancelledAt && sub.expiresAt ? sub.expiresAt : null;
   const statusLine = !hasActiveSubscription
     ? tr(t, 'statusNone', 'No active membership')
@@ -44,11 +47,15 @@ export function MembershipCard({ variant }: Props) {
   return (
     <View style={styles.card}>
       <Text style={[styles.status, hasActiveSubscription ? styles.ok : styles.neutral]}>{statusLine}</Text>
-      <Pressable accessibilityRole="button" style={styles.button} onPress={open}>
-        <Text style={styles.buttonText}>
-          {hasActiveSubscription ? tr(t, 'manageCta', 'Manage membership') : tr(t, 'title', 'Become a member')}
-        </Text>
-      </Pressable>
+      {managedByUs ? (
+        <Text style={styles.body}>{tr(t, 'contactUs', 'Contact us to change your membership')}</Text>
+      ) : (
+        <Pressable accessibilityRole="button" style={styles.button} onPress={open}>
+          <Text style={styles.buttonText}>
+            {hasActiveSubscription ? tr(t, 'manageCta', 'Manage membership') : tr(t, 'title', 'Become a member')}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

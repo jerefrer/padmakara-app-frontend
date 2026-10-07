@@ -530,7 +530,7 @@ export default function SettingsScreen() {
           {isAuthenticated && user && (
             <>
               <Text style={styles.sectionTitleOutside}>
-                {Platform.OS === 'web'
+                {Platform.OS === 'web' && !(hasActiveSubscription && user.subscription?.source !== 'easypay')
                   ? (t('membership.manageTitle') || 'Your membership')
                   : (t('profile.accountStatus') || 'Account Status')}
               </Text>
