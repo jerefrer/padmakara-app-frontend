@@ -63,7 +63,10 @@ export function AmountPicker({ interval, choice, onChoice }: Props) {
 
   const validation = custom ? validateAmount(text, interval) : null;
   const message = (() => {
-    if (!touched || !validation || validation.ok) return null;
+    // An empty field is not a mistake (the person may just have clicked elsewhere): the
+    // grey helper and the disabled button already say what is missing. Red is only for a
+    // typed value that is invalid.
+    if (!touched || !validation || validation.ok || text.trim() === '') return null;
     switch (validation.reason) {
       case 'min':
         return tr(t, 'errMin', 'Please enter at least {{min}}.', { min });
@@ -201,10 +204,11 @@ const styles = StyleSheet.create({
   field: {
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: 12,
+    columnGap: 6,
   },
   input: {
-    width: 110,
+    // Wide enough for "1000.00", narrow enough that the € reads as part of the number.
+    width: 72,
     paddingVertical: 4,
     paddingHorizontal: 2,
     fontSize: 16,

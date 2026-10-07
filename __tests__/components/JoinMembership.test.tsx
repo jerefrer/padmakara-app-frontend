@@ -64,6 +64,18 @@ describe('JoinMembership', () => {
     expect(getByText('Continue to payment').parent!.parent!.props.accessibilityState.disabled).toBe(true);
   });
 
+  it('should not show a red error when the empty amount field loses focus', () => {
+    // Clicking elsewhere without typing is not a mistake: only the grey helper shows,
+    // and the disabled button says the rest. Red is for a typed value that is invalid.
+    const { getByTestId, getByLabelText, queryByText } = render(<JoinMembership />);
+    fireEvent.press(getByTestId('amount-row-other'));
+    fireEvent(getByLabelText('Amount'), 'blur');
+    expect(queryByText('Enter an amount.')).toBeNull();
+    fireEvent.changeText(getByLabelText('Amount'), '   ');
+    fireEvent(getByLabelText('Amount'), 'blur');
+    expect(queryByText('Enter an amount.')).toBeNull();
+  });
+
   it('should not render the old pill chips or the segmented control', () => {
     const { queryByTestId } = render(<JoinMembership />);
     for (const a of [5, 10, 20, 'other']) expect(queryByTestId(`amount-chip-${a}`)).toBeNull();
@@ -217,9 +229,11 @@ describe('JoinMembership', () => {
       await waitFor(() => expect(join).toHaveBeenCalledWith(12, 'month', 'en'));
     });
 
-    it('should show the error when the field is left empty after being touched', () => {
+    it('should show the error for a typed invalid value once the field is left', () => {
+      // An empty field never shows red (see the test above); a typed invalid value does.
       const { getByText, getByLabelText, getByTestId } = render(<JoinMembership />);
       fireEvent.press(getByTestId('amount-row-other'));
+      fireEvent.changeText(getByLabelText('Amount'), 'abc');
       fireEvent(getByLabelText('Amount'), 'blur');
       expect(getByText('Enter an amount.')).toBeTruthy();
     });
