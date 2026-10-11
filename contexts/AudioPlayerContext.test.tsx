@@ -521,7 +521,7 @@ const walkAdvance = async (
 describe('AudioPlayerContext — filter + advance integration (matrix F)', () => {
   it('F1 — `en` mode walks [S1-EN, S2-EN], skipping PT', async () => {
     const all = buildBilingualEvent();
-    const filtered = filterTracksByLanguage(all, 'en');
+    const filtered = filterTracksByLanguage(all, ['en']);
     const { result } = renderPlayer();
     const visited = await walkAdvance(result, filtered, 'S1-EN');
     expect(visited).toEqual(['S1-EN', 'S2-EN']);
@@ -529,23 +529,23 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
 
   it('F2 — `pt` mode walks [S1-PT, S2-PT], skipping EN', async () => {
     const all = buildBilingualEvent();
-    const filtered = filterTracksByLanguage(all, 'pt');
+    const filtered = filterTracksByLanguage(all, ['pt']);
     const { result } = renderPlayer();
     const visited = await walkAdvance(result, filtered, 'S1-PT');
     expect(visited).toEqual(['S1-PT', 'S2-PT']);
   });
 
-  it('F3 — `en-pt` mode starting at S1-EN walks [S1-EN, S1-PT, S2-EN, S2-PT]', async () => {
+  it('F3 — `en + pt` selection starting at S1-EN walks [S1-EN, S1-PT, S2-EN, S2-PT]', async () => {
     const all = buildBilingualEvent();
-    const filtered = filterTracksByLanguage(all, 'en-pt');
+    const filtered = filterTracksByLanguage(all, ['en', 'pt']);
     const { result } = renderPlayer();
     const visited = await walkAdvance(result, filtered, 'S1-EN');
     expect(visited).toEqual(['S1-EN', 'S1-PT', 'S2-EN', 'S2-PT']);
   });
 
-  it('F4 — `en-pt` mode starting at S1-PT walks [S1-PT, S2-EN, S2-PT]', async () => {
+  it('F4 — `en + pt` selection starting at S1-PT walks [S1-PT, S2-EN, S2-PT]', async () => {
     const all = buildBilingualEvent();
-    const filtered = filterTracksByLanguage(all, 'en-pt');
+    const filtered = filterTracksByLanguage(all, ['en', 'pt']);
     const { result } = renderPlayer();
     const visited = await walkAdvance(result, filtered, 'S1-PT');
     expect(visited).toEqual(['S1-PT', 'S2-EN', 'S2-PT']);
@@ -575,7 +575,7 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
         sessionType: 'morning',
         sessionPartNumber: null,
       },
-    ], 'en');
+    ], ['en']);
 
     const { result } = renderPlayer();
     const visited = await walkAdvance(result, single, 'S1-EN');
@@ -599,7 +599,7 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
         sessionId: 's2', sessionName: 'Session 2', sessionDate: '2026-01-02', sessionType: 'morning', sessionPartNumber: null,
       },
     ];
-    const filtered = filterTracksByLanguage(enOnly, 'pt');
+    const filtered = filterTracksByLanguage(enOnly, ['pt']);
     expect(filtered.map((t) => t.id)).toEqual(['S1-EN', 'S2-EN']); // fallback
 
     const { result } = renderPlayer();
@@ -607,9 +607,9 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
     expect(visited).toEqual(['S1-EN', 'S2-EN']);
   });
 
-  it('F7 — `en-pt` mode preserves [EN, PT, EN, PT] ordering inside each session even with shared `order`', async () => {
+  it('F7 — `en + pt` selection preserves [EN, PT, EN, PT] ordering inside each session even with shared `order`', async () => {
     const all = buildBilingualEvent();
-    const filtered = filterTracksByLanguage(all, 'en-pt');
+    const filtered = filterTracksByLanguage(all, ['en', 'pt']);
     expect(filtered.map((t) => t.id)).toEqual(['S1-EN', 'S1-PT', 'S2-EN', 'S2-PT']);
   });
 });

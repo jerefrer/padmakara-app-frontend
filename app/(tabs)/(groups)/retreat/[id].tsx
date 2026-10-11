@@ -49,11 +49,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   filterTracksByLanguage,
   getEventLanguages,
-  ALL_LANGUAGES,
   sortTracksForSession,
-  type ContentLanguageMode,
   type TrackWithSession,
 } from '@/utils/trackFiltering';
+import {
+  defaultForEvent,
+  narrowToEvent,
+  parseEventLanguages,
+  serializeContentLanguages,
+} from '@/utils/contentLanguage';
+import {
+  LanguageCheckboxList,
+  getLanguageSelectionLabel,
+} from '@/components/LanguageCheckboxList';
 
 const colors = {
   cream: {
@@ -113,6 +121,9 @@ interface RetreatDetails {
   startDate: string;
   endDate: string;
   sessions: Session[];
+  /** The language the event was taught in ('tib', 'en', 'pt', ...). Always
+   *  included in the languages shown on a first visit. */
+  originalLanguage?: string;
   /** Video recordings attached to this event, ordered by `position`. */
   videos?: EventVideo[];
   teachers?: Array<{
@@ -163,7 +174,7 @@ export default function RetreatDetailScreen() {
     from?: string;
     trackId?: string;
   }>();
-  const { t, contentLanguage, language } = useLanguage();
+  const { t, showPortuguese, language } = useLanguage();
   const { isDesktop, isMobile } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const audioContext = useAudioPlayerContext();
@@ -215,7 +226,11 @@ export default function RetreatDetailScreen() {
   const [isTrackPlaying, setIsTrackPlaying] = useState(false);
   const [allTracks, setAllTracks] = useState<TrackWithSession[]>([]);
   const [filteredTracks, setFilteredTracks] = useState<TrackWithSession[]>([]);
-  const [currentLanguageMode, setCurrentLanguageMode] = useState<string>(ALL_LANGUAGES);
+  /**
+   * The user's explicit language choice for this event, or `null` when they
+   * have not made one and the global preference should be inherited.
+   */
+  const [eventLanguageChoice, setEventLanguageChoice] = useState<string[] | null>(null);
 
   // Video playback (separate from the audio context — opens a full-screen modal).
   // An event may have several videos; tap a card in the Video tab to open
@@ -330,36 +345,35 @@ export default function RetreatDetailScreen() {
     setAllTracks(tracks);
   }, [retreat]);
 
-  // Apply language filter to tracks
-  const applyLanguageFilter = useCallback(() => {
-    setFilteredTracks(filterTracksByLanguage(allTracks, currentLanguageMode as ContentLanguageMode));
-  }, [allTracks, currentLanguageMode]);
-
   // Languages actually present in this event, derived from the tracks. The
   // picker is built from this list, so a trilingual KPS event offers
   // Tibetan / English / Portuguese while a monolingual event shows no picker.
   const eventLanguages = useMemo(() => getEventLanguages(allTracks), [allTracks]);
   const showLanguagePicker = eventLanguages.length > 1;
-  const languageOptions = useMemo<string[]>(
-    () => (showLanguagePicker ? [ALL_LANGUAGES, ...eventLanguages] : []),
-    [showLanguagePicker, eventLanguages],
+
+  /**
+   * The languages actually shown, derived rather than stored. An explicit
+   * per-event choice is simply narrowed to what the event still has;
+   * otherwise the default is the event's original language plus English plus
+   * (optionally) Portuguese. Deriving this replaces the reconcile effect that
+   * used to write corrections back into state.
+   */
+  const activeLanguages = useMemo(
+    () =>
+      eventLanguageChoice !== null
+        ? narrowToEvent(eventLanguageChoice, eventLanguages)
+        : defaultForEvent(
+            retreat?.originalLanguage || 'en',
+            showPortuguese,
+            eventLanguages,
+          ),
+    [eventLanguageChoice, retreat?.originalLanguage, showPortuguese, eventLanguages],
   );
 
-  // Reconcile the selected mode against the languages this event actually has.
-  // Collapses the legacy 'en-pt' value to 'all', forces 'all' for a single
-  // language, and — crucially — falls back to 'all' when the stored/global
-  // default (e.g. 'en') is absent here, so a Tibetan-only or PT-only event is
-  // never shown as an empty list.
-  useEffect(() => {
-    if (allTracks.length === 0) return;
-    let mode = currentLanguageMode === 'en-pt' ? ALL_LANGUAGES : currentLanguageMode;
-    if (!showLanguagePicker) {
-      mode = ALL_LANGUAGES;
-    } else if (mode !== ALL_LANGUAGES && !eventLanguages.includes(mode)) {
-      mode = ALL_LANGUAGES;
-    }
-    if (mode !== currentLanguageMode) setCurrentLanguageMode(mode);
-  }, [allTracks, eventLanguages, showLanguagePicker, currentLanguageMode]);
+  // Apply language filter to tracks
+  const applyLanguageFilter = useCallback(() => {
+    setFilteredTracks(filterTracksByLanguage(allTracks, activeLanguages));
+  }, [allTracks, activeLanguages]);
 
   useEffect(() => {
     loadRetreatDetails();
@@ -377,7 +391,7 @@ export default function RetreatDetailScreen() {
     if (allTracks.length > 0) {
       applyLanguageFilter();
     }
-  }, [allTracks, currentLanguageMode, applyLanguageFilter]);
+  }, [allTracks, applyLanguageFilter]);
 
   // Auto-load the last-played track for this event (or fall back to the
   // first one) so the player is ready as soon as the user lands on the
@@ -631,21 +645,16 @@ export default function RetreatDetailScreen() {
       if (retreat === null) setLoading(true);
       setError(null);
 
-      // Load language preference. The global 'en-pt' content language maps to
-      // the 'all' filter; any specific code is kept as-is and validated against
-      // the event's actual languages by the reconcile effect once tracks load.
-      const globalDefault = contentLanguage === 'en-pt' ? ALL_LANGUAGES : contentLanguage || ALL_LANGUAGES;
-      let initialLanguageMode = globalDefault;
+      // Load this event's explicit language choice, if any. Leaving it null
+      // means the global preference is inherited; `activeLanguages` narrows
+      // either one to what this event actually offers once tracks load.
       try {
         const retreatLanguageKey = `retreat_language_${id}`;
         const storedLanguage = await AsyncStorage.getItem(retreatLanguageKey);
-        if (storedLanguage) {
-          initialLanguageMode = storedLanguage === 'en-pt' ? ALL_LANGUAGES : storedLanguage;
-        }
-      } catch (storageError) {
-        initialLanguageMode = globalDefault;
+        setEventLanguageChoice(parseEventLanguages(storedLanguage));
+      } catch {
+        setEventLanguageChoice(null);
       }
-      setCurrentLanguageMode(initialLanguageMode);
 
       const response = await retreatService.getRetreatDetails(id);
       if (response.success && response.data) {
@@ -806,32 +815,19 @@ export default function RetreatDetailScreen() {
     setIsRetreatDownloaded(downloaded);
   };
 
-  // Language toggle
-  const updateLanguagePreference = async (newLanguageMode: string) => {
+  /** Persist an explicit language selection for this event. */
+  const updateLanguagePreference = async (next: string[]) => {
     if (!retreat) return;
     try {
       const retreatLanguageKey = `retreat_language_${id}`;
-      await AsyncStorage.setItem(retreatLanguageKey, newLanguageMode);
-      setCurrentLanguageMode(newLanguageMode);
+      await AsyncStorage.setItem(retreatLanguageKey, serializeContentLanguages(next));
+      setEventLanguageChoice(next);
     } catch (error) {
       console.error('Failed to save language preference:', error);
-      setCurrentLanguageMode(newLanguageMode);
+      setEventLanguageChoice(next);
     }
   };
 
-  const LANGUAGE_NAME_FALLBACK: Record<string, string> = {
-    en: 'English',
-    pt: 'Portuguese',
-    tib: 'Tibetan',
-    fr: 'French',
-    es: 'Spanish',
-  };
-  const getLanguageLabel = (languageMode?: string) => {
-    if (!languageMode || languageMode === ALL_LANGUAGES || languageMode === 'en-pt') {
-      return t('content.allLanguages') || 'All languages';
-    }
-    return t(`content.language.${languageMode}`) || LANGUAGE_NAME_FALLBACK[languageMode] || languageMode.toUpperCase();
-  };
 
   // Track selection — tracks are always audio. Videos are session-scoped and
   // opened via the "Watch video" button in the session header below.
@@ -1832,7 +1828,7 @@ export default function RetreatDetailScreen() {
               hitSlop={8}
             >
               <Text style={styles.languageButtonFloatingText}>
-                {getLanguageLabel(currentLanguageMode)}
+                {getLanguageSelectionLabel(activeLanguages, eventLanguages, t)}
               </Text>
               <Ionicons
                 name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'}
@@ -1842,31 +1838,12 @@ export default function RetreatDetailScreen() {
             </TouchableOpacity>
             {showLanguageDropdown && (
               <View style={styles.languageDropdown}>
-                {languageOptions.map((mode) => (
-                  <TouchableOpacity
-                    key={mode}
-                    style={[
-                      styles.languageDropdownItem,
-                      currentLanguageMode === mode && styles.languageDropdownItemActive,
-                    ]}
-                    onPress={() => {
-                      updateLanguagePreference(mode);
-                      setShowLanguageDropdown(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.languageDropdownItemText,
-                        currentLanguageMode === mode && styles.languageDropdownItemTextActive,
-                      ]}
-                    >
-                      {getLanguageLabel(mode)}
-                    </Text>
-                    {currentLanguageMode === mode && (
-                      <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+                <LanguageCheckboxList
+                  options={eventLanguages}
+                  selected={activeLanguages}
+                  onChange={updateLanguagePreference}
+                  t={t}
+                />
               </View>
             )}
           </View>
@@ -1965,7 +1942,11 @@ export default function RetreatDetailScreen() {
                 )}
                 {ownsCurrentTrack && (
                   <AudioPlayer
-                    languageLabel={currentLanguageMode ? getLanguageLabel(currentLanguageMode) : undefined}
+                    languageLabel={
+                      showLanguagePicker
+                        ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
+                        : undefined
+                    }
                     onLanguagePress={() => setShowLanguageDropdown(true)}
                     onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
                     onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
@@ -2092,7 +2073,11 @@ export default function RetreatDetailScreen() {
               return to the regular track list. */}
           <AudioPlayer
             bottom={insets.bottom}
-            languageLabel={showLanguagePicker ? getLanguageLabel(currentLanguageMode) : undefined}
+            languageLabel={
+              showLanguagePicker
+                ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
+                : undefined
+            }
             onLanguagePress={showLanguagePicker ? () => setShowLanguageDropdown(true) : undefined}
             onReadPress={handleCloseReadAlong}
             onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
@@ -2131,31 +2116,12 @@ export default function RetreatDetailScreen() {
                 },
               ]}
             >
-              {languageOptions.map((mode) => (
-                <TouchableOpacity
-                  key={mode}
-                  style={[
-                    styles.languageDropdownItem,
-                    currentLanguageMode === mode && styles.languageDropdownItemActive,
-                  ]}
-                  onPress={() => {
-                    updateLanguagePreference(mode);
-                    setShowLanguageDropdown(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.languageDropdownItemText,
-                      currentLanguageMode === mode && styles.languageDropdownItemTextActive,
-                    ]}
-                  >
-                    {getLanguageLabel(mode)}
-                  </Text>
-                  {currentLanguageMode === mode && (
-                    <Ionicons name="checkmark" size={16} color={colors.burgundy[500]} />
-                  )}
-                </TouchableOpacity>
-              ))}
+              <LanguageCheckboxList
+                options={eventLanguages}
+                selected={activeLanguages}
+                onChange={updateLanguagePreference}
+                t={t}
+              />
             </View>
           </Pressable>
         </Modal>
@@ -2361,26 +2327,6 @@ const styles = StyleSheet.create({
     elevation: 5,
     minWidth: 200,
     overflow: 'hidden',
-  },
-  languageDropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[100],
-  },
-  languageDropdownItemActive: {
-    backgroundColor: colors.burgundy[50],
-  },
-  languageDropdownItemText: {
-    fontSize: 14,
-    color: colors.gray[700],
-  },
-  languageDropdownItemTextActive: {
-    fontWeight: '600',
-    color: colors.burgundy[500],
   },
   content: {
     flex: 1,

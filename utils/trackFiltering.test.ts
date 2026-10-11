@@ -7,6 +7,9 @@ import {
 import type { TrackWithSession } from './trackFiltering';
 import type { Track } from '@/types';
 
+/** Every language used across this file's fixtures. */
+const ALL = ['tib', 'en', 'pt'];
+
 const baseTrack = (overrides: Partial<Track>): Track => ({
   id: overrides.id || 't',
   title: 'Track',
@@ -79,9 +82,9 @@ const tws = (overrides: Partial<TrackWithSession>): TrackWithSession => ({
 describe('filterTracksByLanguage', () => {
   it('A1 — no language metadata anywhere: returns all tracks regardless of mode', () => {
     const tracks = [tws({ id: 'a' }), tws({ id: 'b' })];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['a', 'b']);
-    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['a', 'b']);
-    expect(filterTracksByLanguage(tracks, 'en-pt').map((t) => t.id)).toEqual(['a', 'b']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['a', 'b']);
+    expect(filterTracksByLanguage(tracks, ['pt']).map((t) => t.id)).toEqual(['a', 'b']);
+    expect(filterTracksByLanguage(tracks, ALL).map((t) => t.id)).toEqual(['a', 'b']);
   });
 
   it('A2 — `en` mode + bilingual languages array: tracks with `en` returned', () => {
@@ -89,7 +92,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'bi1', languages: ['en', 'pt'] }),
       tws({ id: 'bi2', languages: ['en', 'pt'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['bi1', 'bi2']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['bi1', 'bi2']);
   });
 
   it('A3 — `en` mode + monolingual tracks: only EN returned', () => {
@@ -97,7 +100,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'en', languages: ['en'] }),
       tws({ id: 'pt', languages: ['pt'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['en']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['en']);
   });
 
   it('A4 — `pt` mode + monolingual tracks: only PT returned', () => {
@@ -105,16 +108,26 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'en', languages: ['en'] }),
       tws({ id: 'pt', languages: ['pt'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['pt']);
+    expect(filterTracksByLanguage(tracks, ['pt']).map((t) => t.id)).toEqual(['pt']);
   });
 
-  it('A5 — `en-pt` mode: no filter, returns all', () => {
+  it('A5 — selecting every language present returns all, and preserves order', () => {
     const tracks = [
       tws({ id: 'en', languages: ['en'] }),
       tws({ id: 'pt', languages: ['pt'] }),
       tws({ id: 'es', languages: ['es'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en-pt').map((t) => t.id)).toEqual(['en', 'pt', 'es']);
+    expect(
+      filterTracksByLanguage(tracks, ['en', 'pt', 'es']).map((t) => t.id),
+    ).toEqual(['en', 'pt', 'es']);
+  });
+
+  it('A5b — a language the selection omits is excluded, even from a wide selection', () => {
+    const tracks = [
+      tws({ id: 'en', languages: ['en'] }),
+      tws({ id: 'es', languages: ['es'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, ALL).map((t) => t.id)).toEqual(['en']);
   });
 
   it('A6 — `pt` mode but no PT tracks: fall back to all', () => {
@@ -122,14 +135,14 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'en1', languages: ['en'] }),
       tws({ id: 'en2', languages: ['en'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['en1', 'en2']);
+    expect(filterTracksByLanguage(tracks, ['pt']).map((t) => t.id)).toEqual(['en1', 'en2']);
   });
 
   it('A7 — `en` mode + no `languages` array, isOriginal true: included via fallback', () => {
     const tracks = [
       tws({ id: 'orig', isOriginal: true, language: 'en' }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['orig']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['orig']);
   });
 
   it('A8 — `en` mode + no `languages` array, isOriginal false: excluded by fallback', () => {
@@ -137,7 +150,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'orig', isOriginal: true, language: 'en' }),
       tws({ id: 'translation', isOriginal: false, language: 'pt' }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['orig']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['orig']);
   });
 
   it('A9 — `pt` mode + no `languages` array, isOriginal false, language pt: included via fallback', () => {
@@ -145,7 +158,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'orig-en', isOriginal: true, language: 'en' }),
       tws({ id: 'pt-translation', isOriginal: false, language: 'pt' }),
     ];
-    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['pt-translation']);
+    expect(filterTracksByLanguage(tracks, ['pt']).map((t) => t.id)).toEqual(['pt-translation']);
   });
 
   it('A10 — `pt` mode + no `languages`, isOriginal false, language es: excluded', () => {
@@ -153,7 +166,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'pt', isOriginal: false, language: 'pt' }),
       tws({ id: 'es', isOriginal: false, language: 'es' }),
     ];
-    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['pt']);
+    expect(filterTracksByLanguage(tracks, ['pt']).map((t) => t.id)).toEqual(['pt']);
   });
 
   it('A11 — `en` mode + Spanish-only languages array: excluded', () => {
@@ -161,22 +174,22 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'en', languages: ['en'] }),
       tws({ id: 'es', languages: ['es'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['en']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['en']);
   });
 
   it('A12 — empty input returns empty', () => {
-    expect(filterTracksByLanguage([], 'en')).toEqual([]);
-    expect(filterTracksByLanguage([], 'pt')).toEqual([]);
-    expect(filterTracksByLanguage([], 'en-pt')).toEqual([]);
+    expect(filterTracksByLanguage([], ['en'])).toEqual([]);
+    expect(filterTracksByLanguage([], ['pt'])).toEqual([]);
+    expect(filterTracksByLanguage([], ALL)).toEqual([]);
   });
 
-  it('A13 — `all` returns every track unchanged', () => {
+  it('A13 — selecting every language returns every track unchanged', () => {
     const tracks = [
       tws({ id: 'tib', languages: ['tib'] }),
       tws({ id: 'en', languages: ['en'] }),
       tws({ id: 'pt', languages: ['pt'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'all').map((t) => t.id)).toEqual([
+    expect(filterTracksByLanguage(tracks, ALL).map((t) => t.id)).toEqual([
       'tib',
       'en',
       'pt',
@@ -188,7 +201,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'tib-en', languages: ['tib', 'en'] }),
       tws({ id: 'pt', languages: ['pt'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'tib').map((t) => t.id)).toEqual([
+    expect(filterTracksByLanguage(tracks, ['tib']).map((t) => t.id)).toEqual([
       'tib-en',
     ]);
   });
@@ -198,10 +211,46 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'tib-en', languages: ['tib', 'en'] }),
       tws({ id: 'pt', languages: ['pt'] }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['tib-en']);
-    expect(filterTracksByLanguage(tracks, 'pt').map((t) => t.id)).toEqual(['pt']);
-    expect(filterTracksByLanguage(tracks, 'tib').map((t) => t.id)).toEqual(['tib-en']);
-    expect(filterTracksByLanguage(tracks, 'all').map((t) => t.id)).toEqual(['tib-en', 'pt']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['tib-en']);
+    expect(filterTracksByLanguage(tracks, ['pt']).map((t) => t.id)).toEqual(['pt']);
+    expect(filterTracksByLanguage(tracks, ['tib']).map((t) => t.id)).toEqual(['tib-en']);
+    expect(filterTracksByLanguage(tracks, ALL).map((t) => t.id)).toEqual(['tib-en', 'pt']);
+  });
+
+  it('A17 — Tibetan + English returns the Tibetan and English tracks, not Portuguese', () => {
+    const tracks = [
+      tws({ id: 'tib', languages: ['tib'] }),
+      tws({ id: 'en', languages: ['en'] }),
+      tws({ id: 'pt', languages: ['pt'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, ['tib', 'en']).map((t) => t.id)).toEqual([
+      'tib',
+      'en',
+    ]);
+  });
+
+  it('A18 — Tibetan + Portuguese returns the Tibetan and Portuguese tracks, not English', () => {
+    const tracks = [
+      tws({ id: 'tib', languages: ['tib'] }),
+      tws({ id: 'en', languages: ['en'] }),
+      tws({ id: 'pt', languages: ['pt'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, ['tib', 'pt']).map((t) => t.id)).toEqual([
+      'tib',
+      'pt',
+    ]);
+  });
+
+  it('A19 — a bilingual TIB+ENG track is returned once, not duplicated', () => {
+    const tracks = [tws({ id: 'tib-en', languages: ['tib', 'en'] })];
+    expect(filterTracksByLanguage(tracks, ['tib', 'en']).map((t) => t.id)).toEqual([
+      'tib-en',
+    ]);
+  });
+
+  it('A20 — an empty selection returns every track rather than an empty list', () => {
+    const tracks = [tws({ id: 'en', languages: ['en'] }), tws({ id: 'pt', languages: ['pt'] })];
+    expect(filterTracksByLanguage(tracks, []).map((t) => t.id)).toEqual(['en', 'pt']);
   });
 
   it('A16 — anti-leak: a TIB-only original does NOT show in the `en` filter', () => {
@@ -209,7 +258,7 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'en', languages: ['en'] }),
       tws({ id: 'tib', languages: ['tib'], isOriginal: true }),
     ];
-    expect(filterTracksByLanguage(tracks, 'en').map((t) => t.id)).toEqual(['en']);
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['en']);
   });
 });
 

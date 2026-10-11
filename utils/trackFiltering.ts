@@ -1,8 +1,5 @@
 import type { Track } from '@/types';
-
-// Tibetan is the source language for many teachings and sorts first, then the
-// translations (English, Portuguese, …). Unknown codes sort last via `?? 99`.
-const LANG_ORDER: Record<string, number> = { tib: 0, en: 1, pt: 2, es: 3, fr: 4 };
+import { LANG_ORDER, sortLanguageCodes } from './contentLanguage';
 
 /**
  * Resolve the language codes a track is tagged with.
@@ -37,16 +34,6 @@ export function sortTracksForSession(tracks: Track[]): Track[] {
   });
 }
 
-/**
- * A content-language filter token: either the sentinel `'all'` (show every
- * track) or a specific language code present in the event (`'en'`, `'pt'`,
- * `'tib'`, …). The legacy `'en-pt'` value is accepted as an alias for `'all'`
- * so previously-persisted preferences keep working.
- */
-export type ContentLanguageMode = string;
-
-export const ALL_LANGUAGES = 'all';
-
 export interface TrackWithSession extends Track {
   sessionId: string;
   sessionName: string;
@@ -66,31 +53,33 @@ export function getEventLanguages(tracks: Track[]): string[] {
   for (const t of tracks) {
     for (const lang of trackLanguages(t)) present.add(lang);
   }
-  return [...present].sort(
-    (a, b) => (LANG_ORDER[a] ?? 99) - (LANG_ORDER[b] ?? 99),
-  );
+  return sortLanguageCodes([...present]);
 }
 
 /**
- * Apply the user's content-language preference to a flat track list.
+ * Apply the user's content-language selection to a flat track list.
  *
- * - `'all'` (or the legacy `'en-pt'` alias) returns every track unchanged.
- * - A specific language code returns the tracks tagged with that language.
- *   A track is matched against its `languages` array (falling back to the
- *   single `originalLanguage`/`language` field) — there is no longer an
- *   `isOriginal`-based fallback, so a Tibetan or Portuguese-only original no
- *   longer leaks into the "English" filter.
- * - As a safety net, if a specific-language filter matches nothing we return
- *   all tracks rather than an empty screen. In practice the picker only ever
- *   offers languages that are actually present, so this rarely triggers.
+ * A track is kept when any of its languages is selected — matched against its
+ * `languages` array, falling back to the single `originalLanguage`/`language`
+ * field. There is no `isOriginal`-based fallback, so a Tibetan or
+ * Portuguese-only original does not leak into an English-only selection.
+ *
+ * Two cases deliberately return everything rather than an empty screen: an
+ * empty selection (which the pickers prevent, but which a corrupted stored
+ * value could still produce) and a selection that matches no track at all. In
+ * practice a picker only offers languages the event actually has, so the
+ * latter is rare.
  */
 export function filterTracksByLanguage(
   tracks: TrackWithSession[],
-  mode: ContentLanguageMode,
+  selected: string[],
 ): TrackWithSession[] {
   if (tracks.length === 0) return [];
-  if (mode === ALL_LANGUAGES || mode === 'en-pt') return tracks;
+  if (selected.length === 0) return tracks;
 
-  const filtered = tracks.filter((t) => trackLanguages(t).includes(mode));
+  const wanted = new Set(selected);
+  const filtered = tracks.filter((t) =>
+    trackLanguages(t).some((code) => wanted.has(code)),
+  );
   return filtered.length === 0 ? tracks : filtered;
 }

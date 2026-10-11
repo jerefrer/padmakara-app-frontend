@@ -1,13 +1,11 @@
 import type { EventVideo } from '@/types';
-import type { ContentLanguage, Language } from '@/utils/i18n';
+import type { Language } from '@/utils/i18n';
 import { formatMonthDay } from '@/utils/dateFormat';
 
 interface VideoTitleOptions {
-  /** The user's content-language preference. 'pt' prefers the Portuguese
-   *  title; 'en' and the bilingual 'en-pt' prefer English. */
-  contentLanguage: ContentLanguage;
-  /** The UI language, used for the date fallback. Distinct from
-   *  contentLanguage: the date is app chrome, not teaching content. */
+  /** The interface language. A video title and its date fallback are app
+   *  chrome, so both follow the UI language rather than the audio-track
+   *  preference, which is about which recordings to list. */
   language: Language;
   t: (key: string, params?: Record<string, unknown>) => string;
   /** Total number of videos on the parent event. When there's more than
@@ -25,8 +23,8 @@ interface VideoTitleOptions {
  *   3. A generic "Video" fallback.
  */
 export function getVideoTitle(video: EventVideo, opts: VideoTitleOptions): string {
-  const { contentLanguage, language, t, totalVideos } = opts;
-  const preferPt = contentLanguage === 'pt';
+  const { language, t, totalVideos } = opts;
+  const preferPt = language === 'pt';
   const localized = preferPt
     ? video.titlePt?.trim() || video.titleEn?.trim()
     : video.titleEn?.trim() || video.titlePt?.trim();

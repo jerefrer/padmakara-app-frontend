@@ -47,7 +47,7 @@ interface UserStats {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { language, contentLanguage, setLanguage, setContentLanguage, t } = useLanguage();
+  const { language, showPortuguese, setLanguage, setShowPortuguese, t } = useLanguage();
   const { user, isAuthenticated, updateUser, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
   const { isDesktop } = useDesktopLayout();
   const { clearTrack } = useAudioPlayerContext();
@@ -203,33 +203,6 @@ export default function SettingsScreen() {
     await setLanguage(newLanguage);
   };
 
-  const toggleContentLanguage = async () => {
-    // Cycle through: en -> en-pt -> pt -> en
-    let newContentLanguage: 'en' | 'en-pt' | 'pt';
-    switch (contentLanguage) {
-      case 'en':
-        newContentLanguage = 'en-pt';
-        break;
-      case 'en-pt':
-        newContentLanguage = 'pt';
-        break;
-      case 'pt':
-        newContentLanguage = 'en';
-        break;
-      default:
-        newContentLanguage = 'en';
-    }
-
-    if (isAuthenticated && user) {
-      const updatedPreferences = {
-        ...(user.preferences || {}),
-        contentLanguage: newContentLanguage as 'en' | 'en-pt',
-      };
-      await updateUser({ preferences: updatedPreferences });
-    }
-    await setContentLanguage(newContentLanguage);
-  };
-
 
 
   const toggleBiometric = async (enabled: boolean) => {
@@ -383,29 +356,31 @@ export default function SettingsScreen() {
               </View>
             </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.settingItem,
-                pressed && Platform.OS === 'web' && styles.webPressed
-              ]}
-              onPress={() => {
-                debugClickHandler('Toggle Content Language');
-                toggleContentLanguage();
-              }}
-            >
+            {/* Content languages are not a free choice: an event's original
+                language and English are always shown, so a Tibetan teaching is
+                never reduced to its translation. All that is left to decide is
+                whether Portuguese comes too. Per-event checkboxes on the event
+                itself override this. Stored locally only — the API accepts a
+                `preferences.contentLanguage` field but never persists it. */}
+            <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="headset-outline" size={20} color={colors.burgundy[500]} />
-                <Text style={styles.settingTitle}>{t('profile.contentLanguage') || 'Tracks Language'}</Text>
+                <View style={styles.textContainer}>
+                  <Text style={styles.settingTitle}>
+                    {t('profile.showPortuguese') || 'Show Portuguese tracks'}
+                  </Text>
+                  <Text style={styles.settingSubtitle}>
+                    {t('profile.showPortugueseSubtitle')
+                      || "Each event's original language and English are always shown."}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.settingRight}>
-                <Text style={styles.settingValue}>
-                  {contentLanguage === 'en' ? (t('profile.englishOnly') || 'English Only') :
-                   contentLanguage === 'en-pt' ? (t('profile.englishPortuguese') || 'English + Portuguese') :
-                   (t('profile.portugueseOnly') || 'Portuguese Only')}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-              </View>
-            </Pressable>
+              <Switch
+                value={showPortuguese}
+                onValueChange={setShowPortuguese}
+                trackColor={{ false: colors.gray[300], true: colors.burgundy[500] }}
+              />
+            </View>
           </View>
 
           {/* Sign In prompt for unauthenticated users */}

@@ -23,14 +23,14 @@ interface VideoGridProps {
 
 export function VideoGrid({ items, onPlay, formatDuration }: VideoGridProps) {
   const { isDesktop } = useDesktopLayout();
-  const { t, contentLanguage, language } = useLanguage();
+  const { t, language } = useLanguage();
   // 3 columns on desktop, 2 on tablet-ish, 1 on phone.
   const columns = isDesktop ? 3 : 1;
 
   return (
     <View style={[styles.grid, { gap: isDesktop ? 16 : 12 }]}>
       {items.map((video) => {
-        const title = getVideoTitle(video, { contentLanguage, language, t, totalVideos: items.length });
+        const title = getVideoTitle(video, { language, t, totalVideos: items.length });
 
         return (
           <View

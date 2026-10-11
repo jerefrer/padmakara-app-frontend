@@ -7,7 +7,13 @@ export interface User {
   retreat_groups?: string[];
   preferences: {
     language: 'en' | 'pt';
-    contentLanguage: 'en' | 'en-pt';
+    /**
+     * Legacy API field. The backend accepts it on update but never persists it
+     * (only `preferences.language` is written) and always returns `'en'`, so it
+     * is not the source of truth for anything. Content languages live locally —
+     * see `utils/contentLanguage.ts`.
+     */
+    contentLanguage?: string;
     biometricEnabled: boolean;
     notifications: boolean;
   };
@@ -103,6 +109,9 @@ export interface Gathering {
   /** Video recordings attached to this event, ordered by `position`.
    *  An event may have zero, one, or several videos. */
   videos?: EventVideo[];
+  /** The language the event was taught in ('tib', 'en', 'pt', ...). Always
+   *  included in the languages shown on a first visit. */
+  originalLanguage?: string;
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;

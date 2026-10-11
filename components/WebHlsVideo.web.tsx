@@ -8,19 +8,14 @@ import type { WebHlsVideoProps, WebPlayerHandle } from './WebHlsVideo.types';
  * hls.js is used on every desktop browser with MSE, so this path is only hit
  * by mobile Safari where the media engine parses the renditions itself.
  */
-function enableNativeTextTrack(
-  video: HTMLVideoElement,
-  contentLanguage: string,
-  uiLanguage: string,
-): void {
+function enableNativeTextTrack(video: HTMLVideoElement, subtitleLanguage: string): void {
   const subs = Array.from(video.textTracks).filter(
     (t) => t.kind === 'subtitles' || t.kind === 'captions',
   );
   if (subs.length === 0) return;
   const preferred = pickPreferredSubtitle(
     subs.map((t, index) => ({ index, language: t.language ?? '' })),
-    contentLanguage,
-    uiLanguage,
+    subtitleLanguage,
   );
   if (!preferred) return;
   subs.forEach((t, i) => {
@@ -93,14 +88,13 @@ export const WebHlsVideo = forwardRef<WebPlayerHandle, WebHlsVideoProps>(
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, applyResumeAndPlay);
         hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
-          const { contentLanguage, uiLanguage } = propsRef.current;
+          const { subtitleLanguage } = propsRef.current;
           const preferred = pickPreferredSubtitle(
             hls.subtitleTracks.map((t, index) => ({
               index,
               language: t.lang ?? t.name ?? '',
             })),
-            contentLanguage,
-            uiLanguage,
+            subtitleLanguage,
           );
           if (preferred) {
             hls.subtitleTrack = preferred.index;
@@ -118,13 +112,13 @@ export const WebHlsVideo = forwardRef<WebPlayerHandle, WebHlsVideoProps>(
         video.src = uri;
         const onMeta = () => {
           applyResumeAndPlay();
-          const { contentLanguage, uiLanguage } = propsRef.current;
-          enableNativeTextTrack(video, contentLanguage, uiLanguage);
+          const { subtitleLanguage } = propsRef.current;
+          enableNativeTextTrack(video, subtitleLanguage);
         };
         const onErr = () => propsRef.current.onError();
         const onAddTrack = () => {
-          const { contentLanguage, uiLanguage } = propsRef.current;
-          enableNativeTextTrack(video, contentLanguage, uiLanguage);
+          const { subtitleLanguage } = propsRef.current;
+          enableNativeTextTrack(video, subtitleLanguage);
         };
         video.addEventListener('loadedmetadata', onMeta);
         video.addEventListener('error', onErr);

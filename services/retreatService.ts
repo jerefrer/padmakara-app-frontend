@@ -144,6 +144,9 @@ export function mapEvent(backend: any): Gathering {
     organizer: backend.organizer ?? null,
     transcripts: backend.transcripts?.map((tr: any) => ({ id: tr.id })) || undefined,
     videos: backend.videos?.map(mapEventVideo) || undefined,
+    // Defaults to 'en' so an event predating the column still resolves to a
+    // sensible default language set rather than undefined.
+    originalLanguage: backend.originalLanguage || backend.original_language || 'en',
     status: mapEventStatus(backend.status || 'published', startDate, endDate),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',
