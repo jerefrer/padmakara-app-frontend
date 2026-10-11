@@ -1342,7 +1342,7 @@ export default function RetreatDetailScreen() {
     const metaParts = [
       dateLabel,
       placeLabel,
-      organizerLabel ? `${t('events.organizerPrefix') || 'Org.'} ${organizerLabel}` : '',
+      organizerLabel,
     ].filter(Boolean);
 
     // Indicators for the floating circles on the hero.

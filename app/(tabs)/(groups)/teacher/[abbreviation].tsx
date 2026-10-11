@@ -264,7 +264,7 @@ export default function TeacherDetailScreen() {
             const metaParts = [
               dateLabel,
               placeLabel,
-              orgLabel ? `${t('events.organizerPrefix') || 'Org.'} ${orgLabel}` : '',
+              orgLabel,
             ].filter(Boolean);
 
             return (
