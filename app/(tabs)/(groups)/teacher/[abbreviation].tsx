@@ -202,8 +202,7 @@ export default function TeacherDetailScreen() {
         {hasHero && (
           <Animated.View style={[styles.heroContainer, heroStyle]}>
             <Image
-              source={{ uri: heroSrc! }}
-              cacheKey={teacherHeroCacheKey(teacher, heroVariant)}
+              source={{ uri: heroSrc!, cacheKey: teacherHeroCacheKey(teacher, heroVariant) }}
               cachePolicy="memory-disk"
               transition={0}
               style={StyleSheet.absoluteFillObject}
