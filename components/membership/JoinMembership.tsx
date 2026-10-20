@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipService } from '@/services/membershipService';
 import { MAX_AMOUNT, MIN_AMOUNT, formatEuro, type MembershipInterval } from '@/utils/membership';
@@ -23,6 +24,7 @@ interface Props {
 export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymentFailedAt }: Props) {
   const { t, language } = useLanguage();
   const { isAuthenticated } = useAuth();
+  const { openSignIn } = useSignIn();
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
 
   const [interval, setInterval] = useState<MembershipInterval>(initialInterval);
@@ -45,7 +47,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
   const onContinue = async () => {
     if (amount === null || busy) return;
     if (!isAuthenticated) {
-      router.push({ pathname: '/(auth)/magic-link', params: { returnTo: '/membership' } } as any);
+      openSignIn({ returnTo: '/membership' });
       return;
     }
     setBusy(true);

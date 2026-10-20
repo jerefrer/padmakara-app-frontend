@@ -47,13 +47,14 @@ const colors = {
 export default function MagicLinkScreen() {
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  // email + approval: sent by the sign-in sheet when the address is unknown and access must be requested.
+  const { returnTo, email: emailParam, approval } = useLocalSearchParams<{ returnTo?: string; email?: string; approval?: string }>();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
   const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '');
   const [isLoading, setIsLoading] = useState(false);
-  const [showApprovalForm, setShowApprovalForm] = useState(false);
+  const [showApprovalForm, setShowApprovalForm] = useState(approval === '1');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState('');

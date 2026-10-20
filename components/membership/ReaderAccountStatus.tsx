@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { pageStyles } from './pageStyles';
 import { membershipColors as c } from './theme';
@@ -12,6 +12,7 @@ import { tr } from './tr';
 export function ReaderAccountStatus() {
   const { t } = useLanguage();
   const { isAuthenticated, hasActiveSubscription, user } = useAuth();
+  const { openSignIn } = useSignIn();
 
   return (
     <ScrollView style={styles.screen}>
@@ -46,7 +47,7 @@ export function ReaderAccountStatus() {
           <Pressable
             accessibilityRole="button"
             style={({ pressed }) => [styles.signIn, pageStyles.button, pressed && pageStyles.buttonPressed]}
-            onPress={() => router.push('/(auth)/magic-link' as any)}
+            onPress={() => openSignIn()}
           >
             <Text style={pageStyles.buttonText}>{tr(t, 'signIn', 'Sign in')}</Text>
           </Pressable>

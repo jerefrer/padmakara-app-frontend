@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { colors } from '@/constants/colors';
@@ -19,6 +20,7 @@ interface RightSidebarProps {
 export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
+  const { openSignIn } = useSignIn();
   const { clearTrack } = useAudioPlayerContext();
   const { t } = useLanguage();
 
@@ -155,7 +157,7 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
         ) : (
           <Pressable
             style={[styles.loginRow, isNarrow && styles.loginRowNarrow]}
-            onPress={() => router.push('/(auth)/magic-link' as any)}
+            onPress={() => openSignIn()}
             accessibilityRole="link"
             accessibilityLabel={t('common.login') || 'Login'}
           >

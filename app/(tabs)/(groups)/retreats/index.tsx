@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from "@/contexts/LanguageContext";
 import retreatService from "@/services/retreatService";
 import { Gathering, RetreatGroup } from "@/types";
@@ -125,6 +126,7 @@ function GroupRow({ group, onPress, language, t }: GroupRowProps) {
 
 export default function RetreatsListScreen() {
   const { isAuthenticated } = useAuth();
+  const { openSignIn } = useSignIn();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
@@ -208,7 +210,7 @@ export default function RetreatsListScreen() {
             </Text>
             <TouchableOpacity
               style={styles.signInButton}
-              onPress={() => router.push("/(auth)/magic-link")}
+              onPress={() => openSignIn()}
             >
               <Text style={styles.signInButtonText}>
                 {t("auth.signIn") || "Sign In"}
