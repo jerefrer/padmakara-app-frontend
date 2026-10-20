@@ -325,6 +325,15 @@ export function transcriptErrorKey(code: TranscriptErrorCode): string {
 
 // ─── Service ────────────────────────────────────────────────────────
 
+/**
+ * A call the server never answered: offline, timed out. A refusal (403, 404,
+ * 401) comes back with a status — that is an answer, and must not be papered
+ * over with a cached copy.
+ */
+function isUnreachable(res: { success: boolean; status?: number; authRequired?: boolean }): boolean {
+  return !res.success && res.status === undefined && !res.authRequired;
+}
+
 class RetreatService {
   private static instance: RetreatService;
   private activeDownloads = new Map<string, FileSystem.DownloadResumable>();
@@ -533,23 +542,34 @@ class RetreatService {
     // 1. Try cache first (skipped when force=true or when any embedded
     //    presigned URL is expired — see retreat-details path for details).
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
-    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
-      const teacherEvents = cachedEvents.filter((ev: any) =>
+    const fromCache = (events: any[]) => {
+      const teacherEvents = events.filter((ev: any) =>
         ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation),
       );
-      const mappedEvents = teacherEvents.map(mapEvent);
       // Derive teacher metadata from the first matching event.
-      let teacher: any | null = null;
-      if (teacherEvents.length > 0) {
-        const et = teacherEvents[0].eventTeachers?.find(
-          (e: any) => e.teacher?.abbreviation === abbreviation,
-        );
-        teacher = et?.teacher ?? null;
-      }
-      return { success: true, teacher, events: mappedEvents };
+      const et = teacherEvents[0]?.eventTeachers?.find(
+        (e: any) => e.teacher?.abbreviation === abbreviation,
+      );
+      return { success: true, teacher: et?.teacher ?? null, events: teacherEvents.map(mapEvent) };
+    };
+    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
+      return fromCache(cachedEvents);
     }
 
-    // 2. Cache miss — fall back to public events network path.
+    // 2. A cached list belongs to a signed-in user, whose events include
+    //    members-only ones the public endpoint never returns: refresh that list
+    //    rather than fall back to the public one. Offline, the expired copy is
+    //    still better than an error.
+    if (cachedEvents !== null) {
+      const refreshed = await this.getUserRetreats({ force: true });
+      if (refreshed.success) {
+        const fresh = await entityCacheService.getList<any>('events');
+        return fromCache(fresh ?? cachedEvents);
+      }
+      if (!refreshed.authRequired) return fromCache(cachedEvents);
+    }
+
+    // 3. Nothing cached, or a guest — the public events are all there is.
     const res = await this.getPublicEvents(opts);
     if (!res.success || !res.data) {
       return { success: false, teacher: null, events: [], error: res.error };
@@ -569,23 +589,27 @@ class RetreatService {
   async getPublicEvents(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: any[]; error?: string }> {
     // 1. Try cache first (skipped when force=true or when stale presigned URLs).
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
+    const fromCache = (events: any[]) => ({
+      success: true,
+      data: events.filter((ev: any) => ev.audience?.slug === 'free-anyone').map(mapEvent),
+    });
     if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
-      const publicRows = cachedEvents.filter(
-        (ev: any) => ev.audience?.slug === 'free-anyone',
-      );
-      return { success: true, data: publicRows.map(mapEvent) };
+      return fromCache(cachedEvents);
     }
 
-    // 2. Cache miss — fall back to the public (unauthenticated) endpoint.
+    // 2. Cache miss — fall back to the public (unauthenticated) endpoint. An
+    //    expired cache is still better than an error when offline.
     try {
       const response = await apiService.get<any[]>(API_ENDPOINTS.PUBLIC_EVENTS);
       if (response.success && response.data) {
         this.lastNetworkPublicEvents = response.data.map(mapEvent);
         return { success: true, data: this.lastNetworkPublicEvents };
       }
+      if (cachedEvents !== null && isUnreachable(response)) return fromCache(cachedEvents);
       return { success: false, error: response.error || 'Failed to load public events' };
     } catch (error) {
       console.error('Error loading public events:', error);
+      if (cachedEvents !== null) return fromCache(cachedEvents);
       return { success: false, error: 'Failed to load public events' };
     }
   }
@@ -617,29 +641,35 @@ class RetreatService {
   async getFeaturedEvent(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: any; error?: string }> {
     // 1. Try cache first (skipped when force=true or when stale presigned URLs).
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
-    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
-      // Find the event with the most recent featuredAt timestamp.
+    const fromCache = (events: any[]) => {
+      // The event with the most recent featuredAt timestamp.
       let featured: any | null = null;
-      for (const ev of cachedEvents) {
+      for (const ev of events) {
         if (!ev.featuredAt) continue;
         if (!featured || ev.featuredAt > featured.featuredAt) {
           featured = ev;
         }
       }
       return { success: true, data: featured ? mapEvent(featured) : null };
+    };
+    if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
+      return fromCache(cachedEvents);
     }
 
-    // 2. Cache miss — fall back to the public endpoint.
+    // 2. Cache miss — fall back to the public endpoint. An expired cache is
+    //    still better than an error when offline.
     try {
       const response = await apiService.get<any>(API_ENDPOINTS.FEATURED_EVENT);
       if (response.success && response.data) {
         this.lastNetworkFeaturedEvent = mapEvent(response.data);
         return { success: true, data: this.lastNetworkFeaturedEvent };
       }
+      if (cachedEvents !== null && isUnreachable(response)) return fromCache(cachedEvents);
       this.lastNetworkFeaturedEvent = null;
       return { success: true, data: null };
     } catch (error) {
       console.error('Error loading featured event:', error);
+      if (cachedEvents !== null) return fromCache(cachedEvents);
       return { success: false, error: 'Failed to load featured event' };
     }
   }
@@ -647,21 +677,19 @@ class RetreatService {
   // Get user's retreat groups and recent activity (cache-first / SWR pattern)
   async getUserRetreats(opts: { force?: boolean } = {}): Promise<{ success: boolean; data?: UserRetreatData; error?: string; authRequired?: boolean }> {
     // 1. Try cache first — return immediately on hit (skipped when force=true).
-    if (!opts.force) {
-      const [cachedGroups, cachedEvents] = await Promise.all([
-        entityCacheService.getList<any>('groups'),
-        entityCacheService.getList<any>('events'),
-      ]);
-
-      if (
-        cachedGroups !== null
-        && cachedEvents !== null
-        && !hasExpiredPresignedUrl(cachedGroups)
-        && !hasExpiredPresignedUrl(cachedEvents)
-      ) {
-        return { success: true, data: this.assembleUserRetreats(cachedGroups, cachedEvents) };
-      }
+    const [cachedGroups, cachedEvents] = opts.force
+      ? [null, null]
+      : await Promise.all([
+          entityCacheService.getList<any>('groups'),
+          entityCacheService.getList<any>('events'),
+        ]);
+    const hasCache = cachedGroups !== null && cachedEvents !== null;
+    if (hasCache && !hasExpiredPresignedUrl(cachedGroups) && !hasExpiredPresignedUrl(cachedEvents)) {
+      return { success: true, data: this.assembleUserRetreats(cachedGroups, cachedEvents) };
     }
+    // An expired cache is still better than an error when offline.
+    const fromStaleCache = () =>
+      ({ success: true, data: this.assembleUserRetreats(cachedGroups!, cachedEvents!) }) as const;
 
     // 2. Cache miss — fetch from network (first launch / post-wipe).
     try {
@@ -676,12 +704,14 @@ class RetreatService {
         if (groupsRes.authRequired) {
           return { success: false, error: groupsRes.error || 'Authentication required.', authRequired: true };
         }
+        if (hasCache && isUnreachable(groupsRes)) return fromStaleCache();
         return { success: false, error: groupsRes.error || 'Failed to load groups' };
       }
       if (!eventsRes.success || !eventsRes.data) {
         if (eventsRes.authRequired) {
           return { success: false, error: eventsRes.error || 'Authentication required.', authRequired: true };
         }
+        if (hasCache && isUnreachable(eventsRes)) return fromStaleCache();
         return { success: false, error: eventsRes.error || 'Failed to load events' };
       }
 
@@ -694,6 +724,7 @@ class RetreatService {
       return { success: true, data: this.assembleUserRetreats(groupsRes.data, eventsRes.data) };
     } catch (error) {
       console.error('getUserRetreats network failure:', error);
+      if (hasCache) return fromStaleCache();
       return { success: false, error: 'No retreat data available. Please check your connection and try again.' };
     }
   }
@@ -713,15 +744,11 @@ class RetreatService {
       opts.force ? Promise.resolve(null) : entityCacheService.getList<any>('events'),
     ]);
 
-    if (
-      cachedGroups !== null
-      && cachedEvents !== null
-      && !hasExpiredPresignedUrl(cachedGroups)
-      && !hasExpiredPresignedUrl(cachedEvents)
-    ) {
-      const backendGroup = cachedGroups.find((g: any) => this.groupMatchesKey(g, groupKey));
+    const hasCache = cachedGroups !== null && cachedEvents !== null;
+    const fromCache = () => {
+      const backendGroup = cachedGroups!.find((g: any) => this.groupMatchesKey(g, groupKey));
       const groupId = backendGroup?.id;
-      const groupEvents = cachedEvents
+      const groupEvents = cachedEvents!
         .filter((ev: any) =>
           ev.eventRetreatGroups?.some(
             (erg: any) => erg.retreatGroupId === groupId || erg.retreatGroup?.id === groupId
@@ -729,6 +756,9 @@ class RetreatService {
         );
       const gatherings = groupEvents.map(mapEvent);
       return { success: true, data: this.assembleGroupDetails(backendGroup, gatherings, groupKey) };
+    };
+    if (hasCache && !hasExpiredPresignedUrl(cachedGroups) && !hasExpiredPresignedUrl(cachedEvents)) {
+      return fromCache();
     }
 
     // 2. Cache miss — fetch from network.
@@ -741,6 +771,8 @@ class RetreatService {
       ]);
 
       if (!eventsRes.success || !eventsRes.data) {
+        // An expired cache is still better than an error when offline.
+        if (hasCache && isUnreachable(eventsRes)) return fromCache();
         return { success: false, error: eventsRes.error || 'Failed to load group events' };
       }
 
@@ -750,6 +782,7 @@ class RetreatService {
       return { success: true, data: this.assembleGroupDetails(backendGroup, gatherings, groupKey) };
     } catch (error) {
       console.error('Get retreat group details error:', error);
+      if (hasCache) return fromCache();
       return { success: false, error: 'Failed to load retreat group details' };
     }
   }
@@ -840,8 +873,11 @@ class RetreatService {
     const numericId = Number(retreatId);
 
     // 1. Try cache first — map raw→frontend shape on read (skipped when force=true).
+    // Kept for step 2: offline, an expired copy beats an error.
+    let staleCached: any | null = null;
     if (!opts.force) {
       const cached = await entityCacheService.getDetail<any>('events', numericId);
+      staleCached = cached;
       // Skip the cache when any embedded presigned URL is expired — the
       // hero/avatar/photo URLs are AWS Sigv4 with a 1-hour lifetime and
       // the entity cache itself has no TTL, so stale entries would ship
@@ -866,6 +902,11 @@ class RetreatService {
       }
 
       if (!response.success) {
+        // Only an outage falls back to the cached copy: a refusal carries a
+        // status, and revoked access must not survive in the cache.
+        if (staleCached !== null && isUnreachable(authResponse) && isUnreachable(response)) {
+          return { success: true, data: this.assembleEventDetail(staleCached) };
+        }
         const locked = await this.resolveLock(retreatId, authResponse);
         if (locked) return { success: false, locked };
       }
