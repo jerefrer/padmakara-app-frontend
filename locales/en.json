@@ -195,6 +195,7 @@
     "close": "Stop and close"
   },
   "navigation": {
+    "back": "Back",
     "home": "Home",
     "retreats": "Retreats",
     "downloads": "Saved Content",

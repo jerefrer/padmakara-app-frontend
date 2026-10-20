@@ -65,6 +65,7 @@ import {
   getLanguageShortLabel,
 } from '@/components/LanguageCheckboxList';
 import { eventBackTarget } from '@/utils/eventBack';
+import { BackButton } from '@/components/ui/BackButton';
 
 const colors = {
   cream: {
@@ -1826,13 +1827,11 @@ export default function RetreatDetailScreen() {
           top of the content area. Controls (language pill + overflow menu)
           float over the hero. Mobile additionally shows a back button. */}
       {!isDesktop && (
-        <TouchableOpacity
+        <BackButton
+          variant="overlay"
           onPress={handleBack}
           style={[styles.floatingTopButton, styles.floatingTopButtonLeft, { top: insets.top + 8 }]}
-          hitSlop={8}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.white} />
-        </TouchableOpacity>
+        />
       )}
 
       <View

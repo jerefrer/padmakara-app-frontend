@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BackButton } from './BackButton';
+import { BackButton } from '@/components/ui/BackButton';
 import { pageStyles } from './pageStyles';
 import { membershipColors as c, fonts } from './theme';
 

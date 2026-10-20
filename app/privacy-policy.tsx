@@ -1,12 +1,10 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Platform, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, Text, View, StyleSheet, Platform } from 'react-native';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function PrivacyPolicyScreen() {
-  const router = useRouter();
   const { t, language } = useLanguage();
 
   const lastUpdated = language === 'pt' ? '2 de março de 2026' : 'March 2, 2026';
@@ -15,9 +13,7 @@ export default function PrivacyPolicyScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.gray[700]} />
-        </Pressable>
+        <BackButton variant="inline" style={styles.headerBack} />
         <Text style={styles.headerTitle}>{t('privacy.title') || 'Privacy Policy'}</Text>
         <View style={styles.backButton} />
       </View>
@@ -156,9 +152,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
+  headerBack: {
+    marginLeft: 0,
+  },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

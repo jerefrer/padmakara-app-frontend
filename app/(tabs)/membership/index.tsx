@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Platform } from 'react-native';
-import { BackButton } from '@/components/membership/BackButton';
+import { BackButton } from '@/components/ui/BackButton';
 import { ReaderAccountStatus } from '@/components/membership/ReaderAccountStatus';
 import { WebMembershipBody } from '@/components/membership/WebMembershipBody';
 import { membershipColors as c } from '@/components/membership/theme';
