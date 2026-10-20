@@ -1,0 +1,10 @@
+# Signing in from the sheet leaves the person on the screen they were on, signed in.
+appId: org.padmakara.pt
+name: Sign in from the sheet
+---
+- runFlow: ../subflows/sign-in.yaml
+- assertNotVisible:
+    id: sign-in-email
+# Still scrolled to where the sign-in prompt was: it is gone, the list is there.
+- assertVisible: "Recently added"
+- assertNotVisible: "Sign In"

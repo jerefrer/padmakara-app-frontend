@@ -1,0 +1,20 @@
+# Shared start for the signed-in flows: a fresh install, signed in from the sheet.
+# Needs the local API and run-signed-in.sh, which opens the magic link the API logs.
+appId: org.padmakara.pt
+---
+- runFlow: launch.yaml
+- scrollUntilVisible:
+    element: "Sign In"
+- tapOn: "Sign In"
+- tapOn:
+    id: sign-in-email
+- inputText: ${EMAIL || "payment-test@padmakara.pt"}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: sign-in-sent
+# The sheet closes by itself once the link is opened, on any device.
+- extendedWaitUntil:
+    notVisible:
+      id: sign-in-sent
+    timeout: 60000
