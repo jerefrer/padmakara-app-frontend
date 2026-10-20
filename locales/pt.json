@@ -334,7 +334,7 @@
     "document": "Documento"
   },
   "player": {
-    "nowPlaying": "Tocando Agora",
+    "nowPlaying": "Em reprodução",
     "playbackSpeed": "Velocidade de Reprodução",
     "bookmark": "Marcador",
     "bookmarks": "Marcadores",

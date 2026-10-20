@@ -4,6 +4,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTrackTitle } from '@/utils/i18n';
@@ -59,7 +60,9 @@ export function MiniPlayer() {
   };
 
   return (
-    <View style={[styles.wrapper, { bottom: tabBarHeight }]}>
+    // While playing, moving bars and a burgundy rule say that sound is still
+    // coming from here: a still note read as a leftover from earlier.
+    <View style={[styles.wrapper, isPlaying && styles.wrapperPlaying, { bottom: tabBarHeight }]}>
       <Pressable
         style={styles.surface}
         onPress={handleOpenSession}
@@ -68,7 +71,13 @@ export function MiniPlayer() {
         testID="miniplayer"
       >
         <View style={styles.iconCircle}>
-          <Ionicons name="musical-notes-outline" size={24} color={BURGUNDY} />
+          {isPlaying ? (
+            <View testID="miniplayer-playing">
+              <AnimatedPlayingBars isPlaying size={20} color={BURGUNDY} />
+            </View>
+          ) : (
+            <Ionicons name="musical-notes-outline" size={24} color={BURGUNDY} />
+          )}
         </View>
 
         <View style={styles.textBlock}>
@@ -129,6 +138,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -1 },
     elevation: 4,
     zIndex: 50,
+  },
+  wrapperPlaying: {
+    borderTopWidth: 2,
+    borderTopColor: BURGUNDY,
   },
   surface: {
     flex: 1,

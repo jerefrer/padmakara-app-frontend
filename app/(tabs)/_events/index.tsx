@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
 import { DraftBadge } from '@/components/DraftBadge';
+import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { Stack, router, useGlobalSearchParams, useSegments } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -107,6 +108,7 @@ function EventCard({ event, onPress, language, testID }: { event: any; onPress: 
           <Text style={styles.eventCardTitle} numberOfLines={2}>{title}</Text>
           {event.status === 'draft' && <DraftBadge />}
         </View>
+        <NowPlayingBadge eventId={event.id} />
         {teacherNames ? (
           <Text style={styles.eventCardTeacher} numberOfLines={1}>{teacherNames}</Text>
         ) : null}
