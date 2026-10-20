@@ -67,6 +67,27 @@
     "transcript": "Transcrição"
   },
   "auth": {
+    "signInPanel": {
+      "title": "Entrar",
+      "intro": "Enviamos-lhe um link por email. Sem palavra-passe para memorizar.",
+      "emailLabel": "Email",
+      "submit": "Enviar-me um link",
+      "invalid": "Introduza um endereço de email válido.",
+      "error": "Algo correu mal. Tente novamente.",
+      "network": "Sem ligação. Tente novamente.",
+      "sentTitle": "Verifique o seu email",
+      "sentBefore": "Enviámos um link para",
+      "sentAfter": "Abra-o em qualquer dispositivo: este ecrã entra sozinho.",
+      "waiting": "À espera que abra o link…",
+      "spam": "Nada ao fim de um minuto? Veja na pasta de spam.",
+      "resent": "Enviado novamente.",
+      "resend": "Reenviar email",
+      "resendIn": "Reenviar dentro de {{seconds}}s",
+      "another": "Usar outro endereço",
+      "signedIn": "Sessão iniciada.",
+      "close": "Fechar",
+      "stayHere": "Continua nesta página."
+    },
     "welcomeBack": "Bem-vindo de Volta",
     "signInToContinue": "Por favor, faça login para continuar",
     "signIn": "Entrar",

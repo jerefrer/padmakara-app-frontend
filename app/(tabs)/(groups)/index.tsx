@@ -2,6 +2,7 @@ import { DraftBadge } from "@/components/DraftBadge";
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from "@/contexts/LanguageContext";
 import retreatService from "@/services/retreatService";
 import { Gathering } from "@/types";
@@ -292,6 +293,7 @@ function RecentEventCard({
 
 export default function HomeScreen() {
   const { isAuthenticated, hasActiveSubscription, refreshUserData } = useAuth();
+  const { openSignIn } = useSignIn();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
@@ -369,10 +371,7 @@ export default function HomeScreen() {
   );
 
   const handleSignInPress = () => {
-    router.push({
-      pathname: "/(auth)/magic-link",
-      params: { returnTo: "/(tabs)/(groups)" },
-    });
+    openSignIn({ returnTo: "/(tabs)/(groups)" });
   };
 
   const handleTeachingsPress = () => {

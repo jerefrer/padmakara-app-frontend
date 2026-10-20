@@ -67,6 +67,27 @@
     "transcript": "Transcript"
   },
   "auth": {
+    "signInPanel": {
+      "title": "Sign in",
+      "intro": "We'll email you a link. No password to remember.",
+      "emailLabel": "Email",
+      "submit": "Email me a link",
+      "invalid": "Please enter a valid email address.",
+      "error": "Something went wrong. Please try again.",
+      "network": "No connection. Please try again.",
+      "sentTitle": "Check your email",
+      "sentBefore": "We sent a link to",
+      "sentAfter": "Open it on any device: this screen signs in by itself.",
+      "waiting": "Waiting for you to open the link…",
+      "spam": "Nothing after a minute? Look in the spam folder.",
+      "resent": "Sent again.",
+      "resend": "Resend email",
+      "resendIn": "Resend in {{seconds}}s",
+      "another": "Use another address",
+      "signedIn": "You are signed in.",
+      "close": "Close",
+      "stayHere": "You stay on this page."
+    },
     "welcomeBack": "Welcome Back",
     "signInToContinue": "Please sign in to continue",
     "signIn": "Sign In",

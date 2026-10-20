@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SignInProvider } from '@/components/auth/SignInProvider';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
 import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
@@ -124,6 +125,7 @@ export default function RootLayout() {
       <AuthProvider>
         <LanguageProvider>
           <AudioPlayerProvider>
+            <SignInProvider>
             <Stack>
             <Stack.Screen name="index" options={{ headerShown: false, title: "Padmakara" }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -134,6 +136,7 @@ export default function RootLayout() {
             <Stack.Screen name="+not-found" />
           </Stack>
             <StatusBar style="dark" backgroundColor="#e8e6e3" />
+            </SignInProvider>
           </AudioPlayerProvider>
         </LanguageProvider>
       </AuthProvider>

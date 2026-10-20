@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatDateRange } from '@/utils/dateFormat';
 import type { EventPreview } from '@/types';
@@ -23,6 +24,7 @@ interface Props {
 export function LockedRetreat({ reason, preview }: Props) {
   const { t, language } = useLanguage();
   const { isAuthenticated } = useAuth();
+  const { openSignIn } = useSignIn();
   const isWeb = Platform.OS === 'web';
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
 
@@ -32,10 +34,7 @@ export function LockedRetreat({ reason, preview }: Props) {
   const meta = [teachers, dates].filter(Boolean);
 
   const signIn = () =>
-    router.push({
-      pathname: '/(auth)/magic-link',
-      params: { returnTo: preview ? `/(tabs)/(groups)/retreat/${preview.id}` : '/(tabs)/(groups)' },
-    } as any);
+    openSignIn({ returnTo: preview ? `/(tabs)/(groups)/retreat/${preview.id}` : '/(tabs)/(groups)' });
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

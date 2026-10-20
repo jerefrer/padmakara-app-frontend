@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { SignInForm } from '@/components/auth/SignInForm';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
@@ -23,19 +25,27 @@ function initials(name: string | undefined, email: string | undefined): string {
 function Identity({ compact = false }: { compact?: boolean }) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+  const { openSignIn } = useSignIn();
+  const prompt = t('groups.signInPrompt') || 'Access recordings and transcripts from your retreat group’s gatherings.';
   if (!isAuthenticated || !user) {
+    // The desktop index column is too narrow for the form: it opens the sign-in dialog instead.
+    if (compact) {
+      return (
+        <View testID="settings-sign-in" style={[styles.identity, styles.signInCard]}>
+          <Text style={styles.signInText}>{prompt}</Text>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [pageStyles.button, pressed && pageStyles.buttonPressed]}
+            onPress={() => openSignIn()}
+          >
+            <Text style={pageStyles.buttonText}>{t('groups.signIn') || 'Sign In'}</Text>
+          </Pressable>
+        </View>
+      );
+    }
     return (
-      <View testID="settings-sign-in" style={[styles.identity, styles.signInCard]}>
-        <Text style={styles.signInText}>
-          {t('groups.signInPrompt') || 'Access recordings and transcripts from your retreat group’s gatherings.'}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          style={({ pressed }) => [pageStyles.button, pressed && pageStyles.buttonPressed]}
-          onPress={() => router.push({ pathname: '/(auth)/magic-link', params: { returnTo: '/(tabs)/settings' } } as any)}
-        >
-          <Text style={pageStyles.buttonText}>{t('groups.signIn') || 'Sign In'}</Text>
-        </Pressable>
+      <View testID="settings-sign-in" style={styles.signInInline}>
+        <SignInForm variant="card" intro={prompt} />
       </View>
     );
   }
@@ -162,6 +172,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: c.gray[200],
   },
+  // Full width, so the email field and button span the card.
+  signInInline: { padding: 20, backgroundColor: c.cream[200], borderWidth: 1, borderColor: c.gray[200] },
   signInText: { fontSize: 16, lineHeight: 22, color: c.gray[700] },
   avatar: {
     width: 48,

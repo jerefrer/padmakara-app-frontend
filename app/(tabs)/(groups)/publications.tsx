@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { publicationService } from '@/services/publicationService';
 import { PDFViewer } from '@/components/PDFViewer';
 import { colors } from '@/constants/colors';
@@ -28,6 +29,7 @@ type SortMode = 'title' | 'author' | 'latest';
 export default function PublicationsScreen() {
   const { t } = useLanguage();
   const { isAuthenticated, hasActiveSubscription } = useAuth();
+  const { openSignIn } = useSignIn();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
 
@@ -608,13 +610,7 @@ export default function PublicationsScreen() {
         {hasHiddenPublications && !hasActiveSubscription && (Platform.OS === 'web' || !isAuthenticated) && (
           <TouchableOpacity
             style={styles.activationBanner}
-            onPress={() =>
-              router.push(
-                (Platform.OS === 'web'
-                  ? '/membership'
-                  : '/(auth)/magic-link') as any,
-              )
-            }
+            onPress={() => (Platform.OS === 'web' ? router.push('/membership' as any) : openSignIn())}
           >
             <Ionicons
               name="lock-closed-outline"

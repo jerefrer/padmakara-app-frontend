@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { router, usePathname, useSegments, useGlobalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
 
@@ -15,6 +16,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const segments = useSegments();
   const { isAuthenticated } = useAuth();
+  const { openSignIn } = useSignIn();
   const { t } = useLanguage();
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function Sidebar() {
 
   const handleRetreatsPress = useCallback(() => {
     if (!isAuthenticated) {
-      router.push({ pathname: '/(auth)/magic-link', params: { returnTo: '/(tabs)/(groups)' } } as any);
+      openSignIn({ returnTo: '/(tabs)/(groups)' });
       return;
     }
     if (isActive('home')) {
