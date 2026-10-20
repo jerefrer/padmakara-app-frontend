@@ -7,6 +7,13 @@
       "tib": "Tibetano",
       "fr": "Francês",
       "es": "Espanhol"
+    },
+    "languageShort": {
+      "en": "ING",
+      "pt": "POR",
+      "tib": "TIB",
+      "fr": "FRA",
+      "es": "ESP"
     }
   },
   "common": {

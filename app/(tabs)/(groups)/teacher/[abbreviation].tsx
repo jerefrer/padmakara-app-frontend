@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DraftBadge } from '@/components/DraftBadge';
+import { eventLanguages } from '@/utils/eventLanguages';
 import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
@@ -20,13 +21,6 @@ import { useHero } from '@/utils/heroVariant';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
-
-const LANGUAGE_LABELS: Record<string, string> = {
-  en: 'En',
-  pt: 'Pt',
-  tib: 'Tib',
-  bo: 'Tib',
-};
 
 /** Compute total track duration (seconds) across an event's sessions. */
 function eventDurationSeconds(event: Gathering): number {
@@ -44,24 +38,6 @@ function formatMinutes(totalSeconds: number): string {
   if (!totalSeconds || totalSeconds <= 0) return '';
   const minutes = Math.round(totalSeconds / 60);
   return `${minutes}min`;
-}
-
-/** Collect distinct languages across the event's tracks, in display order. */
-function eventLanguages(event: Gathering): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const s of event.sessions || []) {
-    for (const t of s.tracks || []) {
-      const langs = t.languages?.length ? t.languages : t.originalLanguage ? [t.originalLanguage] : [];
-      for (const raw of langs) {
-        const key = raw?.toLowerCase();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        out.push(LANGUAGE_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1));
-      }
-    }
-  }
-  return out;
 }
 
 /** Has at least one attached video recording? */
@@ -237,7 +213,7 @@ export default function TeacherDetailScreen() {
               : event.name;
             const sessionCount = event.sessions?.length || 0;
             const durationLabel = formatMinutes(eventDurationSeconds(event));
-            const langs = eventLanguages(event).join(' + ');
+            const langs = eventLanguages(event, t).join(' + ');
             const dateLabel = formatIsoDate(event.startDate);
             const placeLabel = event.places?.map((p) => p.name).filter(Boolean).join(', ') || '';
             // The event's own organizer is the real one. Retreat groups name
