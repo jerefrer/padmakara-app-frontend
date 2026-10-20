@@ -5,9 +5,13 @@ import { Platform } from 'react-native';
 // Import translations
 import en from '../locales/en.json';
 import pt from '../locales/pt.json';
+import {
+  defaultShowPortuguese,
+  parseShowPortuguese,
+  showPortugueseFromLegacy,
+} from './contentLanguage';
 
 export type Language = 'en' | 'pt';
-export type ContentLanguage = 'en' | 'en-pt' | 'pt';
 
 const translations = {
   en,
@@ -16,7 +20,13 @@ const translations = {
 
 class I18n {
   private currentLanguage: Language = 'en';
-  private currentContentLanguage: ContentLanguage = 'en';
+  /**
+   * Whether to include Portuguese tracks, or `null` when the user has never
+   * chosen. Kept nullable so an unset preference stays *derived* from the
+   * interface language: switching the app to Portuguese turns Portuguese
+   * tracks on for anyone who has not overridden it.
+   */
+  private storedShowPortuguese: boolean | null = null;
   
   constructor() {
     // Only initialize on native platforms, defer on web to avoid window error
@@ -29,11 +39,13 @@ class I18n {
     try {
       // Get stored language preference - add safety check for web
       let storedLanguage: string | null = null;
-      let storedContentLanguage: string | null = null;
-      
+      let storedShowPortuguese: string | null = null;
+      let legacyContentLanguage: string | null = null;
+
       try {
         storedLanguage = await AsyncStorage.getItem('app_language');
-        storedContentLanguage = await AsyncStorage.getItem('content_language');
+        storedShowPortuguese = await AsyncStorage.getItem('show_portuguese');
+        legacyContentLanguage = await AsyncStorage.getItem('content_language');
       } catch (asyncStorageError) {
         console.warn('AsyncStorage not available, using defaults:', asyncStorageError);
       }
@@ -52,9 +64,12 @@ class I18n {
         }
       }
 
-      if (storedContentLanguage && (storedContentLanguage === 'en' || storedContentLanguage === 'en-pt')) {
-        this.currentContentLanguage = storedContentLanguage as ContentLanguage;
-      }
+      // The old `content_language` key held 'en' | 'en-pt' | 'pt'. It is read
+      // only as a fallback, so an existing preference carries over to the new
+      // toggle instead of being silently reset.
+      this.storedShowPortuguese =
+        parseShowPortuguese(storedShowPortuguese) ??
+        showPortugueseFromLegacy(legacyContentLanguage);
     } catch (error) {
       console.error('Error initializing language:', error);
     }
@@ -69,12 +84,12 @@ class I18n {
     }
   }
 
-  async setContentLanguage(contentLanguage: ContentLanguage) {
-    this.currentContentLanguage = contentLanguage;
+  async setShowPortuguese(showPortuguese: boolean) {
+    this.storedShowPortuguese = showPortuguese;
     try {
-      await AsyncStorage.setItem('content_language', contentLanguage);
+      await AsyncStorage.setItem('show_portuguese', String(showPortuguese));
     } catch (error) {
-      console.error('Error saving content language:', error);
+      console.error('Error saving Portuguese preference:', error);
     }
   }
 
@@ -82,8 +97,8 @@ class I18n {
     return this.currentLanguage;
   }
 
-  getContentLanguage(): ContentLanguage {
-    return this.currentContentLanguage;
+  getShowPortuguese(): boolean {
+    return this.storedShowPortuguese ?? defaultShowPortuguese(this.currentLanguage);
   }
 
   /**

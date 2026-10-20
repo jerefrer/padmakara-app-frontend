@@ -9,25 +9,20 @@ export interface SubtitleLike {
 /**
  * Choose which subtitle track to enable by default.
  *
- * Prefers the user's content language, then their UI language (the tiebreak
- * for bilingual "en-pt" readers), then the first track offered. Language codes
- * are matched loosely with `startsWith` so regional variants like `en-US`
- * still hit `en`. Returns `null` only when there are no tracks at all.
+ * Takes a single language rather than a set: only one track can be enabled at
+ * a time, and subtitles are app chrome, so callers pass the interface
+ * language. Falls back to the other supported language, then to the first
+ * track offered.
+ * Language codes are matched loosely with `startsWith` so regional variants
+ * like `en-US` still hit `en`. Returns `null` only when there are no tracks.
  */
 export function pickPreferredSubtitle<T extends SubtitleLike>(
   tracks: T[],
-  contentLanguage: string,
-  uiLanguage: string,
+  preferredLanguage: string,
 ): T | null {
   if (tracks.length === 0) return null;
-  const order =
-    contentLanguage === 'pt'
-      ? ['pt', 'en']
-      : contentLanguage === 'en'
-        ? ['en', 'pt']
-        : uiLanguage === 'pt'
-          ? ['pt', 'en']
-          : ['en', 'pt']; // "en-pt" bilingual → follow the UI language
+
+  const order = [...new Set([preferredLanguage, 'en', 'pt'])];
   for (const code of order) {
     const match = tracks.find((track) => track.language?.toLowerCase().startsWith(code));
     if (match) return match;

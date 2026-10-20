@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import i18n, { Language, ContentLanguage } from '@/utils/i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n, { Language } from '@/utils/i18n';
+import { defaultShowPortuguese } from '@/utils/contentLanguage';
 
 interface LanguageContextType {
   language: Language;
-  contentLanguage: ContentLanguage;
+  /**
+   * Whether to include Portuguese audio tracks by default. The only global
+   * content-language preference — an event's original language and English
+   * are always shown, so there is nothing else to choose here.
+   */
+  showPortuguese: boolean;
   setLanguage: (language: Language) => Promise<void>;
-  setContentLanguage: (contentLanguage: ContentLanguage) => Promise<void>;
+  setShowPortuguese: (showPortuguese: boolean) => Promise<void>;
   t: (key: string, params?: Record<string, unknown>) => string;
 }
 
@@ -18,7 +23,7 @@ interface LanguageProviderProps {
 
 export function LanguageProvider({ children }: LanguageProviderProps) {
   const [language, setCurrentLanguage] = useState<Language>(i18n.getLanguage());
-  const [contentLanguage, setCurrentContentLanguage] = useState<ContentLanguage>(i18n.getContentLanguage());
+  const [showPortuguese, setCurrentShowPortuguese] = useState<boolean>(i18n.getShowPortuguese());
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -31,10 +36,9 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const currentLang = i18n.getLanguage();
-      const currentContentLang = i18n.getContentLanguage();
-      
+
       setCurrentLanguage(currentLang);
-      setCurrentContentLanguage(currentContentLang);
+      setCurrentShowPortuguese(i18n.getShowPortuguese());
       setIsInitialized(true);
     } catch (error) {
       console.error('Error initializing language state:', error);
@@ -46,23 +50,21 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     try {
       await i18n.setLanguage(newLanguage);
       setCurrentLanguage(newLanguage);
-      
-      // Also save to AsyncStorage for user preferences
-      await AsyncStorage.setItem('user_language_preference', newLanguage);
+      // An unset preference is derived from the interface language, so it has
+      // to be re-read here: switching the app to Portuguese turns Portuguese
+      // tracks on for anyone who never chose.
+      setCurrentShowPortuguese(i18n.getShowPortuguese());
     } catch (error) {
       console.error('Error changing language:', error);
     }
   };
 
-  const handleContentLanguageChange = async (newContentLanguage: ContentLanguage) => {
+  const handleShowPortugueseChange = async (next: boolean) => {
     try {
-      await i18n.setContentLanguage(newContentLanguage);
-      setCurrentContentLanguage(newContentLanguage);
-      
-      // Also save to AsyncStorage for user preferences
-      await AsyncStorage.setItem('user_content_language_preference', newContentLanguage);
+      await i18n.setShowPortuguese(next);
+      setCurrentShowPortuguese(next);
     } catch (error) {
-      console.error('Error changing content language:', error);
+      console.error('Error changing Portuguese preference:', error);
     }
   };
 
@@ -72,9 +74,9 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
 
   const value: LanguageContextType = {
     language,
-    contentLanguage,
+    showPortuguese,
     setLanguage: handleLanguageChange,
-    setContentLanguage: handleContentLanguageChange,
+    setShowPortuguese: handleShowPortugueseChange,
     t: translate,
   };
 
@@ -91,9 +93,9 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
 
 const fallback: LanguageContextType = {
   language: 'en' as Language,
-  contentLanguage: 'both' as ContentLanguage,
+  showPortuguese: defaultShowPortuguese('en'),
   setLanguage: async () => {},
-  setContentLanguage: async () => {},
+  setShowPortuguese: async () => {},
   t: (key: string) => key,
 };
 

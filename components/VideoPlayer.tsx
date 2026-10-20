@@ -122,7 +122,11 @@ export function VideoPlayer({
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
-  const { t, contentLanguage, language } = useLanguage();
+  const { t, language } = useLanguage();
+  // Subtitles follow the interface language: only one track can be enabled,
+  // and subtitles are app chrome rather than teaching audio, so they are not
+  // tied to the Portuguese audio-track preference.
+  const subtitleLanguage = language;
   // hlsUrl points at our backend's HLS proxy on every platform — see the
   // playback-URL-load effect below. The legacy name is kept so all existing
   // event/render code keeps working without churn.
@@ -154,9 +158,9 @@ export function VideoPlayer({
   // own title for context, since the player opens as a full-screen modal.
   const headerTitle = useMemo(() => {
     if (!video) return '';
-    const title = getVideoTitle(video, { contentLanguage, language, t, totalVideos });
+    const title = getVideoTitle(video, { language, t, totalVideos });
     return eventTitle ? `${eventTitle} · ${title}` : title;
-  }, [video, eventTitle, totalVideos, contentLanguage, t]);
+  }, [video, eventTitle, totalVideos, language, t]);
 
   // Build the player. We pass `null` until we have a URL — expo-video accepts
   // a null source and waits for replace(). Increase forward buffer so brief
@@ -383,7 +387,7 @@ export function VideoPlayer({
     if (Platform.OS === 'web') return;
     if (didAutoSelectSubtitleRef.current) return;
     if (!availableSubtitleTracks || availableSubtitleTracks.length === 0) return;
-    const preferred = pickPreferredSubtitle(availableSubtitleTracks, contentLanguage, language);
+    const preferred = pickPreferredSubtitle(availableSubtitleTracks, subtitleLanguage);
     if (!preferred) return;
     try {
       player.subtitleTrack = preferred;
@@ -739,8 +743,7 @@ export function VideoPlayer({
                 ref={webPlayerRef}
                 uri={hlsUrl}
                 resumePosition={resumePosition}
-                contentLanguage={contentLanguage}
-                uiLanguage={language}
+                subtitleLanguage={subtitleLanguage}
                 onTimeUpdate={(currentTime) =>
                   recordProgress(
                     currentTime,
