@@ -54,9 +54,6 @@
     "part": "Part {{n}}",
     "untitled": "Video"
   },
-  "session": {
-    "part": "Part {{n}}"
-  },
   "eventTabs": {
     "videos": "Videos",
     "tracks": "Audio",
