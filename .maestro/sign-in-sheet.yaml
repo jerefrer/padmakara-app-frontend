@@ -1,0 +1,19 @@
+# Signing in opens a sheet over the screen instead of replacing it, and closing it
+# returns to the same screen.
+appId: org.padmakara.pt
+name: Sign-in sheet over the home screen
+---
+- runFlow: subflows/launch.yaml
+- scrollUntilVisible:
+    element: "Sign In"
+- tapOn: "Sign In"
+- assertVisible:
+    id: sign-in-email
+- assertVisible:
+    id: sign-in-close
+- takeScreenshot: sign-in-sheet
+- tapOn:
+    id: sign-in-close
+- assertNotVisible:
+    id: sign-in-email
+- assertVisible: "Sign In"

@@ -1,0 +1,23 @@
+# Signed-out settings on the native app: sign-in inline, device sections listed, and
+# nothing about membership or payment (Apple reader-app rules).
+appId: org.padmakara.pt
+name: Signed-out settings on native
+---
+- runFlow: subflows/launch.yaml
+# The tab label reads "Account, tab, 4 of 4" to accessibility.
+- tapOn: "Account.*"
+- assertVisible:
+    id: settings-sign-in
+- assertVisible:
+    id: settings-row-language
+- scrollUntilVisible:
+    element:
+      id: settings-row-about
+- assertVisible: "This device"
+- assertNotVisible: "Only here.*"
+- assertNotVisible:
+    id: settings-row-membership
+- assertNotVisible: "Become a member"
+- assertNotVisible: ".*[Ss]ubscri.*"
+- assertNotVisible: ".*€.*"
+- takeScreenshot: settings-signed-out

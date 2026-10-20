@@ -32,10 +32,7 @@ export function useSettingsIndex(): IndexGroup[] {
     account: isAuthenticated
       ? { label: t('settings.groupAccount') || 'Your account', hint: t('settings.groupAccountHint') || 'The same on all your devices.' }
       : { label: t('settings.groupPreferences') || 'Preferences' },
-    device: {
-      label: isWeb ? t('settings.thisBrowser') || 'This browser' : t('settings.thisDevice') || 'This device',
-      hint: t('settings.groupDeviceHint') || 'Only here. Your other devices keep their own.',
-    },
+    device: { label: isWeb ? t('settings.thisBrowser') || 'This browser' : t('settings.thisDevice') || 'This device' },
     help: { label: t('settings.groupHelp') || 'Help' },
   };
 
