@@ -4,7 +4,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { LevelTrail } from '@/components/LevelTrail';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTrackTitle } from '@/utils/i18n';
@@ -73,7 +73,7 @@ export function MiniPlayer() {
         <View style={styles.iconCircle}>
           {isPlaying ? (
             <View testID="miniplayer-playing">
-              <AnimatedPlayingBars isPlaying size={20} color={BURGUNDY} />
+              <LevelTrail isPlaying size={20} color={BURGUNDY} />
             </View>
           ) : (
             <Ionicons name="musical-notes-outline" size={24} color={BURGUNDY} />
