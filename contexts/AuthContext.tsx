@@ -15,12 +15,9 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isDeviceActivated: boolean;
-  loginWithBiometric: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   forgetDevice: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
-  enableBiometric: () => Promise<{ success: boolean; error?: string }>;
-  disableBiometric: () => Promise<{ success: boolean; error?: string }>;
   refreshAuth: () => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
@@ -331,27 +328,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
 
-  const handleBiometricLogin = async () => {
-    try {
-      setIsLoading(true);
-      const result = await authService.loginWithBiometric();
-      
-      if (result.success && result.user) {
-        setIsAuthenticated(true);
-        setUser(result.user);
-        return { success: true };
-      }
-      
-      return { success: false, error: result.error || 'Biometric authentication failed' };
-    } catch (error) {
-      console.error('Biometric login error:', error);
-      return { success: false, error: 'Biometric authentication failed' };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-
   const handleLogout = async () => {
     try {
       setIsLoading(true);
@@ -409,46 +385,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const handleEnableBiometric = async () => {
-    try {
-      const result = await authService.enableBiometric();
-      
-      if (result.success) {
-        // Refresh user data to get updated preferences
-        const authState = await authService.getAuthState();
-        if (authState.user) {
-          setUser(authState.user);
-        }
-        return { success: true };
-      }
-      
-      return { success: false, error: result.error || 'Failed to enable biometric authentication' };
-    } catch (error) {
-      console.error('Enable biometric error:', error);
-      return { success: false, error: 'Failed to enable biometric authentication' };
-    }
-  };
-
-  const handleDisableBiometric = async () => {
-    try {
-      const result = await authService.disableBiometric();
-      
-      if (result.success) {
-        // Refresh user data to get updated preferences
-        const authState = await authService.getAuthState();
-        if (authState.user) {
-          setUser(authState.user);
-        }
-        return { success: true };
-      }
-      
-      return { success: false, error: result.error || 'Failed to disable biometric authentication' };
-    } catch (error) {
-      console.error('Disable biometric error:', error);
-      return { success: false, error: 'Failed to disable biometric authentication' };
-    }
-  };
-
   // Derive subscription status from user data
   const hasActiveSubscription = (() => {
     if (!user?.subscription) return false;
@@ -467,12 +403,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     isLoading,
     isDeviceActivated,
-    loginWithBiometric: handleBiometricLogin,
     logout: handleLogout,
     forgetDevice: handleForgetDevice,
     updateUser: handleUpdateUser,
-    enableBiometric: handleEnableBiometric,
-    disableBiometric: handleDisableBiometric,
     refreshAuth: handleRefreshAuth,
     refreshUserData: handleRefreshUserData,
   };

@@ -189,6 +189,13 @@ const config: PadmakaraConfig = {
       },
     ],
     "expo-secure-store",
+    [
+      "expo-local-authentication",
+      {
+        faceIDPermission:
+          "Padmakara uses Face ID to unlock the app when you choose to lock it.",
+      },
+    ],
   ],
   extra: {
     sentryDsn: variant.sentryDsn ?? "",

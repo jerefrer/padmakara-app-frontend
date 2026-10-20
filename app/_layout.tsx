@@ -20,6 +20,7 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SignInProvider } from '@/components/auth/SignInProvider';
+import { AppLockProvider } from '@/contexts/AppLockContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
 import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
@@ -126,6 +127,7 @@ export default function RootLayout() {
       <AuthProvider>
         <LanguageProvider>
           <AudioPlayerProvider>
+            <AppLockProvider>
             <SignInProvider>
             <Stack>
             <Stack.Screen name="index" options={{ headerShown: false, title: "Padmakara" }} />
@@ -138,6 +140,7 @@ export default function RootLayout() {
           </Stack>
             <StatusBar style="dark" backgroundColor="#e8e6e3" />
             </SignInProvider>
+            </AppLockProvider>
           </AudioPlayerProvider>
         </LanguageProvider>
       </AuthProvider>
