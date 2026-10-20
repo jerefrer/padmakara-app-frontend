@@ -127,6 +127,16 @@ export function VideoPlayer({
   // and subtitles are app chrome rather than teaching audio, so they are not
   // tied to the Portuguese audio-track preference.
   const subtitleLanguage = language;
+  // The loading effects below must re-run when the *video* changes, and only
+  // then. `t` is a fresh function on every LanguageProvider render and the
+  // event screen passes an inline `onClose`, so depending on either restarted
+  // the load on every parent render — and the event screen re-renders on each
+  // tick of anything else that is playing. Each restart cleared the URL
+  // ("Loading video…") and replaced the source (black), forever.
+  const tRef = useRef(t);
+  tRef.current = t;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   // hlsUrl points at our backend's HLS proxy on every platform — see the
   // playback-URL-load effect below. The legacy name is kept so all existing
   // event/render code keeps working without churn.
@@ -197,6 +207,7 @@ export function VideoPlayer({
     setDownloadStatus({ state: 'idle' });
 
     if (!video) return;
+    const t = tRef.current;
 
     (async () => {
       // 0. Prefer a local downloaded copy if we have one — no network gate, no
@@ -260,7 +271,7 @@ export function VideoPlayer({
           if (cancelled) return;
           if (!accepted) {
             setCellularGate('blocked');
-            onClose();
+            onCloseRef.current();
             return;
           }
           if (cellularAcceptedRef) cellularAcceptedRef.current = true;
@@ -332,7 +343,7 @@ export function VideoPlayer({
     return () => {
       cancelled = true;
     };
-  }, [video, t, cellularAcceptedRef, onClose]);
+  }, [video, cellularAcceptedRef]);
 
   // Replace the player source when the URL is ready, then seek to resume.
   // Web drives playback through WebHlsVideo instead of the expo-video player.
@@ -348,9 +359,9 @@ export function VideoPlayer({
       player.play();
     } catch (e) {
       console.warn('Video player replace failed', e);
-      setErrorMsg(t('video.loadError') ?? 'Failed to load video');
+      setErrorMsg(tRef.current('video.loadError') ?? 'Failed to load video');
     }
-  }, [hlsUrl, player, resumePosition, t, isWeb]);
+  }, [hlsUrl, player, resumePosition, isWeb]);
 
   // Shared progress recorder for both playback paths (native timeUpdate event
   // and the web element's timeupdate). Throttled to once per 5s; fires
