@@ -13,6 +13,7 @@ const SECTIONS = [
   ['termsCancellationHeading', 'Cancellation', 'termsCancellationBody'],
   ['termsRefundsHeading', 'Refunds', 'termsRefundsBody'],
   ['termsWhoHeading', 'Who we are', 'termsWhoBody'],
+  ['termsDisputesHeading', 'Disputes', 'termsDisputesBody'],
 ] as const;
 
 const FALLBACK_BODY: Record<string, string> = {
@@ -22,9 +23,12 @@ const FALLBACK_BODY: Record<string, string> = {
     'Your membership renews automatically every month or every year, depending on what you chose, until you cancel. Payments are taken by card or Direct Debit through our payment provider.',
   termsCancellationBody:
     'You can cancel at any time from your membership page. You keep full access until the end of the period you already paid for, and no further payments are taken. You can resume before that date.',
-  termsRefundsBody: '[[Refund policy to confirm]]',
+  termsRefundsBody:
+    'If you are charged the wrong amount or charged twice, write to info@padmakara.pt within 14 days of the payment and we will refund the amount taken in error, by the same payment method. [[To confirm: right of withdrawal within 14 days of joining]]',
   termsWhoBody:
-    'Membership is offered by [[Legal name of the association]], NIF [[NIF]], [[Address]]. Questions: [[Contact email]].',
+    'Membership is offered by Associação Padmakara, a non-profit association, NIPC 518137449, Covão da Águia CCI 460, 8550-261 Monchique, Portugal. Questions: info@padmakara.pt, or +351 910 560 121 / +351 966 467 979 (weekdays, 10:00–18:00).',
+  termsDisputesBody:
+    'In case of a dispute, you may turn to CIMAAL — Centro de Informação, Mediação e Arbitragem de Conflitos de Consumo do Algarve, Edifício Ninho de Empresas, Estrada da Penha, 8005-131 Faro, www.consumidoronline.pt (Lei n.º 144/2015). More information on the Portal do Consumidor, www.consumidor.gov.pt.',
 };
 
 export default function MembershipTerms() {
