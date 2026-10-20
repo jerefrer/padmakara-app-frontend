@@ -9,7 +9,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
-import { groupHeroCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
+import { groupHeroCacheKey, publicationCoverCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
 import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
 import { formatSessionHeader } from '@/utils/sessionHeader';
@@ -1727,7 +1727,7 @@ export default function RetreatDetailScreen() {
                 onPress={() => router.push('/(tabs)/(groups)/publications' as any)}
               >
                 {pub.coverImageUrl ? (
-                  <Image source={{ uri: pub.coverImageUrl }} style={styles.relatedPubCover} />
+                  <ExpoImage source={{ uri: pub.coverImageUrl, cacheKey: publicationCoverCacheKey(pub) }} cachePolicy="memory-disk" style={styles.relatedPubCover} />
                 ) : (
                   <View style={[styles.relatedPubCover, styles.relatedPubCoverPlaceholder]}>
                     <Ionicons name="book-outline" size={16} color={colors.gray[400]} />

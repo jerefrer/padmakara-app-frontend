@@ -63,3 +63,12 @@ export function groupHeroCacheKey(
 ): string {
   return `group-hero${variantSuffix(variant)}-${groupIdent(group)}-${group.heroUpdatedAt ?? 'v0'}`;
 }
+
+/**
+ * Publication covers are presigned URLs re-signed on every API call; keyed on
+ * the publication instead, a cover downloaded once keeps showing offline and
+ * after the URL expires, and `updatedAt` refetches it when the admin edits.
+ */
+export function publicationCoverCacheKey(publication: { id: number | string; updatedAt?: string | null }): string {
+  return `publication-cover-${publication.id}-${publication.updatedAt ?? 'v0'}`;
+}

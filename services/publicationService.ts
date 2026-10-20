@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, API_ENDPOINTS, buildApiUrl, getAuthHeaders } from './apiConfig';
 import entityCacheService from './entityCacheService';
 import type { Publication } from '../types';
+import { hasExpiredPresignedUrl } from '../utils/presignedUrlExpiry';
 
 const CACHE_METADATA_KEY = '@publication_cache:metadata';
 const POSITION_KEY_PREFIX = '@publication_position:';
@@ -43,6 +44,9 @@ class PublicationService {
   getPublicationsSync(): { publications: Publication[]; hasHiddenPublications: boolean } | null {
     const cached = entityCacheService.getListSync<Publication>('publications');
     if (cached === undefined || cached === null) return null;
+    // Covers are 1-hour presigned URLs: a stale list would render every cover
+    // as a grey box (S3 answers 403), so it counts as a miss.
+    if (hasExpiredPresignedUrl(cached)) return null;
     return { publications: cached, hasHiddenPublications: false };
   }
 
@@ -71,7 +75,7 @@ class PublicationService {
     //    on the screen side anyway). Skipped when force=true.
     if (!sort && !language && !opts.force) {
       const cached = await entityCacheService.getList<Publication>('publications');
-      if (cached !== null) {
+      if (cached !== null && !hasExpiredPresignedUrl(cached)) {
         return { publications: cached, hasHiddenPublications: false };
       }
     }
