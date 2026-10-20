@@ -1425,8 +1425,7 @@ export default function RetreatDetailScreen() {
           <Animated.View style={[styles.heroContainer, heroStyle]}>
             <View style={styles.heroImageWrapper}>
               <ExpoImage
-                source={{ uri: heroSource }}
-                cacheKey={heroCacheKey}
+                source={{ uri: heroSource, cacheKey: heroCacheKey }}
                 cachePolicy="memory-disk"
                 transition={0}
                 style={[

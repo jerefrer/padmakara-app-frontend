@@ -45,8 +45,7 @@ function TeacherRow({ teacher, onPress, t }: { teacher: TeacherGroup; onPress: (
       <View style={styles.teacherAvatarLarge}>
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
-            source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }}
-            cacheKey={teacherAvatarCacheKey(teacher)}
+            source={{ uri: (teacher.avatarUrl || teacher.photoUrl)!, cacheKey: teacherAvatarCacheKey(teacher) }}
             cachePolicy="memory-disk"
             transition={0}
             style={styles.teacherAvatarLargeImg}

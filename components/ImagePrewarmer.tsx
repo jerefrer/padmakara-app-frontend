@@ -21,8 +21,7 @@ export function ImagePrewarmer({ targets }: { targets: PrefetchTarget[] }) {
       {targets.map((t) => (
         <Image
           key={t.cacheKey}
-          source={{ uri: t.uri }}
-          cacheKey={t.cacheKey}
+          source={{ uri: t.uri, cacheKey: t.cacheKey }}
           cachePolicy="memory-disk"
           style={styles.pixel}
           contentFit="cover"

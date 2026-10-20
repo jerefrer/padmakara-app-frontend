@@ -53,6 +53,19 @@ export function teacherHeroCacheKey(
   return `teacher-hero${variantSuffix(variant)}-${teacherIdent(teacher)}-${teacher.heroUpdatedAt ?? 'v0'}`;
 }
 
+/**
+ * The key for the teacher image shown in the home feed, which displays
+ * `heroUrl || avatarUrl || photoUrl`. The key has to follow that choice: a
+ * hero keyed as the avatar would share one disk-cache entry with the real
+ * avatar, and whichever was stored first would show in both places.
+ */
+export function teacherFeedImageCacheKey(
+  teacher: (TeacherLike & { heroUrl?: string | null }) | null | undefined,
+): string | undefined {
+  if (!teacher) return undefined;
+  return teacher.heroUrl ? teacherHeroCacheKey(teacher, 'desktop') : teacherAvatarCacheKey(teacher);
+}
+
 export function groupAvatarCacheKey(group: GroupLike): string {
   return `group-avatar-${groupIdent(group)}-${group.avatarUpdatedAt ?? 'v0'}`;
 }

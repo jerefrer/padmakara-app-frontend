@@ -240,8 +240,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
                 >
                   {(teacher.avatarUrl || teacher.photoUrl) ? (
                     <Image
-                      source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }}
-                      cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined}
+                      source={{ uri: (teacher.avatarUrl || teacher.photoUrl)!, cacheKey: teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined }}
                       style={styles.desktopAvatarImg}
                       contentFit="cover"
                     />
@@ -497,8 +496,7 @@ export default function GroupDetailScreen() {
               ]}
             >
               <Image
-                source={{ uri: groupHeroSrc! }}
-                cacheKey={groupHeroCacheKey(groupData as any, groupHeroVariant)}
+                source={{ uri: groupHeroSrc!, cacheKey: groupHeroCacheKey(groupData as any, groupHeroVariant) }}
                 style={[
                   StyleSheet.absoluteFillObject,
                   (groupData.heroScale ?? 100) !== 100 && {
