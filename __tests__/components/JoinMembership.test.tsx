@@ -55,7 +55,7 @@ describe('JoinMembership', () => {
 
   it('should show the section label for the contribution', () => {
     const { getByText } = render(<JoinMembership />);
-    expect(getByText('Your contribution')).toBeTruthy();
+    expect(getByText('Your donation')).toBeTruthy();
   });
 
   it('should disable the button while Another amount is chosen and invalid', () => {

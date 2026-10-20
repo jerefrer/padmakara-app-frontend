@@ -68,7 +68,7 @@ function Body({ interval, currentAmount, nextPaymentDate, onClose, onSaved }: Om
         <AmountPicker key={interval} interval={interval} choice={choice} onChoice={setChoice} />
         {nextPaymentDate && (
           <Text style={styles.note}>
-            {tr(t, 'changeAmountNote', 'Your new contribution applies from your next payment on {{date}}.', {
+            {tr(t, 'changeAmountNote', 'Your new donation applies from your next payment on {{date}}.', {
               date: nextPaymentDate,
             })}
           </Text>

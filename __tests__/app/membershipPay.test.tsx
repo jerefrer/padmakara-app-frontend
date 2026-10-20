@@ -73,11 +73,11 @@ describe('membership pay screen', () => {
 
   it('should show the steps, the order summary and the reassurance under the form', () => {
     const { getByText } = render(<PayScreen />);
-    expect(getByText('1 Contribution')).toBeTruthy();
+    expect(getByText('1 Donation')).toBeTruthy();
     expect(getByText('2 Payment')).toBeTruthy();
     expect(getByText('3 Confirmation')).toBeTruthy();
     expect(getByText('Your membership')).toBeTruthy();
-    expect(getByText('Monthly contribution')).toBeTruthy();
+    expect(getByText('Monthly donation')).toBeTruthy();
     expect(getByText('€10.00')).toBeTruthy();
     expect(getByText('First payment today, then every month until you cancel.')).toBeTruthy();
     expect(getByText('Membership terms')).toBeTruthy();
@@ -87,7 +87,7 @@ describe('membership pay screen', () => {
   it('should word the yearly order and sentence for a yearly contribution', () => {
     mockParams = { ...valid, amount: '120', interval: 'year' };
     const { getByText } = render(<PayScreen />);
-    expect(getByText('Yearly contribution')).toBeTruthy();
+    expect(getByText('Yearly donation')).toBeTruthy();
     expect(getByText('€120.00')).toBeTruthy();
     expect(getByText('First payment today, then every year until you cancel.')).toBeTruthy();
   });
@@ -102,7 +102,7 @@ describe('membership pay screen', () => {
     mockParams = { ...valid, mode: 'update' };
     const { queryByText, getByText } = render(<PayScreen />);
     expect(queryByText(/€10/)).toBeNull();
-    expect(queryByText('Monthly contribution')).toBeNull();
+    expect(queryByText('Monthly donation')).toBeNull();
     expect(getByText('Your new payment method applies from your next payment.')).toBeTruthy();
     await waitFor(() => expect(getByText('Next payment')).toBeTruthy());
     expect(getByText('7 November 2026')).toBeTruthy();
@@ -120,7 +120,7 @@ describe('membership pay screen', () => {
   it('should hide the steps and say Back when updating the payment method', () => {
     mockParams = { ...valid, mode: 'update' };
     const { queryByText, getByLabelText } = render(<PayScreen />);
-    expect(queryByText('1 Contribution')).toBeNull();
+    expect(queryByText('1 Donation')).toBeNull();
     expect(getByLabelText('Back')).toBeTruthy();
   });
 

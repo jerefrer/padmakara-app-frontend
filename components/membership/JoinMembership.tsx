@@ -107,7 +107,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         {tr(
           t,
           'why',
-          'Your contribution keeps the teachings available. It funds recording and archiving, and also translation, transcription and the retreats themselves.',
+          'As a benefactor member of Associação Padmakara, your donation keeps the teachings available. It funds recording and archiving, and also translation, transcription and the retreats themselves.',
         )}
       </Text>
 
@@ -119,7 +119,7 @@ export function JoinMembership({ initialInterval = 'month', onJoined, lastPaymen
         ))}
       </View>
 
-      <Text testID="join-label" style={styles.sectionLabel}>{tr(t, 'contributionLabel', 'Your contribution')}</Text>
+      <Text testID="join-label" style={styles.sectionLabel}>{tr(t, 'contributionLabel', 'Your donation')}</Text>
       <AmountPicker
         key={interval}
         interval={interval}

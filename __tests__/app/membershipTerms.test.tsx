@@ -45,7 +45,7 @@ describe('membership terms screen', () => {
 
   it('should label each section with the settings section-label style', () => {
     const { getByText } = render(<TermsScreen />);
-    const style = StyleSheet.flatten(getByText('Contribution').props.style);
+    const style = StyleSheet.flatten(getByText('Benefactor members').props.style);
     expect(style.textTransform).toBe('uppercase');
   });
 });

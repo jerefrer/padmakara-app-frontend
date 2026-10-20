@@ -8,7 +8,7 @@ import { membershipColors as c } from '@/components/membership/theme';
 import { tr } from '@/components/membership/tr';
 
 const SECTIONS = [
-  ['termsContributionHeading', 'Contribution', 'termsContributionBody'],
+  ['termsContributionHeading', 'Benefactor members', 'termsContributionBody'],
   ['termsRenewalHeading', 'Renewal', 'termsRenewalBody'],
   ['termsCancellationHeading', 'Cancellation', 'termsCancellationBody'],
   ['termsRefundsHeading', 'Refunds', 'termsRefundsBody'],
@@ -18,9 +18,9 @@ const SECTIONS = [
 
 const FALLBACK_BODY: Record<string, string> = {
   termsContributionBody:
-    'Membership is a voluntary contribution that keeps the teachings available. You choose the amount, from €5 a month or €60 a year, up to €1000, and you can change it at any time. The new amount applies from your next payment.',
+    'When you join, you become a benefactor member (associado benemérito) of Associação Padmakara, under Article 3(1)(b) of its statutes, without voting rights. You support the association with a regular donation of the amount you choose, from €5 a month or €60 a year, up to €1000, and you can change it at any time. The new amount applies from your next payment. The statutes give associates the right to receive the Association\'s publications, under the conditions set by the Board ([[article]]). By decision of the Board of [[date]], these include the recordings and transcripts of the retreats you are part of.',
   termsRenewalBody:
-    'Your membership renews automatically every month or every year, depending on what you chose, until you cancel. Payments are taken by card or Direct Debit through our payment provider.',
+    'Your donation renews automatically every month or every year, as you chose, until you cancel. It is taken by card or Direct Debit through our payment provider.',
   termsCancellationBody:
     'You can cancel at any time from your membership page. You keep full access until the end of the period you already paid for, and no further payments are taken. You can resume before that date.',
   termsRefundsBody:

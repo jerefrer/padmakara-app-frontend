@@ -148,13 +148,13 @@ export function ManageMembership({ membership, onChanged }: Props) {
       )}
       {managedByUs && <Text style={styles.note}>{tr(t, 'contactUs', 'Contact us to change your membership')}</Text>}
 
-      <Text style={pageStyles.sectionLabel}>{tr(t, 'contributionLabel', 'Your contribution')}</Text>
+      <Text style={pageStyles.sectionLabel}>{tr(t, 'contributionLabel', 'Your donation')}</Text>
       <View style={styles.rows}>
         {contribution && (
           <Row
             id="contribution"
             icon="heart-outline"
-            label={tr(t, 'rowContribution', 'Contribution')}
+            label={tr(t, 'rowContribution', 'Donation')}
             value={contribution}
             // The floor depends on the interval; without it the modal would guess "month".
             onPress={canChange && state === 'active' && interval !== null ? () => setChangingAmount(true) : undefined}

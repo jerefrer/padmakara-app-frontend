@@ -104,7 +104,7 @@ function PayPage() {
 
   const confirming = `/membership/confirming?checkout=${encodeURIComponent(id)}${isUpdate ? '&mode=update' : ''}`;
   const orderLabel =
-    interval === 'year' ? tr(t, 'orderYearly', 'Yearly contribution') : tr(t, 'orderMonthly', 'Monthly contribution');
+    interval === 'year' ? tr(t, 'orderYearly', 'Yearly donation') : tr(t, 'orderMonthly', 'Monthly donation');
   const sentence = isUpdate
     ? tr(t, 'payUpdateNote', 'Your new payment method applies from your next payment.')
     : interval === 'year'
@@ -125,7 +125,7 @@ function PayPage() {
 
         {!isUpdate && (
           <View style={styles.steps}>
-            <Text style={styles.step}>{`1 ${tr(t, 'stepContribution', 'Contribution')}`}</Text>
+            <Text style={styles.step}>{`1 ${tr(t, 'stepContribution', 'Donation')}`}</Text>
             <Text style={styles.step}>{'›'}</Text>
             <Text style={[styles.step, styles.stepOn]}>{`2 ${tr(t, 'stepPayment', 'Payment')}`}</Text>
             <Text style={styles.step}>{'›'}</Text>

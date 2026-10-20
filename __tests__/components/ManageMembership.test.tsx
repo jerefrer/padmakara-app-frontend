@@ -47,7 +47,7 @@ describe('ManageMembership', () => {
     const { getByText, getByTestId, getAllByText } = render(<ManageMembership membership={base} onChanged={jest.fn()} />);
     expect(getByText('Membership')).toBeTruthy();
     expect(getByText('Active member')).toBeTruthy();
-    expect(getByText('Your contribution')).toBeTruthy();
+    expect(getByText('Your donation')).toBeTruthy();
     expect(within(getByTestId('membership-row-contribution')).getByText('€10 a month')).toBeTruthy();
     expect(within(getByTestId('membership-row-next-payment')).getByText(/2026/)).toBeTruthy();
     expect(within(getByTestId('membership-row-paid-with')).getByText('Visa •••• 0000')).toBeTruthy();
@@ -210,7 +210,7 @@ describe('ManageMembership', () => {
     const { getByTestId, getByText } = render(<ManageMembership membership={base} onChanged={onChanged} />);
     fireEvent.press(getByTestId('membership-row-contribution'));
     expect(getByText('Change amount')).toBeTruthy();
-    expect(getByText(/Your new contribution applies from your next payment on/)).toBeTruthy();
+    expect(getByText(/Your new donation applies from your next payment on/)).toBeTruthy();
     fireEvent.press(getByText('€20 a month'));
     fireEvent.press(getByText('Save'));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
@@ -315,7 +315,7 @@ describe('ManageMembership', () => {
         <ManageMembership membership={{ ...base, accessUntil: null }} onChanged={jest.fn()} />,
       );
       expect(queryByTestId('membership-row-next-payment')).toBeNull();
-      expect(getByText('Contribution')).toBeTruthy();
+      expect(getByText('Donation')).toBeTruthy();
     });
 
     it('should show the failed-payment banner without a dangling "until ." when graceUntil is missing', () => {

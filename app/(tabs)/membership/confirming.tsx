@@ -51,7 +51,7 @@ function WebConfirming() {
             icon="checkmark-circle-outline"
             iconColor={c.green[700]}
             title={tr(t, 'methodUpdatedTitle', 'Payment method updated')}
-            body={tr(t, 'methodUpdatedBody', 'Your next contributions will be taken with your new payment method.')}
+            body={tr(t, 'methodUpdatedBody', "Your next donations will be taken with your new payment method.")}
             primary={{ label: tr(t, 'backToMembership', 'Back to my membership'), onPress: toMembership }}
           />
         );
