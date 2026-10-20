@@ -176,6 +176,20 @@ describe("publicationService — expired cover URLs in the cache", () => {
     expect(result.publications[0]?.coverImageUrl).toBe("https://fresh");
   });
 
+  it("should show the cached list when offline rather than fail", async () => {
+    // Offline an hour later: the covers have expired, the network is gone,
+    // and the list on disk is all there is. Covers fetched before still show
+    // from the image cache, keyed on the publication.
+    (entityCacheService.getList as jest.Mock).mockResolvedValue([
+      { id: "1", title: "Sādhana de Tārā", coverImageUrl: expiredCover, updatedAt: "2024-01-01" },
+    ]);
+    mockFetch.mockRejectedValue(new TypeError("Network request failed"));
+
+    const result = await publicationService.getPublications();
+
+    expect(result.publications.map((p) => p.title)).toEqual(["Sādhana de Tārā"]);
+  });
+
   it("should report a sync miss when a cached cover URL has expired", () => {
     (entityCacheService.getListSync as jest.Mock).mockReturnValue([
       { id: "1", title: "Sādhana de Tārā", coverImageUrl: expiredCover, updatedAt: "2024-01-01" },

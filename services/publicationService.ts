@@ -73,11 +73,14 @@ class PublicationService {
     // 1. Try cache first (only when no sort/language filter is active, so the
     //    caller always gets the canonical unfiltered list; filtering is done
     //    on the screen side anyway). Skipped when force=true.
+    // Kept for step 2: offline, an expired copy beats an error.
+    let staleCached: Publication[] | null = null;
     if (!sort && !language && !opts.force) {
       const cached = await entityCacheService.getList<Publication>('publications');
       if (cached !== null && !hasExpiredPresignedUrl(cached)) {
         return { publications: cached, hasHiddenPublications: false };
       }
+      staleCached = cached;
     }
 
     // 2. Cache miss (or filtered request) — fall back to network.
@@ -95,7 +98,15 @@ class PublicationService {
       // No auth token — proceed without authorization (public publications only)
     }
 
-    const response = await fetch(url, { headers });
+    let response: Response;
+    try {
+      response = await fetch(url, { headers });
+    } catch (error) {
+      // fetch rejects only when no answer came back (offline, DNS); an HTTP
+      // error status still resolves and is handled below.
+      if (staleCached !== null) return { publications: staleCached, hasHiddenPublications: false };
+      throw error;
+    }
     if (!response.ok) {
       throw new Error(`Failed to fetch publications: ${response.status}`);
     }
