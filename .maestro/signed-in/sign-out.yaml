@@ -1,0 +1,26 @@
+# Signing out from Sign-in & security returns to the signed-out app.
+appId: org.padmakara.pt
+name: Sign out from settings
+---
+- runFlow: ../subflows/sign-in.yaml
+- tapOn: "Account.*"
+- scrollUntilVisible:
+    element:
+      id: settings-row-signin
+- tapOn:
+    id: settings-row-signin
+- tapOn:
+    id: settings-sign-out
+# A native confirmation; the row behind it also reads "Sign Out".
+- extendedWaitUntil:
+    visible: "Sign out of your account.*"
+    timeout: 5000
+- tapOn:
+    text: "Sign Out"
+    below: "Sign out of your account.*"
+# Back on the home screen, signed out: the sign-in prompt is at its foot.
+- scrollUntilVisible:
+    element: "Sign In"
+- tapOn: "Account.*"
+- assertVisible:
+    id: settings-sign-in
