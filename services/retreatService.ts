@@ -329,6 +329,13 @@ class RetreatService {
   private static instance: RetreatService;
   private activeDownloads = new Map<string, FileSystem.DownloadResumable>();
   private cancelledDownloads = new Set<string>();
+  /**
+   * The last home content fetched from the network, for the first render when
+   * the entity cache holds nothing (first launch, guests). `undefined` means
+   * never fetched; `null` means fetched and there is no featured event.
+   */
+  private lastNetworkFeaturedEvent: Gathering | null | undefined;
+  private lastNetworkPublicEvents: Gathering[] | undefined;
 
   static getInstance(): RetreatService {
     if (!RetreatService.instance) {
@@ -475,7 +482,7 @@ class RetreatService {
 
   getPublicEventsSync(): any[] | null {
     const events = entityCacheService.getListSync<any>('events');
-    if (events === undefined || events === null) return null;
+    if (events === undefined || events === null) return this.lastNetworkPublicEvents ?? null;
     // Stale presigned URLs anywhere in the list → treat the whole list as
     // a miss so the async path re-fetches with fresh URLs.
     if (hasExpiredPresignedUrl(events)) return null;
@@ -484,7 +491,7 @@ class RetreatService {
 
   getFeaturedEventSync(): any | null {
     const events = entityCacheService.getListSync<any>('events');
-    if (events === undefined || events === null) return null;
+    if (events === undefined || events === null) return this.lastNetworkFeaturedEvent ?? null;
     if (hasExpiredPresignedUrl(events)) return null;
     let featured: any | null = null;
     for (const ev of events) {
@@ -573,13 +580,35 @@ class RetreatService {
     try {
       const response = await apiService.get<any[]>(API_ENDPOINTS.PUBLIC_EVENTS);
       if (response.success && response.data) {
-        return { success: true, data: response.data.map(mapEvent) };
+        this.lastNetworkPublicEvents = response.data.map(mapEvent);
+        return { success: true, data: this.lastNetworkPublicEvents };
       }
       return { success: false, error: response.error || 'Failed to load public events' };
     } catch (error) {
       console.error('Error loading public events:', error);
       return { success: false, error: 'Failed to load public events' };
     }
+  }
+
+  /**
+   * Warm what the first screens read, while the splash is still up.
+   *
+   * The screens initialise from the synchronous in-memory mirror, which is
+   * empty on every cold start until something reads the disk — so the home
+   * showed a spinner on every launch even with everything cached. Reading
+   * each list once fills the mirror. With nothing on disk (first launch, or
+   * a guest, whose public results are never persisted), the home content is
+   * fetched instead and handed to the first render through the sync getters.
+   */
+  async warmHomeContent(): Promise<void> {
+    const [events] = await Promise.all([
+      entityCacheService.getList<any>('events'),
+      entityCacheService.getList('groups'),
+      entityCacheService.getList('teachers'),
+      entityCacheService.getList('publications'),
+    ]);
+    if (events !== null && !hasExpiredPresignedUrl(events)) return;
+    await Promise.all([this.getFeaturedEvent(), this.getPublicEvents()]);
   }
 
   // Get the featured event — cache-first (SWR pattern).
@@ -604,8 +633,10 @@ class RetreatService {
     try {
       const response = await apiService.get<any>(API_ENDPOINTS.FEATURED_EVENT);
       if (response.success && response.data) {
-        return { success: true, data: mapEvent(response.data) };
+        this.lastNetworkFeaturedEvent = mapEvent(response.data);
+        return { success: true, data: this.lastNetworkFeaturedEvent };
       }
+      this.lastNetworkFeaturedEvent = null;
       return { success: true, data: null };
     } catch (error) {
       console.error('Error loading featured event:', error);
