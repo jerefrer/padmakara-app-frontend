@@ -1,0 +1,35 @@
+# Signing out from Sign-in & security returns to the signed-out app and forgets the
+# device: signing in again on it asks for a new emailed link.
+appId: org.padmakara.pt
+name: Sign out from settings
+---
+- runFlow: ../subflows/sign-in.yaml
+- tapOn: "Account.*"
+- scrollUntilVisible:
+    element:
+      id: settings-row-signin
+- tapOn:
+    id: settings-row-signin
+- tapOn:
+    id: settings-sign-out
+# A native confirmation; the row behind it carries the same words as its button.
+- extendedWaitUntil:
+    visible: ".*will be removed from your account.*"
+    timeout: 5000
+- tapOn:
+    text: "Sign out of this device"
+    below: ".*will be removed from your account.*"
+# Back on the home screen, signed out: the sign-in prompt is at its foot.
+- scrollUntilVisible:
+    element: "Sign In"
+- tapOn: "Account.*"
+- assertVisible:
+    id: settings-sign-in
+# The device is forgotten: the same address now gets a link instead of an instant session.
+- tapOn:
+    id: sign-in-email
+- inputText: ${EMAIL || "payment-test@padmakara.pt"}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: sign-in-sent

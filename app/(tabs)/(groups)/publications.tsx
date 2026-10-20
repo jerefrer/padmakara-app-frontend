@@ -23,6 +23,7 @@ import { PDFViewer } from '@/components/PDFViewer';
 import { colors } from '@/constants/colors';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { Publication } from '@/types';
+import { BackButton } from '@/components/ui/BackButton';
 
 type SortMode = 'title' | 'author' | 'latest';
 
@@ -341,16 +342,7 @@ export default function PublicationsScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
           {/* PDF header */}
           <View style={styles.pdfHeader}>
-            <TouchableOpacity
-              style={styles.pdfBackButton}
-              onPress={() => setViewingPdf(null)}
-            >
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color={colors.burgundy[500]}
-              />
-            </TouchableOpacity>
+            <BackButton variant="inline" onPress={() => setViewingPdf(null)} />
             <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
               {getTitle(viewingPdf.publication)}
             </Text>
@@ -441,16 +433,7 @@ export default function PublicationsScreen() {
         {/* Header */}
         <View style={[styles.header, isDesktop && styles.desktopHeader]}>
           {!isDesktop && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color={colors.burgundy[500]}
-              />
-            </TouchableOpacity>
+            <BackButton variant="inline" />
           )}
           <Text style={styles.headerTitle}>
             {t('publications.title') || 'Publications'}
@@ -889,10 +872,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
-  },
-  pdfBackButton: {
-    padding: 4,
-    marginRight: 12,
   },
   pdfHeaderTitle: {
     flex: 1,

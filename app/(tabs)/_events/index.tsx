@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
+import { BackButton } from '@/components/ui/BackButton';
 
 const colors = {
   burgundy: {
@@ -469,9 +470,7 @@ export default function EventsScreen() {
           {/* Title with back button */}
           <View style={[styles.header, isDesktop && styles.desktopHeader]}>
             {!isDesktop && (
-              <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-                <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-              </TouchableOpacity>
+              <BackButton variant="inline" />
             )}
             <Text style={[styles.title, isDesktop && styles.desktopTitle]}>
               {filterTeacherName || t('home.teachingsAndTalks') || 'Teachings & Talks'}
@@ -531,14 +530,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-  },
-  inlineBackButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: -8,
-    marginRight: 4,
   },
   header: {
     flexDirection: 'row',

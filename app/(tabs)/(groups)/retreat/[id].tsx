@@ -24,7 +24,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
-import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { LevelTrail } from '@/components/LevelTrail';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import retreatService, { buildEventDocuments } from '@/services/retreatService';
@@ -65,6 +65,7 @@ import {
   getLanguageShortLabel,
 } from '@/components/LanguageCheckboxList';
 import { eventBackTarget } from '@/utils/eventBack';
+import { BackButton } from '@/components/ui/BackButton';
 
 const colors = {
   cream: {
@@ -1615,7 +1616,7 @@ export default function RetreatDetailScreen() {
                 <View style={styles.trackRightSection}>
                   {isActive && (
                     <View style={styles.playingIndicator}>
-                      <AnimatedPlayingBars
+                      <LevelTrail
                         isPlaying={isTrackPlaying}
                         size={20}
                         color={colors.burgundy[500]}
@@ -1826,13 +1827,11 @@ export default function RetreatDetailScreen() {
           top of the content area. Controls (language pill + overflow menu)
           float over the hero. Mobile additionally shows a back button. */}
       {!isDesktop && (
-        <TouchableOpacity
+        <BackButton
+          variant="overlay"
           onPress={handleBack}
           style={[styles.floatingTopButton, styles.floatingTopButtonLeft, { top: insets.top + 8 }]}
-          hitSlop={8}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.white} />
-        </TouchableOpacity>
+        />
       )}
 
       <View

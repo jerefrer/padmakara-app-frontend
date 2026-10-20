@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { User } from '@/types';
 import apiService from './apiService';
 import { API_ENDPOINTS } from './apiConfig';
@@ -151,45 +150,6 @@ class AuthService {
   }
 
 
-  async loginWithBiometric(): Promise<{ success: boolean; user?: User; error?: string }> {
-    try {
-      // Check if user has biometric enabled
-      const authState = await this.getAuthState();
-      if (!authState.user?.preferences.biometricEnabled) {
-        return { success: false, error: 'Biometric authentication not enabled' };
-      }
-
-      // Check biometric availability
-      const isAvailable = await LocalAuthentication.hasHardwareAsync();
-      if (!isAvailable) {
-        return { success: false, error: 'Biometric authentication not available' };
-      }
-
-      // Prompt for biometric authentication
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Use your biometric to access your retreat content',
-        fallbackLabel: 'Enter Passcode',
-      });
-
-      if (result.success) {
-        // Update last login
-        if (authState.user) {
-          const updatedUser = {
-            ...authState.user,
-            lastLogin: new Date().toISOString(),
-          };
-          await this.safeSetItem('user_data', JSON.stringify(updatedUser));
-          return { success: true, user: updatedUser };
-        }
-      }
-
-      return { success: false, error: 'Biometric authentication failed' };
-    } catch (error) {
-      console.error('Biometric login error:', error);
-      return { success: false, error: 'Biometric authentication error' };
-    }
-  }
-
   async logout(): Promise<void> {
     try {
       // Note: No backend logout call needed for magic link auth
@@ -227,57 +187,6 @@ class AuthService {
     } catch (error) {
       console.error('Update user error:', error);
       return { success: false, error: 'Failed to update user data' };
-    }
-  }
-
-  async enableBiometric(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const isAvailable = await LocalAuthentication.hasHardwareAsync();
-      if (!isAvailable) {
-        return { success: false, error: 'Biometric authentication not available on this device' };
-      }
-
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Enable biometric authentication for secure app access',
-        fallbackLabel: 'Use passcode',
-      });
-
-      if (result.success) {
-        // Update user preferences
-        const updateResult = await this.updateUser({
-          preferences: {
-            ...(await this.getAuthState()).user?.preferences,
-            biometricEnabled: true,
-          } as any,
-        });
-
-        if (updateResult.success) {
-          return { success: true };
-        }
-      }
-
-      return { success: false, error: 'Failed to enable biometric authentication' };
-    } catch (error) {
-      console.error('Enable biometric error:', error);
-      return { success: false, error: 'Biometric setup failed' };
-    }
-  }
-
-  async disableBiometric(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const updateResult = await this.updateUser({
-        preferences: {
-          ...(await this.getAuthState()).user?.preferences,
-          biometricEnabled: false,
-        } as any,
-      });
-
-      return updateResult.success 
-        ? { success: true }
-        : { success: false, error: 'Failed to disable biometric authentication' };
-    } catch (error) {
-      console.error('Disable biometric error:', error);
-      return { success: false, error: 'Failed to disable biometric authentication' };
     }
   }
 

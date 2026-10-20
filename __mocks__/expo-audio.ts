@@ -30,6 +30,15 @@ interface MockPlayer {
   // but providing them keeps the mock surface complete.
   setActiveForLockScreen: jest.Mock;
   replace: jest.Mock;
+  // Audio sampling (real expo-audio: supported on iOS, off on web, and
+  // gated by the RECORD_AUDIO permission on Android). Tests read
+  // `samplingCalls` and drive listeners through __emitAudioSample.
+  isAudioSamplingSupported: boolean;
+  samplingEnabled: boolean;
+  samplingCalls: boolean[];
+  setAudioSamplingEnabled: (enabled: boolean) => void;
+  addListener: (event: string, listener: (data: unknown) => void) => { remove: () => void };
+  listeners: Map<string, Set<(data: unknown) => void>>;
 }
 
 class Store {
@@ -135,6 +144,20 @@ const makePlayer = (): MockPlayer => {
     lastSeekTo: null,
     setActiveForLockScreen: jest.fn(),
     replace: jest.fn(),
+    isAudioSamplingSupported: true,
+    samplingEnabled: false,
+    samplingCalls: [],
+    setAudioSamplingEnabled: (enabled: boolean) => {
+      p.samplingEnabled = enabled;
+      p.samplingCalls.push(enabled);
+    },
+    addListener: (event: string, listener: (data: unknown) => void) => {
+      const set = p.listeners.get(event) ?? new Set();
+      set.add(listener);
+      p.listeners.set(event, set);
+      return { remove: () => { set.delete(listener); } };
+    },
+    listeners: new Map(),
   };
   return p;
 };
@@ -202,3 +225,9 @@ export const __getLastSeekTo = () => store.lastSeekTo;
 // test can assert `currentPlayer.lastSeekTo === A's saved position`.
 export const __getCurrentPlayer = (): MockPlayer | null =>
   allPlayers[allPlayers.length - 1] ?? null;
+
+// Deliver one audio sample to every listener on the current player.
+export const __emitAudioSample = (frames: number[]) => {
+  const p = allPlayers[allPlayers.length - 1];
+  p?.listeners.get('audioSampleUpdate')?.forEach((l) => l({ channels: [{ frames }], timestamp: 0 }));
+};

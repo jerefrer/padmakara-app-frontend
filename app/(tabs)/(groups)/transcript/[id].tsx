@@ -9,6 +9,7 @@ import { colors } from '@/constants/colors';
 import retreatService, { transcriptErrorKey } from '@/services/retreatService';
 import { transcriptCacheService } from '@/services/transcriptCacheService';
 import * as Sharing from 'expo-sharing';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function TranscriptViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(); // event ID
@@ -139,9 +140,7 @@ export default function TranscriptViewerScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
-          </TouchableOpacity>
+          <BackButton variant="inline" />
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>{t('transcript.transcript') || 'Transcript'}</Text>
           </View>
@@ -161,9 +160,7 @@ export default function TranscriptViewerScreen() {
     <SafeAreaView style={styles.container} testID="transcript-view">
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.burgundy[500]} />
-        </TouchableOpacity>
+        <BackButton variant="inline" />
 
         <View style={styles.headerText}>
           <Text style={styles.headerTitle} numberOfLines={1}>

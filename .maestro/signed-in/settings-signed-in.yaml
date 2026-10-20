@@ -1,0 +1,29 @@
+# Signed-in settings on native: the account and device sections, and still nothing
+# about membership or payment (Apple reader-app rules).
+appId: org.padmakara.pt
+name: Signed-in settings on native
+---
+- runFlow: ../subflows/sign-in.yaml
+# The tab label reads "Account, tab, 4 of 4" to accessibility.
+- tapOn: "Account.*"
+- assertVisible:
+    id: settings-identity
+- assertVisible:
+    id: settings-row-profile
+- assertVisible:
+    id: settings-row-retreats
+- assertNotVisible:
+    id: settings-row-membership
+- scrollUntilVisible:
+    element:
+      id: settings-row-signin
+- assertVisible:
+    id: settings-row-storage
+- assertNotVisible: "Become a member"
+- assertNotVisible: ".*[Ss]ubscri.*"
+- assertNotVisible: ".*€.*"
+- takeScreenshot: settings-signed-in
+- tapOn:
+    id: settings-row-storage
+- assertVisible: "Offline & storage"
+- takeScreenshot: settings-storage

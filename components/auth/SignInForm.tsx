@@ -123,6 +123,7 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
         onBlur={ring.onBlur}
         style={[styles.input, ring.style]}
       />
+      <Text style={styles.fieldHint}>{tx('hint', "If this device isn't recognised, we'll email you a link.")}</Text>
       {s.error ? (
         <Text testID="sign-in-error" style={styles.error} accessibilityLiveRegion="polite">
           {errorText[s.error]}
@@ -135,7 +136,7 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
         onPress={s.submit}
         style={({ pressed }) => [styles.submit, pressed && pageStyles.buttonPressed]}
       >
-        {sending ? <ActivityIndicator color={c.white} /> : <Text style={pageStyles.buttonText}>{tx('submit', 'Email me a link')}</Text>}
+        {sending ? <ActivityIndicator color={c.white} /> : <Text style={pageStyles.buttonText}>{tx('submit', 'Continue')}</Text>}
       </Pressable>
     </View>
   );
@@ -164,6 +165,7 @@ const styles = StyleSheet.create({
     color: c.gray[800],
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null),
   },
+  fieldHint: { fontSize: 13, lineHeight: 18, color: c.gray[500], marginTop: 8 },
   error: { fontSize: 14, color: c.red[700], marginTop: 8 },
   submit: {
     height: 50,
