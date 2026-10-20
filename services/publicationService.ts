@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, API_ENDPOINTS, buildApiUrl, getAuthHeaders } from './apiConfig';
 import entityCacheService from './entityCacheService';
 import type { Publication } from '../types';
+import { hasExpiredPresignedUrl } from '../utils/presignedUrlExpiry';
 
 const CACHE_METADATA_KEY = '@publication_cache:metadata';
 const POSITION_KEY_PREFIX = '@publication_position:';
@@ -43,6 +44,9 @@ class PublicationService {
   getPublicationsSync(): { publications: Publication[]; hasHiddenPublications: boolean } | null {
     const cached = entityCacheService.getListSync<Publication>('publications');
     if (cached === undefined || cached === null) return null;
+    // Covers are 1-hour presigned URLs: a stale list would render every cover
+    // as a grey box (S3 answers 403), so it counts as a miss.
+    if (hasExpiredPresignedUrl(cached)) return null;
     return { publications: cached, hasHiddenPublications: false };
   }
 
@@ -69,11 +73,14 @@ class PublicationService {
     // 1. Try cache first (only when no sort/language filter is active, so the
     //    caller always gets the canonical unfiltered list; filtering is done
     //    on the screen side anyway). Skipped when force=true.
+    // Kept for step 2: offline, an expired copy beats an error.
+    let staleCached: Publication[] | null = null;
     if (!sort && !language && !opts.force) {
       const cached = await entityCacheService.getList<Publication>('publications');
-      if (cached !== null) {
+      if (cached !== null && !hasExpiredPresignedUrl(cached)) {
         return { publications: cached, hasHiddenPublications: false };
       }
+      staleCached = cached;
     }
 
     // 2. Cache miss (or filtered request) — fall back to network.
@@ -91,7 +98,15 @@ class PublicationService {
       // No auth token — proceed without authorization (public publications only)
     }
 
-    const response = await fetch(url, { headers });
+    let response: Response;
+    try {
+      response = await fetch(url, { headers });
+    } catch (error) {
+      // fetch rejects only when no answer came back (offline, DNS); an HTTP
+      // error status still resolves and is handled below.
+      if (staleCached !== null) return { publications: staleCached, hasHiddenPublications: false };
+      throw error;
+    }
     if (!response.ok) {
       throw new Error(`Failed to fetch publications: ${response.status}`);
     }

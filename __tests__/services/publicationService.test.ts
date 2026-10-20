@@ -145,3 +145,56 @@ describe("publicationService.getPublicationsSync", () => {
     expect(result!.hasHiddenPublications).toBe(false);
   });
 });
+
+// ─── Covers are 1-hour presigned URLs ─────────────────────────────────
+
+describe("publicationService — expired cover URLs in the cache", () => {
+  // Signed 2024-01-01T00:00:00Z for one hour: long expired.
+  const expiredCover =
+    "https://bucket.s3.amazonaws.com/covers/1.jpg?X-Amz-Date=20240101T000000Z&X-Amz-Expires=3600&X-Amz-Signature=abc";
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should refetch when a cached cover URL has expired", async () => {
+    // Arrange: the cache still holds yesterday's list. Serving it shows a
+    // grey box for every cover, because S3 answers 403 to the dead URL.
+    (entityCacheService.getList as jest.Mock).mockResolvedValue([
+      { id: "1", title: "Sādhana de Tārā", coverImageUrl: expiredCover, updatedAt: "2024-01-01" },
+    ]);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ publications: [{ id: "1", title: "Sādhana de Tārā", coverImageUrl: "https://fresh" }] }),
+    });
+
+    // Act
+    const result = await publicationService.getPublications();
+
+    // Assert
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.publications[0]?.coverImageUrl).toBe("https://fresh");
+  });
+
+  it("should show the cached list when offline rather than fail", async () => {
+    // Offline an hour later: the covers have expired, the network is gone,
+    // and the list on disk is all there is. Covers fetched before still show
+    // from the image cache, keyed on the publication.
+    (entityCacheService.getList as jest.Mock).mockResolvedValue([
+      { id: "1", title: "Sādhana de Tārā", coverImageUrl: expiredCover, updatedAt: "2024-01-01" },
+    ]);
+    mockFetch.mockRejectedValue(new TypeError("Network request failed"));
+
+    const result = await publicationService.getPublications();
+
+    expect(result.publications.map((p) => p.title)).toEqual(["Sādhana de Tārā"]);
+  });
+
+  it("should report a sync miss when a cached cover URL has expired", () => {
+    (entityCacheService.getListSync as jest.Mock).mockReturnValue([
+      { id: "1", title: "Sādhana de Tārā", coverImageUrl: expiredCover, updatedAt: "2024-01-01" },
+    ]);
+
+    expect(publicationService.getPublicationsSync()).toBeNull();
+  });
+});

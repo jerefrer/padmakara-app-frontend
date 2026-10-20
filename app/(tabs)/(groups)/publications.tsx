@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { publicationCoverCacheKey } from '@/utils/cacheKeys';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -280,7 +281,8 @@ export default function PublicationsScreen() {
           <View style={styles.coverContainer}>
             {item.coverImageUrl ? (
               <Image
-                source={{ uri: item.coverImageUrl }}
+                source={{ uri: item.coverImageUrl, cacheKey: publicationCoverCacheKey(item) }}
+                cachePolicy="memory-disk"
                 style={styles.coverImage}
                 contentFit="cover"
               />
