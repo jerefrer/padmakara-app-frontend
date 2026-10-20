@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
+import { AVENIR_FAMILY } from '@/constants/avenirFont';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
   },
   categorySubtitle: {
     fontSize: 12,
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: 0.3,
   },

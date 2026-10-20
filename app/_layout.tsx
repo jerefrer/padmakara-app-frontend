@@ -26,6 +26,7 @@ import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
 import retreatService from '@/services/retreatService';
 import { holdSplashWhile } from '@/utils/startup';
+import { avenirFontsToLoad } from '@/constants/avenirFont';
 
 // Keep the native splash (burgundy Padmakara lockup) on screen until fonts are
 // loaded and the first screens' content is warm (see SPLASH_HOLD below).
@@ -94,7 +95,7 @@ export default function RootLayout() {
     MinionPro_SemiboldItalic: require('../assets/fonts/MinionPro-SemiboldIt.otf'),
     MinionPro_Bold: require('../assets/fonts/MinionPro-Bold.otf'),
     MinionPro_BoldItalic: require('../assets/fonts/MinionPro-BoldIt.otf'),
-    Avenir: require('../assets/fonts/Avenir-Book.ttf'),
+    ...avenirFontsToLoad,
     EBGaramond_400Regular,
     EBGaramond_400Regular_Italic,
     EBGaramond_500Medium,

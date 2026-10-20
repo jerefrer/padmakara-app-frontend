@@ -16,6 +16,7 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
+import { AVENIR_FAMILY } from '@/constants/avenirFont';
 
 const colors = {
   cream: { 50: '#ffffff', 100: '#fefefe' },
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
   },
   resultsCount: {
     fontSize: 12,
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: 0.3,
     marginBottom: 8,
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
   },
   resultDate: {
     fontSize: 12,
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: 0.2,
   },
@@ -438,21 +439,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   resultSnippetField: {
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     fontStyle: 'normal',
     color: colors.gray[500],
     letterSpacing: 0.2,
   },
   resultTracksLine: {
     fontSize: 12,
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: 0.2,
     marginTop: 6,
     lineHeight: 18,
   },
   resultTracksLabel: {
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[700],
     fontWeight: '600',
   },

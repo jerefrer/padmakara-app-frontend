@@ -10,6 +10,7 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
+import { AVENIR_FAMILY } from '@/constants/avenirFont';
 
 const colors = {
   burgundy: {
@@ -634,7 +635,7 @@ const styles = StyleSheet.create({
   },
   teacherRowCount: {
     fontSize: 14,
-    fontFamily: 'Avenir',
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
   },
 
