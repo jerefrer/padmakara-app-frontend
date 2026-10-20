@@ -16,6 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
+import { BackButton } from '@/components/ui/BackButton';
 
 const CONFIRMATION_PHRASE = 'permanently delete';
 const CONFIRMATION_PHRASE_PT = 'eliminar permanentemente';
@@ -60,9 +61,7 @@ export default function DeleteAccountScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} disabled={isDeleting}>
-          <Ionicons name="arrow-back" size={24} color={isDeleting ? colors.gray[300] : colors.gray[700]} />
-        </Pressable>
+        <BackButton variant="inline" style={styles.headerBack} disabled={isDeleting} />
         <Text style={styles.headerTitle}>{t('deleteAccount.title') || 'Delete Account'}</Text>
         <View style={styles.backButton} />
       </View>
@@ -203,9 +202,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
+  headerBack: {
+    marginLeft: 0,
+  },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

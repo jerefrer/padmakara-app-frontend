@@ -111,7 +111,8 @@ export function RetreatsSection() {
           value={hasActiveSubscription ? tr(t, 'fullAccess', 'Full access') : tr(t, 'publicOnly', 'Public content only')}
         />
       </Rows>
-      {/* /groups lists the groups holding events this person can open, not their memberships. */}
+      {/* /groups lists the groups holding events this person can open, not their memberships. Read-only: a
+          row that jumped to the Retreats tab flashed the home screen on the way. */}
       <GroupLabel>{t('settings.openGroups') || 'Open to you'}</GroupLabel>
       {groups === null ? null : groups.length === 0 ? (
         <Text style={styles.empty}>{t('settings.noGroups') || 'No retreat recordings are open to you yet.'}</Text>
@@ -123,8 +124,6 @@ export function RetreatsSection() {
               testID={`settings-group-${g.id}`}
               title={getTranslatedName(g, language === 'pt' ? 'pt' : 'en')}
               value={count(g.gatherings?.length ?? 0)}
-              // Same address as the Retreats screen uses for a group.
-              onPress={() => router.push(`/(tabs)/(groups)/retreats/${(g.abbreviation || g.id).toLowerCase()}` as any)}
             />
           ))}
         </Rows>

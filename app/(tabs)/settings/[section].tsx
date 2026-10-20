@@ -3,7 +3,7 @@ import { Platform, ScrollView, View } from 'react-native';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
-import { BackButton } from '@/components/membership/BackButton';
+import { BackButton } from '@/components/ui/BackButton';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
 import { SectionBody } from '@/components/settings/SectionBody';

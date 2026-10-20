@@ -71,7 +71,8 @@
       "title": "Sign in",
       "intro": "We'll email you a link. No password to remember.",
       "emailLabel": "Email",
-      "submit": "Email me a link",
+      "submit": "Continue",
+      "hint": "If this device isn't recognised, we'll email you a link.",
       "invalid": "Please enter a valid email address.",
       "error": "Something went wrong. Please try again.",
       "network": "No connection. Please try again.",
@@ -194,6 +195,7 @@
     "close": "Stop and close"
   },
   "navigation": {
+    "back": "Back",
     "home": "Home",
     "retreats": "Retreats",
     "downloads": "Saved Content",
@@ -555,10 +557,6 @@
     "clearDownloadsDescription": "Remove all downloaded audio files",
     "clearAllData": "Clear All Data",
     "clearAllDataDescription": "Remove all progress and downloaded content",
-    "signOut": "Sign Out",
-    "signOutDescription": "Sign out of your account (keeps device activated)",
-    "forgetDevice": "Forget This Device",
-    "forgetDeviceDescription": "Remove device completely (requires email activation)",
     "accountStatus": "Account Status",
     "accessGranted": "Signed in",
     "limitedAccess": "Public content only",
@@ -733,9 +731,11 @@
     "languageHint": "Menus, buttons and emails.",
     "openGroups": "Open to you",
     "noGroups": "No retreat recordings are open to you yet.",
-    "signOutHint": "{{here}} stays activated: signing in again takes one email.",
-    "forgetBrowser": "Forget this browser",
-    "forgetHint": "You will need to activate it again by email.",
+    "signOutDevice": "Sign out of this device",
+    "signOutDeviceHint": "The next sign-in asks for a link sent to your email.",
+    "signOutConfirm": "{{here}} will be removed from your account. Signing in again takes a link sent to your email. Continue?",
+    "signOutError": "Sign Out Error",
+    "signOutFailed": "Failed to sign out",
     "contact": "Contact the Association"
   }
 }

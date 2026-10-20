@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BackButton } from '@/components/membership/BackButton';
+import { BackButton } from '@/components/ui/BackButton';
 import { EasypayCheckout } from '@/components/membership/EasypayCheckout';
 import { pageStyles, space } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';

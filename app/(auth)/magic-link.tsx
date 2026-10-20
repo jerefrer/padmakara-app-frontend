@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackButton } from '@/components/ui/BackButton';
 
 const colors = {
   cream: {
@@ -240,23 +241,20 @@ export default function MagicLinkScreen() {
     </View>
   );
 
-  const renderBackButton = () => {
-    return (
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => {
-          if (canGoBack) {
-            router.back();
-          } else {
-            router.replace('/(tabs)/(groups)');
-          }
-        }}
-        disabled={isLoading}
-      >
-        <Text style={styles.backButtonText}>{'‹'}</Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderBackButton = () => (
+    <BackButton
+      variant="inline"
+      style={styles.backButton}
+      disabled={isLoading}
+      onPress={() => {
+        if (canGoBack) {
+          router.back();
+        } else {
+          router.replace('/(tabs)/(groups)');
+        }
+      }}
+    />
+  );
 
   const renderEmailForm = () => (
     <Animated.View
@@ -307,6 +305,9 @@ export default function MagicLinkScreen() {
             onSubmitEditing={handleEmailSubmit}
             returnKeyType="go"
           />
+          <Text style={styles.deviceHint}>
+            {t('auth.signInPanel.hint') || "If this device isn't recognised, we'll email you a link."}
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -456,6 +457,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 16,
   },
+  deviceHint: { fontSize: 13, lineHeight: 18, color: colors.gray[500], marginTop: 8 },
   formContainer: {
     width: '100%',
     maxWidth: 400,
@@ -528,23 +530,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 20,
-    left: 20,
+    top: 14,
+    left: 10,
     zIndex: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: colors.gray[600],
-    fontWeight: '400',
-    marginTop: -1,
+    marginLeft: 0,
   },
   languageSwitcherContainer: {
     position: 'absolute',

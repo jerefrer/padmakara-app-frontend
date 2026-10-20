@@ -23,6 +23,7 @@ import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '@/components/ui/BackButton';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 230;
@@ -388,9 +389,7 @@ export default function GroupDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.standaloneBackRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-            </TouchableOpacity>
+            <BackButton variant="inline" />
           </View>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.burgundy[500]} />
@@ -407,9 +406,7 @@ export default function GroupDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.standaloneBackRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-            </TouchableOpacity>
+            <BackButton variant="inline" />
           </View>
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>
@@ -436,9 +433,7 @@ export default function GroupDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.standaloneBackRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-            </TouchableOpacity>
+            <BackButton variant="inline" />
           </View>
           <Text style={[styles.pageTitleSmallCaps, { paddingHorizontal: 24 }]}>
             {getTranslatedName(groupData, language)}
@@ -518,9 +513,7 @@ export default function GroupDetailScreen() {
               floats over the image; otherwise it sits inline next to the title. */}
           <View style={isDesktop ? styles.desktopPageHeader : styles.mobileTitleHeader}>
             {!isDesktop && !hasHero && (
-              <TouchableOpacity onPress={() => router.back()} style={styles.inlineBackButton}>
-                <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-              </TouchableOpacity>
+              <BackButton variant="inline" />
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.pageTitleSmallCaps}>{groupName}</Text>
@@ -574,13 +567,7 @@ export default function GroupDetailScreen() {
 
         {/* Floating back button — only when hero is shown, sits over the image */}
         {hasHero && (
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[styles.floatingBackButton, { top: insets.top + 8 }]}
-            hitSlop={8}
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.white} />
-          </TouchableOpacity>
+          <BackButton variant="overlay" style={[styles.floatingBackButton, { top: insets.top + 8 }]} />
         )}
       </View>
     </>
@@ -608,14 +595,6 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     paddingHorizontal: 24,
   },
-  inlineBackButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: -8,
-    marginRight: 4,
-  },
   mobileTitleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -638,12 +617,6 @@ const styles = StyleSheet.create({
   floatingBackButton: {
     position: 'absolute',
     left: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   pageTitleSmallCaps: {
     fontSize: 30,

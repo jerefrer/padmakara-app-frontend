@@ -110,10 +110,10 @@ export function OfflineSection() {
   return <StorageSection />;
 }
 
-/** Biometric unlock (native), signing out and forgetting this device. */
+/** Biometric unlock (native) and signing out, which also forgets this device. */
 export function SignInSection() {
   const { t } = useLanguage();
-  const { user, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
+  const { user, enableBiometric, disableBiometric, forgetDevice } = useAuth();
   const { clearTrack } = useAudioPlayerContext();
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('');
@@ -152,31 +152,30 @@ export function SignInSection() {
     }
   };
 
-  // Signing out keeps this device activated on the server; forgetting it means a new email activation.
-  const leave = (kind: 'signOut' | 'forget') => {
+  // Every sign-out forgets the device on the server: otherwise "Continue" on the sign-in form would
+  // sign straight back in, for anyone who knows the address, on a shared device.
+  const leave = () => {
     if (isClearing) return;
-    const signOut = kind === 'signOut';
     showAlert(
-      signOut ? 'Sign Out' : 'Forget This Device',
-      signOut
-        ? 'Sign out of your account? You can sign back in easily with the same email address.'
-        : "This will completely remove this device from your account. You'll need to activate via email again to access the app. Continue?",
+      t('settings.signOutDevice') || 'Sign out of this device',
+      t('settings.signOutConfirm', { here }) ||
+        `${here} will be removed from your account. Signing in again takes an emailed link. Continue?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
-          text: signOut ? 'Sign Out' : 'Forget Device',
+          text: t('settings.signOutDevice') || 'Sign out of this device',
           style: 'destructive',
           onPress: async () => {
             setIsClearing(true);
             try {
               clearTrack();
-              await (signOut ? logout() : forgetDevice());
+              await forgetDevice();
               router.replace('/(tabs)/(groups)');
             } catch (error) {
-              console.error(`${kind} error:`, error);
+              console.error('Sign out error:', error);
               showAlert(
-                signOut ? 'Sign Out Error' : 'Device Removal Error',
-                `${signOut ? 'Failed to sign out' : 'Failed to remove device'}: ${storageErrorMessage(error)}. You may need to restart the app.`,
+                t('settings.signOutError') || 'Sign Out Error',
+                `${t('settings.signOutFailed') || 'Failed to sign out'}: ${storageErrorMessage(error)}. You may need to restart the app.`,
               );
             } finally {
               setIsClearing(false);
@@ -202,18 +201,10 @@ export function SignInSection() {
       <SettingsRow
         testID="settings-sign-out"
         icon="log-out-outline"
-        title={t('profile.signOut') || 'Sign Out'}
-        subtitle={t('settings.signOutHint', { here }) || `${here} stays activated: signing in again takes one email.`}
-        onPress={() => leave('signOut')}
-        disabled={isClearing}
-      />
-      <SettingsRow
-        testID="settings-forget-device"
-        icon={isNative ? 'phone-portrait-outline' : 'desktop-outline'}
         danger
-        title={isNative ? t('profile.forgetDevice') || 'Forget This Device' : t('settings.forgetBrowser') || 'Forget this browser'}
-        subtitle={t('settings.forgetHint') || 'You will need to activate it again by email.'}
-        onPress={() => leave('forget')}
+        title={t('settings.signOutDevice') || 'Sign out of this device'}
+        subtitle={t('settings.signOutDeviceHint') || 'The next sign-in asks for a link sent to your email.'}
+        onPress={leave}
         disabled={isClearing}
       />
     </Rows>

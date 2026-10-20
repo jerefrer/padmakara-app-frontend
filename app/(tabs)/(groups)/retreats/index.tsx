@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
+import { BackButton } from '@/components/ui/BackButton';
 
 const colors = {
   burgundy: { 500: "#9b1b1b", 600: "#7b1616" },
@@ -280,12 +281,7 @@ export default function RetreatsListScreen() {
           {/* Title with back button */}
           <View style={[styles.titleRow, isDesktop && styles.desktopTitleRow]}>
             {!isDesktop && (
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backButton}
-              >
-                <Ionicons name="arrow-back" size={22} color={colors.gray[800]} />
-              </TouchableOpacity>
+              <BackButton variant="inline" />
             )}
             <Text style={styles.pageTitle}>
               {t("home.retreats") || "Retreats"}
@@ -358,14 +354,6 @@ const styles = StyleSheet.create({
   },
   desktopTitleRow: {
     paddingTop: 42,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: -8,
-    marginRight: 4,
   },
 
   // Title area

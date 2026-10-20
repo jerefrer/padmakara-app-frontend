@@ -58,6 +58,17 @@ describe('SignInProvider', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('should label the submit button Continue and hint at the emailed link when opened', () => {
+    const { getByTestId, getByText } = render(
+      <SignInProvider>
+        <Opener />
+      </SignInProvider>,
+    );
+    fireEvent.press(getByTestId('open'));
+    expect(getByText('Continue')).toBeTruthy();
+    expect(getByText("If this device isn't recognised, we'll email you a link.")).toBeTruthy();
+  });
+
   it('should close when the close button is pressed', () => {
     const { getByTestId, queryByTestId } = render(
       <SignInProvider>

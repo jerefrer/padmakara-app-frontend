@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BackButton } from '@/components/membership/BackButton';
+import { BackButton } from '@/components/ui/BackButton';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
 import { tr } from '@/components/membership/tr';

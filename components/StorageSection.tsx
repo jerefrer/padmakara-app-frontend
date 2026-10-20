@@ -639,7 +639,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderRadius: 0,
     overflow: 'visible',
-    marginHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
   },
@@ -650,7 +649,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderRadius: 0,
     overflow: 'visible',
-    marginHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
   },
@@ -662,7 +660,6 @@ const styles = StyleSheet.create({
   deviceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
   },
@@ -672,7 +669,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   storageBarContainer: {
-    paddingHorizontal: 20,
     paddingVertical: 12,
   },
   storageBar: {
@@ -700,7 +696,6 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],
@@ -723,7 +718,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],
@@ -773,7 +767,7 @@ const styles = StyleSheet.create({
   downloadsSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: colors.gray[100],
     borderTopWidth: 1,
@@ -791,7 +785,6 @@ const styles = StyleSheet.create({
   downloadedRetreatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],

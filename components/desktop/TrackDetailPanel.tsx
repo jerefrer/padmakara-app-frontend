@@ -8,6 +8,7 @@ import retreatService, { transcriptErrorKey } from '@/services/retreatService';
 import { getTrackTitle } from '@/utils/i18n';
 import { Track } from '@/types';
 import { colors } from '@/constants/colors';
+import { BackButton } from '@/components/ui/BackButton';
 
 interface TranscriptInfo {
   id: number;
@@ -243,10 +244,7 @@ export function TrackDetailPanel({ retreat, currentTrack }: TrackDetailPanelProp
         ) : transcriptUrl ? (
           <View style={styles.container}>
             <View style={styles.viewHeader}>
-              <Pressable onPress={handleBack} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={20} color={colors.burgundy[500]} />
-                <Text style={styles.backButtonText}>{t('common.goBack') || 'Back'}</Text>
-              </Pressable>
+              <BackButton variant="inline" label={t('navigation.back') || 'Back'} onPress={handleBack} />
             </View>
             <PDFViewer source={transcriptUrl} title={retreat.name ? `${retreat.name} — Transcript` : undefined} compact />
           </View>
@@ -351,18 +349,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
     backgroundColor: 'white',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    gap: 4,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.burgundy[500],
   },
   retryButton: {
     marginTop: 16,

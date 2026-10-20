@@ -19,6 +19,7 @@ import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
+import { BackButton } from '@/components/ui/BackButton';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -286,13 +287,7 @@ export default function TeacherDetailScreen() {
 
       {/* Floating back button over the hero — sits inside the safe area
           (insets.top) so it stays clear of the notch / status bar. */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={[styles.floatingBackButton, { top: insets.top + 8 }]}
-        hitSlop={8}
-      >
-        <Ionicons name="arrow-back" size={22} color={colors.white} />
-      </TouchableOpacity>
+      <BackButton variant="overlay" style={[styles.floatingBackButton, { top: insets.top + 8 }]} />
     </View>
   );
 }
@@ -323,12 +318,6 @@ const styles = StyleSheet.create({
   floatingBackButton: {
     position: 'absolute',
     left: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
     zIndex: 20,
   },
   heroContainer: {
