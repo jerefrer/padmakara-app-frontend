@@ -64,6 +64,7 @@ import {
   getLanguageSelectionLabel,
   getLanguageShortLabel,
 } from '@/components/LanguageCheckboxList';
+import { eventBackTarget } from '@/utils/eventBack';
 
 const colors = {
   cream: {
@@ -215,10 +216,11 @@ export default function RetreatDetailScreen() {
   }));
 
   const handleBack = useCallback(() => {
-    if (from === 'events') {
-      router.replace('/(tabs)/(groups)/events');
-    } else {
+    const target = eventBackTarget({ canGoBack: router.canGoBack(), from });
+    if (target.kind === 'back') {
       router.back();
+    } else {
+      router.replace(target.href);
     }
   }, [from]);
 
