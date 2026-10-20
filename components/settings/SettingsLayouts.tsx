@@ -66,8 +66,9 @@ function Identity({ compact = false }: { compact?: boolean }) {
 export function SettingsList() {
   const { t } = useLanguage();
   const groups = useSettingsIndex();
+  // The inline sign-in form lives here: a tap on "Continue" must submit, not just close the keyboard.
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.listContent}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
       <View style={pageStyles.container}>
         <Text style={pageStyles.title} accessibilityRole="header">{t('navigation.settings') || 'Settings'}</Text>
         <View style={styles.identityGap}>
