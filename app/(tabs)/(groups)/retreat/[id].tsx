@@ -24,7 +24,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
-import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { LevelTrail } from '@/components/LevelTrail';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import retreatService, { buildEventDocuments } from '@/services/retreatService';
@@ -1616,7 +1616,7 @@ export default function RetreatDetailScreen() {
                 <View style={styles.trackRightSection}>
                   {isActive && (
                     <View style={styles.playingIndicator}>
-                      <AnimatedPlayingBars
+                      <LevelTrail
                         isPlaying={isTrackPlaying}
                         size={20}
                         color={colors.burgundy[500]}

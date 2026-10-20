@@ -1,4 +1,4 @@
-import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { LevelTrail } from '@/components/LevelTrail';
 import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { colors } from '@/constants/colors';
@@ -117,7 +117,7 @@ export function DesktopPlayerBar() {
           <View style={styles.trackInfoRow}>
             {isPlaying && hasTrack && (
               <View style={styles.playingBarsContainer}>
-                <AnimatedPlayingBars isPlaying={isPlaying} size={16} color={colors.burgundy[500]} />
+                <LevelTrail isPlaying={isPlaying} size={16} color={colors.burgundy[500]} />
               </View>
             )}
             <View style={styles.trackTextContainer}>

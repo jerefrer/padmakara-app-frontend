@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { AnimatedPlayingBars } from '@/components/AnimatedPlayingBars';
+import { LevelTrail } from '@/components/LevelTrail';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -20,7 +20,7 @@ export function NowPlayingBadge({ eventId }: { eventId: number | string }) {
 
   return (
     <View style={styles.badge} accessibilityRole="text">
-      <AnimatedPlayingBars isPlaying size={12} color={BURGUNDY} />
+      <LevelTrail isPlaying size={12} color={BURGUNDY} />
       <Text style={styles.label}>{t('player.nowPlaying') || 'Now Playing'}</Text>
     </View>
   );

@@ -36,7 +36,7 @@ jest.mock('@/components/PDFViewer', () => ({ PDFViewer: () => null }));
 jest.mock('@/components/DocumentImageViewer', () => ({ DocumentImageViewer: () => null }));
 jest.mock('@/components/AudioPlayer', () => ({ AudioPlayer: () => null }));
 jest.mock('@/components/VideoPlayer', () => ({ VideoPlayer: () => null }));
-jest.mock('@/components/AnimatedPlayingBars', () => ({ AnimatedPlayingBars: () => null }));
+jest.mock('@/components/LevelTrail', () => ({ LevelTrail: () => null }));
 jest.mock('@/components/OfflineBadge', () => ({ OfflineBadge: () => null }));
 jest.mock('@/components/DraftBadge', () => ({ DraftBadge: () => null }));
 jest.mock('@/components/ReadAlongViewer', () => ({ ReadAlongViewer: () => null }));
