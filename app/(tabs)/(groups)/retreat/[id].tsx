@@ -62,6 +62,7 @@ import {
 import {
   LanguageCheckboxList,
   getLanguageSelectionLabel,
+  getLanguageShortLabel,
 } from '@/components/LanguageCheckboxList';
 
 const colors = {
@@ -1600,7 +1601,7 @@ export default function RetreatDetailScreen() {
                     {track.languages && track.languages.length > 0 && track.languages.map((lang: string) => (
                       <View key={lang} style={[styles.langBadge, langBadgeColor(lang)]}>
                         <Text style={[styles.langBadgeText, langBadgeTextColor(lang)]}>
-                          {lang.toUpperCase()}
+                          {getLanguageShortLabel(lang, t)}
                         </Text>
                       </View>
                     ))}
@@ -1650,7 +1651,7 @@ export default function RetreatDetailScreen() {
                   <Text style={styles.documentFeaturedTitle} numberOfLines={1}>{doc.title}</Text>
                   <Text style={styles.documentFeaturedSubtitle}>
                     {(t('documents.transcript') || 'Transcript')
-                      + (doc.language ? ` · ${doc.language.toUpperCase()}` : '')}
+                      + (doc.language ? ` · ${getLanguageShortLabel(doc.language, t)}` : '')}
                   </Text>
                 </View>
                 {documentBusyKey === doc.key ? (

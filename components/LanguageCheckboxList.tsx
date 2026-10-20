@@ -29,6 +29,14 @@ export function getLanguageName(code: string, t: Translate): string {
 }
 
 /**
+ * The abbreviation shown on track badges and summaries, in the interface's
+ * language: Portuguese abbreviates English as "ING" (inglês), not "EN".
+ */
+export function getLanguageShortLabel(code: string, t: Translate): string {
+  return t(`content.languageShort.${code}`) || code.toUpperCase();
+}
+
+/**
  * The label summarising a selection, e.g. "All languages" or
  * "Tibetan + English". Everything selected reads as "All languages" — that is
  * what "all" means now that the preference is a set rather than a sentinel.
