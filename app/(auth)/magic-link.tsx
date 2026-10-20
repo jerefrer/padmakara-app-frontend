@@ -307,6 +307,9 @@ export default function MagicLinkScreen() {
             onSubmitEditing={handleEmailSubmit}
             returnKeyType="go"
           />
+          <Text style={styles.deviceHint}>
+            {t('auth.signInPanel.hint') || "If this device isn't recognised, we'll email you a link."}
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -456,6 +459,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 16,
   },
+  deviceHint: { fontSize: 13, lineHeight: 18, color: colors.gray[500], marginTop: 8 },
   formContainer: {
     width: '100%',
     maxWidth: 400,

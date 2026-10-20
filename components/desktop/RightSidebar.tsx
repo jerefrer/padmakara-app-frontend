@@ -19,7 +19,7 @@ interface RightSidebarProps {
 
 export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, forgetDevice } = useAuth();
   const { openSignIn } = useSignIn();
   const { clearTrack } = useAudioPlayerContext();
   const { t } = useLanguage();
@@ -54,9 +54,10 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
   const handleSignOut = useCallback(async () => {
     setMenuOpen(false);
     clearTrack();
-    await logout();
+    // Forgets the device too, so the next sign-in needs an emailed link.
+    await forgetDevice();
     router.replace('/(tabs)/(groups)' as any);
-  }, [logout, clearTrack]);
+  }, [forgetDevice, clearTrack]);
 
   return (
     <View style={styles.container}>
