@@ -1,0 +1,17 @@
+# A malformed address is refused on the device, before any request is sent.
+appId: org.padmakara.pt
+name: Sign-in rejects a malformed address
+---
+- runFlow: subflows/launch.yaml
+- scrollUntilVisible:
+    element: "Sign In"
+- tapOn: "Sign In"
+- tapOn:
+    id: sign-in-email
+- inputText: "not-an-address"
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: sign-in-error
+- assertVisible:
+    id: sign-in-form

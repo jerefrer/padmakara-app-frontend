@@ -1,0 +1,26 @@
+# Shared start: a fresh install of the dev build, connected to the local Metro server.
+# Not a test on its own: Maestro only runs the flows at the top of .maestro/.
+appId: org.padmakara.pt
+---
+- launchApp:
+    clearState: true
+# The dev launcher lists the Metro server it finds; opening it by a link instead
+# would raise an iOS "Open in Padmakara?" confirmation.
+- extendedWaitUntil:
+    visible: "http://localhost:8081"
+    timeout: 30000
+- tapOn: "http://localhost:8081"
+# expo-dev-menu introduces itself on the first launch after a fresh install.
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 120000
+- tapOn: "Continue"
+# The dev menu then stays open as a half sheet: tap the dimmed app above it to close it.
+- extendedWaitUntil:
+    visible: "Reload"
+    timeout: 10000
+- tapOn:
+    point: "50%,15%"
+- extendedWaitUntil:
+    notVisible: "Reload"
+    timeout: 10000
