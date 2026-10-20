@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLockScreen } from '@/components/AppLockScreen';
@@ -177,10 +177,17 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [lock]);
 
+  // While the sign-in state is still loading at cold start, an enabled lock keeps the app covered:
+  // otherwise the content would flash for a moment before the lock screen. (Reading the flag itself
+  // takes a few milliseconds; covering during that read would cover every app, locked or not.)
+  const pending = !startHandledRef.current && loaded && enabled && isLoading;
+
   return (
     <AppLockContext.Provider value={{ enabled, locked, kind, unlock, enable, disable }}>
       {children}
-      {locked ? <AppLockScreen kind={kind} onUnlock={unlock} /> : null}
+      {locked || (pending && Platform.OS !== 'web') ? (
+        <AppLockScreen kind={kind} onUnlock={unlock} pending={!locked} />
+      ) : null}
     </AppLockContext.Provider>
   );
 }
