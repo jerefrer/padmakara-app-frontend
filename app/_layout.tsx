@@ -15,17 +15,19 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import 'react-native-reanimated';
 import '../global.css';
-import { useEffect } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
 import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
+import retreatService from '@/services/retreatService';
+import { holdSplashWhile } from '@/utils/startup';
 
 // Keep the native splash (burgundy Padmakara lockup) on screen until fonts are
-// loaded, so it doesn't flash to a blank background while `useFonts` resolves.
+// loaded and the first screens' content is warm (see SPLASH_HOLD below).
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* ignore — splash may already be hidden */
 });
@@ -45,14 +47,29 @@ Sentry.init({
   },
 });
 
+/**
+ * The splash stays up at least long enough to be seen, and at most long
+ * enough that a slow network never keeps anyone waiting behind it. The web
+ * has no native splash — holding there is a blank page — so it only waits
+ * briefly for the warm-up and never for show.
+ */
+const SPLASH_HOLD =
+  Platform.OS === 'web' ? { minMs: 0, maxMs: 500 } : { minMs: 1000, maxMs: 2500 };
+
 export default function RootLayout() {
+  const [contentWarm, setContentWarm] = useState(false);
+
   useEffect(() => {
     cleanupLegacyWebCache().catch((err) =>
       console.warn('[cache] legacy cleanup failed:', err),
     );
-    ensureCacheSchemaCurrent().catch((err) =>
-      console.warn('[cache] schema check failed:', err),
-    );
+    // The schema check can wipe the cache, so the warm-up waits for it:
+    // warming first would fill a mirror that is about to be cleared.
+    const warmUp = () =>
+      ensureCacheSchemaCurrent()
+        .catch((err) => console.warn('[cache] schema check failed:', err))
+        .then(() => retreatService.warmHomeContent());
+    holdSplashWhile(warmUp, SPLASH_HOLD).then(() => setContentWarm(true));
   }, []);
 
   useEffect(() => {
@@ -86,15 +103,19 @@ export default function RootLayout() {
     EBGaramond_700Bold_Italic,
   });
 
+  // The navigator mounts only once the content is warm, so the home screen's
+  // first render reads a filled cache instead of showing a spinner.
+  const ready = loaded && contentWarm;
+
   useEffect(() => {
-    if (loaded) {
+    if (ready) {
       SplashScreen.hideAsync().catch(() => {
         /* ignore — splash may already be hidden */
       });
     }
-  }, [loaded]);
+  }, [ready]);
 
-  if (!loaded) {
+  if (!ready) {
     return null;
   }
 

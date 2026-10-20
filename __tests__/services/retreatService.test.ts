@@ -23,6 +23,21 @@ jest.mock("../../services/entityCacheService", () => {
   return { __esModule: true, default: inst, EntityCacheService: jest.fn(() => inst) };
 });
 
+/**
+ * A retreatService with no session memory. The service is a singleton that
+ * keeps the last network home content for the first render, so a test about
+ * a cold start needs its own instance, not the one earlier tests fed.
+ */
+function coldStartService() {
+  let service: typeof retreatService = retreatService;
+  let cache: typeof entityCacheService = entityCacheService;
+  jest.isolateModules(() => {
+    service = require("../../services/retreatService").default;
+    cache = require("../../services/entityCacheService").default;
+  });
+  return { service, cache };
+}
+
 // ─── F1: getUserRetreats ─────────────────────────────────────────────
 
 describe("retreatService.getUserRetreats — SWR pattern", () => {
@@ -533,9 +548,10 @@ describe("retreatService sync companions", () => {
   // ── getPublicEventsSync ──────────────────────────────────────────────
 
   describe("getPublicEventsSync", () => {
-    it("returns null when events mirror is cold", () => {
-      (entityCacheService.getListSync as jest.Mock).mockReturnValue(undefined);
-      expect(retreatService.getPublicEventsSync()).toBeNull();
+    it("returns null when events mirror is cold and nothing was fetched", () => {
+      const { service, cache } = coldStartService();
+      (cache.getListSync as jest.Mock).mockReturnValue(undefined);
+      expect(service.getPublicEventsSync()).toBeNull();
     });
 
     it("returns only free-anyone events when mirror is populated", () => {
@@ -552,9 +568,10 @@ describe("retreatService sync companions", () => {
   // ── getFeaturedEventSync ─────────────────────────────────────────────
 
   describe("getFeaturedEventSync", () => {
-    it("returns null when events mirror is cold", () => {
-      (entityCacheService.getListSync as jest.Mock).mockReturnValue(undefined);
-      expect(retreatService.getFeaturedEventSync()).toBeNull();
+    it("returns null when events mirror is cold and nothing was fetched", () => {
+      const { service, cache } = coldStartService();
+      (cache.getListSync as jest.Mock).mockReturnValue(undefined);
+      expect(service.getFeaturedEventSync()).toBeNull();
     });
 
     it("returns the most recently featured event", () => {
@@ -733,5 +750,154 @@ describe("retreatService force=true — granular pull-to-refresh", () => {
 
     expect(apiService.get).toHaveBeenCalled();
     expect(result.success).toBe(true);
+  });
+});
+
+// ─── Startup warm-up while the splash is up ──────────────────────────
+
+describe("retreatService.warmHomeContent", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should load every cached list into memory so screens render without a spinner", async () => {
+    // Arrange: a signed-in user's lists are on disk from the last session.
+    (entityCacheService.getList as jest.Mock).mockResolvedValue([{ id: 1, featuredAt: "2026-01-01" }]);
+
+    // Act
+    await retreatService.warmHomeContent();
+
+    // Assert
+    const namespaces = (entityCacheService.getList as jest.Mock).mock.calls.map((c) => c[0]).sort();
+    expect(namespaces).toEqual(["events", "groups", "publications", "teachers"]);
+    expect(apiService.get).not.toHaveBeenCalled();
+  });
+
+  it("should fetch the home content when nothing is cached, and hand it to the first home render", async () => {
+    // Arrange: first launch, or a guest — nothing on disk.
+    (entityCacheService.getList as jest.Mock).mockResolvedValue(null);
+    (entityCacheService.getListSync as jest.Mock).mockReturnValue(undefined);
+    (apiService.get as jest.Mock).mockImplementation(async (endpoint: string) =>
+      endpoint.includes("featured")
+        ? { success: true, data: { id: 42, titleEn: "Featured teaching", featuredAt: "2026-01-01" } }
+        : { success: true, data: [{ id: 43, titleEn: "Recent teaching" }] },
+    );
+
+    // Act
+    await retreatService.warmHomeContent();
+
+    // Assert: the home screen's lazy initializers read these synchronously.
+    expect(retreatService.getFeaturedEventSync()?.id).toBe("42");
+    expect(retreatService.getPublicEventsSync()?.map((e: any) => e.id)).toEqual(["43"]);
+  });
+});
+
+// ─── Offline: an expired cache beats an error ─────────────────────────
+
+describe("retreatService — offline with a cache whose image URLs expired", () => {
+  // Signed 2024-01-01T00:00:00Z for one hour: long expired. Image URLs in
+  // every cached list look like this an hour after the last sync.
+  const expired =
+    "https://bucket.s3.amazonaws.com/x.jpg?X-Amz-Date=20240101T000000Z&X-Amz-Expires=3600&X-Amz-Signature=abc";
+  const offline = { success: false, error: "Network error. Please check your internet connection." };
+  const refused = { success: false, error: "Forbidden", status: 403, code: "ACCESS_DENIED" };
+
+  const cachedEvents = [
+    {
+      id: 10,
+      titleEn: "Public teaching",
+      featuredAt: "2026-01-01",
+      audience: { slug: "free-anyone" },
+      imageUrl: expired,
+      eventTeachers: [{ teacher: { abbreviation: "KPS", name: "Khenchen" } }],
+      eventRetreatGroups: [{ retreatGroupId: 1 }],
+    },
+    {
+      id: 11,
+      titleEn: "Members-only retreat",
+      audience: { slug: "retreat-group-members" },
+      eventTeachers: [{ teacher: { abbreviation: "KPS", name: "Khenchen" } }],
+      eventRetreatGroups: [{ retreatGroupId: 1 }],
+    },
+  ];
+  const cachedGroups = [{ id: 1, name: "Mandala", abbreviation: "MAN", heroUrl: expired }];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (entityCacheService.getList as jest.Mock).mockImplementation(async (ns: string) =>
+      ns === "events" ? cachedEvents : ns === "groups" ? cachedGroups : null,
+    );
+    (apiService.get as jest.Mock).mockResolvedValue(offline);
+  });
+
+  it("should show the cached public events instead of an error", async () => {
+    const result = await retreatService.getPublicEvents();
+    expect(result.success).toBe(true);
+    expect(result.data?.map((e: any) => e.id)).toEqual(["10"]);
+  });
+
+  it("should show the cached featured event instead of an error", async () => {
+    const result = await retreatService.getFeaturedEvent();
+    expect(result.success).toBe(true);
+    expect(result.data?.id).toBe("10");
+  });
+
+  it("should show the user's cached groups instead of an error", async () => {
+    const result = await retreatService.getUserRetreats();
+    expect(result.success).toBe(true);
+    expect(result.data?.retreat_groups).toHaveLength(1);
+  });
+
+  it("should show a cached group's events instead of an error", async () => {
+    const result = await retreatService.getRetreatGroupDetails("1");
+    expect(result.success).toBe(true);
+  });
+
+  it("should show every cached event of a teacher, members-only ones included", async () => {
+    const result = await retreatService.getEventsByTeacher("KPS");
+    expect(result.success).toBe(true);
+    expect(result.events.map((e: any) => e.id).sort()).toEqual(["10", "11"]);
+  });
+
+  it("should refresh a teacher's events from the signed-in list, not the public one, when online", async () => {
+    // An expired cache used to fall back to /events/public, dropping every
+    // members-only event from a signed-in user's teacher page.
+    (apiService.get as jest.Mock).mockImplementation(async (endpoint: string) =>
+      endpoint.includes("groups")
+        ? { success: true, data: cachedGroups }
+        : { success: true, data: cachedEvents.map((e) => ({ ...e, imageUrl: "https://fresh" })) },
+    );
+    (entityCacheService.setList as jest.Mock).mockImplementation(async (ns: string, items: unknown[]) => {
+      if (ns === "events") {
+        (entityCacheService.getList as jest.Mock).mockImplementation(async (n: string) =>
+          n === "events" ? items : n === "groups" ? cachedGroups : null,
+        );
+      }
+    });
+
+    const result = await retreatService.getEventsByTeacher("KPS");
+
+    expect(result.events.map((e: any) => e.id).sort()).toEqual(["10", "11"]);
+    expect((apiService.get as jest.Mock).mock.calls.map((c) => c[0])).not.toContain("/events/public");
+  });
+
+  it("should show the cached event detail instead of an error", async () => {
+    (entityCacheService.getDetail as jest.Mock).mockResolvedValue({ ...cachedEvents[1], imageUrl: expired, sessions: [] });
+
+    const result = await retreatService.getRetreatDetails("11");
+
+    expect(result.success).toBe(true);
+    expect(result.data?.id).toBe("11");
+  });
+
+  it("should not show a cached event the server now refuses", async () => {
+    // A refusal is an answer, not an outage: access that was revoked must not
+    // survive in the cache.
+    (entityCacheService.getDetail as jest.Mock).mockResolvedValue({ ...cachedEvents[1], imageUrl: expired, sessions: [] });
+    (apiService.get as jest.Mock).mockResolvedValue(refused);
+
+    const result = await retreatService.getRetreatDetails("11");
+
+    expect(result.data).toBeUndefined();
   });
 });
