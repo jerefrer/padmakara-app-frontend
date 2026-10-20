@@ -1,4 +1,5 @@
 import { DraftBadge } from "@/components/DraftBadge";
+import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -172,6 +173,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
           </Text>
           {event.status === 'draft' && <DraftBadge />}
         </View>
+        <NowPlayingBadge eventId={event.id} />
         {metaLine ? (
           <Text style={styles.featuredMeta}>{metaLine}</Text>
         ) : null}
@@ -261,6 +263,7 @@ function RecentEventCard({
           </Text>
           {event.status === 'draft' && <DraftBadge />}
         </View>
+        <NowPlayingBadge eventId={event.id} />
         {teacherNames ? (
           <Text style={styles.recentTeacher} numberOfLines={1}>
             {teacherNames}

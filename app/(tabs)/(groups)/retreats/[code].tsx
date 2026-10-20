@@ -11,6 +11,7 @@ import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { DraftBadge } from '@/components/DraftBadge';
+import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -176,6 +177,7 @@ function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameFor
             {retreat.status === 'draft' && <DraftBadge />}
             {isDownloaded && <OfflineBadge />}
           </View>
+          <NowPlayingBadge eventId={retreat.id} />
           {teacherNames ? (
             <Text style={styles.retreatTeacherNames} numberOfLines={1}>{teacherNames}</Text>
           ) : null}
