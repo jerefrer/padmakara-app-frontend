@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useAppLock } from '@/contexts/AppLockContext';
+import { kindLabels } from '@/services/appLock';
 import { useLanguage } from '@/contexts/LanguageContext';
 import videoPreferencesService from '@/services/videoPreferencesService';
 import { StorageSection } from '@/components/StorageSection';
@@ -110,45 +111,23 @@ export function OfflineSection() {
   return <StorageSection />;
 }
 
-/** Biometric unlock (native), signing out and forgetting this device. */
+/** The app lock (native), signing out and forgetting this device. */
 export function SignInSection() {
   const { t } = useLanguage();
-  const { user, enableBiometric, disableBiometric, logout, forgetDevice } = useAuth();
+  const { logout, forgetDevice } = useAuth();
+  const { enabled: lockEnabled, kind, enable: enableLock, disable: disableLock } = useAppLock();
   const { clearTrack } = useAudioPlayerContext();
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricType, setBiometricType] = useState('');
   const [isClearing, setIsClearing] = useState(false);
   const isNative = Platform.OS !== 'web';
   const here = isNative ? t('settings.thisDevice') || 'This device' : t('settings.thisBrowser') || 'This browser';
+  const lockLabels = kindLabels(kind);
 
-  useEffect(() => {
-    if (!isNative) return;
-    (async () => {
-      try {
-        const available = await LocalAuthentication.hasHardwareAsync();
-        setBiometricAvailable(available);
-        if (!available) return;
-        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) setBiometricType('Face ID');
-        else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) setBiometricType('Fingerprint');
-        else setBiometricType('Biometric');
-      } catch (error) {
-        console.error('Error checking biometric support:', error);
-      }
-    })();
-  }, [isNative]);
-
-  const toggleBiometric = async (enabled: boolean) => {
+  // Both directions ask for the biometric; a cancelled or failed prompt leaves the switch where it was.
+  const toggleLock = async (next: boolean) => {
     try {
-      const result = enabled && biometricAvailable ? await enableBiometric() : await disableBiometric();
-      if (result.success) {
-        showAlert('Success', enabled ? `${biometricType} has been enabled for app access.` : 'Biometric authentication has been disabled.');
-      } else {
-        showAlert('Error', result.error || 'Failed to update biometric authentication');
-      }
+      await (next ? enableLock() : disableLock());
     } catch (error) {
-      console.error('Biometric authentication error:', error);
-      showAlert('Error', 'Failed to update biometric authentication');
+      console.error('App lock toggle error:', error);
     }
   };
 
@@ -191,12 +170,17 @@ export function SignInSection() {
     <Rows>
       {isNative ? (
         <SwitchRow
-          icon={biometricType === 'Face ID' ? 'scan' : 'finger-print'}
-          title={biometricAvailable ? `${biometricType} Authentication` : t('profile.biometricAuth') || 'Biometric Authentication'}
-          subtitle={biometricAvailable ? t('profile.secureAccess') || 'Secure app access' : t('profile.notAvailable') || 'Not available on this device'}
-          value={user?.preferences?.biometricEnabled || false}
-          onValueChange={toggleBiometric}
-          disabled={!biometricAvailable}
+          testID="settings-app-lock"
+          icon={kind === 'faceId' ? 'scan' : 'finger-print'}
+          title={t(lockLabels.titleKey) || lockLabels.titleFallback}
+          subtitle={
+            kind
+              ? t('appLock.subtitle') || 'Asks for it when you open the app and after 5 minutes away.'
+              : t('appLock.unavailable') || 'Set up Face ID or a passcode on this device first.'
+          }
+          value={lockEnabled}
+          onValueChange={toggleLock}
+          disabled={!kind && !lockEnabled}
         />
       ) : null}
       <SettingsRow

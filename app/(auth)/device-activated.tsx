@@ -11,8 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAppLock } from '@/contexts/AppLockContext';
 
 const colors = {
   cream: {
@@ -49,8 +49,16 @@ export default function DeviceActivatedScreen() {
 
   const { t } = useLanguage();
 
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricType, setBiometricType] = useState<string>('');
+  const { kind, enable: enableAppLock } = useAppLock();
+  const biometricAvailable = kind !== null;
+  const biometricType =
+    kind === 'faceId'
+      ? 'Face ID'
+      : kind === 'touchId'
+        ? 'Touch ID'
+        : kind === 'fingerprint'
+          ? t('appLock.methodFingerprint') || 'fingerprint'
+          : t('auth.magicLink.deviceActivated.biometricGeneric');
   const [settingUpBiometric, setSettingUpBiometric] = useState(false);
 
   // Animations
@@ -59,8 +67,6 @@ export default function DeviceActivatedScreen() {
   const celebrationScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    checkBiometricAvailability();
-
     // Entrance animations
     Animated.sequence([
       Animated.parallel([
@@ -86,43 +92,17 @@ export default function DeviceActivatedScreen() {
     ]).start();
   }, []);
 
-  const checkBiometricAvailability = async () => {
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-
-      if (hasHardware && isEnrolled) {
-        setBiometricAvailable(true);
-
-        // Determine biometric type for display
-        if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          setBiometricType('Face ID');
-        } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-          setBiometricType('Touch ID');
-        } else {
-          setBiometricType(t('auth.magicLink.deviceActivated.biometricGeneric'));
-        }
-      }
-    } catch (error) {
-      console.error('Error checking biometric availability:', error);
-    }
-  };
-
   const handleSetupBiometric = async () => {
     setSettingUpBiometric(true);
 
     try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: t('auth.magicLink.deviceActivated.biometricPrompt', { biometricType }),
-        cancelLabel: t('auth.magicLink.deviceActivated.biometricCancel'),
-      });
+      // The lock asks for the biometric itself, so a successful enable means it was confirmed.
+      const enabled = await enableAppLock();
 
-      if (result.success) {
-        // Store biometric preference
+      if (enabled) {
         Alert.alert(
-          t('auth.magicLink.deviceActivated.biometricEnabledTitle', { biometricType }),
-          t('auth.magicLink.deviceActivated.biometricEnabledMessage'),
+          t('auth.magicLink.deviceActivated.biometricEnabledTitle'),
+          t('auth.magicLink.deviceActivated.biometricEnabledMessage', { biometricType }),
           [
             {
               text: t('auth.magicLink.deviceActivated.continueToApp'),
@@ -156,8 +136,8 @@ export default function DeviceActivatedScreen() {
   };
 
   const getBiometricIcon = () => {
-    if (biometricType === 'Face ID') return 'scan';
-    if (biometricType === 'Touch ID') return 'finger-print';
+    if (kind === 'faceId') return 'scan';
+    if (kind === 'touchId' || kind === 'fingerprint') return 'finger-print';
     return 'shield-checkmark';
   };
 
