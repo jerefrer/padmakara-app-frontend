@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
+import { AVENIR_FAMILY } from '@/constants/avenirFont';
 
 const colors = {
   burgundy: {
@@ -575,7 +576,7 @@ const styles = StyleSheet.create({
   },
   categorySubtitle: {
     fontSize: 13,
-    fontFamily: "Avenir",
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: -0.1,
   },
@@ -673,7 +674,7 @@ const styles = StyleSheet.create({
   },
   featuredMeta: {
     fontSize: 11,
-    fontFamily: "Avenir",
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: 0.2,
   },
@@ -743,7 +744,7 @@ const styles = StyleSheet.create({
   },
   recentMeta: {
     fontSize: 12,
-    fontFamily: "Avenir",
+    fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
   },
   recentIcons: {
