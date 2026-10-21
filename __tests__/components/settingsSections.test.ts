@@ -5,7 +5,7 @@ const ids = (opts: { isWeb: boolean; isAuthenticated: boolean }) => visibleSecti
 describe('visibleSections', () => {
   it('should show membership on the web to a signed-in user', () => {
     expect(ids({ isWeb: true, isAuthenticated: true })).toEqual([
-      'profile', 'language', 'membership', 'retreats', 'listening', 'storage', 'signin', 'about',
+      'profile', 'language', 'membership', 'retreats', 'storage', 'signin', 'about',
     ]);
   });
 
@@ -18,12 +18,17 @@ describe('visibleSections', () => {
   });
 
   it('should only show what works without an account when signed out', () => {
-    expect(ids({ isWeb: true, isAuthenticated: false })).toEqual(['language', 'listening', 'about']);
+    expect(ids({ isWeb: true, isAuthenticated: false })).toEqual(['language', 'about']);
+  });
+
+  it('should only show the video section in the native app, where the mobile-data switches live', () => {
+    expect(ids({ isWeb: false, isAuthenticated: false })).toEqual(['language', 'video', 'about']);
+    expect(ids({ isWeb: true, isAuthenticated: true })).not.toContain('video');
   });
 
   it('should put account sections before device sections and help last', () => {
     const groups = visibleSections({ isWeb: true, isAuthenticated: true }).map((s) => s.group);
-    expect(groups).toEqual(['account', 'account', 'account', 'account', 'device', 'device', 'device', 'help']);
+    expect(groups).toEqual(['account', 'account', 'account', 'account', 'device', 'device', 'help']);
   });
 });
 

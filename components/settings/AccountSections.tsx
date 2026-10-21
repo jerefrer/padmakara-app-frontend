@@ -8,6 +8,7 @@ import { getTranslatedName } from '@/utils/i18n';
 import { tr } from '@/components/membership/tr';
 import { membershipColors as c } from '@/components/membership/theme';
 import type { RetreatGroup } from '@/types';
+import { ContentLanguageRows } from './DeviceSections';
 import { GroupLabel, Rows, Segmented, SettingsRow } from './ui';
 
 /** Who the person is, and the way out of the account. */
@@ -57,24 +58,30 @@ export function LanguageSection() {
   };
 
   return (
-    <Rows>
-      <SettingsRow
-        icon="language-outline"
-        title={t('profile.language') || 'App Language'}
-        subtitle={t('settings.languageHint') || 'Menus, buttons and emails.'}
-        right={
-          <Segmented
-            label={t('profile.language') || 'App Language'}
-            value={language === 'pt' ? 'pt' : 'en'}
-            onChange={choose}
-            options={[
-              { value: 'en', label: 'English' },
-              { value: 'pt', label: 'Português' },
-            ]}
-          />
-        }
-      />
-    </Rows>
+    <>
+      <Rows>
+        <SettingsRow
+          icon="language-outline"
+          title={t('profile.language') || 'App Language'}
+          subtitle={t('settings.languageHint') || 'Menus, buttons and emails.'}
+          right={
+            <Segmented
+              label={t('profile.language') || 'App Language'}
+              value={language === 'pt' ? 'pt' : 'en'}
+              onChange={choose}
+              options={[
+                { value: 'en', label: 'English' },
+                { value: 'pt', label: 'Português' },
+              ]}
+            />
+          }
+        />
+      </Rows>
+      {/* The languages of what is played: kept on this device, but looked for here with the
+          app language. */}
+      <GroupLabel>{t('settings.contentLanguages') || 'Recordings and videos'}</GroupLabel>
+      <ContentLanguageRows />
+    </>
   );
 }
 

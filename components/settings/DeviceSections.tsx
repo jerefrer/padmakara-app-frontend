@@ -12,7 +12,7 @@ import { SUBTITLES_OFF, resolveSubtitleLanguage, subtitleChoiceOrder } from '@/u
 import { membershipColors as c } from '@/components/membership/theme';
 import { StorageSection } from '@/components/StorageSection';
 import { tr } from '@/components/membership/tr';
-import { GroupLabel, Rows, SettingsRow, SwitchRow } from './ui';
+import { Rows, SettingsRow, SwitchRow } from './ui';
 
 type Button = { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' };
 
@@ -45,17 +45,14 @@ function storageErrorMessage(error: any): string {
 }
 
 /**
- * Which tracks appear, which subtitles videos start with, and (native) whether videos may use
- * mobile data. Stored on this device only.
+ * Which audio tracks appear and which subtitles videos start with. Stored on this device only,
+ * and shown under Language next to the app language.
  */
-export function ListeningSection() {
+export function ContentLanguageRows() {
   const { t, language, showPortuguese, setShowPortuguese } = useLanguage();
   // null: never chosen, so subtitles follow the interface language.
   const [subtitleChoice, setSubtitleChoice] = useState<string | null>(null);
   const [subtitleOpen, setSubtitleOpen] = useState(false);
-  const [warnOnCellular, setWarnOnCellular] = useState(true);
-  const [allowOnCellular, setAllowOnCellular] = useState(true);
-  const isNative = Platform.OS !== 'web';
 
   useEffect(() => {
     videoPreferencesService.getSubtitleLanguage().then(setSubtitleChoice, () => undefined);
@@ -65,90 +62,91 @@ export function ListeningSection() {
     code === SUBTITLES_OFF ? t('profile.subtitlesOff') || 'Do not show' : t(`content.language.${code}`) || code;
   const chosenSubtitle = resolveSubtitleLanguage(subtitleChoice, language) ?? SUBTITLES_OFF;
 
+  return (
+    <Rows>
+      {/* An event's original language and English are always shown, so a Tibetan teaching is
+          never reduced to its translation; only Portuguese is a choice. */}
+      <SwitchRow
+        testID="settings-show-portuguese"
+        icon="musical-notes-outline"
+        title={t('profile.showPortuguese') || 'Show Portuguese translation tracks'}
+        subtitle={
+          t('profile.showPortugueseSubtitle') || 'While listening to an event, you can always change this option.'
+        }
+        value={showPortuguese}
+        onValueChange={setShowPortuguese}
+      />
+      <SettingsRow
+        testID="settings-subtitle-language"
+        icon="videocam-outline"
+        title={t('profile.subtitleLanguage') || 'Show subtitles in which language'}
+        subtitle={
+          t('profile.subtitleLanguageSubtitle') ||
+          'You can change this option at any time while watching a video. (Please note that subtitles may not always be available.)'
+        }
+        value={subtitleLabel(chosenSubtitle)}
+        onPress={() => setSubtitleOpen((open) => !open)}
+      />
+      {subtitleOpen
+        ? subtitleChoiceOrder(language).map((code) => (
+            <SettingsRow
+              key={code}
+              testID={`settings-subtitle-${code}`}
+              title={subtitleLabel(code)}
+              onPress={() => {
+                setSubtitleChoice(code);
+                setSubtitleOpen(false);
+                videoPreferencesService.setSubtitleLanguage(code);
+              }}
+              right={code === chosenSubtitle ? <Ionicons name="checkmark" size={20} color={c.burgundy[500]} /> : <></>}
+            />
+          ))
+        : null}
+    </Rows>
+  );
+}
+
+/** Whether videos may use mobile data. Native only: the web has no notion of it. */
+export function VideoSection() {
+  const { t } = useLanguage();
+  const [warnOnCellular, setWarnOnCellular] = useState(true);
+  const [allowOnCellular, setAllowOnCellular] = useState(true);
+
   useEffect(() => {
-    if (!isNative) return;
     Promise.all([videoPreferencesService.getWarnOnCellular(), videoPreferencesService.getAllowOnCellular()]).then(
       ([warn, allow]) => {
         setWarnOnCellular(warn);
         setAllowOnCellular(allow);
       },
     );
-  }, [isNative]);
+  }, []);
 
   return (
-    <>
-      <Rows>
-        {/* An event's original language and English are always shown, so a Tibetan teaching is
-            never reduced to its translation; only Portuguese is a choice. */}
-        <SwitchRow
-          testID="settings-show-portuguese"
-          icon="musical-notes-outline"
-          title={t('profile.showPortuguese') || 'Show Portuguese translation tracks'}
-          subtitle={
-            t('profile.showPortugueseSubtitle') || 'While listening to an event, you can always change this option.'
-          }
-          value={showPortuguese}
-          onValueChange={setShowPortuguese}
-        />
-      </Rows>
-      <GroupLabel>{t('profile.videoPlayback') || 'Video Playback'}</GroupLabel>
-      <Rows>
-        <SettingsRow
-          testID="settings-subtitle-language"
-          icon="videocam-outline"
-          title={t('profile.subtitleLanguage') || 'Show subtitles in which language'}
-          subtitle={
-            t('profile.subtitleLanguageSubtitle') ||
-            'You can change this option at any time while watching a video. (Please note that subtitles may not always be available.)'
-          }
-          value={subtitleLabel(chosenSubtitle)}
-          onPress={() => setSubtitleOpen((open) => !open)}
-        />
-        {subtitleOpen
-          ? subtitleChoiceOrder(language).map((code) => (
-              <SettingsRow
-                key={code}
-                testID={`settings-subtitle-${code}`}
-                title={subtitleLabel(code)}
-                onPress={() => {
-                  setSubtitleChoice(code);
-                  setSubtitleOpen(false);
-                  videoPreferencesService.setSubtitleLanguage(code);
-                }}
-                right={code === chosenSubtitle ? <Ionicons name="checkmark" size={20} color={c.burgundy[500]} /> : <></>}
-              />
-            ))
-          : null}
-        {isNative ? (
-          <>
-            <SwitchRow
-              icon="cellular-outline"
-              title={t('profile.allowVideoOnCellular') || 'Allow video on mobile data'}
-              subtitle={t('profile.allowVideoOnCellularSubtitle') || 'Turn off to only play videos on Wi-Fi.'}
-              value={allowOnCellular}
-              onValueChange={(v) => {
-                setAllowOnCellular(v);
-                videoPreferencesService.setAllowOnCellular(v);
-              }}
-            />
-            <SwitchRow
-              icon="warning-outline"
-              title={t('profile.warnOnCellular') || 'Warn before playing on mobile data'}
-              subtitle={
-                t('profile.warnOnCellularSubtitle') ||
-                'Show a confirmation the first time you tap a video off Wi-Fi each session.'
-              }
-              value={warnOnCellular}
-              disabled={!allowOnCellular}
-              onValueChange={(v) => {
-                setWarnOnCellular(v);
-                videoPreferencesService.setWarnOnCellular(v);
-              }}
-            />
-          </>
-        ) : null}
-      </Rows>
-    </>
+    <Rows>
+      <SwitchRow
+        icon="cellular-outline"
+        title={t('profile.allowVideoOnCellular') || 'Allow video on mobile data'}
+        subtitle={t('profile.allowVideoOnCellularSubtitle') || 'Turn off to only play videos on Wi-Fi.'}
+        value={allowOnCellular}
+        onValueChange={(v) => {
+          setAllowOnCellular(v);
+          videoPreferencesService.setAllowOnCellular(v);
+        }}
+      />
+      <SwitchRow
+        icon="warning-outline"
+        title={t('profile.warnOnCellular') || 'Warn before playing on mobile data'}
+        subtitle={
+          t('profile.warnOnCellularSubtitle') || 'Show a confirmation the first time you tap a video off Wi-Fi each session.'
+        }
+        value={warnOnCellular}
+        disabled={!allowOnCellular}
+        onValueChange={(v) => {
+          setWarnOnCellular(v);
+          videoPreferencesService.setWarnOnCellular(v);
+        }}
+      />
+    </Rows>
   );
 }
 

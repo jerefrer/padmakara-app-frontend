@@ -1,7 +1,7 @@
 import React from 'react';
 import { WebMembershipBody } from '@/components/membership/WebMembershipBody';
 import { LanguageSection, ProfileSection, RetreatsSection } from './AccountSections';
-import { AboutSection, ListeningSection, OfflineSection, SignInSection } from './DeviceSections';
+import { AboutSection, OfflineSection, SignInSection, VideoSection } from './DeviceSections';
 import type { SectionId } from './sections';
 
 const BODIES: Record<SectionId, React.ComponentType> = {
@@ -9,7 +9,7 @@ const BODIES: Record<SectionId, React.ComponentType> = {
   language: LanguageSection,
   membership: WebMembershipBody,
   retreats: RetreatsSection,
-  listening: ListeningSection,
+  video: VideoSection,
   storage: OfflineSection,
   signin: SignInSection,
   about: AboutSection,
