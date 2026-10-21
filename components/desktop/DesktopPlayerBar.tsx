@@ -54,6 +54,10 @@ export function DesktopPlayerBar() {
     openTranscript,
   } = useAudioPlayerContext();
 
+  // True only while the user is scrubbing: the seek thumb is drawn then and
+  // hidden at rest, same as the mobile player.
+  const [isSeeking, setIsSeeking] = useState(false);
+
   const hasTrack = !!currentTrack;
   const hasIdleTrack = !hasTrack && !!idleTrack;
 
@@ -236,12 +240,18 @@ export function DesktopPlayerBar() {
               minimumValue={0}
               maximumValue={Math.max(displayDuration, 1)}
               value={displayPosition}
-              onSlidingStart={onSlidingStart}
-              onSlidingComplete={onSlidingComplete}
+              onSlidingStart={() => {
+                setIsSeeking(true);
+                onSlidingStart();
+              }}
+              onSlidingComplete={(value) => {
+                setIsSeeking(false);
+                onSlidingComplete(value);
+              }}
               onValueChange={onSliderValueChange}
               minimumTrackTintColor={controlsDisabled ? colors.gray[300] : colors.burgundy[500]}
               maximumTrackTintColor={colors.gray[300]}
-              thumbTintColor={controlsDisabled ? colors.gray[400] : colors.burgundy[500]}
+              thumbTintColor={isSeeking && !controlsDisabled ? colors.burgundy[500] : 'transparent'}
               disabled={controlsDisabled}
               testID="audio-seek"
             />

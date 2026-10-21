@@ -63,6 +63,7 @@ const colors = {
   burgundy500: '#9b1b1b',
   gray200: '#e5e7eb',
   gray300: '#d1d5db',
+  gray400: '#9ca3af',
   gray500: '#6b7280',
   gray600: '#4b5563',
   gray800: '#2c2c2c',
@@ -217,15 +218,9 @@ export default function TeacherDetailScreen() {
             const langs = eventLanguages(event, t).join(' + ');
             const dateLabel = formatIsoDate(event.startDate);
             const placeLabel = event.places?.map((p) => p.name).filter(Boolean).join(', ') || '';
-            // The event's own organizer is the real one. Retreat groups name
-            // the practice course (SHA, TM1, ...), not who put the event on, so
-            // they only stand in when no organizer has been recorded.
-            const orgLabel = event.organizer?.trim()
-              || event.retreatGroups
-                ?.map((g) => g.abbreviation || g.name)
-                .filter(Boolean)
-                .join(' & ')
-              || '';
+            // Only the recorded organizer: retreat groups name the practice
+            // course (SHA, TM1, ...), not who put the event on.
+            const orgLabel = event.organizer?.trim() || '';
 
             const hasVideo = eventHasVideo(event);
             const hasTranscript = eventHasTranscript(event);
@@ -349,7 +344,7 @@ const styles = StyleSheet.create({
   eventCard: {
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray300,
+    borderBottomColor: colors.gray400,
   },
   eventTitleRow: {
     flexDirection: 'row',

@@ -1349,14 +1349,9 @@ export default function RetreatDetailScreen() {
       ? formatDateRange(retreat.startDate, retreat.endDate, language)
       : '';
     const placeLabel = retreat?.places?.map((p) => p.name).filter(Boolean).join(', ') || '';
-    // Same fallback order as the teacher screen's event cards: the event's own
-    // organizer first, retreat groups only when none has been recorded.
-    const organizerLabel = retreat?.organizer?.trim()
-      || retreat?.retreatGroups
-        ?.map((g) => g.abbreviation || g.name)
-        .filter(Boolean)
-        .join(' & ')
-      || '';
+    // Only the recorded organizer: a retreat group's abbreviation names the
+    // practice course, not who put the event on, so it never stands in.
+    const organizerLabel = retreat?.organizer?.trim() || '';
     // Date | Place | Organizer — one pattern shared with the teacher screen.
     const metaParts = [
       dateLabel,
