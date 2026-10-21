@@ -981,6 +981,6 @@ describe("retreatService — Teachings & Talks hides retreat events", () => {
 
     const result = await retreatService.getUserRetreats();
 
-    expect(result.data!.retreat_groups[0].gatherings.map((g: any) => g.id)).toEqual(["2"]);
+    expect(result.data?.retreat_groups?.[0]?.gatherings?.map((g: any) => g.id)).toEqual(["2"]);
   });
 });
