@@ -42,6 +42,9 @@ const colors = {
   white: "#ffffff",
 };
 
+/** Left/right indent of text on mobile. Graphics (dividers, images) run from the left edge. */
+const TEXT_GUTTER = 24;
+
 // ── Category Row ─────────────────────────────────────────────────────────────
 
 interface CategoryRowProps {
@@ -53,8 +56,10 @@ interface CategoryRowProps {
 function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
   return (
     <TouchableOpacity onPress={onPress} style={styles.categoryRow}>
-      <Text style={styles.categoryTitle}>{title}</Text>
-      <Text style={styles.categorySubtitle}>{subtitle}</Text>
+      <View style={styles.categoryText}>
+        <Text style={styles.categoryTitle}>{title}</Text>
+        <Text style={styles.categorySubtitle}>{subtitle}</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -123,10 +128,15 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
   const hasVideo = (event.videos?.length ?? 0) > 0;
   const hasAudio = eventHasAudio(event);
 
-  const metaParts: string[] = [];
-  if (eventTypeName) metaParts.push(eventTypeName);
-  if (event.startDate) metaParts.push(formatDate(event.startDate));
-  const metaLine = metaParts.join(" | ");
+  // Event type | date | organizer, empty parts skipped. The organizer is the
+  // event's own; retreat groups name the practice course, not who put it on.
+  const metaLine = [
+    eventTypeName,
+    event.startDate ? formatDate(event.startDate) : null,
+    event.organizer?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
 
   const teacherImage = event.teachers?.[0]?.heroUrl || event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
@@ -156,7 +166,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
         )}
       </View>
 
-      <View style={[styles.featuredInfo, isDesktop && styles.featuredInfoDesktop]}>
+      <View style={[styles.featuredInfo, isDesktop ? styles.featuredInfoDesktop : styles.featuredInfoMobile]}>
         {/* On desktop, the highlight label sits at top, info pushed to bottom */}
         {isDesktop && highlightLabel ? (
           <Text style={styles.highlightLabelInCard}>{highlightLabel}</Text>
@@ -202,6 +212,7 @@ function RecentEventCard({
   event,
   onPress,
   language,
+  isDesktop,
   testID,
 }: FeaturedEventProps) {
   const title =
@@ -238,7 +249,11 @@ function RecentEventCard({
   const metaParts = [eventTypeName, event.startDate ? formatDate(event.startDate) : ""].filter(Boolean);
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.recentCard} testID={testID}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.recentCard, !isDesktop && styles.dividerToGutter]}
+      testID={testID}
+    >
       <View style={styles.recentImageContainer}>
         {teacherImage ? (
           <Image
@@ -436,7 +451,7 @@ export default function HomeScreen() {
                 title={t("home.teachingsAndTalks") || "Teachings & Talks"}
                 subtitle={
                   t("home.teachingsSubtitle") ||
-                  "Events by Kangyur Rinpoche Found., Songtsen Pt & others"
+                  "Audio, videos and transcriptions"
                 }
                 onPress={handleTeachingsPress}
               />
@@ -444,7 +459,7 @@ export default function HomeScreen() {
                 title={t("home.retreats") || "Retreats"}
                 subtitle={
                   t("home.retreatsSubtitle") ||
-                  "Organized by Kangyur Rinpoche Foundation"
+                  "Audio, videos and transcriptions (registration required)"
                 }
                 onPress={handleRetreatsPress}
               />
@@ -452,7 +467,7 @@ export default function HomeScreen() {
                 title={t("home.publications") || "Publications"}
                 subtitle={
                   t("home.publicationsSubtitle") ||
-                  "By Padmakara in Portuguese Language"
+                  "Padmakara Digital Editions"
                 }
                 onPress={handlePublicationsPress}
               />
@@ -468,7 +483,7 @@ export default function HomeScreen() {
             <View style={[styles.highlightSection, isDesktop && styles.highlightSectionDesktop]}>
               {/* On mobile, label is above the card. On desktop, it's inside the card. */}
               {!isDesktop && (
-                <Text style={styles.highlightLabel}>
+                <Text style={[styles.highlightLabel, styles.indented]}>
                   {t("home.monthlyHighlight") || "Our monthly highlight"}
                 </Text>
               )}
@@ -486,15 +501,16 @@ export default function HomeScreen() {
           {/* Recently added */}
           {recentEvents.length > 0 && (
             <View style={styles.recentSection}>
-              <Text style={styles.highlightLabel}>
+              <Text style={[styles.highlightLabel, !isDesktop && styles.indented]}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
-              <View style={styles.recentDivider} />
+              <View style={[styles.recentDivider, !isDesktop && styles.dividerToGutter]} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}
                   event={event}
                   language={language}
+                  isDesktop={isDesktop}
                   testID={`event-card-${event.id}`}
                   onPress={() =>
                     router.push({
@@ -539,15 +555,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 0,
     paddingTop: 24,
     paddingBottom: 120,
   },
   scrollContentDesktop: {
     paddingTop: 32,
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  indented: {
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  // A divider that starts at the left edge and stops at the right gutter.
+  dividerToGutter: {
+    marginRight: TEXT_GUTTER,
   },
   membershipInvite: {
     marginBottom: 20,
+    marginHorizontal: TEXT_GUTTER,
   },
 
   // App title (mobile)
@@ -562,17 +587,21 @@ const styles = StyleSheet.create({
 
   // Category rows
   categoryRow: {
-    paddingVertical: 20,
+    paddingVertical: 16,
+    marginRight: TEXT_GUTTER,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.burgundy[500],
   },
+  categoryText: {
+    paddingLeft: TEXT_GUTTER,
+  },
   categoryTitle: {
-    fontSize: 25,
+    fontSize: 30,
     fontFamily: "MinionPro",
     color: colors.gray[800],
     fontVariant: ["small-caps"],
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   categorySubtitle: {
     fontSize: 13,
@@ -589,13 +618,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   highlightLabel: {
-    fontSize: 23,
+    fontSize: 28,
     fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
     marginBottom: 6,
   },
   highlightLabelInCard: {
-    fontSize: 23,
+    fontSize: 28,
     fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
     marginBottom: 16,
@@ -619,9 +648,9 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 10,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
-    borderRadius: 4,
   },
   featuredImageContainerDesktop: {
+    borderRadius: 4,
     width: "45%",
     aspectRatio: undefined,
     minHeight: 280,
@@ -641,12 +670,15 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
   },
+  featuredInfoMobile: {
+    paddingHorizontal: TEXT_GUTTER,
+  },
   featuredInfoDesktop: {
     flex: 1,
     paddingTop: 0,
   },
   featuredTeacher: {
-    fontSize: 25,
+    fontSize: 31,
     fontFamily: "EBGaramond_500Medium",
     color: colors.burgundy[500],
     marginBottom: 2,
@@ -663,7 +695,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   featuredTitle: {
-    fontSize: 17,
+    fontSize: 20,
     fontFamily: "EBGaramond_400Regular",
     color: colors.gray[800],
     flex: 1,
@@ -673,7 +705,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   featuredMeta: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: AVENIR_FAMILY,
     color: colors.gray[500],
     letterSpacing: 0.2,
