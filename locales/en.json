@@ -443,7 +443,10 @@
     "title": "Read Along",
     "loading": "Loading transcript...",
     "unavailable": "Read Along not available for this track",
-    "buttonLabel": "Read Along"
+    "buttonLabel": "Read Along",
+    "textSize": "Text size",
+    "textSmaller": "Smaller text",
+    "textLarger": "Larger text"
   },
   "publications": {
     "title": "Publications",
