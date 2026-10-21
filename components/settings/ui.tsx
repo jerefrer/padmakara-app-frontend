@@ -114,9 +114,10 @@ export function SwitchRow({
           onValueChange={onValueChange}
           disabled={disabled}
           // iOS ignores trackColor.false for the fill: without ios_backgroundColor an
-          // off switch is a white pill with a faint edge, hard to see on the page.
+          // off switch is a white pill with a faint edge, hard to see on the page. The fill
+          // follows the value because it peeks out as a gray rim around an on switch.
           trackColor={{ false: c.gray[400], true: c.burgundy[500] }}
-          ios_backgroundColor={c.gray[400]}
+          ios_backgroundColor={value ? c.burgundy[500] : c.gray[400]}
         />
       }
     />
