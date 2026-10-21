@@ -326,6 +326,18 @@ export function transcriptErrorKey(code: TranscriptErrorCode): string {
 // ─── Service ────────────────────────────────────────────────────────
 
 /**
+ * Is this (raw backend) event a retreat of a retreat group?
+ *
+ * The Retreats area is built from the groups an event is linked to, so a
+ * link is what makes an event a retreat teaching. Those belong to Retreats
+ * (registration required) and stay out of Teachings & Talks, whoever teaches
+ * them.
+ */
+function isRetreatEvent(ev: any): boolean {
+  return (ev.eventRetreatGroups?.length ?? 0) > 0;
+}
+
+/**
  * A call the server never answered: offline, timed out. A refusal (403, 404,
  * 401) comes back with a status — that is an answer, and must not be papered
  * over with a cached copy.
@@ -495,7 +507,7 @@ class RetreatService {
     // Stale presigned URLs anywhere in the list → treat the whole list as
     // a miss so the async path re-fetches with fresh URLs.
     if (hasExpiredPresignedUrl(events)) return null;
-    return events.filter((ev: any) => ev.audience?.slug === 'free-anyone').map(mapEvent);
+    return events.filter((ev: any) => ev.audience?.slug === 'free-anyone' && !isRetreatEvent(ev)).map(mapEvent);
   }
 
   getFeaturedEventSync(): any | null {
@@ -517,6 +529,7 @@ class RetreatService {
     if (events === undefined || events === null) return null;
     if (hasExpiredPresignedUrl(events)) return null;
     const teacherEvents = events.filter((ev: any) =>
+      !isRetreatEvent(ev) &&
       ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation)
     );
     const mappedEvents = teacherEvents.map(mapEvent);
@@ -544,6 +557,7 @@ class RetreatService {
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
     const fromCache = (events: any[]) => {
       const teacherEvents = events.filter((ev: any) =>
+        !isRetreatEvent(ev) &&
         ev.eventTeachers?.some((et: any) => et.teacher?.abbreviation === abbreviation),
       );
       // Derive teacher metadata from the first matching event.
@@ -591,7 +605,7 @@ class RetreatService {
     const cachedEvents = opts.force ? null : await entityCacheService.getList<any>('events');
     const fromCache = (events: any[]) => ({
       success: true,
-      data: events.filter((ev: any) => ev.audience?.slug === 'free-anyone').map(mapEvent),
+      data: events.filter((ev: any) => ev.audience?.slug === 'free-anyone' && !isRetreatEvent(ev)).map(mapEvent),
     });
     if (cachedEvents !== null && !hasExpiredPresignedUrl(cachedEvents)) {
       return fromCache(cachedEvents);
@@ -602,7 +616,7 @@ class RetreatService {
     try {
       const response = await apiService.get<any[]>(API_ENDPOINTS.PUBLIC_EVENTS);
       if (response.success && response.data) {
-        this.lastNetworkPublicEvents = response.data.map(mapEvent);
+        this.lastNetworkPublicEvents = response.data.filter((ev: any) => !isRetreatEvent(ev)).map(mapEvent);
         return { success: true, data: this.lastNetworkPublicEvents };
       }
       if (cachedEvents !== null && isUnreachable(response)) return fromCache(cachedEvents);

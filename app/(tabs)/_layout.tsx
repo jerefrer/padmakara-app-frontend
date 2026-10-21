@@ -18,6 +18,16 @@ export const unstable_settings = {
   initialRouteName: '(groups)',
 };
 
+// Same top shadow as the mini-player sitting right above the tab bar, so the
+// two read as one family of bars floating over the content.
+const BAR_TOP_SHADOW = {
+  shadowColor: '#000',
+  shadowOpacity: 0.06,
+  shadowRadius: 4,
+  shadowOffset: { width: 0, height: -1 },
+  elevation: 4,
+};
+
 export default function TabLayout() {
   const { t } = useLanguage();
   const { isMobile } = useDesktopLayout();
@@ -45,9 +55,11 @@ export default function TabLayout() {
               ios: {
                 position: 'absolute' as const,
                 backgroundColor: '#ffffff',
+                ...BAR_TOP_SHADOW,
               },
               default: {
                 backgroundColor: '#ffffff',
+                ...BAR_TOP_SHADOW,
               },
             })
           : { display: 'none' as const },
