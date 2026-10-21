@@ -1,0 +1,31 @@
+# A Tibetan teaching opens on its Tibetan tracks and their English translations, never on
+# the translation alone: the language control reads "Tibetan + English" by default.
+appId: org.padmakara.pt
+name: Event 920 defaults to Tibetan + English
+---
+- runFlow: subflows/launch.yaml
+- tapOn: "Search.*"
+- tapOn:
+    id: search-input
+- inputText: "Shantideva"
+- extendedWaitUntil:
+    visible:
+      id: search-result-920
+    timeout: 15000
+- tapOn:
+    id: search-result-920
+# The event opens on its video tab; the tracks are under Audio.
+- extendedWaitUntil:
+    visible: "Audio"
+    timeout: 15000
+- tapOn: "Audio"
+# The hero image pushes the list below the fold.
+- scrollUntilVisible:
+    element:
+      id: track-row-54858
+    timeout: 30000
+# A track row reads as one element: number, title, language badges, speaker.
+- assertVisible: "1, Opening prayers, TIB"
+- assertVisible: "Motivation.*, EN, Khenpo.*"
+# The player's language control shows the default selection.
+- assertVisible: ".*Tibetan [+] English"

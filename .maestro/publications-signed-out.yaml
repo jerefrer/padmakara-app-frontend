@@ -1,0 +1,19 @@
+# Signed out, the publications list offers the public editions only, never the members-only
+# ones, and says how to get the rest: signing in, with no mention of membership or payment.
+appId: org.padmakara.pt
+name: Publications when signed out
+---
+- runFlow: subflows/launch.yaml
+- scrollUntilVisible:
+    element: "Publications.*"
+- tapOn: "Publications.*"
+- extendedWaitUntil:
+    visible: ".*Sadhana do Buda e dos Dezasseis Arhats.*"
+    timeout: 15000
+- assertVisible: ".*Infinita Vida e Sabedoria.*"
+# Local fixture: publications 10 and 11 are for subscribers only.
+- assertNotVisible: ".*Laphur Thugtik Ngöndro.*"
+- assertNotVisible: ".*[Ss]ubscri.*"
+- assertNotVisible: "Become a member.*"
+# Present in the tree. It sits under the floating tab bar on a phone, so it is not tapped here.
+- assertVisible: ".*Activate your account.*"
