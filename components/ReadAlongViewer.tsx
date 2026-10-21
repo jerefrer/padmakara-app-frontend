@@ -1,6 +1,12 @@
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import readAlongService from '@/services/readAlongService';
+import readAlongPreferencesService, {
+  DEFAULT_TEXT_SIZE_INDEX,
+  MAX_TEXT_SIZE_INDEX,
+  clampTextSizeIndex,
+  getReadAlongTextMetrics,
+} from '@/services/readAlongPreferencesService';
 import { ReadAlongData, ReadAlongWord } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -113,6 +119,22 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
       setRafPosition(position);
     }
   }, [position, isPlaying]);
+
+  // Text size step (persisted on the device) and the picker's visibility.
+  const [sizeIndex, setSizeIndex] = useState(DEFAULT_TEXT_SIZE_INDEX);
+  const [sizePickerOpen, setSizePickerOpen] = useState(false);
+  const textMetrics = useMemo(() => getReadAlongTextMetrics(sizeIndex), [sizeIndex]);
+
+  useEffect(() => {
+    let cancelled = false;
+    readAlongPreferencesService
+      .getTextSizeIndex()
+      .then((saved) => {
+        if (!cancelled) setSizeIndex(saved);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const [data, setData] = useState<ReadAlongData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -356,6 +378,19 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     }, 5000);
   }, []);
 
+  // Change the text size. Paragraph heights change with it, so forget the
+  // measured layouts and re-center on the active paragraph once they are
+  // re-reported (the initial-scroll effect picks it up via layoutTick).
+  const changeSize = useCallback((next: number) => {
+    const clamped = clampTextSizeIndex(next);
+    if (clamped === sizeIndex) return;
+    setSizeIndex(clamped);
+    paraLayoutsRef.current = new Map();
+    hasInitialScrolledRef.current = false;
+    lastScrolledParaRef.current = -1;
+    readAlongPreferencesService.setTextSizeIndex(clamped).catch(() => {});
+  }, [sizeIndex]);
+
   // Tap a word to seek
   const handleWordPress = useCallback((word: ReadAlongWord) => {
     seekTo(word.start * 1000); // seekTo takes milliseconds
@@ -377,7 +412,7 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity onPress={onClose} style={styles.headerButton}>
             <Ionicons name="close" size={24} color={colors.gray[600]} />
           </TouchableOpacity>
         </View>
@@ -394,7 +429,7 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity onPress={onClose} style={styles.headerButton}>
             <Ionicons name="close" size={24} color={colors.gray[600]} />
           </TouchableOpacity>
         </View>
@@ -410,13 +445,71 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
 
   return (
     <View style={styles.container}>
-      {/* Header with title and close button */}
+      {/* Header with title, text size control and close button */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color={colors.gray[600]} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => setSizePickerOpen((open) => !open)}
+            style={[styles.headerButton, sizePickerOpen && styles.headerButtonActive]}
+            accessibilityRole="button"
+            accessibilityLabel={t('readAlong.textSize') || 'Text size'}
+            accessibilityState={{ expanded: sizePickerOpen }}
+            testID="read-along-size-toggle"
+          >
+            <Text style={styles.aaLabel}>Aa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close') || 'Close'}
+          >
+            <Ionicons name="close" size={24} color={colors.gray[600]} />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {sizePickerOpen && (
+        <View style={styles.sizePicker} testID="read-along-size-picker">
+          <TouchableOpacity
+            onPress={() => changeSize(sizeIndex - 1)}
+            disabled={sizeIndex === 0}
+            style={[styles.sizeButton, sizeIndex === 0 && styles.sizeButtonDisabled]}
+            accessibilityRole="button"
+            accessibilityLabel={t('readAlong.textSmaller') || 'Smaller text'}
+            accessibilityState={{ disabled: sizeIndex === 0 }}
+            testID="read-along-size-smaller"
+          >
+            <Text style={[styles.sizeButtonLabel, { fontSize: 16 }]}>A</Text>
+          </TouchableOpacity>
+          <View
+            style={styles.sizeSteps}
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={t('readAlong.textSize') || 'Text size'}
+            accessibilityValue={{ min: 1, max: MAX_TEXT_SIZE_INDEX + 1, now: sizeIndex + 1 }}
+          >
+            {Array.from({ length: MAX_TEXT_SIZE_INDEX + 1 }, (_, i) => (
+              <View
+                key={i}
+                style={[styles.sizeStep, i <= sizeIndex && styles.sizeStepOn]}
+              />
+            ))}
+          </View>
+          <TouchableOpacity
+            onPress={() => changeSize(sizeIndex + 1)}
+            disabled={sizeIndex === MAX_TEXT_SIZE_INDEX}
+            style={[styles.sizeButton, sizeIndex === MAX_TEXT_SIZE_INDEX && styles.sizeButtonDisabled]}
+            accessibilityRole="button"
+            accessibilityLabel={t('readAlong.textLarger') || 'Larger text'}
+            accessibilityState={{ disabled: sizeIndex === MAX_TEXT_SIZE_INDEX }}
+            testID="read-along-size-larger"
+          >
+            <Text style={[styles.sizeButtonLabel, { fontSize: 26 }]}>A</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Transcript text — bottomInset reserves room for the overlay player
           so the last lines can scroll up above the slider. */}
@@ -438,6 +531,8 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
             activeWordIndex={effectiveWordIndex}
             onWordPress={handleWordPress}
             onLayout={handleParaLayout}
+            fontSize={textMetrics.fontSize}
+            lineHeight={textMetrics.lineHeight}
           />
         ))}
       </ScrollView>
@@ -454,6 +549,8 @@ interface ParagraphRowProps {
   activeWordIndex: number;
   onWordPress: (word: ReadAlongWord) => void;
   onLayout: (index: number, y: number) => void;
+  fontSize: number;
+  lineHeight: number;
 }
 
 const ParagraphRow = React.memo(function ParagraphRow({
@@ -463,6 +560,8 @@ const ParagraphRow = React.memo(function ParagraphRow({
   activeWordIndex,
   onWordPress,
   onLayout,
+  fontSize,
+  lineHeight,
 }: ParagraphRowProps) {
   // Find the active word's position within this paragraph for graduated fade
   let activeIdxInPara = -1;
@@ -529,6 +628,8 @@ const ParagraphRow = React.memo(function ParagraphRow({
               isActive={isActive}
               fadeTier={fadeTier}
               onPress={onWordPress}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
             />
           );
         })}
@@ -544,6 +645,8 @@ interface WordSpanProps {
   isActive: boolean;
   fadeTier: 0 | 1 | 2 | 3;
   onPress: (word: ReadAlongWord) => void;
+  fontSize: number;
+  lineHeight: number;
 }
 
 // Graduated fade colors: future → just passed → medium past → far past
@@ -554,7 +657,7 @@ const FADE_COLORS = [
   '#c9cdd3', // 3: far past (13+ words) — faded
 ] as const;
 
-const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPress }: WordSpanProps) {
+const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPress, fontSize, lineHeight }: WordSpanProps) {
   // Animated dot indicator: fades in + scale pulse when this word becomes active.
   const dotOpacity = useSharedValue(isActive ? 1 : 0);
   const dotScale = useSharedValue(isActive ? 1 : 0.6);
@@ -583,7 +686,7 @@ const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPres
         onPress={() => onPress(word)}
         style={[
           styles.word,
-          { color: FADE_COLORS[fadeTier] },
+          { color: FADE_COLORS[fadeTier], fontSize, lineHeight },
           isActive && styles.wordActive,
         ]}
       >
@@ -616,8 +719,62 @@ const styles = StyleSheet.create({
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.burgundy[500],
   },
-  closeButton: {
-    padding: 4,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerButtonActive: {
+    backgroundColor: colors.burgundy[50],
+  },
+  aaLabel: {
+    fontSize: 20,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.burgundy[500],
+  },
+  sizePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.burgundy[50],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  sizeButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sizeButtonDisabled: {
+    opacity: 0.35,
+  },
+  sizeButtonLabel: {
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: colors.burgundy[500],
+  },
+  sizeSteps: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 8,
+  },
+  sizeStep: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.burgundy[100],
+  },
+  sizeStepOn: {
+    backgroundColor: colors.burgundy[500],
   },
   loadingContainer: {
     flex: 1,
@@ -672,8 +829,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   word: {
-    fontSize: 18,
-    lineHeight: 30,
     fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[800],
   },

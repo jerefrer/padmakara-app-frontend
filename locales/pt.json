@@ -443,7 +443,10 @@
     "title": "Ler em Conjunto",
     "loading": "A carregar transcrição...",
     "unavailable": "Ler em Conjunto não disponível para esta faixa",
-    "buttonLabel": "Ler em Conjunto"
+    "buttonLabel": "Ler em Conjunto",
+    "textSize": "Tamanho do texto",
+    "textSmaller": "Texto mais pequeno",
+    "textLarger": "Texto maior"
   },
   "publications": {
     "title": "Publicações",
