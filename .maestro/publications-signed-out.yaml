@@ -15,5 +15,8 @@ name: Publications when signed out
 - assertNotVisible: ".*Laphur Thugtik Ngöndro.*"
 - assertNotVisible: ".*[Ss]ubscri.*"
 - assertNotVisible: "Become a member.*"
-# Present in the tree. It sits under the floating tab bar on a phone, so it is not tapped here.
-- assertVisible: ".*Activate your account.*"
+# The banner opens the list (the floating tab bar would cover it at the bottom) and offers sign-in.
+- tapOn:
+    id: publications-members-banner
+- assertVisible:
+    id: sign-in-email

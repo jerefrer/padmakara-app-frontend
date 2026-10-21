@@ -426,6 +426,39 @@ export default function PublicationsScreen() {
     );
   }
 
+  // The floating native tab bar covers the bottom of the screen, so there the
+  // banner opens the list instead of sitting under it.
+  const bannerAtTop = Platform.OS !== 'web';
+
+  // Members banner: web leads to /membership; native (reader app) only
+  // offers sign-in to signed-out users and says nothing to signed-in non-members.
+  const membersBanner =
+    hasHiddenPublications && !hasActiveSubscription && (Platform.OS === 'web' || !isAuthenticated) ? (
+      <TouchableOpacity
+        testID="publications-members-banner"
+        style={[styles.activationBanner, bannerAtTop && styles.activationBannerTop]}
+        onPress={() => (Platform.OS === 'web' ? router.push('/membership' as any) : openSignIn())}
+      >
+        <Ionicons
+          name="lock-closed-outline"
+          size={18}
+          color={colors.burgundy[500]}
+        />
+        <Text style={styles.activationText}>
+          {Platform.OS === 'web'
+            ? t('publications.memberBanner') ||
+              'Become a member to access the full library'
+            : t('publications.activateBanner') ||
+              'Activate your account to access the full library'}
+        </Text>
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={colors.burgundy[500]}
+        />
+      </TouchableOpacity>
+    ) : null;
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -549,6 +582,8 @@ export default function PublicationsScreen() {
             <ActivityIndicator size="large" color={colors.burgundy[500]} />
           </View>
         ) : filteredPublications.length === 0 ? (
+          <>
+          {bannerAtTop && membersBanner}
           <View style={styles.emptyContainer}>
             <Ionicons
               name="book-outline"
@@ -560,6 +595,7 @@ export default function PublicationsScreen() {
                 'No publications available'}
             </Text>
           </View>
+          </>
         ) : sortMode === 'author' ? (
           <SectionList
             sections={authorSections}
@@ -570,6 +606,7 @@ export default function PublicationsScreen() {
                 <Text style={styles.sectionHeaderText}>{title}</Text>
               </View>
             )}
+            ListHeaderComponent={bannerAtTop ? membersBanner : null}
             contentContainerStyle={styles.listContent}
             stickySectionHeadersEnabled={false}
             refreshControl={
@@ -581,6 +618,7 @@ export default function PublicationsScreen() {
             data={filteredPublications}
             keyExtractor={(item) => item.id}
             renderItem={renderPublicationItem}
+            ListHeaderComponent={bannerAtTop ? membersBanner : null}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -588,32 +626,7 @@ export default function PublicationsScreen() {
           />
         )}
 
-        {/* Members banner: web leads to /membership; native (reader app) only
-            offers sign-in to signed-out users and says nothing to signed-in non-members. */}
-        {hasHiddenPublications && !hasActiveSubscription && (Platform.OS === 'web' || !isAuthenticated) && (
-          <TouchableOpacity
-            style={styles.activationBanner}
-            onPress={() => (Platform.OS === 'web' ? router.push('/membership' as any) : openSignIn())}
-          >
-            <Ionicons
-              name="lock-closed-outline"
-              size={18}
-              color={colors.burgundy[500]}
-            />
-            <Text style={styles.activationText}>
-              {Platform.OS === 'web'
-                ? t('publications.memberBanner') ||
-                  'Become a member to access the full library'
-                : t('publications.activateBanner') ||
-                  'Activate your account to access the full library'}
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color={colors.burgundy[500]}
-            />
-          </TouchableOpacity>
-        )}
+        {!bannerAtTop && membersBanner}
       </View>
     </>
   );
@@ -856,6 +869,12 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.burgundy[100],
     gap: 10,
+  },
+  activationBannerTop: {
+    borderTopWidth: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.burgundy[100],
+    marginBottom: 8,
   },
   activationText: {
     flex: 1,
