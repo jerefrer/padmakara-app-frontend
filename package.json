@@ -11,6 +11,9 @@
     "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
+    "e2e": ".maestro/run-all.sh",
+    "e2e:android": ".maestro/run-all.sh --platform android",
+    "e2e:all": ".maestro/run-all.sh --platform all",
     "test:e2e": "playwright test --config=e2e/playwright.config.ts --project=chromium"
   },
   "dependencies": {
