@@ -276,7 +276,6 @@ export interface Publication {
   publicationDate: string | null;
   version: string | null;
   fileSizeBytes: number | null;
-  accessLevel: 'public' | 'subscribers' | 'events';
   updatedAt: string;
   coverImageUrl: string | null;
 }
