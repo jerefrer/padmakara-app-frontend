@@ -9,14 +9,19 @@ Do not ship unless it is green. One command runs every flow, signed out and sign
 against the **local** API and exits non-zero on any failure, with a per-flow summary:
 
 ```bash
-npm run e2e            # iOS simulator
+npm run e2e            # iOS simulator (the default)
+npm run e2e:android    # Android emulator
+npm run e2e:all        # both, one after the other
 ```
+
+Run `npm run e2e:all` when a build for both stores is going out. `run-all.sh --platform
+ios|android|all` is the same thing.
 
 It checks JAVA_HOME, boots the simulator, checks the dev client is installed, checks the
 local API on :3000 (and that its database has the public event 920 the flows search for),
 starts Metro if needed (dev-client mode, not `CI=1`), then runs `.maestro/*.yaml` and
 `run-signed-in.sh`. It stops only what it started (simulator, Metro, API) and always
-removes `.env.development.local`. A full run takes about 6 minutes.
+removes `.env.development.local`. A full run takes about 6 minutes on iOS, 9 on Android.
 
 Everything runs against the local API, never production: the script writes the local URL
 to `.env.development.local` before Metro starts and refuses to run if Metro does not serve
@@ -51,6 +56,31 @@ cd ios && xcodebuild -workspace Padmakara.xcworkspace -scheme Padmakara \
 
 Rebuild only when a native dependency, the Expo SDK or `app.config.ts` changes.
 JavaScript changes are picked up by Metro.
+
+## Android (one-time setup)
+
+The flows are the same files on both platforms; only `subflows/launch.yaml` branches
+(`platform: iOS` / `Android`) for the dev launcher and the dev menu.
+
+```bash
+brew install openjdk@17                        # JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export ANDROID_HOME=~/Library/Android/sdk      # SDK with platform-tools, emulator, an arm64 AVD
+APP_VARIANT=pt npx expo prebuild -p android    # android/ is generated and git-ignored
+echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+(cd android && ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a)   # ~13 min the first time
+```
+
+`npm run e2e:android` then boots the AVD headless (`Medium_Phone_API_35`, or `ANDROID_AVD`),
+runs `adb reverse tcp:8081` and `tcp:3000` so the emulator reaches Metro and the local API
+as `localhost` (the same `.env.development.local` serves both platforms), installs
+`android/app/build/outputs/apk/debug/app-debug.apk` if the dev client is missing, and shuts
+the emulator down afterwards if it started it. The dev launcher lists Metro as
+`http://10.0.2.2:8081` there. The first bundle after a Metro start takes a few minutes.
+
+Rebuild the Android dev client only when a native dependency or `app.config.ts` changes.
+Keep native modules aligned with the Expo SDK: a stray `expo-asset` of another SDK made the
+Android app render a blank screen (fonts never loaded), which is why `expo-asset` is a
+direct dependency pinned to the SDK's version.
 
 ## Run one flow by hand
 
