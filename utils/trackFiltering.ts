@@ -57,6 +57,35 @@ export function getEventLanguages(tracks: Track[]): string[] {
 }
 
 /**
+ * The language an event was taught in.
+ *
+ * Uses the event's own `originalLanguage` when it has one. An event copy
+ * cached before the API sent that field has none, and guessing English for it
+ * would hide a Tibetan teaching's Tibetan tracks — so infer it from the tracks
+ * that are not translations instead: the most common language among them,
+ * ties going to the earlier in tib → en → pt → es → fr. English only when the
+ * tracks say nothing.
+ */
+export function resolveEventOriginalLanguage(
+  declared: string | undefined,
+  tracks: Track[],
+): string {
+  if (declared) return declared;
+
+  const counts = new Map<string, number>();
+  for (const track of tracks) {
+    if (track.isOriginal !== true) continue;
+    const code = track.originalLanguage || track.language;
+    if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
+  }
+  const ranked = [...counts.entries()].sort(
+    ([a, countA], [b, countB]) =>
+      countB - countA || (LANG_ORDER[a] ?? 99) - (LANG_ORDER[b] ?? 99),
+  );
+  return ranked[0]?.[0] ?? 'en';
+}
+
+/**
  * Apply the user's content-language selection to a flat track list.
  *
  * A track is kept when any of its languages is selected — matched against its
