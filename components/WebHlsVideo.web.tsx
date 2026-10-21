@@ -8,11 +8,17 @@ import type { WebHlsVideoProps, WebPlayerHandle } from './WebHlsVideo.types';
  * hls.js is used on every desktop browser with MSE, so this path is only hit
  * by mobile Safari where the media engine parses the renditions itself.
  */
-function enableNativeTextTrack(video: HTMLVideoElement, subtitleLanguage: string): void {
+function enableNativeTextTrack(video: HTMLVideoElement, subtitleLanguage: string | null): void {
   const subs = Array.from(video.textTracks).filter(
     (t) => t.kind === 'subtitles' || t.kind === 'captions',
   );
   if (subs.length === 0) return;
+  if (subtitleLanguage === null) {
+    subs.forEach((t) => {
+      t.mode = 'disabled';
+    });
+    return;
+  }
   const preferred = pickPreferredSubtitle(
     subs.map((t, index) => ({ index, language: t.language ?? '' })),
     subtitleLanguage,
@@ -89,6 +95,7 @@ export const WebHlsVideo = forwardRef<WebPlayerHandle, WebHlsVideoProps>(
         hls.on(Hls.Events.MANIFEST_PARSED, applyResumeAndPlay);
         hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
           const { subtitleLanguage } = propsRef.current;
+          if (subtitleLanguage === null) return;
           const preferred = pickPreferredSubtitle(
             hls.subtitleTracks.map((t, index) => ({
               index,

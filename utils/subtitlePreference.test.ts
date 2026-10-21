@@ -1,4 +1,9 @@
-import { pickPreferredSubtitle } from './subtitlePreference';
+import {
+  parseSubtitleChoice,
+  pickPreferredSubtitle,
+  resolveSubtitleLanguage,
+  subtitleChoiceOrder,
+} from './subtitlePreference';
 
 const en = { language: 'en', label: 'English' };
 const pt = { language: 'pt', label: 'Português' };
@@ -33,5 +38,41 @@ describe('pickPreferredSubtitle()', () => {
     // Callers pass the interface language, which is never Tibetan — but if a
     // 'tib' ever arrives here, a real track still wins.
     expect(pickPreferredSubtitle([en, pt], 'tib')).toBe(en);
+  });
+});
+
+describe('parseSubtitleChoice()', () => {
+  it('should return null when nothing usable is stored', () => {
+    expect(parseSubtitleChoice(null)).toBeNull();
+    expect(parseSubtitleChoice('')).toBeNull();
+    expect(parseSubtitleChoice('de')).toBeNull();
+  });
+
+  it('should accept the four languages and "off"', () => {
+    for (const code of ['en', 'pt', 'fr', 'es', 'off']) {
+      expect(parseSubtitleChoice(code)).toBe(code);
+    }
+  });
+});
+
+describe('resolveSubtitleLanguage()', () => {
+  it('should follow the interface language when the user never chose', () => {
+    expect(resolveSubtitleLanguage(null, 'pt')).toBe('pt');
+    expect(resolveSubtitleLanguage(null, 'en')).toBe('en');
+  });
+
+  it('should use the stored language over the interface language', () => {
+    expect(resolveSubtitleLanguage('fr', 'pt')).toBe('fr');
+  });
+
+  it('should return null when subtitles are switched off', () => {
+    expect(resolveSubtitleLanguage('off', 'en')).toBeNull();
+  });
+});
+
+describe('subtitleChoiceOrder()', () => {
+  it('should list the interface language first, then the others, then off', () => {
+    expect(subtitleChoiceOrder('en')).toEqual(['en', 'pt', 'fr', 'es', 'off']);
+    expect(subtitleChoiceOrder('pt')).toEqual(['pt', 'en', 'fr', 'es', 'off']);
   });
 });
