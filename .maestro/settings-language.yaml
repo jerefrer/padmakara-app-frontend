@@ -1,0 +1,44 @@
+# Settings > Language holds the Portuguese-tracks switch and the subtitle language, and the
+# subtitle choice shows as the row's value. Video playback is its own section on native.
+appId: org.padmakara.pt
+name: Language settings on native
+---
+- runFlow: subflows/launch.yaml
+- tapOn: "Account.*"
+- tapOn:
+    id: settings-row-language
+- assertVisible:
+    id: settings-show-portuguese
+- assertVisible:
+    id: settings-subtitle-language
+# Starts on the interface language (English).
+- assertVisible: "Show subtitles in which language, English"
+- tapOn:
+    id: settings-subtitle-language
+# The options open below the tab bar's edge: bring them into view before tapping.
+- scrollUntilVisible:
+    element:
+      id: settings-subtitle-off
+    centerElement: true
+- tapOn:
+    id: settings-subtitle-off
+- assertVisible: "Show subtitles in which language, Do not show"
+- tapOn:
+    id: settings-subtitle-language
+# The options open below the tab bar's edge: bring them into view before tapping.
+- scrollUntilVisible:
+    element:
+      id: settings-subtitle-en
+    centerElement: true
+- tapOn:
+    id: settings-subtitle-en
+- assertVisible: "Show subtitles in which language, English"
+- takeScreenshot: settings-language
+# Back to the index: Video playback exists on native.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: settings-row-video
+- tapOn:
+    id: settings-row-video
+- assertVisible: "Allow video on mobile data"

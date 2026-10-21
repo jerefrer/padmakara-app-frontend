@@ -41,12 +41,19 @@ else
   created_env=true
 fi
 
-# Never run against production: wait until Metro serves the local URL.
-for _ in $(seq 1 30); do
-  if curl -sf "$bundle" | grep -q '"\.env\.development\.local")'; then break; fi
+# Never run against production: wait until Metro serves the local URL. The bundle goes to a
+# file: grep -q on a pipe closes it early, which pipefail turns into a failure.
+bundle_file="$(mktemp "${TMPDIR:-/tmp}/padmakara-bundle.XXXXXX")"
+serves_local_env() {
+  curl -sf -m 300 "$bundle" -o "$bundle_file" && grep -q '"\.env\.development\.local")' "$bundle_file"
+}
+ok=false
+for _ in $(seq 1 15); do
+  if serves_local_env; then ok=true; break; fi
   sleep 2
 done
-curl -sf "$bundle" | grep -q '"\.env\.development\.local")' || {
+rm -f "$bundle_file"
+[ "$ok" = true ] || {
   echo "Refusing to run: Metro has not picked up $local_env." >&2
   exit 1
 }
@@ -66,6 +73,9 @@ open_new_links() {
     all="$(links)"
     count=$(printf '%s' "$all" | grep -c . || true)
     if [ "$count" -gt "$opened" ]; then
+      # Let the app show its "link sent" state first: opening the link at once closes the
+      # sheet before the flow has asserted it.
+      sleep 3
       printf '%s\n' "$all" | tail -n "+$((opened + 1))" | while read -r url; do
         curl -s -o /dev/null "$url" && echo "opened magic link ${url%%\?*}" >&2
       done
