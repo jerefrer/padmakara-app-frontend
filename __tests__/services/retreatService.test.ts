@@ -810,14 +810,14 @@ describe("retreatService — offline with a cache whose image URLs expired", () 
       audience: { slug: "free-anyone" },
       imageUrl: expired,
       eventTeachers: [{ teacher: { abbreviation: "KPS", name: "Khenchen" } }],
-      eventRetreatGroups: [{ retreatGroupId: 1 }],
+      eventRetreatGroups: [],
     },
     {
       id: 11,
-      titleEn: "Members-only retreat",
+      titleEn: "Members-only teaching",
       audience: { slug: "retreat-group-members" },
       eventTeachers: [{ teacher: { abbreviation: "KPS", name: "Khenchen" } }],
-      eventRetreatGroups: [{ retreatGroupId: 1 }],
+      eventRetreatGroups: [],
     },
   ];
   const cachedGroups = [{ id: 1, name: "Mandala", abbreviation: "MAN", heroUrl: expired }];
@@ -899,5 +899,88 @@ describe("retreatService — offline with a cache whose image URLs expired", () 
     const result = await retreatService.getRetreatDetails("11");
 
     expect(result.data).toBeUndefined();
+  });
+});
+
+// ─── Retreat teachings stay out of Teachings & Talks ─────────────────
+
+describe("retreatService — Teachings & Talks hides retreat events", () => {
+  const jkr = { id: 5, name: "Jigme Khyentse Rinpoche", abbreviation: "JKR" };
+  const talk = {
+    id: 1,
+    titleEn: "Public talk",
+    audience: { slug: "free-anyone" },
+    eventTeachers: [{ teacher: jkr }],
+    eventRetreatGroups: [],
+  };
+  const retreat = {
+    id: 2,
+    titleEn: "Group retreat",
+    audience: { slug: "retreat-group-members" },
+    eventTeachers: [{ teacher: jkr }],
+    eventRetreatGroups: [{ retreatGroupId: 3 }],
+  };
+  // A public event that is nevertheless a retreat of a group.
+  const publicRetreat = {
+    id: 3,
+    titleEn: "Open retreat teaching",
+    audience: { slug: "free-anyone" },
+    eventTeachers: [{ teacher: jkr }],
+    eventRetreatGroups: [{ retreatGroupId: 3 }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should leave retreat events off the teacher page when events come from the cache", async () => {
+    (entityCacheService.getList as jest.Mock).mockResolvedValue([talk, retreat, publicRetreat]);
+
+    const result = await retreatService.getEventsByTeacher("JKR");
+
+    expect(result.events.map((e: any) => e.id)).toEqual(["1"]);
+  });
+
+  it("should leave retreat events off the teacher page when read from the sync mirror", () => {
+    (entityCacheService.getListSync as jest.Mock).mockReturnValue([talk, retreat, publicRetreat]);
+
+    const result = retreatService.getEventsByTeacherSync("JKR");
+
+    expect(result!.events.map((e: any) => e.id)).toEqual(["1"]);
+  });
+
+  it("should leave retreat events off the public events derived from the cache", async () => {
+    (entityCacheService.getList as jest.Mock).mockResolvedValue([talk, retreat, publicRetreat]);
+
+    const result = await retreatService.getPublicEvents();
+
+    expect(result.data!.map((e: any) => e.id)).toEqual(["1"]);
+  });
+
+  it("should leave retreat events off the sync public events", () => {
+    (entityCacheService.getListSync as jest.Mock).mockReturnValue([talk, retreat, publicRetreat]);
+
+    const result = retreatService.getPublicEventsSync();
+
+    expect(result!.map((e: any) => e.id)).toEqual(["1"]);
+  });
+
+  it("should leave retreat events off the public events fetched from the network", async () => {
+    (entityCacheService.getList as jest.Mock).mockResolvedValue(null);
+    (apiService.get as jest.Mock).mockResolvedValue({ success: true, data: [talk, publicRetreat] });
+
+    const result = await retreatService.getPublicEvents();
+
+    expect(result.data!.map((e: any) => e.id)).toEqual(["1"]);
+  });
+
+  it("should keep retreat events in the Retreats area", async () => {
+    (entityCacheService.getList as jest.Mock).mockImplementation(async (ns: string) =>
+      ns === "groups" ? [{ id: 3, name: "Group" }] : [talk, retreat],
+    );
+
+    const result = await retreatService.getUserRetreats();
+
+    expect(result.data!.retreat_groups[0].gatherings.map((g: any) => g.id)).toEqual(["2"]);
   });
 });
