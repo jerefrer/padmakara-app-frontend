@@ -49,6 +49,7 @@ import trackBookmarkService from '@/services/trackBookmarkService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   filterTracksByLanguage,
+  resolveEventOriginalLanguage,
   getEventLanguages,
   sortTracksForSession,
   type TrackWithSession,
@@ -369,11 +370,11 @@ export default function RetreatDetailScreen() {
       eventLanguageChoice !== null
         ? narrowToEvent(eventLanguageChoice, eventLanguages)
         : defaultForEvent(
-            retreat?.originalLanguage || 'en',
+            resolveEventOriginalLanguage(retreat?.originalLanguage, allTracks),
             showPortuguese,
             eventLanguages,
           ),
-    [eventLanguageChoice, retreat?.originalLanguage, showPortuguese, eventLanguages],
+    [eventLanguageChoice, retreat?.originalLanguage, allTracks, showPortuguese, eventLanguages],
   );
 
   // Apply language filter to tracks

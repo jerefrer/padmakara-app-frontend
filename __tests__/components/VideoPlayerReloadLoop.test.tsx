@@ -3,8 +3,11 @@ import { render, waitFor } from '@testing-library/react-native';
 
 import { VideoPlayer } from '@/components/VideoPlayer';
 import retreatService from '@/services/retreatService';
+import videoPreferencesService from '@/services/videoPreferencesService';
+import { useEventListener } from 'expo';
 
-const mockPlayer = {
+const mockPlayer: Record<string, any> = {
+  subtitleTrack: undefined,
   replace: jest.fn(),
   play: jest.fn(),
   pause: jest.fn(),
@@ -63,6 +66,7 @@ jest.mock('@/services/videoPreferencesService', () => ({
   default: {
     getAllowOnCellular: jest.fn(() => Promise.resolve(true)),
     getWarnOnCellular: jest.fn(() => Promise.resolve(false)),
+    getSubtitleLanguage: jest.fn(() => Promise.resolve(null)),
   },
 }));
 
@@ -96,5 +100,40 @@ describe('VideoPlayer', () => {
 
     await waitFor(() => expect(retreatService.fetchVideo).toHaveBeenCalledTimes(2));
     expect(retreatService.fetchVideo).toHaveBeenLastCalledWith(8);
+  });
+
+  describe('initial subtitle track', () => {
+    const tracks = [
+      { language: 'en', label: 'English' },
+      { language: 'pt', label: 'Português' },
+      { language: 'fr', label: 'Français' },
+    ];
+
+    /** Render, wait for the stored choice, then deliver the parsed tracks like the native player does. */
+    const startWithStoredChoice = async (stored: string | null) => {
+      (videoPreferencesService.getSubtitleLanguage as jest.Mock).mockResolvedValueOnce(stored);
+      mockPlayer.subtitleTrack = undefined;
+      render(<VideoPlayer video={video} onClose={() => {}} />);
+      await waitFor(() => expect(mockPlayer.replace).toHaveBeenCalledTimes(1));
+      const calls = (useEventListener as jest.Mock).mock.calls.filter(
+        ([, event]) => event === 'availableSubtitleTracksChange',
+      );
+      calls[calls.length - 1][2]({ availableSubtitleTracks: tracks });
+    };
+
+    it('should start with the interface language when the viewer never chose', async () => {
+      await startWithStoredChoice(null);
+      expect(mockPlayer.subtitleTrack).toBe(tracks[0]);
+    });
+
+    it('should start with the language chosen in Settings', async () => {
+      await startWithStoredChoice('fr');
+      expect(mockPlayer.subtitleTrack).toBe(tracks[2]);
+    });
+
+    it('should start without subtitles when Settings says not to show them', async () => {
+      await startWithStoredChoice('off');
+      expect(mockPlayer.subtitleTrack).toBeNull();
+    });
   });
 });

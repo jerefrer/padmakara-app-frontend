@@ -16,8 +16,8 @@ export interface WebHlsVideoProps {
   uri: string;
   /** Seconds to seek to once the manifest is ready. 0 = start. */
   resumePosition: number;
-  /** The language to prefer for subtitles — the interface language. */
-  subtitleLanguage: string;
+  /** The language to turn on by default, or `null` for no subtitles. */
+  subtitleLanguage: string | null;
   /** Fired on playback progress with the current time in seconds. */
   onTimeUpdate: (currentTime: number) => void;
   /** Fired when the media element or HLS engine reports a fatal error. */

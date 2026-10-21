@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
@@ -7,6 +8,8 @@ import { useAppLock } from '@/contexts/AppLockContext';
 import { kindLabels } from '@/services/appLock';
 import { useLanguage } from '@/contexts/LanguageContext';
 import videoPreferencesService from '@/services/videoPreferencesService';
+import { SUBTITLES_OFF, resolveSubtitleLanguage, subtitleChoiceOrder } from '@/utils/subtitlePreference';
+import { membershipColors as c } from '@/components/membership/theme';
 import { StorageSection } from '@/components/StorageSection';
 import { tr } from '@/components/membership/tr';
 import { GroupLabel, Rows, SettingsRow, SwitchRow } from './ui';
@@ -41,12 +44,26 @@ function storageErrorMessage(error: any): string {
   return 'Storage operation failed. Please restart the app and try again.';
 }
 
-/** Which tracks appear, and (native) whether videos may use mobile data. Stored on this device only. */
+/**
+ * Which tracks appear, which subtitles videos start with, and (native) whether videos may use
+ * mobile data. Stored on this device only.
+ */
 export function ListeningSection() {
-  const { t, showPortuguese, setShowPortuguese } = useLanguage();
+  const { t, language, showPortuguese, setShowPortuguese } = useLanguage();
+  // null: never chosen, so subtitles follow the interface language.
+  const [subtitleChoice, setSubtitleChoice] = useState<string | null>(null);
+  const [subtitleOpen, setSubtitleOpen] = useState(false);
   const [warnOnCellular, setWarnOnCellular] = useState(true);
   const [allowOnCellular, setAllowOnCellular] = useState(true);
   const isNative = Platform.OS !== 'web';
+
+  useEffect(() => {
+    videoPreferencesService.getSubtitleLanguage().then(setSubtitleChoice, () => undefined);
+  }, []);
+
+  const subtitleLabel = (code: string) =>
+    code === SUBTITLES_OFF ? t('profile.subtitlesOff') || 'Do not show' : t(`content.language.${code}`) || code;
+  const chosenSubtitle = resolveSubtitleLanguage(subtitleChoice, language) ?? SUBTITLES_OFF;
 
   useEffect(() => {
     if (!isNative) return;
@@ -65,17 +82,45 @@ export function ListeningSection() {
             never reduced to its translation; only Portuguese is a choice. */}
         <SwitchRow
           testID="settings-show-portuguese"
-          icon="headset-outline"
-          title={t('profile.showPortuguese') || 'Show Portuguese tracks'}
-          subtitle={t('profile.showPortugueseSubtitle') || "Each event's original language and English are always shown."}
+          icon="musical-notes-outline"
+          title={t('profile.showPortuguese') || 'Show Portuguese translation tracks'}
+          subtitle={
+            t('profile.showPortugueseSubtitle') || 'While listening to an event, you can always change this option.'
+          }
           value={showPortuguese}
           onValueChange={setShowPortuguese}
         />
       </Rows>
-      {isNative ? (
-        <>
-          <GroupLabel>{t('profile.videoPlayback') || 'Video Playback'}</GroupLabel>
-          <Rows>
+      <GroupLabel>{t('profile.videoPlayback') || 'Video Playback'}</GroupLabel>
+      <Rows>
+        <SettingsRow
+          testID="settings-subtitle-language"
+          icon="videocam-outline"
+          title={t('profile.subtitleLanguage') || 'Show subtitles in which language'}
+          subtitle={
+            t('profile.subtitleLanguageSubtitle') ||
+            'You can change this option at any time while watching a video. (Please note that subtitles may not always be available.)'
+          }
+          value={subtitleLabel(chosenSubtitle)}
+          onPress={() => setSubtitleOpen((open) => !open)}
+        />
+        {subtitleOpen
+          ? subtitleChoiceOrder(language).map((code) => (
+              <SettingsRow
+                key={code}
+                testID={`settings-subtitle-${code}`}
+                title={subtitleLabel(code)}
+                onPress={() => {
+                  setSubtitleChoice(code);
+                  setSubtitleOpen(false);
+                  videoPreferencesService.setSubtitleLanguage(code);
+                }}
+                right={code === chosenSubtitle ? <Ionicons name="checkmark" size={20} color={c.burgundy[500]} /> : <></>}
+              />
+            ))
+          : null}
+        {isNative ? (
+          <>
             <SwitchRow
               icon="cellular-outline"
               title={t('profile.allowVideoOnCellular') || 'Allow video on mobile data'}
@@ -100,9 +145,9 @@ export function ListeningSection() {
                 videoPreferencesService.setWarnOnCellular(v);
               }}
             />
-          </Rows>
-        </>
-      ) : null}
+          </>
+        ) : null}
+      </Rows>
     </>
   );
 }

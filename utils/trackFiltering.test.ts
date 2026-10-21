@@ -1,6 +1,8 @@
 import { sortTracksForSession } from './trackFiltering';
+import { defaultForEvent } from './contentLanguage';
 import {
   filterTracksByLanguage,
+  resolveEventOriginalLanguage,
   getEventLanguages,
   trackLanguages,
 } from './trackFiltering';
@@ -302,5 +304,48 @@ describe('getEventLanguages', () => {
       tws({ id: 'en', languages: ['en'] }),
     ];
     expect(getEventLanguages(tracks)).toEqual(['en', 'de']);
+  });
+});
+
+// Event 920 (a Tibetan teaching translated into English), as the API returns it.
+const event920Tracks = [
+  baseTrack({ id: '1', order: 1, originalLanguage: 'tib', languages: ['tib'], isOriginal: true }),
+  baseTrack({ id: '2', order: 2, originalLanguage: 'tib', languages: ['tib', 'en'], isOriginal: true }),
+  baseTrack({ id: '3en', order: 3, originalLanguage: 'en', languages: ['en'], isOriginal: false }),
+  baseTrack({ id: '3tib', order: 3, originalLanguage: 'tib', languages: ['tib'], isOriginal: true }),
+  baseTrack({ id: '5en', order: 5, originalLanguage: 'en', languages: ['en'], isOriginal: false }),
+  baseTrack({ id: '5tib', order: 5, originalLanguage: 'tib', languages: ['tib'], isOriginal: true }),
+];
+
+describe('resolveEventOriginalLanguage', () => {
+  it('should use the declared language when the event has one', () => {
+    expect(resolveEventOriginalLanguage('tib', [])).toBe('tib');
+    expect(resolveEventOriginalLanguage('en', event920Tracks)).toBe('en');
+  });
+
+  it('should infer the language from the untranslated tracks when the event declares none', () => {
+    // A copy cached before the API sent `originalLanguage` has no such field.
+    expect(resolveEventOriginalLanguage(undefined, event920Tracks)).toBe('tib');
+  });
+
+  it('should show the Tibetan tracks by default for an event cached without a declared language', () => {
+    const original = resolveEventOriginalLanguage(undefined, event920Tracks);
+    const shown = filterTracksByLanguage(
+      event920Tracks.map((t) => ({ ...t, sessionId: 's', sessionName: '', sessionDate: '', sessionType: 'morning' })),
+      defaultForEvent(original, false, getEventLanguages(event920Tracks)),
+    );
+    expect(shown.map((t) => t.id)).toEqual(['1', '2', '3en', '3tib', '5en', '5tib']);
+  });
+
+  it('should fall back to English when nothing says otherwise', () => {
+    expect(resolveEventOriginalLanguage(undefined, [])).toBe('en');
+    expect(resolveEventOriginalLanguage(undefined, [baseTrack({ id: 'x' })])).toBe('en');
+  });
+
+  it('should prefer the most common untranslated language and break ties by language order', () => {
+    const fr = (id: string) => baseTrack({ id, originalLanguage: 'fr', isOriginal: true });
+    const en = (id: string) => baseTrack({ id, originalLanguage: 'en', isOriginal: true });
+    expect(resolveEventOriginalLanguage(undefined, [fr('a'), fr('b'), en('c')])).toBe('fr');
+    expect(resolveEventOriginalLanguage(undefined, [fr('a'), en('c')])).toBe('en');
   });
 });

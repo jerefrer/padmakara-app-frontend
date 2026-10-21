@@ -2,10 +2,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
-import videoPreferencesService from '@/services/videoPreferencesService';
 import type { Bookmark, EventVideo } from '@/types';
 import { getVideoTitle } from '@/utils/videoTitle';
-import { pickPreferredSubtitle } from '@/utils/subtitlePreference';
+import { pickPreferredSubtitle, resolveSubtitleLanguage } from '@/utils/subtitlePreference';
+import videoPreferencesService from '@/services/videoPreferencesService';
 import { WebHlsVideo } from './WebHlsVideo';
 import type { WebPlayerHandle } from './WebHlsVideo.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -123,10 +123,19 @@ export function VideoPlayer({
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
   const { t, language } = useLanguage();
-  // Subtitles follow the interface language: only one track can be enabled,
-  // and subtitles are app chrome rather than teaching audio, so they are not
-  // tied to the Portuguese audio-track preference.
-  const subtitleLanguage = language;
+  // The subtitle track to turn on when the video starts. Settings can pick a
+  // language or "off"; without a choice it follows the interface language, as
+  // subtitles are app chrome rather than teaching audio. `undefined` until the
+  // stored choice has been read. The viewer can still change tracks in the player.
+  const [storedSubtitle, setStoredSubtitle] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    videoPreferencesService
+      .getSubtitleLanguage()
+      .then(setStoredSubtitle)
+      .catch(() => setStoredSubtitle(null));
+  }, []);
+  const subtitleLanguage =
+    storedSubtitle === undefined ? language : resolveSubtitleLanguage(storedSubtitle, language);
   // The loading effects below must re-run when the *video* changes, and only
   // then. `t` is a fresh function on every LanguageProvider render and the
   // event screen passes an inline `onClose`, so depending on either restarted
@@ -394,19 +403,32 @@ export function VideoPlayer({
   // expo-video's web player exposes no subtitle tracks, so this no-ops there.
   // Fires when the native player finishes parsing the HLS manifest; the
   // set-once ref keeps us from re-enabling after the user opts out.
-  useEventListener(player, 'availableSubtitleTracksChange', ({ availableSubtitleTracks }) => {
+  const autoSelectSubtitle = (
+    availableSubtitleTracks: typeof player.availableSubtitleTracks | undefined,
+  ) => {
     if (Platform.OS === 'web') return;
     if (didAutoSelectSubtitleRef.current) return;
+    // Wait for the stored choice, so a late read does not lose to the default.
+    if (storedSubtitle === undefined) return;
     if (!availableSubtitleTracks || availableSubtitleTracks.length === 0) return;
-    const preferred = pickPreferredSubtitle(availableSubtitleTracks, subtitleLanguage);
-    if (!preferred) return;
     try {
-      player.subtitleTrack = preferred;
+      // "Do not show" also clears a track the platform may have picked itself.
+      player.subtitleTrack =
+        subtitleLanguage === null
+          ? null
+          : pickPreferredSubtitle(availableSubtitleTracks, subtitleLanguage);
     } catch {
       // Selecting a subtitle track must never crash playback.
     }
     didAutoSelectSubtitleRef.current = true;
-  });
+  };
+  useEventListener(player, 'availableSubtitleTracksChange', ({ availableSubtitleTracks }) =>
+    autoSelectSubtitle(availableSubtitleTracks),
+  );
+  // The tracks can be parsed before the stored choice has been read.
+  useEffect(() => {
+    autoSelectSubtitle(player.availableSubtitleTracks);
+  }, [storedSubtitle]);
 
   const bookmarksKeyFor = (videoId: number) => `bookmarks_${videoProgressKey(videoId)}`;
 
@@ -750,19 +772,21 @@ export function VideoPlayer({
             </View>
           ) : hlsUrl ? (
             isWeb ? (
-              <WebHlsVideo
-                ref={webPlayerRef}
-                uri={hlsUrl}
-                resumePosition={resumePosition}
-                subtitleLanguage={subtitleLanguage}
-                onTimeUpdate={(currentTime) =>
-                  recordProgress(
-                    currentTime,
-                    webPlayerRef.current?.getDuration() || video?.durationSeconds || 0,
-                  )
-                }
-                onError={() => setErrorMsg(t('video.loadError') ?? 'Failed to load video')}
-              />
+              storedSubtitle === undefined ? null : (
+                <WebHlsVideo
+                  ref={webPlayerRef}
+                  uri={hlsUrl}
+                  resumePosition={resumePosition}
+                  subtitleLanguage={subtitleLanguage}
+                  onTimeUpdate={(currentTime) =>
+                    recordProgress(
+                      currentTime,
+                      webPlayerRef.current?.getDuration() || video?.durationSeconds || 0,
+                    )
+                  }
+                  onError={() => setErrorMsg(t('video.loadError') ?? 'Failed to load video')}
+                />
+              )
             ) : (
               <VideoView
                 style={styles.video}
