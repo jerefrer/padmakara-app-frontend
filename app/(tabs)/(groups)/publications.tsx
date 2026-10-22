@@ -24,7 +24,8 @@ import { colors } from '@/constants/colors';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { Publication } from '@/types';
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { SectionRule } from '@/components/ui/SectionRule';
 
 type SortMode = 'title' | 'author' | 'latest';
 
@@ -474,6 +475,9 @@ export default function PublicationsScreen() {
           </Text>
         </View>
 
+        {/* Red rule under the header; rows below get thin dark lines. */}
+        {!isDesktop && <SectionRule />}
+
         {/* Sort tabs + language dropdown */}
         <View style={styles.sortRow}>
           <View style={styles.sortTabs}>
@@ -791,8 +795,8 @@ const styles = StyleSheet.create({
   publicationItem: {
     flexDirection: 'row',
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
     alignItems: 'center',
   },
   coverContainer: {

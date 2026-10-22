@@ -20,7 +20,8 @@ import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { SectionRule } from '@/components/ui/SectionRule';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -208,6 +209,9 @@ export default function TeacherDetailScreen() {
           </Text>
         </View>
 
+        {/* Red rule opens the list; thin dark lines separate the rows. */}
+        <SectionRule />
+
         {/* Event list */}
         <View style={styles.eventList}>
           {events.map((event) => {
@@ -339,15 +343,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   eventList: {
-    paddingTop: 8,
+    paddingTop: 0,
   },
   // Text is indented; the separator starts at the left edge and stops at the right inset.
   eventCard: {
     paddingVertical: 16,
     paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray400,
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   eventTitleRow: {
     flexDirection: 'row',

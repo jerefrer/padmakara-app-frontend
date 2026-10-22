@@ -25,6 +25,7 @@ import { getTranslatedName } from '@/utils/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
+import { SectionRule } from '@/components/ui/SectionRule';
 import { TEXT_GUTTER } from '@/constants/layout';
 
 const HERO_HEIGHT = 380;
@@ -486,6 +487,9 @@ export default function GroupDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Red rule opens the list; thin dark lines separate the rows. */}
+          {!isDesktop && <SectionRule />}
 
           {/* Retreats grouped by year */}
           {years.map(year => (

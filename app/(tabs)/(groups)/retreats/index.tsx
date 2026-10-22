@@ -20,7 +20,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { SectionRule } from '@/components/ui/SectionRule';
 
 const colors = {
   burgundy: { 500: "#9b1b1b", 600: "#7b1616" },
@@ -296,8 +297,11 @@ export default function RetreatsListScreen() {
           ) : null}
           <Text style={[styles.pageOrg, !isDesktop && styles.indented]}>{orgInfo}</Text>
 
+          {/* Red rule opens the list; thin dark lines separate the rows. */}
+          {!isDesktop && <SectionRule />}
+
           {/* Groups list */}
-          <View style={[styles.groupsList, !isDesktop && styles.ruleToInset]}>
+          <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
             {groups.map((group) => (
               <GroupRow
                 key={group.id}
@@ -395,7 +399,7 @@ const styles = StyleSheet.create({
   },
 
   // Groups list
-  groupsList: {
+  groupsListDesktop: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.gray[200],
   },
@@ -403,8 +407,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   avatarContainer: {
     marginRight: 14,

@@ -6,7 +6,8 @@ import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { EventRow, EventThumb } from "@/components/EventRow";
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from "@/constants/layout";
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
+import { SectionRule } from "@/components/ui/SectionRule";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import React, { useCallback, useState } from "react";
 import {
@@ -163,6 +164,7 @@ export default function BookmarksScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <Text style={[styles.title, styles.indented]}>{t("navigation.bookmarks") || "Bookmarks"}</Text>
+        <SectionRule style={styles.rule} />
 
         {loading && !hasAny ? (
           <View style={styles.center}>
@@ -277,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: "MinionPro",
     color: colors.burgundy[500],
-    marginBottom: 24,
+    marginBottom: 12,
     fontVariant: ["small-caps"],
   },
   center: {
@@ -299,6 +301,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.gray[500],
     textAlign: "center",
+  },
+  rule: {
+    marginBottom: 12,
   },
   section: {
     marginBottom: 24,
@@ -322,8 +327,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     marginRight: RULE_RIGHT_INSET,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   rowInfo: {
     flex: 1,

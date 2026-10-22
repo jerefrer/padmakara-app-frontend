@@ -67,7 +67,7 @@ import {
 } from '@/components/LanguageCheckboxList';
 import { eventBackTarget } from '@/utils/eventBack';
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   cream: {
@@ -2555,8 +2555,8 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
     paddingHorizontal: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   sessionHeaderSubsequent: {
     marginTop: 32,
@@ -2607,8 +2607,8 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
     marginBottom: 0,
     borderRadius: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
   },

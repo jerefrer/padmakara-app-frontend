@@ -13,7 +13,8 @@ import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { SectionRule } from '@/components/ui/SectionRule';
 
 const colors = {
   burgundy: {
@@ -471,6 +472,9 @@ export default function EventsScreen() {
             )}
           </View>
 
+          {/* Red rule under the header; rows below get thin dark lines. */}
+          {!isDesktop && <SectionRule />}
+
           {/* View mode tabs — only show when not filtering by a specific teacher */}
           {!teacherFilter && (
             <View style={[styles.viewTabs, !isDesktop && styles.indented]}>
@@ -589,8 +593,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   teacherAvatarLarge: {
     marginRight: 16,
