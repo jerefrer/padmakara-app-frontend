@@ -61,9 +61,13 @@ export function AppLockScreen({ kind, onUnlock, pending = false, prompting = fal
         {pending ? null : (
           <View style={styles.action}>
             {prompting ? (
-              <View testID="app-lock-prompting" style={styles.prompting}>
+              <View
+                testID="app-lock-prompting"
+                accessible
+                accessibilityLabel={t('appLock.unlocking') || 'Unlocking…'}
+                style={styles.prompting}
+              >
                 <BiometricGlyph kind={kind} />
-                <Text style={styles.status}>{t('appLock.unlocking') || 'Unlocking…'}</Text>
               </View>
             ) : (
               <Pressable
@@ -92,17 +96,17 @@ const styles = StyleSheet.create({
     // The launch screen's background (app.config.ts, expo-splash-screen).
     backgroundColor: colors.burgundy[500],
     alignItems: 'center',
-    paddingHorizontal: 32,
+    justifyContent: 'center',
   },
-  // In the upper third: the system Face ID prompt opens in the middle of the screen and
-  // would hide a centred lockup.
+  // Same size and place as the native launch screen (imageWidth 290, centred), so the
+  // splash hands over to this cover without the logo moving. The system Face ID prompt
+  // briefly sits over its middle; that was preferred to a logo that jumps.
   lockup: {
-    marginTop: '22%',
     // The splash image's aspect ratio (1800 × 1766).
-    width: 220,
-    height: 216,
+    width: 290,
+    height: 285,
   },
-  // Below the lockup, clear of the system Face ID prompt in the middle of the screen.
+  // At the bottom, clear of the system Face ID prompt in the middle of the screen.
   action: {
     position: 'absolute',
     left: 32,
@@ -112,17 +116,10 @@ const styles = StyleSheet.create({
   },
   prompting: {
     alignItems: 'center',
-    gap: 16,
   },
   glyph: {
     width: GLYPH_SIZE,
     height: GLYPH_SIZE,
-  },
-  status: {
-    fontFamily: 'EBGaramond_400Regular',
-    fontSize: 18,
-    color: colors.white,
-    opacity: 0.85,
   },
   unlock: {
     alignItems: 'center',
