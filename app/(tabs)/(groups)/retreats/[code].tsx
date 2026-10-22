@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useHero } from '@/utils/heroVariant';
+import { useFocalCover } from '@/hooks/useFocalCover';
 import { groupHeroCacheKey } from '@/utils/cacheKeys';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
@@ -265,6 +266,11 @@ export default function GroupDetailScreen() {
   const [downloadedRetreatIds, setDownloadedRetreatIds] = useState<Set<string>>(new Set());
 
   const { url: groupHeroSrc, variant: groupHeroVariant } = useHero(groupData);
+  const heroFocalCover = useFocalCover({
+    focalX: groupData?.heroFocalX ?? 50,
+    focalY: groupData?.heroFocalY ?? 50,
+    frameHeight: HERO_HEIGHT,
+  });
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (e) => {
@@ -462,10 +468,9 @@ export default function GroupDetailScreen() {
                   },
                 ]}
                 contentFit="cover"
-                contentPosition={{
-                  left: `${groupData.heroFocalX ?? 50}%`,
-                  top: `${groupData.heroFocalY ?? 50}%`,
-                }}
+                contentPosition={heroFocalCover.contentPosition}
+                onLayout={heroFocalCover.onLayout}
+                onLoad={heroFocalCover.onLoad}
               />
             </Animated.View>
           )}

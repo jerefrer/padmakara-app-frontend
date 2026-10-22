@@ -11,6 +11,7 @@ import Animated, {
 import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, publicationCoverCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
+import { useFocalCover } from '@/hooks/useFocalCover';
 import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
 import { formatSessionHeader } from '@/utils/sessionHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -211,6 +212,16 @@ export default function RetreatDetailScreen() {
   // out the entire scroll tree, leaving a sub-pixel gray strip on the right
   // edge after returning to the top; (2) shrinking height while content also
   // scrolls made everything below appear to move at ~2× finger speed.
+  // Same group-or-teacher choice as the hero drawn in renderTrackList; hooks cannot live there.
+  const heroOwner = selectHero(retreat?.retreat_group, isMobile).url
+    ? retreat?.retreat_group
+    : retreat?.teachers?.[0];
+  const heroFocalCover = useFocalCover({
+    focalX: heroOwner?.heroFocalX ?? 50,
+    focalY: heroOwner?.heroFocalY ?? 50,
+    frameHeight: HERO_HEIGHT,
+  });
+
   const heroStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       scrollY.value,
@@ -1355,12 +1366,6 @@ export default function RetreatDetailScreen() {
     // mobile, so the hero applies there too.
     const useGroupHero = !!groupHeroPick.url;
     const heroSource = groupHeroPick.url ?? teacherHeroPick.url;
-    const heroFocalX = useGroupHero
-      ? (retreat?.retreat_group?.heroFocalX ?? 50)
-      : (retreat?.teachers?.[0]?.heroFocalX ?? 50);
-    const heroFocalY = useGroupHero
-      ? (retreat?.retreat_group?.heroFocalY ?? 50)
-      : (retreat?.teachers?.[0]?.heroFocalY ?? 50);
     const heroScale = useGroupHero
       ? (retreat?.retreat_group?.heroScale ?? 100)
       : (retreat?.teachers?.[0]?.heroScale ?? 100);
@@ -1454,7 +1459,9 @@ export default function RetreatDetailScreen() {
                   heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },
                 ]}
                 contentFit="cover"
-                contentPosition={{ left: `${heroFocalX}%`, top: `${heroFocalY}%` }}
+                contentPosition={heroFocalCover.contentPosition}
+                onLayout={heroFocalCover.onLayout}
+                onLoad={heroFocalCover.onLoad}
               />
             </View>
             {/* Informative-only badges showing what content the event has.

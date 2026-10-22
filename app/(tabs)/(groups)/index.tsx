@@ -24,6 +24,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
+import { useFocalCover } from "@/hooks/useFocalCover";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
@@ -149,9 +150,10 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
   // Framed on the focal point set in the admin, as on the event page; a picture without a hero
   // keeps its top edge so the teacher's head is not cut.
   const focusTeacher = event.teachers?.[0];
-  const teacherImagePosition = focusTeacher?.heroUrl
-    ? ({ left: `${focusTeacher.heroFocalX ?? 50}%`, top: `${focusTeacher.heroFocalY ?? 50}%` } as const)
-    : ({ left: '50%', top: '0%' } as const);
+  const focal = focusTeacher?.heroUrl
+    ? { x: focusTeacher.heroFocalX ?? 50, y: focusTeacher.heroFocalY ?? 50 }
+    : { x: 50, y: 0 };
+  const focalCover = useFocalCover({ focalX: focal.x, focalY: focal.y });
 
   return (
     <TouchableOpacity
@@ -173,7 +175,9 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
             transition={0}
             style={styles.featuredImage}
             contentFit="cover"
-            contentPosition={teacherImagePosition}
+            contentPosition={focalCover.contentPosition}
+            onLayout={focalCover.onLayout}
+            onLoad={focalCover.onLoad}
           />
         ) : (
           <View style={styles.featuredImagePlaceholder}>
