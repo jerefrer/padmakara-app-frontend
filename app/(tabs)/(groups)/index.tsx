@@ -584,10 +584,10 @@ const styles = StyleSheet.create({
   },
 
   // Monthly highlight
-  // The gap from the last red rule to the label's x-height matches the gaps from each rule to the
-  // next title's small caps (André: the three gaps are equal).
+  // The gap from the last red rule to the label's x-height is 1.6 times the gap from a rule to the
+  // next title's small caps, as on André's mockup, so the highlight reads as its own section.
   highlightSection: {
-    marginTop: 5,
+    marginTop: 18,
   },
   highlightSectionDesktop: {
     marginTop: 0,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   featuredImageContainer: {
     width: "100%",
-    aspectRatio: 4 / 3,
+    aspectRatio: 16 / 10,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
   },
