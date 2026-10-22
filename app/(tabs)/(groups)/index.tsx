@@ -45,6 +45,10 @@ const colors = {
 /** Left/right indent of text and list thumbnails on mobile. Dividers and the highlight photo run from the left edge. */
 const TEXT_GUTTER = 24;
 
+/** Red section rules: from the left edge, stopping this far before the right edge (a bit earlier than the text gutter). */
+const RULE_RIGHT_INSET = TEXT_GUTTER + 12;
+const RULE_THICKNESS = 1;
+
 // ── Category Row ─────────────────────────────────────────────────────────────
 
 interface CategoryRowProps {
@@ -60,6 +64,7 @@ function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
         <Text style={styles.categoryTitle}>{title}</Text>
         <Text style={styles.categorySubtitle}>{subtitle}</Text>
       </View>
+      <View style={styles.categoryRule} />
     </TouchableOpacity>
   );
 }
@@ -504,7 +509,7 @@ export default function HomeScreen() {
               <Text style={[styles.highlightLabel, !isDesktop && styles.indented]}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
-              <View style={[styles.recentDivider, !isDesktop && styles.dividerToGutter]} />
+              <View style={[styles.recentDivider, !isDesktop && styles.ruleToGutter]} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}
@@ -570,6 +575,10 @@ const styles = StyleSheet.create({
   dividerToGutter: {
     marginRight: TEXT_GUTTER,
   },
+  // A red rule that starts at the left edge and stops a little before the right gutter.
+  ruleToGutter: {
+    marginRight: RULE_RIGHT_INSET,
+  },
   membershipInvite: {
     marginBottom: 20,
     marginHorizontal: TEXT_GUTTER,
@@ -578,30 +587,33 @@ const styles = StyleSheet.create({
   // App title (mobile)
   appTitle: {
     fontFamily: "EBGaramond_500Medium",
-    fontSize: 28,
+    fontSize: 20,
     color: colors.burgundy[500],
     textAlign: "center",
-    letterSpacing: 4,
-    marginBottom: 24,
+    letterSpacing: 2.5,
+    marginBottom: 12,
   },
 
   // Category rows
   categoryRow: {
-    paddingVertical: 16,
-    marginRight: TEXT_GUTTER,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.burgundy[500],
+    paddingTop: 12,
   },
   categoryText: {
-    paddingLeft: TEXT_GUTTER,
+    paddingHorizontal: TEXT_GUTTER,
+    paddingBottom: 6,
+  },
+  categoryRule: {
+    height: RULE_THICKNESS,
+    marginRight: RULE_RIGHT_INSET,
+    backgroundColor: colors.burgundy[500],
   },
   categoryTitle: {
-    fontSize: 30,
+    fontSize: 26,
     fontFamily: "MinionPro",
     color: colors.gray[800],
     fontVariant: ["small-caps"],
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    letterSpacing: -0.2,
+    marginBottom: 0,
   },
   categorySubtitle: {
     fontSize: 13,
@@ -612,7 +624,7 @@ const styles = StyleSheet.create({
 
   // Monthly highlight
   highlightSection: {
-    marginTop: 28,
+    marginTop: 4,
   },
   highlightSectionDesktop: {
     marginTop: 0,
@@ -667,7 +679,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   featuredInfo: {
-    paddingTop: 14,
+    paddingTop: 4,
     paddingBottom: 8,
   },
   featuredInfoMobile: {
@@ -722,7 +734,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   recentDivider: {
-    height: StyleSheet.hairlineWidth,
+    height: RULE_THICKNESS,
     backgroundColor: colors.burgundy[500],
     marginBottom: 4,
   },
