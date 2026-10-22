@@ -19,6 +19,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
@@ -44,6 +45,9 @@ const colors = {
   },
   white: "#ffffff",
 };
+
+/** Below this window height (pt) the highlight photo is made less tall. */
+const SHORT_SCREEN_HEIGHT = 750;
 
 // ── Category Row ─────────────────────────────────────────────────────────────
 
@@ -90,6 +94,9 @@ interface FeaturedEventProps {
 }
 
 function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel, testID }: FeaturedEventProps) {
+  const { height: windowHeight } = useWindowDimensions();
+  // On short phones (SE, mini) a 4:3 photo fills the first screen and hides who is teaching.
+  const shortScreen = !isDesktop && windowHeight < SHORT_SCREEN_HEIGHT;
   const title =
     language === "pt" && event.name_translations?.pt
       ? event.name_translations.pt
@@ -139,12 +146,12 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     .join(" | ");
 
   const teacherImage = event.teachers?.[0]?.heroUrl || event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
-  // Anchored at the top so a teacher's head is never cut (André). The hero's vertical focal
-  // point is tuned for the taller event-page banner and would push the frame down here.
-  const teacherImagePosition = {
-    left: `${event.teachers?.[0]?.heroUrl ? (event.teachers[0].heroFocalX ?? 50) : 50}%`,
-    top: '0%',
-  } as const;
+  // Framed on the focal point set in the admin, as on the event page; a picture without a hero
+  // keeps its top edge so the teacher's head is not cut.
+  const focusTeacher = event.teachers?.[0];
+  const teacherImagePosition = focusTeacher?.heroUrl
+    ? ({ left: `${focusTeacher.heroFocalX ?? 50}%`, top: `${focusTeacher.heroFocalY ?? 50}%` } as const)
+    : ({ left: '50%', top: '0%' } as const);
 
   return (
     <TouchableOpacity
@@ -152,7 +159,13 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
       style={[styles.featuredCard, isDesktop && styles.featuredCardDesktop]}
       testID={testID}
     >
-      <View style={[styles.featuredImageContainer, isDesktop && styles.featuredImageContainerDesktop]}>
+      <View
+        style={[
+          styles.featuredImageContainer,
+          shortScreen && styles.featuredImageContainerShort,
+          isDesktop && styles.featuredImageContainerDesktop,
+        ]}
+      >
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(event.teachers?.[0]) }}
@@ -610,6 +623,9 @@ const styles = StyleSheet.create({
     aspectRatio: 4 / 3,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
+  },
+  featuredImageContainerShort: {
+    aspectRatio: 2,
   },
   featuredImageContainerDesktop: {
     borderRadius: 4,
