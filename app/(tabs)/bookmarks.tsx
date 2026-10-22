@@ -4,8 +4,10 @@ import eventBookmarkService, { EventBookmark } from "@/services/eventBookmarkSer
 import trackBookmarkService, { TrackBookmark } from "@/services/trackBookmarkService";
 import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
+import { EventRow, EventThumb } from "@/components/EventRow";
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from "@/constants/layout";
+import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -44,7 +46,7 @@ function formatDuration(seconds: number): string {
 
 // ── Event row ───────────────────────────────────────────────────────────
 
-function EventRow({
+function BookmarkedEventRow({
   bookmark,
   onPress,
   language,
@@ -61,29 +63,15 @@ function EventRow({
     event.name ||
     event.name_translations?.en ||
     "";
-  const teacherNames = event.teachers?.map((tt: any) => tt.name).filter(Boolean).join(", ") || "";
-  const teacherPhoto =
-    event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
-      <View style={styles.avatar}>
-        {teacherPhoto ? (
-          <Image source={{ uri: teacherPhoto }} style={styles.avatarImg} contentFit="cover" />
-        ) : (
-          <View style={[styles.avatarImg, styles.avatarFallback]}>
-            <Ionicons name="bookmark" size={20} color={colors.gray[400]} />
-          </View>
-        )}
-      </View>
-      <View style={styles.rowInfo}>
-        <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
-        {teacherNames ? (
-          <Text style={styles.rowTeacher} numberOfLines={1}>{teacherNames}</Text>
-        ) : null}
-        <Text style={styles.rowMeta}>{formatDate(event.startDate, language)}</Text>
-      </View>
-    </TouchableOpacity>
+    <EventRow
+      event={event}
+      title={title}
+      meta={formatDate(event.startDate, language)}
+      onPress={onPress}
+      testID={testID}
+    />
   );
 }
 
@@ -107,22 +95,17 @@ function TrackRow({
     (language === "pt" && track.session.titlePt) ||
     track.session.titleEn ||
     "";
-  const teacherPhoto =
-    event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
+  const teacher = event.teachers?.[0];
+  const teacherPhoto = teacher?.avatarUrl || teacher?.photoUrl || null;
 
   const subtitle = [eventTitle, sessionTitle].filter(Boolean).join(" — ");
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
-      <View style={styles.avatar}>
-        {teacherPhoto ? (
-          <Image source={{ uri: teacherPhoto }} style={styles.avatarImg} contentFit="cover" />
-        ) : (
-          <View style={[styles.avatarImg, styles.avatarFallback]}>
-            <Ionicons name="musical-notes-outline" size={20} color={colors.gray[400]} />
-          </View>
-        )}
-      </View>
+      <EventThumb
+        uri={teacherPhoto}
+        cacheKey={teacherFeedImageCacheKey(teacher)}
+      />
       <View style={styles.rowInfo}>
         <Text style={styles.rowTitle} numberOfLines={2}>{getTrackTitle(track, language)}</Text>
         {subtitle ? (
@@ -179,7 +162,7 @@ export default function BookmarksScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{t("navigation.bookmarks") || "Bookmarks"}</Text>
+        <Text style={[styles.title, styles.indented]}>{t("navigation.bookmarks") || "Bookmarks"}</Text>
 
         {loading && !hasAny ? (
           <View style={styles.center}>
@@ -211,16 +194,16 @@ export default function BookmarksScreen() {
           <>
             {/* Events section */}
             <View style={styles.section}>
-              <Text style={styles.sectionHeader}>
+              <Text style={[styles.sectionHeader, styles.indented]}>
                 {t("bookmarks.eventsHeader") || "Events"}
               </Text>
               {eventBookmarks.length === 0 ? (
-                <Text style={styles.sectionEmpty}>
+                <Text style={[styles.sectionEmpty, styles.indented]}>
                   {t("bookmarks.noEventBookmarks") || "No bookmarked events yet."}
                 </Text>
               ) : (
                 eventBookmarks.map((bm) => (
-                  <EventRow
+                  <BookmarkedEventRow
                     key={`event-${bm.id}`}
                     bookmark={bm}
                     language={language}
@@ -238,11 +221,11 @@ export default function BookmarksScreen() {
 
             {/* Tracks section */}
             <View style={styles.section}>
-              <Text style={styles.sectionHeader}>
+              <Text style={[styles.sectionHeader, styles.indented]}>
                 {t("bookmarks.tracksHeader") || "Tracks"}
               </Text>
               {trackBookmarks.length === 0 ? (
-                <Text style={styles.sectionEmpty}>
+                <Text style={[styles.sectionEmpty, styles.indented]}>
                   {t("bookmarks.noTrackBookmarks") || "No bookmarked tracks yet."}
                 </Text>
               ) : (
@@ -281,10 +264,14 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  // Content runs edge to edge: text is indented per element so that row
+  // separators can start at the left screen edge.
   scrollContent: {
-    paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 100,
+  },
+  indented: {
+    paddingHorizontal: TEXT_GUTTER,
   },
   title: {
     fontSize: 28,
@@ -334,23 +321,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
-    gap: 12,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-  },
-  avatarImg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.gray[100],
-  },
-  avatarFallback: {
-    alignItems: "center",
-    justifyContent: "center",
+    marginRight: RULE_RIGHT_INSET,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
   },
   rowInfo: {
     flex: 1,

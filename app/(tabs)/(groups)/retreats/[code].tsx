@@ -24,6 +24,8 @@ import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
+import { EventRow } from '@/components/EventRow';
+import { TEXT_GUTTER } from '@/constants/layout';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 230;
@@ -132,63 +134,21 @@ interface RetreatCardProps {
   groupNameForStrip: string | null;
 }
 
-function RetreatCard({ retreat, onPress, isDownloaded, t, language, groupNameForStrip }: RetreatCardProps) {
+function RetreatCard({ retreat, onPress, isDownloaded, language, groupNameForStrip }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
   const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
   const displayName = cleanEventName(rawName, groupNameForStrip);
-  const teachers = retreat.teachers || [];
-  const teacherNames = teachers.map((t) => t.name).filter(Boolean).join(', ') || '';
+  const meta = formatDateRangePretty(retreat.startDate, retreat.endDate, language)
+    + (totalTracks > 0 ? ` · ${totalTracks} ${totalTracks === 1 ? 'track' : 'tracks'}` : '');
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.retreatCard}>
-      <View style={styles.retreatCardRow}>
-        {/* Teacher avatars (stacked/overlapping) */}
-        <View style={styles.retreatAvatarContainer}>
-          {teachers.length > 0 ? (
-            teachers.slice(0, 3).map((teacher, i, arr) => (
-              <View
-                key={teacher.abbreviation || i}
-                style={[
-                  styles.retreatAvatarWrapper,
-                  i > 0 && { marginLeft: -16 },
-                  { zIndex: arr.length - i },
-                ]}
-              >
-                {(teacher.avatarUrl || teacher.photoUrl) ? (
-                  <Image source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }} cacheKey={teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined} style={styles.retreatAvatar} contentFit="cover" />
-                ) : (
-                  <View style={[styles.retreatAvatar, styles.retreatAvatarFallback]}>
-                    <Text style={styles.retreatAvatarFallbackText}>
-                      {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ))
-          ) : (
-            <View style={[styles.retreatAvatar, styles.retreatAvatarFallback]}>
-              <Ionicons name="people-outline" size={20} color={colors.gray[400]} />
-            </View>
-          )}
-        </View>
-        {/* Info */}
-        <View style={styles.retreatCardInfo}>
-          <View style={styles.retreatTitleRow}>
-            <Text style={styles.retreatTitle} numberOfLines={2}>{displayName}</Text>
-            {retreat.status === 'draft' && <DraftBadge />}
-            {isDownloaded && <OfflineBadge />}
-          </View>
-          <NowPlayingBadge eventId={retreat.id} />
-          {teacherNames ? (
-            <Text style={styles.retreatTeacherNames} numberOfLines={1}>{teacherNames}</Text>
-          ) : null}
-          <Text style={styles.dateText}>
-            {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
-            {totalTracks > 0 ? ` · ${totalTracks} ${totalTracks === 1 ? 'track' : 'tracks'}` : ''}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <EventRow
+      event={retreat}
+      title={displayName}
+      meta={meta}
+      onPress={onPress}
+      badge={isDownloaded ? <OfflineBadge /> : undefined}
+    />
   );
 }
 
@@ -470,7 +430,7 @@ export default function GroupDetailScreen() {
       <View style={[styles.container, !hasHero && { paddingTop: insets.top }]}>
         <Animated.ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, isDesktop && styles.desktopScrollContent]}
+          contentContainerStyle={isDesktop ? styles.desktopScrollContent : undefined}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={
@@ -511,7 +471,7 @@ export default function GroupDetailScreen() {
 
           {/* Page title with back button. When a hero is shown the back arrow
               floats over the image; otherwise it sits inline next to the title. */}
-          <View style={isDesktop ? styles.desktopPageHeader : styles.mobileTitleHeader}>
+          <View style={isDesktop ? styles.desktopPageHeader : [styles.mobileTitleHeader, styles.indented]}>
             {!isDesktop && !hasHero && (
               <BackButton variant="inline" />
             )}
@@ -530,7 +490,7 @@ export default function GroupDetailScreen() {
           {/* Retreats grouped by year */}
           {years.map(year => (
             <View key={year}>
-              <View style={[styles.yearHeader, isDesktop && styles.desktopYearHeader]}>
+              <View style={[styles.yearHeader, isDesktop ? styles.desktopYearHeader : styles.indented]}>
                 <Text style={[styles.yearHeaderText, isDesktop && styles.desktopYearHeaderText]}>{year}</Text>
               </View>
 
@@ -582,8 +542,10 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 24,
+  // Mobile content runs edge to edge: text is indented per element so that
+  // row separators can start at the left screen edge.
+  indented: {
+    paddingHorizontal: TEXT_GUTTER,
   },
   desktopScrollContent: {
     paddingHorizontal: 40,
@@ -593,7 +555,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     paddingBottom: 4,
-    paddingHorizontal: 24,
+    paddingHorizontal: TEXT_GUTTER,
   },
   mobileTitleHeader: {
     flexDirection: 'row',
@@ -605,13 +567,10 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     overflow: 'hidden',
     backgroundColor: colors.gray[200],
-    // Break out of the ScrollView's horizontal padding so the image
-    // spans edge to edge.
-    marginHorizontal: -24,
     marginBottom: 8,
   },
   desktopHeroContainer: {
-    // Match the desktop ScrollView's wider 40px padding.
+    // Break out of the desktop ScrollView's 40px padding.
     marginHorizontal: -40,
   },
   floatingBackButton: {
@@ -704,64 +663,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Mobile card styles
-  retreatCard: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
-  },
-  retreatCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  retreatAvatarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  retreatAvatarWrapper: {
-    borderWidth: 3,
-    borderColor: colors.white,
-    borderRadius: 27,
-  },
-  retreatAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
   retreatAvatarFallback: {
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  retreatAvatarFallbackText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.gray[600],
-  },
-  retreatCardInfo: {
-    flex: 1,
-  },
-  retreatTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  retreatTitle: {
-    fontSize: 17,
-    fontFamily: 'EBGaramond_500Medium',
-    color: colors.gray[800],
-    flex: 1,
-  },
-  retreatTeacherNames: {
-    fontSize: 14,
-    color: colors.burgundy[500],
-    marginBottom: 2,
-  },
-  dateText: {
-    fontSize: 13,
-    color: colors.gray[500],
   },
 
   // Desktop styles
