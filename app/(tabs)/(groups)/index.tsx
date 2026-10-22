@@ -126,6 +126,12 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     .join(" | ");
 
   const teacherImage = event.teachers?.[0]?.heroUrl || event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
+  // Anchored at the top so a teacher's head is never cut (André). The hero's vertical focal
+  // point is tuned for the taller event-page banner and would push the frame down here.
+  const teacherImagePosition = {
+    left: `${event.teachers?.[0]?.heroUrl ? (event.teachers[0].heroFocalX ?? 50) : 50}%`,
+    top: '0%',
+  } as const;
 
   return (
     <TouchableOpacity
@@ -141,6 +147,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
             transition={0}
             style={styles.featuredImage}
             contentFit="cover"
+            contentPosition={teacherImagePosition}
           />
         ) : (
           <View style={styles.featuredImagePlaceholder}>
