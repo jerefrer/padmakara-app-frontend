@@ -26,6 +26,7 @@ import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, RULE_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { firstScreenDrawn } from '@/utils/splashHandoff';
 
 const colors = {
   burgundy: {
@@ -351,7 +352,7 @@ export default function HomeScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]} onLayout={firstScreenDrawn}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}

@@ -117,6 +117,9 @@ const config: PadmakaraConfig = {
   icon: "./assets/images/icon.png",
   scheme: variant.scheme,
   userInterfaceStyle: "automatic",
+  // The window behind the app (expo-system-ui). Unset, iOS paints it black in dark mode, and
+  // it showed for a few frames between the splash and the home.
+  backgroundColor: "#ffffff",
   newArchEnabled: true,
   owner: variant.owner ?? undefined,
   linking: {

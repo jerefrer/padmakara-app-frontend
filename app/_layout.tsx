@@ -27,6 +27,7 @@ import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
 import retreatService from '@/services/retreatService';
 import { holdSplashWhile } from '@/utils/startup';
+import { liftSplash } from '@/utils/splashHandoff';
 import { appLockEnabledAtStart, readAppLockAtStart } from '@/services/appLock';
 import { avenirFontsToLoad } from '@/constants/avenirFont';
 
@@ -35,6 +36,11 @@ import { avenirFontsToLoad } from '@/constants/avenirFont';
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* ignore — splash may already be hidden */
 });
+// Fade the splash into the first screen instead of cutting to it (iOS; Android fades by default).
+SplashScreen.setOptions({ fade: true, duration: 350 });
+
+/** If the app opens on a screen other than the home, the splash still lifts after this. */
+const FIRST_SCREEN_TIMEOUT_MS = 1500;
 
 Sentry.init({
   dsn: Constants.expoConfig?.extra?.sentryDsn ?? '',
@@ -116,12 +122,11 @@ export default function RootLayout() {
   const ready = loaded && contentWarm;
 
   useEffect(() => {
-    // With the app lock on, AppLockProvider lifts the splash once its cover is on screen.
-    if (ready && appLockEnabledAtStart() !== true) {
-      SplashScreen.hideAsync().catch(() => {
-        /* ignore — splash may already be hidden */
-      });
-    }
+    // The home lifts the splash once it has drawn (utils/splashHandoff). With the app lock on,
+    // AppLockProvider lifts it once its cover is on screen.
+    if (!ready || appLockEnabledAtStart() === true) return;
+    const timer = setTimeout(liftSplash, FIRST_SCREEN_TIMEOUT_MS);
+    return () => clearTimeout(timer);
   }, [ready]);
 
   if (!ready) {
