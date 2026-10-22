@@ -13,7 +13,9 @@ import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { SectionRule } from '@/components/ui/SectionRule';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
 const colors = {
   burgundy: {
@@ -471,26 +473,20 @@ export default function EventsScreen() {
             )}
           </View>
 
+          {/* Red rule under the header; rows below get thin dark lines. */}
+          {!isDesktop && <SectionRule />}
+
           {/* View mode tabs — only show when not filtering by a specific teacher */}
           {!teacherFilter && (
-            <View style={[styles.viewTabs, !isDesktop && styles.indented]}>
-              <TouchableOpacity
-                onPress={() => setViewMode('teachers')}
-                style={[styles.viewTab, viewMode === 'teachers' && styles.viewTabActive]}
-              >
-                <Text style={[styles.viewTabText, viewMode === 'teachers' && styles.viewTabTextActive]}>
-                  {t('events.teachers') || 'by teachers'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setViewMode('date')}
-                style={[styles.viewTab, viewMode === 'date' && styles.viewTabActive]}
-              >
-                <Text style={[styles.viewTabText, viewMode === 'date' && styles.viewTabTextActive]}>
-                  {t('events.date') || 'latest'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TabSwitcher<ViewMode>
+              bleed={!isDesktop}
+              activeKey={viewMode}
+              onChange={setViewMode}
+              tabs={[
+                { key: 'teachers', label: t('events.teachers') || 'by teachers', testID: 'events-tab-teachers' },
+                { key: 'date', label: t('events.date') || 'latest', testID: 'events-tab-date' },
+              ]}
+            />
           )}
 
           {/* Content */}
@@ -558,39 +554,13 @@ const styles = StyleSheet.create({
     color: colors.gray[400],
   },
 
-  // View mode tabs
-  viewTabs: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    gap: 20,
-  },
-  viewTab: {
-    paddingVertical: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  viewTabActive: {
-    borderBottomColor: colors.burgundy[500],
-  },
-  viewTabText: {
-    fontSize: 15,
-    fontFamily: 'EBGaramond_400Regular',
-    color: colors.gray[400],
-    fontVariant: ['small-caps'],
-    letterSpacing: 0.3,
-  },
-  viewTabTextActive: {
-    color: colors.burgundy[500],
-    fontFamily: 'EBGaramond_600SemiBold',
-  },
-
   // Teacher row
   teacherRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   teacherAvatarLarge: {
     marginRight: 16,

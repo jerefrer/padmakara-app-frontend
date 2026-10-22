@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_COLOR, RULE_RIGHT_INSET, RULE_THICKNESS, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   cream: { 50: '#ffffff', 100: '#fefefe' },
@@ -331,11 +331,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.white,
   },
-  // Starts at the left edge and stops at the right inset.
+  // The red rule under the search bar: starts at the left edge and stops at
+  // the right inset.
   searchBarRule: {
-    height: 1,
+    height: RULE_THICKNESS,
     marginRight: RULE_RIGHT_INSET,
-    backgroundColor: colors.gray[200],
+    backgroundColor: RULE_COLOR,
   },
   searchBarDesktop: {
     paddingHorizontal: 40,
@@ -422,8 +423,8 @@ const styles = StyleSheet.create({
   // Result card: typography mirrors the event rows (components/EventRow.tsx)
   resultCard: {
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   resultCardToInset: {
     paddingLeft: TEXT_GUTTER,

@@ -1,3 +1,4 @@
+import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
@@ -123,6 +124,14 @@ export function VideoPlayer({
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
   const { t, language } = useLanguage();
+  // Audio and video never play together: report video playback to the audio
+  // context (which pauses the audio) and pause the video when audio starts.
+  const { isPlaying: audioPlaying, setVideoPlaying } = useAudioPlayerContext();
+  const videoPlayingRef = useRef(false);
+  const reportVideoPlaying = (playing: boolean) => {
+    videoPlayingRef.current = playing;
+    setVideoPlaying(playing);
+  };
   // The subtitle track to turn on when the video starts. Settings can pick a
   // language or "off"; without a choice it follows the interface language, as
   // subtitles are app chrome rather than teaching audio. `undefined` until the
@@ -200,6 +209,28 @@ export function VideoPlayer({
       preferredForwardBufferDuration: FORWARD_BUFFER_SECONDS,
     };
   });
+
+  // Video start/stop on native. (Web reports through WebHlsVideo.)
+  useEventListener(player, 'playingChange', ({ isPlaying }) => reportVideoPlaying(isPlaying));
+
+  // Audio started while a video is playing: the audio wins, the video pauses.
+  // Keyed on the audio state alone, so the video starting while audio is still
+  // winding down does not pause itself.
+  useEffect(() => {
+    if (!audioPlaying || !videoPlayingRef.current) return;
+    try {
+      if (isWeb) webPlayerRef.current?.pause();
+      else player.pause();
+    } catch {
+      // Ignore — player may already be torn down.
+    }
+  }, [audioPlaying]);
+
+  // No video open (or the player unmounting) means no video playing.
+  useEffect(() => {
+    if (!video) reportVideoPlaying(false);
+  }, [video]);
+  useEffect(() => () => setVideoPlaying(false), []);
 
   // Load presigned URL + saved progress whenever the video changes.
   // First gate on cellular policy: refuse if disallowed in settings, prompt
@@ -785,6 +816,7 @@ export function VideoPlayer({
                     )
                   }
                   onError={() => setErrorMsg(t('video.loadError') ?? 'Failed to load video')}
+                  onPlayingChange={reportVideoPlaying}
                 />
               )
             ) : (

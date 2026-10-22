@@ -1178,3 +1178,67 @@ describe('AudioPlayerContext — playback continuity (matrix I)', () => {
     expect(result.current.isPlaying).toBe(true);
   });
 });
+
+describe('AudioPlayerContext — audio and video never play together', () => {
+  const startPlaying = async (result: ReturnType<typeof renderPlayer>['result'], id = 'tMedia') => {
+    const t = makeTrack({ id, duration: 600 });
+    act(() => { __setDuration(600); result.current.playTrack(t, [t], 0, undefined, { autoPlay: true }); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    expect(result.current.isPlaying).toBe(true);
+  };
+
+  it('should pause the audio when a video starts playing', async () => {
+    const { result } = renderPlayer();
+    await startPlaying(result);
+
+    act(() => { result.current.setVideoPlaying(true); });
+
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.videoPlaying).toBe(true);
+  });
+
+  it('should keep the audio position when a video pauses it', async () => {
+    const { result } = renderPlayer();
+    await startPlaying(result, 'tKeep');
+    act(() => { __advanceTime(12); });
+
+    act(() => { result.current.setVideoPlaying(true); });
+    await act(async () => { await Promise.resolve(); });
+
+    const saved = await AsyncStorage.getItem('progress_tKeep');
+    expect(JSON.parse(saved!).position).toBeGreaterThanOrEqual(12);
+  });
+
+  it('should leave audio alone when a video stops playing', async () => {
+    const { result } = renderPlayer();
+    await startPlaying(result, 'tStop');
+
+    act(() => { result.current.setVideoPlaying(false); });
+
+    expect(result.current.isPlaying).toBe(true);
+    expect(result.current.videoPlaying).toBe(false);
+  });
+
+  it('should pause the audio through pause() and stay paused when called again', async () => {
+    const { result } = renderPlayer();
+    await startPlaying(result, 'tPauseApi');
+
+    act(() => { result.current.pause(); });
+    expect(result.current.isPlaying).toBe(false);
+
+    act(() => { result.current.pause(); });
+    expect(result.current.isPlaying).toBe(false);
+  });
+
+  it('should drop a pending play when pause() is called before the track is ready', () => {
+    const { result } = renderPlayer();
+    const t = makeTrack({ id: 'tPending', duration: 600 });
+    act(() => { result.current.playTrack(t, [t], 0, undefined, { autoPlay: true }); });
+    expect(result.current.isPlaying).toBe(true);
+
+    act(() => { result.current.pause(); });
+
+    expect(result.current.isPlaying).toBe(false);
+  });
+});

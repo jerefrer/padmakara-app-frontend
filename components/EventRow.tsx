@@ -5,7 +5,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { DraftBadge } from "@/components/DraftBadge";
 import { NowPlayingBadge } from "@/components/NowPlayingBadge";
 import { AVENIR_FAMILY } from "@/constants/avenirFont";
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from "@/constants/layout";
+import {
+  RULE_RIGHT_INSET,
+  SUBDIVISION_COLOR,
+  SUBDIVISION_THICKNESS,
+  TEXT_GUTTER,
+} from "@/constants/layout";
 import type { Gathering } from "@/types";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 
@@ -74,8 +79,8 @@ interface EventRowProps {
 
 /**
  * One row per teaching/event: square thumbnail, black title, red teacher
- * names, gray meta line, then the video / audio / transcript icons. The
- * separator starts at the left edge and stops at the right inset (see
+ * names, gray meta line, then the video / audio / transcript icons. The thin
+ * dark separator starts at the left edge and stops at the right inset (see
  * constants/layout.ts).
  */
 export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID }: EventRowProps) {
@@ -132,8 +137,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   // The separator starts at the left edge and stops at the right inset.
   rowToInset: {

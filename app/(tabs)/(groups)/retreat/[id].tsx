@@ -67,7 +67,9 @@ import {
 } from '@/components/LanguageCheckboxList';
 import { eventBackTarget } from '@/utils/eventBack';
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { resolveContentTab, shouldShowInlinePlayer, type EventContentTab } from '@/utils/eventContentTab';
+import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   cream: {
@@ -1275,6 +1277,30 @@ export default function RetreatDetailScreen() {
     };
   }, [currentTrack?.id, currentTrack?.hasReadAlong, readAlongModalVisible]);
 
+  // The inline player only shows while the Audio tab is selected (mobile).
+  // Revisiting an event whose track is still loaded must not open with the
+  // player over the Videos tab; the track stays highlighted in the Audio list.
+  const ownsCurrentTrack =
+    !!retreat &&
+    audioContext.retreatId != null &&
+    String(audioContext.retreatId) === String(retreat.id);
+  const showInlinePlayer =
+    !isDesktop &&
+    !!retreat &&
+    shouldShowInlinePlayer({
+      ownsCurrentTrack,
+      activeTab: resolveContentTab(activeContentTab, {
+        hasVideo: (retreat.videos?.length ?? 0) > 0,
+        hasAudio: !!retreat.sessions?.some((s) => (s.tracks?.length ?? 0) > 0),
+        hasDocuments: buildEventDocuments(retreat).length > 0,
+      }),
+    });
+  const { setInlinePlayerVisible } = audioContext;
+  useEffect(() => {
+    setInlinePlayerVisible(showInlinePlayer);
+    return () => setInlinePlayerVisible(false);
+  }, [showInlinePlayer, setInlinePlayerVisible]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -1386,14 +1412,11 @@ export default function RetreatDetailScreen() {
     const showContentTabs = contentTypeCount >= 2;
     // Fall back to whichever content type actually exists so an event with
     // only one type never lands on an empty tab body.
-    const effectiveTab: 'video' | 'tracks' | 'documents' =
-      activeContentTab === 'video' && hasVideo
-        ? 'video'
-        : activeContentTab === 'tracks' && hasAudio
-          ? 'tracks'
-          : activeContentTab === 'documents' && hasDocuments
-            ? 'documents'
-            : (hasVideo ? 'video' : hasAudio ? 'tracks' : 'documents');
+    const effectiveTab: EventContentTab = resolveContentTab(activeContentTab, {
+      hasVideo,
+      hasAudio,
+      hasDocuments,
+    });
 
     const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
 
@@ -1478,44 +1501,16 @@ export default function RetreatDetailScreen() {
         {/* Tab bar — shown whenever 2+ content types are available (video,
             audio, documents). Sits between the title and the content. */}
         {showContentTabs && (
-          <View style={[styles.contentTabBar, !isDesktop && styles.lineBleed]}>
-            {hasVideo && (
-              <Pressable
-                style={[styles.contentTab, effectiveTab === 'video' && styles.contentTabActive]}
-                onPress={() => setActiveContentTab('video')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: effectiveTab === 'video' }}
-              >
-                <Text style={[styles.contentTabText, effectiveTab === 'video' && styles.contentTabTextActive]}>
-                  {t('eventTabs.videos') || 'Videos'}
-                </Text>
-              </Pressable>
-            )}
-            {hasAudio && (
-              <Pressable
-                style={[styles.contentTab, effectiveTab === 'tracks' && styles.contentTabActive]}
-                onPress={() => setActiveContentTab('tracks')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: effectiveTab === 'tracks' }}
-              >
-                <Text style={[styles.contentTabText, effectiveTab === 'tracks' && styles.contentTabTextActive]}>
-                  {t('eventTabs.tracks') || 'Audio'}
-                </Text>
-              </Pressable>
-            )}
-            {hasDocuments && (
-              <Pressable
-                style={[styles.contentTab, effectiveTab === 'documents' && styles.contentTabActive]}
-                onPress={() => setActiveContentTab('documents')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: effectiveTab === 'documents' }}
-              >
-                <Text style={[styles.contentTabText, effectiveTab === 'documents' && styles.contentTabTextActive]}>
-                  {t('documents.tab') || 'Documents'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
+          <TabSwitcher<'video' | 'tracks' | 'documents'>
+            style={!isDesktop && styles.lineBleed}
+            activeKey={effectiveTab}
+            onChange={setActiveContentTab}
+            tabs={[
+              ...(hasVideo ? [{ key: 'video' as const, label: t('eventTabs.videos') || 'Videos', testID: 'event-tab-video' }] : []),
+              ...(hasAudio ? [{ key: 'tracks' as const, label: t('eventTabs.tracks') || 'Audio', testID: 'event-tab-tracks' }] : []),
+              ...(hasDocuments ? [{ key: 'documents' as const, label: t('documents.tab') || 'Documents', testID: 'event-tab-documents' }] : []),
+            ]}
+          />
         )}
 
         {effectiveTab === 'video' && hasVideo && (
@@ -1944,36 +1939,27 @@ export default function RetreatDetailScreen() {
       ) : (
         <>
           {/* Bottom padding clears the floating audio player AND the tab bar
-              when the in-event player is visible. When it is hidden (a track
-              from a different event is playing), the mini-player above the
-              tab bar takes its place — reserve space for that instead. */}
-          {(() => {
-            const ownsCurrentTrack =
-              audioContext.retreatId != null &&
-              String(audioContext.retreatId) === String(retreat.id);
-            return (
-              <>
-                {renderTrackList(
-                  ownsCurrentTrack
-                    ? 145 + 49 + insets.bottom + 16
-                    : 60 + 49 + insets.bottom + 16
-                )}
-                {ownsCurrentTrack && (
-                  <AudioPlayer
-                    languageLabel={
-                      showLanguagePicker
-                        ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
-                        : undefined
-                    }
-                    onLanguagePress={() => setShowLanguageDropdown(true)}
-                    onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
-                    onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
-                    isBookmarked={isCurrentTrackBookmarked}
-                  />
-                )}
-              </>
-            );
-          })()}
+              when the in-event player is visible (Audio tab only). Otherwise
+              the mini-player above the tab bar may take its place while audio
+              plays — reserve space for that instead. */}
+          {renderTrackList(
+            showInlinePlayer
+              ? 145 + 49 + insets.bottom + 16
+              : 60 + 49 + insets.bottom + 16
+          )}
+          {showInlinePlayer && (
+            <AudioPlayer
+              languageLabel={
+                showLanguagePicker
+                  ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
+                  : undefined
+              }
+              onLanguagePress={() => setShowLanguageDropdown(true)}
+              onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
+              onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
+              isBookmarked={isCurrentTrackBookmarked}
+            />
+          )}
         </>
       )}
 
@@ -2555,8 +2541,8 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
     paddingHorizontal: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   sessionHeaderSubsequent: {
     marginTop: 32,
@@ -2568,36 +2554,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  // Two-tab content switcher (Videos | Audio). Underline on the active
-  // tab, no background — sits flush above the content.
-  contentTabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  contentTab: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    marginRight: 28,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  contentTabActive: {
-    borderBottomColor: colors.burgundy[500],
-  },
-  contentTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    color: colors.gray[500],
-    textTransform: 'uppercase',
-  },
-  contentTabTextActive: {
-    color: colors.burgundy[500],
-  },
-
   trackItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2607,8 +2563,8 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
     marginBottom: 0,
     borderRadius: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
   },
