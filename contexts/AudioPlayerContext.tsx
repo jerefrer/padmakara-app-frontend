@@ -69,6 +69,10 @@ export interface AudioPlayerContextType {
   canOpenTranscript: boolean;
   idleTrack: IdleTrackInfo | null;
   player: ReturnType<typeof useAudioPlayer> | null;
+  // True while the event screen shows its own inline player. The MiniPlayer
+  // stays out of the way then; otherwise it covers the owning event screen
+  // only while audio is actually playing (see components/MiniPlayer.tsx).
+  inlinePlayerVisible: boolean;
 
   // Actions
   playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }, options?: { autoPlay?: boolean }) => void;
@@ -98,6 +102,7 @@ export interface AudioPlayerContextType {
   setOnPreviousTrack: (cb: (() => void) | undefined) => void;
   setOnOpenReadAlong: (cb: (() => void) | undefined) => void;
   setOnOpenTranscript: (cb: (() => void) | undefined) => void;
+  setInlinePlayerVisible: (visible: boolean) => void;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
@@ -165,6 +170,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [metaGroupName, setMetaGroupName] = useState<string | null>(null);
   const [upcomingTracks, setUpcomingTracks] = useState<Track[]>([]);
   const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
+  const [inlinePlayerVisible, setInlinePlayerVisible] = useState(false);
 
   // ─── Audio engine ───
   const [audioSource, setAudioSource] = useState<string | null>(null);
@@ -1158,6 +1164,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     canOpenTranscript,
     idleTrack,
     player: track ? player : null,
+    inlinePlayerVisible,
 
     playTrack,
     resumeLastPlayed,
@@ -1184,11 +1191,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setOnPreviousTrack,
     setOnOpenReadAlong,
     setOnOpenTranscript,
+    setInlinePlayerVisible,
   }), [
     track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
     trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
     isPlayButtonDisabled, hasNextTrack, hasPreviousTrack,
-    canOpenReadAlong, canOpenTranscript, idleTrack, player,
+    canOpenReadAlong, canOpenTranscript, idleTrack, player, inlinePlayerVisible,
     playTrack, resumeLastPlayed, clearTrack, togglePlayPause, seekTo,
     skipForward, skipBackward, nextTrackAction, previousTrackAction,
     openReadAlong, openTranscript,

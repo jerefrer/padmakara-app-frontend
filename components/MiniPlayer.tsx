@@ -43,10 +43,15 @@ export function MiniPlayer() {
     groupName,
     togglePlayPause,
     clearTrack,
+    inlinePlayerVisible,
   } = useAudioPlayerContext();
 
   if (!currentTrack) return null;
-  if (isOnOwningEvent(pathname, retreatId)) return null;
+  // On the owning event screen the inline player already covers playback. When
+  // that screen shows another tab (Videos, Documents) there is no player, so
+  // the mini-player steps in, but only while audio is playing: a paused
+  // track would just be a bar over the list with nothing to resume from.
+  if (isOnOwningEvent(pathname, retreatId) && (inlinePlayerVisible || !isPlaying)) return null;
 
   const subtitle = makeSubtitle(groupName, retreatName);
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');

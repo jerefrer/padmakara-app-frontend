@@ -63,9 +63,23 @@ describe('MiniPlayer — visibility', () => {
     expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
   });
 
-  it('renders nothing when on the owning event screen', () => {
+  it('renders nothing when on the owning event screen showing its inline player', () => {
     mockUsePathnameReturn = '/retreat/42';
-    mockAudioContext = { ...baseContext, retreatId: '42' };
+    mockAudioContext = { ...baseContext, retreatId: '42', inlinePlayerVisible: true };
+    const { queryByLabelText } = renderMiniPlayer();
+    expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
+  });
+
+  it('renders while audio plays on the owning event screen without an inline player', () => {
+    mockUsePathnameReturn = '/retreat/42';
+    mockAudioContext = { ...baseContext, retreatId: '42', inlinePlayerVisible: false, isPlaying: true };
+    const { getByLabelText } = renderMiniPlayer();
+    expect(getByLabelText('miniPlayer.openSession')).toBeTruthy();
+  });
+
+  it('renders nothing when paused on the owning event screen without an inline player', () => {
+    mockUsePathnameReturn = '/retreat/42';
+    mockAudioContext = { ...baseContext, retreatId: '42', inlinePlayerVisible: false, isPlaying: false };
     const { queryByLabelText } = renderMiniPlayer();
     expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
   });

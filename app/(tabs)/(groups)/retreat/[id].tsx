@@ -68,6 +68,7 @@ import {
 import { eventBackTarget } from '@/utils/eventBack';
 import { BackButton } from '@/components/ui/BackButton';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { resolveContentTab, shouldShowInlinePlayer, type EventContentTab } from '@/utils/eventContentTab';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
@@ -1276,6 +1277,30 @@ export default function RetreatDetailScreen() {
     };
   }, [currentTrack?.id, currentTrack?.hasReadAlong, readAlongModalVisible]);
 
+  // The inline player only shows while the Audio tab is selected (mobile).
+  // Revisiting an event whose track is still loaded must not open with the
+  // player over the Videos tab; the track stays highlighted in the Audio list.
+  const ownsCurrentTrack =
+    !!retreat &&
+    audioContext.retreatId != null &&
+    String(audioContext.retreatId) === String(retreat.id);
+  const showInlinePlayer =
+    !isDesktop &&
+    !!retreat &&
+    shouldShowInlinePlayer({
+      ownsCurrentTrack,
+      activeTab: resolveContentTab(activeContentTab, {
+        hasVideo: (retreat.videos?.length ?? 0) > 0,
+        hasAudio: !!retreat.sessions?.some((s) => (s.tracks?.length ?? 0) > 0),
+        hasDocuments: buildEventDocuments(retreat).length > 0,
+      }),
+    });
+  const { setInlinePlayerVisible } = audioContext;
+  useEffect(() => {
+    setInlinePlayerVisible(showInlinePlayer);
+    return () => setInlinePlayerVisible(false);
+  }, [showInlinePlayer, setInlinePlayerVisible]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -1387,14 +1412,11 @@ export default function RetreatDetailScreen() {
     const showContentTabs = contentTypeCount >= 2;
     // Fall back to whichever content type actually exists so an event with
     // only one type never lands on an empty tab body.
-    const effectiveTab: 'video' | 'tracks' | 'documents' =
-      activeContentTab === 'video' && hasVideo
-        ? 'video'
-        : activeContentTab === 'tracks' && hasAudio
-          ? 'tracks'
-          : activeContentTab === 'documents' && hasDocuments
-            ? 'documents'
-            : (hasVideo ? 'video' : hasAudio ? 'tracks' : 'documents');
+    const effectiveTab: EventContentTab = resolveContentTab(activeContentTab, {
+      hasVideo,
+      hasAudio,
+      hasDocuments,
+    });
 
     const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
 
@@ -1917,36 +1939,27 @@ export default function RetreatDetailScreen() {
       ) : (
         <>
           {/* Bottom padding clears the floating audio player AND the tab bar
-              when the in-event player is visible. When it is hidden (a track
-              from a different event is playing), the mini-player above the
-              tab bar takes its place — reserve space for that instead. */}
-          {(() => {
-            const ownsCurrentTrack =
-              audioContext.retreatId != null &&
-              String(audioContext.retreatId) === String(retreat.id);
-            return (
-              <>
-                {renderTrackList(
-                  ownsCurrentTrack
-                    ? 145 + 49 + insets.bottom + 16
-                    : 60 + 49 + insets.bottom + 16
-                )}
-                {ownsCurrentTrack && (
-                  <AudioPlayer
-                    languageLabel={
-                      showLanguagePicker
-                        ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
-                        : undefined
-                    }
-                    onLanguagePress={() => setShowLanguageDropdown(true)}
-                    onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
-                    onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
-                    isBookmarked={isCurrentTrackBookmarked}
-                  />
-                )}
-              </>
-            );
-          })()}
+              when the in-event player is visible (Audio tab only). Otherwise
+              the mini-player above the tab bar may take its place while audio
+              plays — reserve space for that instead. */}
+          {renderTrackList(
+            showInlinePlayer
+              ? 145 + 49 + insets.bottom + 16
+              : 60 + 49 + insets.bottom + 16
+          )}
+          {showInlinePlayer && (
+            <AudioPlayer
+              languageLabel={
+                showLanguagePicker
+                  ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
+                  : undefined
+              }
+              onLanguagePress={() => setShowLanguageDropdown(true)}
+              onReadPress={currentTrack?.hasReadAlong ? handleOpenReadAlong : undefined}
+              onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
+              isBookmarked={isCurrentTrackBookmarked}
+            />
+          )}
         </>
       )}
 
