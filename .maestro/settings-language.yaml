@@ -12,7 +12,7 @@ name: Language settings on native
 - assertVisible:
     id: settings-subtitle-language
 # Starts on the interface language (English).
-- assertVisible: "Show subtitles in which language, English"
+- assertVisible: "Subtitle language, English"
 - tapOn:
     id: settings-subtitle-language
 # The options open below the tab bar's edge: bring them into view before tapping.
@@ -22,7 +22,7 @@ name: Language settings on native
     centerElement: true
 - tapOn:
     id: settings-subtitle-off
-- assertVisible: "Show subtitles in which language, Do not show"
+- assertVisible: "Subtitle language, Do not show"
 - tapOn:
     id: settings-subtitle-language
 # The options open below the tab bar's edge: bring them into view before tapping.
@@ -32,7 +32,7 @@ name: Language settings on native
     centerElement: true
 - tapOn:
     id: settings-subtitle-en
-- assertVisible: "Show subtitles in which language, English"
+- assertVisible: "Subtitle language, English"
 - takeScreenshot: settings-language
 # Back to the index: Video playback exists on native.
 - tapOn: "Settings"

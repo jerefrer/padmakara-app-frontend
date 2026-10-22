@@ -12,6 +12,8 @@ import retreatService from '@/services/retreatService';
 import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
+import { EventRow } from '@/components/EventRow';
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   burgundy: {
@@ -42,10 +44,10 @@ interface TeacherGroup {
   eventCount: number;
 }
 
-function TeacherRow({ teacher, onPress, t }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined }) {
+function TeacherRow({ teacher, onPress, t, isDesktop }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined; isDesktop?: boolean }) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.teacherRow}>
-      <View style={styles.teacherAvatarLarge}>
+    <TouchableOpacity onPress={onPress} style={[styles.teacherRow, !isDesktop && styles.rowToInset]}>
+      <View style={[styles.teacherAvatarLarge, !isDesktop && styles.thumbIndented]}>
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
             source={{ uri: (teacher.avatarUrl || teacher.photoUrl)!, cacheKey: teacherAvatarCacheKey(teacher) }}
@@ -76,12 +78,11 @@ function TeacherRow({ teacher, onPress, t }: { teacher: TeacherGroup; onPress: (
 
 // ── Event card (for "by date" view) ─────────────────────────────────────────
 
-function EventCard({ event, onPress, language, testID }: { event: any; onPress: () => void; language: string; testID?: string }) {
+function EventCard({ event, onPress, language, t, testID }: { event: any; onPress: () => void; language: string; t: (key: string) => string | undefined; testID?: string }) {
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
   const sessionCount = event.sessions?.length || 0;
-  const teacherNames = event.teachers?.map((t: any) => t.name).filter(Boolean).join(', ') || '';
 
   const formatDate = (dateStr: string) => {
     try {
@@ -92,34 +93,14 @@ function EventCard({ event, onPress, language, testID }: { event: any; onPress: 
     } catch { return dateStr; }
   };
 
-  const teacherPhoto = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
+  const sessionLabel = sessionCount === 1
+    ? (t('events.sessionLabel') || 'session')
+    : (t('events.sessionsLabel') || 'sessions');
+  const meta = (event.startDate ? formatDate(event.startDate) : '')
+    + (sessionCount > 0 ? ` · ${sessionCount} ${sessionLabel}` : '');
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.eventCard} testID={testID}>
-      <View style={styles.eventCardAvatar}>
-        {teacherPhoto ? (
-          <Image source={{ uri: teacherPhoto }} style={styles.eventCardAvatarImg} contentFit="cover" />
-        ) : (
-          <View style={[styles.eventCardAvatarImg, styles.teacherAvatarFallback]}>
-            <Ionicons name="musical-notes-outline" size={20} color={colors.gray[400]} />
-          </View>
-        )}
-      </View>
-      <View style={styles.eventCardInfo}>
-        <View style={styles.eventCardTitleRow}>
-          <Text style={styles.eventCardTitle} numberOfLines={2}>{title}</Text>
-          {event.status === 'draft' && <DraftBadge />}
-        </View>
-        <NowPlayingBadge eventId={event.id} />
-        {teacherNames ? (
-          <Text style={styles.eventCardTeacher} numberOfLines={1}>{teacherNames}</Text>
-        ) : null}
-        <Text style={styles.eventCardMeta}>
-          {event.startDate ? formatDate(event.startDate) : ''}
-          {sessionCount > 0 ? ` · ${sessionCount} sessions` : ''}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <EventRow event={event} title={title} meta={meta} onPress={onPress} testID={testID} />
   );
 }
 
@@ -413,7 +394,7 @@ export default function EventsScreen() {
 
     return years.map((year, yearIndex) => (
       <View key={year}>
-        <View style={[styles.yearHeaderMobile, yearIndex > 0 && styles.yearHeaderMobileSubsequent]}>
+        <View style={[styles.yearHeaderMobile, styles.indented, yearIndex > 0 && styles.yearHeaderMobileSubsequent]}>
           <Text style={styles.yearHeaderTextMobile}>{year}</Text>
         </View>
         {eventsByYear[year].map((event: any) => (
@@ -422,6 +403,7 @@ export default function EventsScreen() {
             event={event}
             onPress={() => handleEventPress(event.id)}
             language={language}
+            t={t}
             testID={`event-card-${event.id}`}
           />
         ))}
@@ -448,6 +430,7 @@ export default function EventsScreen() {
         teacher={teacher}
         onPress={() => handleTeacherPress(teacher.abbreviation)}
         t={t}
+        isDesktop={isDesktop}
       />
     ));
   };
@@ -458,7 +441,7 @@ export default function EventsScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={isDesktop ? styles.scrollContentDesktop : undefined}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -468,7 +451,7 @@ export default function EventsScreen() {
           }
         >
           {/* Title with back button */}
-          <View style={[styles.header, isDesktop && styles.desktopHeader]}>
+          <View style={[styles.header, isDesktop ? styles.desktopHeader : styles.indented]}>
             {!isDesktop && (
               <BackButton variant="inline" />
             )}
@@ -490,7 +473,7 @@ export default function EventsScreen() {
 
           {/* View mode tabs — only show when not filtering by a specific teacher */}
           {!teacherFilter && (
-            <View style={styles.viewTabs}>
+            <View style={[styles.viewTabs, !isDesktop && styles.indented]}>
               <TouchableOpacity
                 onPress={() => setViewMode('teachers')}
                 style={[styles.viewTab, viewMode === 'teachers' && styles.viewTabActive]}
@@ -528,8 +511,20 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 24,
+  // Mobile content runs edge to edge: text is indented per element so that
+  // row separators can start at the left screen edge.
+  scrollContentDesktop: {
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  indented: {
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  // A separator that starts at the left edge and stops at the right inset.
+  rowToInset: {
+    marginRight: RULE_RIGHT_INSET,
+  },
+  thumbIndented: {
+    marginLeft: TEXT_GUTTER,
   },
   header: {
     flexDirection: 'row',
@@ -627,48 +622,6 @@ const styles = StyleSheet.create({
   teacherRowCount: {
     fontSize: 14,
     fontFamily: AVENIR_FAMILY,
-    color: colors.gray[500],
-  },
-
-  // Event card (date view, mobile)
-  eventCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
-  },
-  eventCardAvatar: {
-    marginRight: 14,
-  },
-  eventCardAvatarImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  eventCardInfo: {
-    flex: 1,
-  },
-  eventCardTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    flexWrap: 'wrap' as const,
-    marginBottom: 2,
-  },
-  eventCardTitle: {
-    fontSize: 17,
-    fontFamily: 'EBGaramond_500Medium',
-    color: colors.gray[800],
-    flex: 1,
-  },
-  eventCardTeacher: {
-    fontSize: 14,
-    color: colors.burgundy[500],
-    marginBottom: 2,
-  },
-  eventCardMeta: {
-    fontSize: 13,
     color: colors.gray[500],
   },
 

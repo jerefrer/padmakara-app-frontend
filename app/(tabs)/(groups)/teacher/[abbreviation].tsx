@@ -20,6 +20,7 @@ import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
 import { BackButton } from '@/components/ui/BackButton';
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -306,7 +307,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: TEXT_GUTTER,
     paddingTop: 12,
     paddingBottom: 4,
   },
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray200,
   },
   infoSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: TEXT_GUTTER,
     paddingBottom: 12,
   },
   teacherName: {
@@ -338,11 +339,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   eventList: {
-    paddingHorizontal: 20,
     paddingTop: 8,
   },
+  // Text is indented; the separator starts at the left edge and stops at the right inset.
   eventCard: {
     paddingVertical: 16,
+    paddingLeft: TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray400,
   },

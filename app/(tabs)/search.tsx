@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   cream: { 50: '#ffffff', 100: '#fefefe' },
@@ -44,12 +45,14 @@ function ResultEventCard({
   language,
   t,
   onSessionPress,
+  isDesktop,
   testID,
 }: {
   result: SearchResultEvent;
   language: string;
   t: (key: string) => string;
   onSessionPress: (eventId: number) => void;
+  isDesktop?: boolean;
   testID?: string;
 }) {
   const eventTitle =
@@ -82,7 +85,7 @@ function ResultEventCard({
 
   return (
     <TouchableOpacity
-      style={styles.resultCard}
+      style={[styles.resultCard, !isDesktop && styles.resultCardToInset]}
       onPress={() => onSessionPress(result.event.id)}
       activeOpacity={0.7}
       testID={testID}
@@ -221,6 +224,7 @@ export default function SearchScreen() {
             )}
           </View>
         </View>
+        {!isDesktop && <View style={styles.searchBarRule} />}
 
         {/* Results */}
         <ScrollView
@@ -264,7 +268,7 @@ export default function SearchScreen() {
 
           {!loading && results && results.length > 0 && (
             <>
-              <Text style={styles.resultsCount}>
+              <Text style={[styles.resultsCount, !isDesktop && styles.indented]}>
                 {totalResults === 1
                   ? (t('search.resultsCount') || '{{count}} result').replace(
                       '{{count}}',
@@ -282,6 +286,7 @@ export default function SearchScreen() {
                   language={language}
                   t={t}
                   onSessionPress={handleEventPress}
+                  isDesktop={isDesktop}
                   testID={`search-result-${result.event.id}`}
                 />
               ))}
@@ -322,18 +327,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   searchBar: {
-    paddingHorizontal: 16,
+    paddingHorizontal: TEXT_GUTTER,
     paddingVertical: 12,
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+  },
+  // Starts at the left edge and stops at the right inset.
+  searchBarRule: {
+    height: 1,
+    marginRight: RULE_RIGHT_INSET,
+    backgroundColor: colors.gray[200],
   },
   searchBarDesktop: {
     paddingHorizontal: 40,
     // Vertically centers the input on the sidebar's "What's New" title.
     paddingTop: 42,
     backgroundColor: colors.white,
-    borderBottomWidth: 0,
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -358,9 +366,13 @@ const styles = StyleSheet.create({
   resultsList: {
     flex: 1,
   },
+  // Mobile results run edge to edge: text is indented per element so that
+  // separators can start at the left screen edge.
   resultsContent: {
-    paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  indented: {
+    paddingHorizontal: TEXT_GUTTER,
   },
   resultsContentDesktop: {
     paddingHorizontal: 40,
@@ -407,22 +419,26 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Result card — typography mirrors the Recently Added cards on Home
+  // Result card: typography mirrors the event rows (components/EventRow.tsx)
   resultCard: {
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
   },
+  resultCardToInset: {
+    paddingLeft: TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET,
+  },
   resultEventTitle: {
     fontSize: 18,
     fontFamily: 'EBGaramond_500Medium',
-    color: colors.burgundy[500],
+    color: colors.gray[800],
     marginBottom: 2,
   },
   resultTeachers: {
     fontSize: 15,
     fontFamily: 'EBGaramond_400Regular',
-    color: colors.gray[800],
+    color: colors.burgundy[500],
     marginBottom: 2,
   },
   resultDate: {

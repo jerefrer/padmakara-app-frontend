@@ -67,6 +67,7 @@ import {
 } from '@/components/LanguageCheckboxList';
 import { eventBackTarget } from '@/utils/eventBack';
 import { BackButton } from '@/components/ui/BackButton';
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   cream: {
@@ -1400,7 +1401,7 @@ export default function RetreatDetailScreen() {
       <Animated.ScrollView
         ref={scrollViewRef}
         style={styles.content}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom }]}
+        contentContainerStyle={[styles.scrollContent, !isDesktop && styles.scrollContentMobile, { paddingBottom }]}
         onScroll={isDesktop ? undefined : scrollHandler}
         scrollEventThrottle={16}
         onLayout={(e) => {
@@ -1419,7 +1420,7 @@ export default function RetreatDetailScreen() {
             sit at the bottom-right and overlap the boundary between hero and
             content, exactly like the design. */}
         {heroSource && (
-          <Animated.View style={[styles.heroContainer, heroStyle]}>
+          <Animated.View style={[styles.heroContainer, !isDesktop && styles.heroContainerMobile, heroStyle]}>
             <View style={styles.heroImageWrapper}>
               <ExpoImage
                 source={{ uri: heroSource, cacheKey: heroCacheKey }}
@@ -1460,7 +1461,7 @@ export default function RetreatDetailScreen() {
             desktop. On mobile it replaces the title that used to live in
             the fixed top bar; on desktop it's the main event header. */}
         {(
-          <View style={styles.eventTitleSection}>
+          <View style={[styles.eventTitleSection, !isDesktop && styles.lineBleed]}>
             <View style={styles.eventTitleRow}>
               <Text style={styles.eventTitleText}>{titleText}</Text>
               {retreat.status === 'draft' && <DraftBadge />}
@@ -1477,7 +1478,7 @@ export default function RetreatDetailScreen() {
         {/* Tab bar — shown whenever 2+ content types are available (video,
             audio, documents). Sits between the title and the content. */}
         {showContentTabs && (
-          <View style={styles.contentTabBar}>
+          <View style={[styles.contentTabBar, !isDesktop && styles.lineBleed]}>
             {hasVideo && (
               <Pressable
                 style={[styles.contentTab, effectiveTab === 'video' && styles.contentTabActive]}
@@ -1552,7 +1553,7 @@ export default function RetreatDetailScreen() {
                   but the dedicated Video tab now provides that
                   affordance, so the header is text-only. */}
               {showSessionHeader && (
-                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent]}>
+                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, !isDesktop && styles.sessionHeaderBleed]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track, retreat?.startDate, language, t)}
                   </Text>
@@ -1571,6 +1572,7 @@ export default function RetreatDetailScreen() {
                 }}
                 style={[
                   styles.trackItem,
+                  !isDesktop && styles.trackItemBleed,
                   isActive && styles.currentTrackItem,
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
                   nextIsContinuation && styles.trackItemSiblingAbove,
@@ -1663,7 +1665,7 @@ export default function RetreatDetailScreen() {
             {documents.filter((doc) => !doc.featured).map((doc) => (
               <TouchableOpacity
                 key={doc.key}
-                style={styles.documentListItem}
+                style={[styles.documentListItem, !isDesktop && styles.lineBleed]}
                 onPress={() => handleDocumentPress(doc)}
                 disabled={!!documentBusyKey}
                 accessibilityRole="button"
@@ -1715,7 +1717,7 @@ export default function RetreatDetailScreen() {
         )}
 
         {retreat?.relatedPublications && retreat.relatedPublications.length > 0 && (
-          <View style={styles.relatedPublicationsSection}>
+          <View style={[styles.relatedPublicationsSection, !isDesktop && styles.lineBleed]}>
             <Text style={styles.relatedPublicationsTitle}>
               {t('publications.relatedTitle') || 'Related Publications'}
             </Text>
@@ -2350,6 +2352,30 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+  },
+  // Mobile text follows the shared gutter. Lines (rules, session headers,
+  // track and document rows) bleed to the left screen edge and stop at the
+  // right inset; see the *Bleed styles below.
+  scrollContentMobile: {
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  heroContainerMobile: {
+    marginHorizontal: -TEXT_GUTTER,
+  },
+  lineBleed: {
+    marginLeft: -TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER,
+  },
+  sessionHeaderBleed: {
+    marginLeft: -TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER + 7,
+  },
+  trackItemBleed: {
+    marginLeft: -TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER + 4,
   },
   heroContainer: {
     alignSelf: 'stretch',

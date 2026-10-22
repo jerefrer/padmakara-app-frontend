@@ -24,6 +24,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
+import { EventRow, eventHasAudio } from '@/components/EventRow';
+import { RULE_RIGHT_INSET, RULE_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   burgundy: {
@@ -41,13 +43,6 @@ const colors = {
   },
   white: "#ffffff",
 };
-
-/** Left/right indent of text and list thumbnails on mobile. Dividers and the highlight photo run from the left edge. */
-const TEXT_GUTTER = 24;
-
-/** Red section rules: from the left edge, stopping this far before the right edge (a bit earlier than the text gutter). */
-const RULE_RIGHT_INSET = TEXT_GUTTER + 12;
-const RULE_THICKNESS = 1;
 
 // ── Category Row ─────────────────────────────────────────────────────────────
 
@@ -70,20 +65,6 @@ function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
 }
 
 // ── Featured Event Card ──────────────────────────────────────────────────────
-
-/**
- * Does this event have audio tracks?
- *
- * The authenticated `/events` list that backs the entity cache omits
- * `sessions` entirely (only the featured/public endpoints embed them), so an
- * absent `sessions` field means "unknown", not "no audio". Treat unknown as
- * audio — every event used to show the note icon unconditionally, and hiding
- * it on the cache path would be a regression.
- */
-function eventHasAudio(event: Gathering): boolean {
-  if (event.sessions === undefined) return true;
-  return event.sessions.some((s) => (s.tracks?.length ?? 0) > 0);
-}
 
 interface FeaturedEventProps {
   event: Gathering;
@@ -225,11 +206,6 @@ function RecentEventCard({
       ? event.name_translations.pt
       : event.name || event.name_translations?.en || "";
 
-  const teacherNames =
-    event.teachers?.map((t: any) => t.name || t.nameEn || "").join(", ") || "";
-
-  const teacherImage = event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
-
   const eventTypeName = language === "pt" && event.eventType?.namePt
     ? event.eventType.namePt
     : event.eventType?.nameEn || "";
@@ -247,66 +223,17 @@ function RecentEventCard({
     }
   };
 
-  const hasTranscripts = (event.transcripts?.length ?? 0) > 0;
-  const hasVideo = (event.videos?.length ?? 0) > 0;
-  const hasAudio = eventHasAudio(event);
-
   const metaParts = [eventTypeName, event.startDate ? formatDate(event.startDate) : ""].filter(Boolean);
 
   return (
-    <TouchableOpacity
+    <EventRow
+      event={event}
+      title={title}
+      meta={metaParts.join("  |  ")}
       onPress={onPress}
-      style={[styles.recentCard, !isDesktop && styles.dividerToGutter]}
+      isDesktop={isDesktop}
       testID={testID}
-    >
-      <View style={[styles.recentImageContainer, !isDesktop && styles.recentImageIndented]}>
-        {teacherImage ? (
-          <Image
-            source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(event.teachers?.[0]) }}
-            cachePolicy="memory-disk"
-            transition={0}
-            style={styles.recentImage}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={styles.recentImagePlaceholder}>
-            <Ionicons
-              name="musical-notes-outline"
-              size={28}
-              color={colors.gray[400]}
-            />
-          </View>
-        )}
-      </View>
-      <View style={styles.recentInfo}>
-        <View style={styles.recentTitleRow}>
-          <Text style={styles.recentTitle} numberOfLines={2}>
-            {title}
-          </Text>
-          {event.status === 'draft' && <DraftBadge />}
-        </View>
-        <NowPlayingBadge eventId={event.id} />
-        {teacherNames ? (
-          <Text style={styles.recentTeacher} numberOfLines={1}>
-            {teacherNames}
-          </Text>
-        ) : null}
-        <Text style={styles.recentMeta} numberOfLines={1}>
-          {metaParts.join("  |  ")}
-        </Text>
-        <View style={styles.recentIcons}>
-          {hasVideo && (
-            <Ionicons name="videocam-outline" size={14} color={colors.gray[400]} />
-          )}
-          {hasAudio && (
-            <Ionicons name="musical-notes-outline" size={14} color={colors.gray[400]} />
-          )}
-          {hasTranscripts && (
-            <Ionicons name="book-outline" size={14} color={colors.gray[400]} />
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
+    />
   );
 }
 
@@ -571,11 +498,7 @@ const styles = StyleSheet.create({
   indented: {
     paddingHorizontal: TEXT_GUTTER,
   },
-  // A divider that starts at the left edge and stops at the right gutter.
-  dividerToGutter: {
-    marginRight: TEXT_GUTTER,
-  },
-  // A red rule that starts at the left edge and stops a little before the right gutter.
+  // A red rule that starts at the left edge and stops at the right inset.
   ruleToGutter: {
     marginRight: RULE_RIGHT_INSET,
   },
@@ -737,70 +660,6 @@ const styles = StyleSheet.create({
     height: RULE_THICKNESS,
     backgroundColor: colors.burgundy[500],
     marginBottom: 4,
-  },
-  recentCard: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
-  },
-  recentImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 4,
-    overflow: "hidden",
-    backgroundColor: "#f0f0f0",
-    marginRight: 14,
-  },
-  // Unlike the dividers and the highlight photo, list thumbnails keep the text margin:
-  // small squares against the screen edge make the list look lopsided.
-  recentImageIndented: {
-    marginLeft: TEXT_GUTTER,
-  },
-  recentImage: {
-    width: "100%",
-    height: "100%",
-  },
-  recentImagePlaceholder: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  recentInfo: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  recentTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    flexWrap: 'wrap' as const,
-    marginBottom: 2,
-  },
-  recentTitle: {
-    fontSize: 18,
-    fontFamily: "EBGaramond_500Medium",
-    color: colors.burgundy[500],
-    flex: 1,
-  },
-  recentTeacher: {
-    fontSize: 15,
-    fontFamily: "EBGaramond_400Regular",
-    color: colors.gray[800],
-    marginBottom: 2,
-  },
-  recentMeta: {
-    fontSize: 12,
-    fontFamily: AVENIR_FAMILY,
-    color: colors.gray[500],
-  },
-  recentIcons: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    gap: 8,
   },
 
   // Sign in section — subtle, at the bottom

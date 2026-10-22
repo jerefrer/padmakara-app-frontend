@@ -79,10 +79,10 @@ export function ContentLanguageRows() {
       <SettingsRow
         testID="settings-subtitle-language"
         icon="videocam-outline"
-        title={t('profile.subtitleLanguage') || 'Show subtitles in which language'}
+        title={t('profile.subtitleLanguage') || 'Subtitle language'}
         subtitle={
           t('profile.subtitleLanguageSubtitle') ||
-          'You can change this option at any time while watching a video. (Please note that subtitles may not always be available.)'
+          'Used when a video starts. You can change it while watching. Not every video has subtitles.'
         }
         value={subtitleLabel(chosenSubtitle)}
         onPress={() => setSubtitleOpen((open) => !open)}
