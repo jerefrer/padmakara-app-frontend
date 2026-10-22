@@ -584,10 +584,10 @@ const styles = StyleSheet.create({
   },
 
   // Monthly highlight
-  // The gap from the last red rule to the label's x-height is 1.6 times the gap from a rule to the
-  // next title's small caps, as on André's mockup, so the highlight reads as its own section.
+  // The gap from the last red rule to the label's x-height is about 1.3 times the gap from a rule to
+  // the next title's small caps, so the highlight reads as its own section without floating.
   highlightSection: {
-    marginTop: 18,
+    marginTop: 11,
   },
   highlightSectionDesktop: {
     marginTop: 0,
