@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
   burgundy: { 500: "#9b1b1b", 600: "#7b1616" },
@@ -83,15 +84,16 @@ interface GroupRowProps {
   onPress: () => void;
   language: string;
   t: (key: string, params?: Record<string, unknown>) => string;
+  isDesktop?: boolean;
 }
 
-function GroupRow({ group, onPress, language, t }: GroupRowProps) {
+function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
   const retreatCount = group.gatherings?.length || 0;
   const groupName = getTranslatedName(group, language as "en" | "pt");
   const groupImage = getGroupImage(groupName);
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.groupRow} testID={`group-card-${group.id}`}>
+    <TouchableOpacity onPress={onPress} style={[styles.groupRow, !isDesktop && styles.groupRowIndented]} testID={`group-card-${group.id}`}>
       {/* Round avatar */}
       <View style={styles.avatarContainer}>
         {groupImage ? (
@@ -269,7 +271,7 @@ export default function RetreatsListScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={isDesktop ? styles.scrollContentDesktop : styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -279,7 +281,7 @@ export default function RetreatsListScreen() {
           }
         >
           {/* Title with back button */}
-          <View style={[styles.titleRow, isDesktop && styles.desktopTitleRow]}>
+          <View style={[styles.titleRow, isDesktop ? styles.desktopTitleRow : styles.indented]}>
             {!isDesktop && (
               <BackButton variant="inline" />
             )}
@@ -290,12 +292,12 @@ export default function RetreatsListScreen() {
 
           {/* Subtitle info */}
           {teachersList ? (
-            <Text style={styles.pageSubtitle}>{teachersList}</Text>
+            <Text style={[styles.pageSubtitle, !isDesktop && styles.indented]}>{teachersList}</Text>
           ) : null}
-          <Text style={styles.pageOrg}>{orgInfo}</Text>
+          <Text style={[styles.pageOrg, !isDesktop && styles.indented]}>{orgInfo}</Text>
 
           {/* Groups list */}
-          <View style={styles.groupsList}>
+          <View style={[styles.groupsList, !isDesktop && styles.ruleToInset]}>
             {groups.map((group) => (
               <GroupRow
                 key={group.id}
@@ -303,6 +305,7 @@ export default function RetreatsListScreen() {
                 onPress={() => handleGroupPress(group)}
                 language={language}
                 t={t}
+                isDesktop={isDesktop}
               />
             ))}
           </View>
@@ -329,9 +332,24 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  // Mobile content runs edge to edge: text is indented per element so that
+  // separators can start at the left screen edge.
   scrollContent: {
-    paddingHorizontal: 24,
     paddingBottom: 120,
+  },
+  scrollContentDesktop: {
+    paddingHorizontal: TEXT_GUTTER,
+    paddingBottom: 120,
+  },
+  indented: {
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  // Lines start at the left edge and stop at the right inset.
+  ruleToInset: {
+    marginRight: RULE_RIGHT_INSET,
+  },
+  groupRowIndented: {
+    paddingLeft: TEXT_GUTTER,
   },
   centerContent: {
     flex: 1,

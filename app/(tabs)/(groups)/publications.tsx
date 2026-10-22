@@ -24,6 +24,7 @@ import { colors } from '@/constants/colors';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { Publication } from '@/types';
 import { BackButton } from '@/components/ui/BackButton';
+import { RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 
 type SortMode = 'title' | 'author' | 'latest';
 
@@ -275,7 +276,7 @@ export default function PublicationsScreen() {
 
       return (
         <TouchableOpacity
-          style={styles.publicationItem}
+          style={[styles.publicationItem, !isDesktop && styles.rowToInset]}
           onPress={() => handleOpenPublication(item)}
           disabled={isDownloading}
           activeOpacity={0.7}
@@ -324,7 +325,7 @@ export default function PublicationsScreen() {
         </TouchableOpacity>
       );
     },
-    [getTitle, downloading, downloadProgress, handleOpenPublication, t]
+    [getTitle, downloading, downloadProgress, handleOpenPublication, t, isDesktop]
   );
 
   // If viewing a PDF, show full-screen viewer
@@ -602,12 +603,12 @@ export default function PublicationsScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderPublicationItem}
             renderSectionHeader={({ section: { title } }) => (
-              <View style={styles.sectionHeader}>
+              <View style={[styles.sectionHeader, !isDesktop && styles.rowToInset]}>
                 <Text style={styles.sectionHeaderText}>{title}</Text>
               </View>
             )}
             ListHeaderComponent={bannerAtTop ? membersBanner : null}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={isDesktop ? styles.listContentDesktop : styles.listContent}
             stickySectionHeadersEnabled={false}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -619,7 +620,7 @@ export default function PublicationsScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderPublicationItem}
             ListHeaderComponent={bannerAtTop ? membersBanner : null}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={isDesktop ? styles.listContentDesktop : styles.listContent}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
@@ -757,9 +758,18 @@ const styles = StyleSheet.create({
   },
 
   // List
+  // Mobile rows run edge to edge: the thumbnail is indented per row so that
+  // separators can start at the left screen edge and stop at the right inset.
   listContent: {
+    paddingBottom: 100,
+  },
+  listContentDesktop: {
     paddingHorizontal: 24,
     paddingBottom: 100,
+  },
+  rowToInset: {
+    marginRight: RULE_RIGHT_INSET,
+    paddingLeft: TEXT_GUTTER,
   },
 
   // Section header (author mode)
