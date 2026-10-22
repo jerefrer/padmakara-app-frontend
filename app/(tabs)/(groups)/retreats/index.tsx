@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import retreatService from "@/services/retreatService";
 import { Gathering, RetreatGroup } from "@/types";
 import { getTranslatedName } from "@/utils/i18n";
+import { groupThumbnailSource } from "@/utils/groupThumbnail";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
@@ -91,7 +92,7 @@ interface GroupRowProps {
 function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
   const retreatCount = group.gatherings?.length || 0;
   const groupName = getTranslatedName(group, language as "en" | "pt");
-  const groupImage = getGroupImage(groupName);
+  const groupImage = groupThumbnailSource(group, getGroupImage(groupName));
 
   return (
     <TouchableOpacity onPress={onPress} style={[styles.groupRow, !isDesktop && styles.groupRowIndented]} testID={`group-card-${group.id}`}>
