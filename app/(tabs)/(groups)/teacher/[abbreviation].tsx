@@ -19,6 +19,7 @@ import retreatService from '@/services/retreatService';
 import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
+import { useFocalCover } from '@/hooks/useFocalCover';
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
@@ -141,6 +142,11 @@ export default function TeacherDetailScreen() {
   }));
 
   const { url: heroSrc, variant: heroVariant } = useHero(teacher);
+  const heroFocalCover = useFocalCover({
+    focalX: teacher?.heroFocalX ?? 50,
+    focalY: teacher?.heroFocalY ?? 50,
+    frameHeight: HERO_HEIGHT,
+  });
   const hasHero = !!heroSrc;
 
   if (loading) {
@@ -188,10 +194,9 @@ export default function TeacherDetailScreen() {
               transition={0}
               style={StyleSheet.absoluteFillObject}
               contentFit="cover"
-              contentPosition={{
-                left: `${teacher.heroFocalX ?? 50}%`,
-                top: `${teacher.heroFocalY ?? 50}%`,
-              }}
+              contentPosition={heroFocalCover.contentPosition}
+              onLayout={heroFocalCover.onLayout}
+              onLoad={heroFocalCover.onLoad}
             />
           </Animated.View>
         )}
