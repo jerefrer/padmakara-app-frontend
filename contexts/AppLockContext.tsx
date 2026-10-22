@@ -68,6 +68,8 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   authedRef.current = isAuthenticated;
   const promptingRef = useRef(false);
   const startHandledRef = useRef(false);
+  // The same fact as state, so the cover can depend on it in render.
+  const [startHandled, setStartHandled] = useState(false);
   const wasAuthedRef = useRef(false);
   const backgroundedAtRef = useRef<number | null>(null);
   // With the lock on at start, the root layout leaves the native splash up and this provider
@@ -162,6 +164,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loaded || isLoading || startHandledRef.current) return;
     startHandledRef.current = true;
+    setStartHandled(true);
     if (enabled && isAuthenticated) lock();
     else releaseSplash();
   }, [loaded, isLoading, enabled, isAuthenticated, lock, releaseSplash]);
@@ -201,7 +204,10 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
 
   // Until the cold start is decided, an enabled lock keeps the app covered: otherwise the content
   // would flash for a moment before the lock screen. The flag itself was read during the splash.
-  const pending = !startHandledRef.current && enabled && (isLoading || !loaded);
+  // It must hold until the decision itself, in the same render as `locked`: dropping it as soon as
+  // the flag and sign-in state are known closed the cover for one render, and iOS then refused to
+  // present the lock screen again while that dismissal was in progress.
+  const pending = !startHandled && enabled;
 
   return (
     <AppLockContext.Provider value={{ enabled, locked, kind, unlock, enable, disable }}>
