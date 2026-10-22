@@ -42,7 +42,7 @@ const colors = {
   white: "#ffffff",
 };
 
-/** Left/right indent of text on mobile. Graphics (dividers, images) run from the left edge. */
+/** Left/right indent of text and list thumbnails on mobile. Dividers and the highlight photo run from the left edge. */
 const TEXT_GUTTER = 24;
 
 // ── Category Row ─────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ function RecentEventCard({
       style={[styles.recentCard, !isDesktop && styles.dividerToGutter]}
       testID={testID}
     >
-      <View style={styles.recentImageContainer}>
+      <View style={[styles.recentImageContainer, !isDesktop && styles.recentImageIndented]}>
         {teacherImage ? (
           <Image
             source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(event.teachers?.[0]) }}
@@ -739,6 +739,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#f0f0f0",
     marginRight: 14,
+  },
+  // Unlike the dividers and the highlight photo, list thumbnails keep the text margin:
+  // small squares against the screen edge make the list look lopsided.
+  recentImageIndented: {
+    marginLeft: TEXT_GUTTER,
   },
   recentImage: {
     width: "100%",
