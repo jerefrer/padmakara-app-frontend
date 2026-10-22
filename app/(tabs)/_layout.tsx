@@ -22,10 +22,10 @@ export const unstable_settings = {
 // two read as one family of bars floating over the content.
 const BAR_TOP_SHADOW = {
   shadowColor: '#000',
-  shadowOpacity: 0.06,
-  shadowRadius: 4,
-  shadowOffset: { width: 0, height: -1 },
-  elevation: 4,
+  shadowOpacity: 0.14,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: -2 },
+  elevation: 8,
 };
 
 export default function TabLayout() {
