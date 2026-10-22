@@ -25,7 +25,7 @@ import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
-import { RULE_RIGHT_INSET, RULE_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 
 const colors = {
@@ -54,10 +54,23 @@ interface CategoryRowProps {
 }
 
 function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
+  // A title too long for one line (Portuguese "Ensinamentos & Palestras" on a narrow phone) is
+  // tightened first, as typesetters do (André), and only then shrunk by at most 10%.
+  const [tight, setTight] = useState(false);
   return (
     <TouchableOpacity onPress={onPress} style={styles.categoryRow}>
       <View style={styles.categoryText}>
-        <Text style={styles.categoryTitle}>{title}</Text>
+        <Text
+          style={[styles.categoryTitle, tight && styles.categoryTitleTight]}
+          numberOfLines={tight ? 1 : undefined}
+          adjustsFontSizeToFit={tight}
+          minimumFontScale={0.9}
+          onTextLayout={(e) => {
+            if (!tight && e.nativeEvent.lines.length > 1) setTight(true);
+          }}
+        >
+          {title}
+        </Text>
         <Text style={styles.categorySubtitle}>{subtitle}</Text>
       </View>
       <View style={styles.categoryRule} />
@@ -521,41 +534,47 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.burgundy[500],
     textAlign: "center",
-    letterSpacing: 2.5,
-    marginBottom: 12,
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
 
   // Category rows
   categoryRow: {
-    paddingTop: 12,
+    paddingTop: 14,
   },
   categoryText: {
     paddingHorizontal: TEXT_GUTTER,
-    paddingBottom: 6,
+    paddingBottom: 10,
   },
+  // Lighter than the section rules (André): the hairline weight of the row subdivisions, in red.
   categoryRule: {
-    height: RULE_THICKNESS,
+    height: SUBDIVISION_THICKNESS,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: colors.burgundy[500],
   },
   categoryTitle: {
-    fontSize: 26,
+    fontSize: 30,
     fontFamily: "MinionPro",
     color: colors.gray[800],
     fontVariant: ["small-caps"],
     letterSpacing: -0.2,
-    marginBottom: 0,
+    marginBottom: 3,
+  },
+  categoryTitleTight: {
+    letterSpacing: -1.2,
   },
   categorySubtitle: {
     fontSize: 13,
     fontFamily: AVENIR_FAMILY,
-    color: colors.gray[500],
+    color: colors.gray[600],
     letterSpacing: -0.1,
   },
 
   // Monthly highlight
+  // The gap from the last red rule to the label's x-height matches the gaps from each rule to the
+  // next title's small caps (André: the three gaps are equal).
   highlightSection: {
-    marginTop: 4,
+    marginTop: 5,
   },
   highlightSectionDesktop: {
     marginTop: 0,
@@ -564,7 +583,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: "EBGaramond_400Regular_Italic",
     color: colors.burgundy[500],
-    marginBottom: 6,
+    marginBottom: 4,
   },
   highlightLabelInCard: {
     fontSize: 28,
@@ -588,7 +607,7 @@ const styles = StyleSheet.create({
   },
   featuredImageContainer: {
     width: "100%",
-    aspectRatio: 16 / 10,
+    aspectRatio: 4 / 3,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
   },
@@ -638,9 +657,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   featuredTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "EBGaramond_400Regular",
-    color: colors.gray[800],
+    color: "#000000",
     flex: 1,
   },
   featuredTitleDesktop: {
@@ -650,7 +669,7 @@ const styles = StyleSheet.create({
   featuredMeta: {
     fontSize: 12,
     fontFamily: AVENIR_FAMILY,
-    color: colors.gray[500],
+    color: colors.gray[600],
     letterSpacing: 0.2,
   },
   featuredIcons: {
@@ -664,8 +683,9 @@ const styles = StyleSheet.create({
   recentSection: {
     marginTop: 28,
   },
+  // Same weight as the category rules: every red line on the home is one hairline (André).
   recentDivider: {
-    height: RULE_THICKNESS,
+    height: SUBDIVISION_THICKNESS,
     backgroundColor: colors.burgundy[500],
     marginBottom: 4,
   },
