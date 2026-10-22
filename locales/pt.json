@@ -751,6 +751,7 @@
     "subtitle": "Pede-o ao abrir a aplicação e após 5 minutos de ausência.",
     "unavailable": "Configure primeiro o Face ID ou um código neste dispositivo.",
     "locked": "Bloqueada",
+    "unlocking": "A desbloquear…",
     "unlock": "Desbloquear",
     "unlockFaceId": "Desbloquear com Face ID",
     "unlockTouchId": "Desbloquear com Touch ID",

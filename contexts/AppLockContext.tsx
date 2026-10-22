@@ -55,6 +55,8 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [kind, setKind] = useState<BiometricKind | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // The system prompt is open: the lock screen shows it is unlocking instead of the button.
+  const [prompting, setPrompting] = useState(false);
 
   // The AppState listener and the prompt callbacks outlive renders, so they read the latest values here.
   const enabledRef = useRef(false);
@@ -74,6 +76,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const unlock = useCallback(async () => {
     if (promptingRef.current) return;
     promptingRef.current = true;
+    setPrompting(true);
     try {
       const result = await authenticate({
         promptMessage: label('appLock.prompt', 'Unlock Padmakara'),
@@ -89,6 +92,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       }
     } finally {
       promptingRef.current = false;
+      setPrompting(false);
     }
   }, [label]);
 
@@ -186,7 +190,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     <AppLockContext.Provider value={{ enabled, locked, kind, unlock, enable, disable }}>
       {children}
       {locked || (pending && Platform.OS !== 'web') ? (
-        <AppLockScreen kind={kind} onUnlock={unlock} pending={!locked} />
+        <AppLockScreen kind={kind} onUnlock={unlock} pending={!locked} prompting={prompting} />
       ) : null}
     </AppLockContext.Provider>
   );

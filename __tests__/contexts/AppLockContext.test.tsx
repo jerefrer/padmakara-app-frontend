@@ -69,6 +69,18 @@ describe('AppLockProvider', () => {
     expect(screen.queryByTestId('app-lock-screen')).toBeNull();
   });
 
+  it('should show that it is unlocking, without the button, while the prompt is open', async () => {
+    let finish: (r: { success: boolean }) => void = () => undefined;
+    svc.authenticate.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const screen = setup();
+    await flush();
+    expect(screen.getByTestId('app-lock-prompting')).toBeTruthy();
+    expect(screen.queryByTestId('app-lock-unlock')).toBeNull();
+    await act(async () => finish({ success: false }));
+    expect(screen.queryByTestId('app-lock-prompting')).toBeNull();
+    expect(screen.getByTestId('app-lock-unlock')).toBeTruthy();
+  });
+
   it('should hide the lock screen when the first prompt succeeds', async () => {
     svc.authenticate.mockResolvedValue({ success: true });
     const screen = setup();
