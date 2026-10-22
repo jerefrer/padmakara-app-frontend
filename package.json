@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
+    "build:ios": "EXPO_APPLE_TEAM_ID=8A879BZ53C EXPO_APPLE_PROVIDER_ID=129269136 eas build -p ios --profile production",
     "e2e": ".maestro/run-all.sh",
     "e2e:android": ".maestro/run-all.sh --platform android",
     "e2e:all": ".maestro/run-all.sh --platform all",
