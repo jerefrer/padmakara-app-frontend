@@ -169,7 +169,7 @@ const config: PadmakaraConfig = {
       "expo-splash-screen",
       {
         // Full brand lockup (dharma wheel + "PADMAKARA" / "RAMO LUSÓFONO"),
-        // white on the brand red. The wheel and wordmark come from André's
+        // white on the app burgundy. The wheel and wordmark come from André's
         // "Logo PADMAKARA BRANCO 2026.eps"; "RAMO LUSÓFONO" is set in Minion Pro
         // under it, as on his mockup. The wordmark is baked into the image
         // because expo-splash-screen only renders a single centered image; it
@@ -178,8 +178,9 @@ const config: PadmakaraConfig = {
         image: "./assets/images/splash.png",
         imageWidth: 290,
         resizeMode: "contain",
-        // André's brand red (#AA1A1E in his mockup); AppLockScreen uses the same.
-        backgroundColor: "#AA1A1E",
+        // The app's burgundy, so the launch screen matches everything after it;
+        // AppLockScreen uses the same.
+        backgroundColor: "#9b1b1b",
       },
     ],
     ...(variant.sentry

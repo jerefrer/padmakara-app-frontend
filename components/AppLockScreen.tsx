@@ -18,8 +18,6 @@ interface Props {
 }
 
 const GLYPH_SIZE = 56;
-// André's brand red, as on the launch screen (app.config.ts).
-const SPLASH_RED = '#AA1A1E';
 
 /** The device's own biometric glyph: Apple's Face ID / Touch ID symbols on iOS, Ionicons elsewhere. */
 function BiometricGlyph({ kind }: { kind: BiometricKind | null }) {
@@ -92,7 +90,7 @@ const styles = StyleSheet.create({
   cover: {
     flex: 1,
     // The launch screen's background (app.config.ts, expo-splash-screen).
-    backgroundColor: SPLASH_RED,
+    backgroundColor: colors.burgundy[500],
     alignItems: 'center',
     paddingHorizontal: 32,
   },
