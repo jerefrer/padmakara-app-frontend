@@ -152,7 +152,11 @@ export function AudioPlayer({
 
           The thumb is drawn only while the user is scrubbing; at rest the bar
           reads as a plain progress line. Hiding it is purely a tint change,
-          so the full-width touch target is unaffected. */}
+          so the full-width touch target is unaffected. On iOS 26 the patched
+          slider (patches/@react-native-community+slider*.patch) turns the
+          transparent tint into the system's thumbless style, and while
+          scrubbing the thumb comes back untinted: the see-through glass dot
+          the designer chose. */}
       <View style={styles.progressContainer}>
         <Slider
           style={styles.progressBar}
@@ -170,7 +174,7 @@ export function AudioPlayer({
           onValueChange={onSliderValueChange}
           minimumTrackTintColor={colors.burgundy[500]}
           maximumTrackTintColor={colors.gray[200]}
-          thumbTintColor={isSeeking ? colors.burgundy[500] : 'transparent'}
+          thumbTintColor={isSeeking ? (Platform.OS === 'ios' ? undefined : colors.burgundy[500]) : 'transparent'}
           testID="audio-seek"
         />
       </View>

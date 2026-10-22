@@ -1,0 +1,21 @@
+diff --git a/node_modules/@react-native-community/slider/ios/RNCSliderComponentView.mm b/node_modules/@react-native-community/slider/ios/RNCSliderComponentView.mm
+index 928c532..6db0a2d 100644
+--- a/node_modules/@react-native-community/slider/ios/RNCSliderComponentView.mm
++++ b/node_modules/@react-native-community/slider/ios/RNCSliderComponentView.mm
+@@ -203,6 +203,16 @@ using namespace facebook::react;
+     }
+     if (oldScreenProps.thumbTintColor != newScreenProps.thumbTintColor) {
+         slider.thumbTintColor = RCTUIColorFromSharedColor(newScreenProps.thumbTintColor);
++        // Padmakara patch (patches/@react-native-community+slider*.patch): from iOS 26 a
++        // transparent thumb still draws a glass dot, so a fully transparent thumbTintColor
++        // switches to the system's thumbless style (made for media progress bars), and any
++        // other value, or none, brings the normal thumb back. Drop this patch once the
++        // library exposes sliderStyle itself.
++        if (@available(iOS 26.0, *)) {
++            UIColor *tint = slider.thumbTintColor;
++            BOOL hidden = tint != nil && CGColorGetAlpha(tint.CGColor) == 0;
++            slider.sliderStyle = hidden ? UISliderStyleThumbless : UISliderStyleDefault;
++        }
+     }
+     if (oldScreenProps.minimumTrackTintColor != newScreenProps.minimumTrackTintColor) {
+         slider.minimumTrackTintColor = RCTUIColorFromSharedColor(newScreenProps.minimumTrackTintColor);
