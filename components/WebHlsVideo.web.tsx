@@ -71,6 +71,23 @@ export const WebHlsVideo = forwardRef<WebPlayerHandle, WebHlsVideoProps>(
       return () => video.removeEventListener('timeupdate', handler);
     }, [onTimeUpdate]);
 
+    // Tell the parent when playback starts or stops, so audio can yield.
+    useEffect(() => {
+      const video = videoRef.current;
+      if (!video) return;
+      const onPlay = () => propsRef.current.onPlayingChange?.(true);
+      const onStop = () => propsRef.current.onPlayingChange?.(false);
+      video.addEventListener('play', onPlay);
+      video.addEventListener('pause', onStop);
+      video.addEventListener('ended', onStop);
+      return () => {
+        video.removeEventListener('play', onPlay);
+        video.removeEventListener('pause', onStop);
+        video.removeEventListener('ended', onStop);
+        propsRef.current.onPlayingChange?.(false);
+      };
+    }, []);
+
     // Load HLS and enable the preferred subtitle track. Keyed on `uri` only.
     useEffect(() => {
       const video = videoRef.current;

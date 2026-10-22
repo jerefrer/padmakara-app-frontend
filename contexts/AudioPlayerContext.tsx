@@ -73,12 +73,18 @@ export interface AudioPlayerContextType {
   // stays out of the way then; otherwise it covers the owning event screen
   // only while audio is actually playing (see components/MiniPlayer.tsx).
   inlinePlayerVisible: boolean;
+  // True while a video is playing. Audio and video never play together: the
+  // video player reports its state through setVideoPlaying, and starting a
+  // video pauses the audio. Audio starting while a video plays is handled by
+  // the video player, which watches `isPlaying`.
+  videoPlaying: boolean;
 
   // Actions
   playTrack: (track: Track, trackList: Track[], index: number, meta?: { retreatId: string; retreatName: string; groupName: string }, options?: { autoPlay?: boolean }) => void;
   resumeLastPlayed: () => void;
   clearTrack: () => void;
   togglePlayPause: () => void;
+  pause: () => void;
   seekTo: (positionMs: number) => void;
   skipForward: () => void;
   skipBackward: () => void;
@@ -103,6 +109,7 @@ export interface AudioPlayerContextType {
   setOnOpenReadAlong: (cb: (() => void) | undefined) => void;
   setOnOpenTranscript: (cb: (() => void) | undefined) => void;
   setInlinePlayerVisible: (visible: boolean) => void;
+  setVideoPlaying: (playing: boolean) => void;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
@@ -171,6 +178,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [upcomingTracks, setUpcomingTracks] = useState<Track[]>([]);
   const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
   const [inlinePlayerVisible, setInlinePlayerVisible] = useState(false);
+  const [videoPlaying, setVideoPlayingState] = useState(false);
 
   // ─── Audio engine ───
   const [audioSource, setAudioSource] = useState<string | null>(null);
@@ -1031,6 +1039,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [phase, player, status?.playing, status?.currentTime, idleTrack, playTrack, saveProgress]);
 
+  // Pause without toggling: a no-op when nothing is playing. Also drops a
+  // play requested while the track was still loading.
+  const pause = useCallback(() => {
+    setPendingPlay(false);
+    if (phase === 'ready' && player && status?.playing) {
+      try {
+        player.pause();
+        void saveProgress((status.currentTime ?? 0) * 1000);
+      } catch (error) {
+        console.error('pause error:', error);
+      }
+    }
+  }, [phase, player, status?.playing, status?.currentTime, saveProgress]);
+
+  // The latest `pause`, so setVideoPlaying keeps a stable identity.
+  const pauseRef = useRef(pause);
+  pauseRef.current = pause;
+
+  const setVideoPlaying = useCallback((playing: boolean) => {
+    setVideoPlayingState(playing);
+    if (playing) pauseRef.current();
+  }, []);
+
   const seekTo = useCallback((positionMs: number) => {
     if (phase !== 'ready' || !player) return;
     const positionSeconds = Math.max(0, positionMs / 1000);
@@ -1165,11 +1196,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     idleTrack,
     player: track ? player : null,
     inlinePlayerVisible,
+    videoPlaying,
 
     playTrack,
     resumeLastPlayed,
     clearTrack,
     togglePlayPause,
+    pause,
     seekTo,
     skipForward,
     skipBackward,
@@ -1192,19 +1225,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setOnOpenReadAlong,
     setOnOpenTranscript,
     setInlinePlayerVisible,
+    setVideoPlaying,
   }), [
     track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
     trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
     isPlayButtonDisabled, hasNextTrack, hasPreviousTrack,
-    canOpenReadAlong, canOpenTranscript, idleTrack, player, inlinePlayerVisible,
-    playTrack, resumeLastPlayed, clearTrack, togglePlayPause, seekTo,
+    canOpenReadAlong, canOpenTranscript, idleTrack, player, inlinePlayerVisible, videoPlaying,
+    playTrack, resumeLastPlayed, clearTrack, togglePlayPause, pause, seekTo,
     skipForward, skipBackward, nextTrackAction, previousTrackAction,
     openReadAlong, openTranscript,
     changePlaybackSpeed,
     onSlidingStart, onSlidingComplete, onSliderValueChange,
     setOnProgressUpdate, setOnTrackComplete, setOnPlayingStateChange,
     setOnNextTrack, setOnPreviousTrack,
-    setOnOpenReadAlong, setOnOpenTranscript,
+    setOnOpenReadAlong, setOnOpenTranscript, setInlinePlayerVisible, setVideoPlaying,
   ]);
 
   return (

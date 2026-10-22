@@ -22,4 +22,6 @@ export interface WebHlsVideoProps {
   onTimeUpdate: (currentTime: number) => void;
   /** Fired when the media element or HLS engine reports a fatal error. */
   onError: () => void;
+  /** Fired when playback starts (true) or pauses / ends (false). */
+  onPlayingChange?: (playing: boolean) => void;
 }
