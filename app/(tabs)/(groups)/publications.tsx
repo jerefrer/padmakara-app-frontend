@@ -26,6 +26,7 @@ import type { Publication } from '@/types';
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
 type SortMode = 'title' | 'author' | 'latest';
 
@@ -479,31 +480,19 @@ export default function PublicationsScreen() {
         {!isDesktop && <SectionRule />}
 
         {/* Sort tabs + language dropdown */}
-        <View style={styles.sortRow}>
-          <View style={styles.sortTabs}>
-            {(['latest', 'author', 'title'] as SortMode[]).map((mode) => {
-              const isActive = sortMode === mode;
-              return (
-                <TouchableOpacity
-                  key={mode}
-                  style={[styles.sortTab, isActive && styles.sortTabActive]}
-                  onPress={() => setSortMode(mode)}
-                >
-                  <Text
-                    style={[
-                      styles.sortTabText,
-                      isActive && styles.sortTabTextActive,
-                    ]}
-                  >
-                    {t(`publications.tabs.${mode}`) || mode}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {availableLanguages.length > 1 && (
-            <View style={styles.languageDropdownContainer}>
+        <TabSwitcher<SortMode>
+          bleed={!isDesktop}
+          style={[styles.sortBar, isDesktop && styles.sortBarDesktop]}
+          activeKey={sortMode}
+          onChange={setSortMode}
+          tabs={(['latest', 'author', 'title'] as SortMode[]).map((mode) => ({
+            key: mode,
+            label: t(`publications.tabs.${mode}`) || mode,
+            testID: `publications-tab-${mode}`,
+          }))}
+          trailing={
+          availableLanguages.length > 1 ? (
+            <View style={[styles.languageDropdownContainer, !isDesktop && styles.languageToGutter]}>
               <TouchableOpacity
                 style={styles.languageTrigger}
                 onPress={() => setShowLanguageDropdown((v) => !v)}
@@ -578,8 +567,9 @@ export default function PublicationsScreen() {
                 </View>
               )}
             </View>
-          )}
-        </View>
+          ) : null
+          }
+        />
 
         {/* Content */}
         {loading ? (
@@ -665,42 +655,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Sort tabs row (sorts on the left, language dropdown on the right).
+  // Sort tabs (shared TabSwitcher) with the language dropdown at the right.
   // position:relative + zIndex are required so the absolutely-positioned
   // dropdown menu rendered inside this row sits above the FlatList that
   // follows in the DOM (otherwise clicks pass through to list items on web).
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-    marginBottom: 8,
+  sortBar: {
     position: 'relative',
     zIndex: 100,
   },
-  sortTabs: {
-    flexDirection: 'row',
-    gap: 20,
+  sortBarDesktop: {
+    marginHorizontal: 24,
   },
-  sortTab: {
-    paddingVertical: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  sortTabActive: {
-    borderBottomColor: colors.burgundy[500],
-  },
-  sortTabText: {
-    fontSize: 15,
-    fontFamily: 'EBGaramond_400Regular',
-    color: colors.gray[400],
-    fontVariant: ['small-caps'],
-    letterSpacing: 0.3,
-  },
-  sortTabTextActive: {
-    color: colors.burgundy[500],
-    fontFamily: 'EBGaramond_600SemiBold',
+  // The tab line stops at the right inset; the dropdown trigger lines up with
+  // the text gutter again.
+  languageToGutter: {
+    marginRight: -(RULE_RIGHT_INSET - TEXT_GUTTER),
   },
 
   // Language dropdown — anchored absolutely to its container, mirroring

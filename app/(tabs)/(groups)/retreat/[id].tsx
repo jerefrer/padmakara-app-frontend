@@ -67,6 +67,7 @@ import {
 } from '@/components/LanguageCheckboxList';
 import { eventBackTarget } from '@/utils/eventBack';
 import { BackButton } from '@/components/ui/BackButton';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 
 const colors = {
@@ -1478,44 +1479,16 @@ export default function RetreatDetailScreen() {
         {/* Tab bar — shown whenever 2+ content types are available (video,
             audio, documents). Sits between the title and the content. */}
         {showContentTabs && (
-          <View style={[styles.contentTabBar, !isDesktop && styles.lineBleed]}>
-            {hasVideo && (
-              <Pressable
-                style={[styles.contentTab, effectiveTab === 'video' && styles.contentTabActive]}
-                onPress={() => setActiveContentTab('video')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: effectiveTab === 'video' }}
-              >
-                <Text style={[styles.contentTabText, effectiveTab === 'video' && styles.contentTabTextActive]}>
-                  {t('eventTabs.videos') || 'Videos'}
-                </Text>
-              </Pressable>
-            )}
-            {hasAudio && (
-              <Pressable
-                style={[styles.contentTab, effectiveTab === 'tracks' && styles.contentTabActive]}
-                onPress={() => setActiveContentTab('tracks')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: effectiveTab === 'tracks' }}
-              >
-                <Text style={[styles.contentTabText, effectiveTab === 'tracks' && styles.contentTabTextActive]}>
-                  {t('eventTabs.tracks') || 'Audio'}
-                </Text>
-              </Pressable>
-            )}
-            {hasDocuments && (
-              <Pressable
-                style={[styles.contentTab, effectiveTab === 'documents' && styles.contentTabActive]}
-                onPress={() => setActiveContentTab('documents')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: effectiveTab === 'documents' }}
-              >
-                <Text style={[styles.contentTabText, effectiveTab === 'documents' && styles.contentTabTextActive]}>
-                  {t('documents.tab') || 'Documents'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
+          <TabSwitcher<'video' | 'tracks' | 'documents'>
+            style={!isDesktop && styles.lineBleed}
+            activeKey={effectiveTab}
+            onChange={setActiveContentTab}
+            tabs={[
+              ...(hasVideo ? [{ key: 'video' as const, label: t('eventTabs.videos') || 'Videos', testID: 'event-tab-video' }] : []),
+              ...(hasAudio ? [{ key: 'tracks' as const, label: t('eventTabs.tracks') || 'Audio', testID: 'event-tab-tracks' }] : []),
+              ...(hasDocuments ? [{ key: 'documents' as const, label: t('documents.tab') || 'Documents', testID: 'event-tab-documents' }] : []),
+            ]}
+          />
         )}
 
         {effectiveTab === 'video' && hasVideo && (
@@ -2568,36 +2541,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  // Two-tab content switcher (Videos | Audio). Underline on the active
-  // tab, no background — sits flush above the content.
-  contentTabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  contentTab: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    marginRight: 28,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  contentTabActive: {
-    borderBottomColor: colors.burgundy[500],
-  },
-  contentTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    color: colors.gray[500],
-    textTransform: 'uppercase',
-  },
-  contentTabTextActive: {
-    color: colors.burgundy[500],
-  },
-
   trackItem: {
     flexDirection: 'row',
     alignItems: 'center',
