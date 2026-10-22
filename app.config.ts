@@ -169,14 +169,17 @@ const config: PadmakaraConfig = {
       "expo-splash-screen",
       {
         // Full brand lockup (dharma wheel + "PADMAKARA" / "RAMO LUSÓFONO"),
-        // white on the brand burgundy. The wordmark is baked into the image
+        // white on the brand red. The wheel and wordmark come from André's
+        // "Logo PADMAKARA BRANCO 2026.eps"; "RAMO LUSÓFONO" is set in Minion Pro
+        // under it, as on his mockup. The wordmark is baked into the image
         // because expo-splash-screen only renders a single centered image; it
         // is a fixed logo, not translatable UI copy. When the FR variant ships
         // it will need its own lockup image (mirroring the per-variant `name`).
         image: "./assets/images/splash.png",
-        imageWidth: 260,
+        imageWidth: 290,
         resizeMode: "contain",
-        backgroundColor: "#9b1b1b",
+        // André's brand red (#AA1A1E in his mockup); AppLockScreen uses the same.
+        backgroundColor: "#AA1A1E",
       },
     ],
     ...(variant.sentry
