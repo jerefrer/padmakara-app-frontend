@@ -5,6 +5,7 @@ import service, {
   READ_ALONG_TEXT_SIZES,
   clampTextSizeIndex,
   getReadAlongTextMetrics,
+  nextTextSizeIndex,
 } from './readAlongPreferencesService';
 
 describe('readAlongPreferencesService', () => {
@@ -25,12 +26,24 @@ describe('readAlongPreferencesService', () => {
   });
 
   it('should fall back to the default when the stored value is corrupt', async () => {
-    await AsyncStorage.setItem('readAlong.textSize', 'abc');
+    await AsyncStorage.setItem('readAlong.textSize.v2', 'abc');
     expect(await service.getTextSizeIndex()).toBe(DEFAULT_TEXT_SIZE_INDEX);
   });
 
-  it('should keep the default step noticeably larger than the old 18px text', () => {
-    expect(READ_ALONG_TEXT_SIZES[DEFAULT_TEXT_SIZE_INDEX]).toBeGreaterThanOrEqual(26);
+  it('should ignore a step saved under the old 21-36px scale', async () => {
+    await AsyncStorage.setItem('readAlong.textSize', '4');
+    expect(await service.getTextSizeIndex()).toBe(DEFAULT_TEXT_SIZE_INDEX);
+  });
+
+  it('should default to 18px within the 16-26px range', () => {
+    expect(READ_ALONG_TEXT_SIZES[DEFAULT_TEXT_SIZE_INDEX]).toBe(18);
+    expect(READ_ALONG_TEXT_SIZES[0]).toBe(16);
+    expect(READ_ALONG_TEXT_SIZES[MAX_TEXT_SIZE_INDEX]).toBe(26);
+  });
+
+  it('should advance one step and wrap after the largest', () => {
+    expect(nextTextSizeIndex(0)).toBe(1);
+    expect(nextTextSizeIndex(MAX_TEXT_SIZE_INDEX)).toBe(0);
   });
 
   it('should bound step indexes between 0 and the last step', () => {

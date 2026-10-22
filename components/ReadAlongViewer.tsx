@@ -3,9 +3,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import readAlongService from '@/services/readAlongService';
 import readAlongPreferencesService, {
   DEFAULT_TEXT_SIZE_INDEX,
-  MAX_TEXT_SIZE_INDEX,
-  clampTextSizeIndex,
   getReadAlongTextMetrics,
+  nextTextSizeIndex,
 } from '@/services/readAlongPreferencesService';
 import { ReadAlongData, ReadAlongWord } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -120,9 +119,8 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     }
   }, [position, isPlaying]);
 
-  // Text size step (persisted on the device) and the picker's visibility.
+  // Text size step (persisted on the device).
   const [sizeIndex, setSizeIndex] = useState(DEFAULT_TEXT_SIZE_INDEX);
-  const [sizePickerOpen, setSizePickerOpen] = useState(false);
   const textMetrics = useMemo(() => getReadAlongTextMetrics(sizeIndex), [sizeIndex]);
 
   useEffect(() => {
@@ -378,17 +376,16 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     }, 5000);
   }, []);
 
-  // Change the text size. Paragraph heights change with it, so forget the
+  // Move to the next text size (wrapping after the largest). Paragraph heights change with it, so forget the
   // measured layouts and re-center on the active paragraph once they are
   // re-reported (the initial-scroll effect picks it up via layoutTick).
-  const changeSize = useCallback((next: number) => {
-    const clamped = clampTextSizeIndex(next);
-    if (clamped === sizeIndex) return;
-    setSizeIndex(clamped);
+  const cycleSize = useCallback(() => {
+    const next = nextTextSizeIndex(sizeIndex);
+    setSizeIndex(next);
     paraLayoutsRef.current = new Map();
     hasInitialScrolledRef.current = false;
     lastScrolledParaRef.current = -1;
-    readAlongPreferencesService.setTextSizeIndex(clamped).catch(() => {});
+    readAlongPreferencesService.setTextSizeIndex(next).catch(() => {});
   }, [sizeIndex]);
 
   // Tap a word to seek
@@ -450,14 +447,14 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
         <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            onPress={() => setSizePickerOpen((open) => !open)}
-            style={[styles.headerButton, sizePickerOpen && styles.headerButtonActive]}
+            onPress={cycleSize}
+            style={styles.sizeButton}
             accessibilityRole="button"
             accessibilityLabel={t('readAlong.textSize') || 'Text size'}
-            accessibilityState={{ expanded: sizePickerOpen }}
             testID="read-along-size-toggle"
           >
-            <Text style={styles.aaLabel}>Aa</Text>
+            <Text style={[styles.aaLabel, { fontSize: 13 + 2 * sizeIndex }]}>Aa</Text>
+            <Text style={styles.sizeLabel}>{t('readAlong.textSize') || 'Text size'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onClose}
@@ -469,47 +466,6 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
           </TouchableOpacity>
         </View>
       </View>
-
-      {sizePickerOpen && (
-        <View style={styles.sizePicker} testID="read-along-size-picker">
-          <TouchableOpacity
-            onPress={() => changeSize(sizeIndex - 1)}
-            disabled={sizeIndex === 0}
-            style={[styles.sizeButton, sizeIndex === 0 && styles.sizeButtonDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel={t('readAlong.textSmaller') || 'Smaller text'}
-            accessibilityState={{ disabled: sizeIndex === 0 }}
-            testID="read-along-size-smaller"
-          >
-            <Text style={[styles.sizeButtonLabel, { fontSize: 16 }]}>A</Text>
-          </TouchableOpacity>
-          <View
-            style={styles.sizeSteps}
-            accessible
-            accessibilityRole="adjustable"
-            accessibilityLabel={t('readAlong.textSize') || 'Text size'}
-            accessibilityValue={{ min: 1, max: MAX_TEXT_SIZE_INDEX + 1, now: sizeIndex + 1 }}
-          >
-            {Array.from({ length: MAX_TEXT_SIZE_INDEX + 1 }, (_, i) => (
-              <View
-                key={i}
-                style={[styles.sizeStep, i <= sizeIndex && styles.sizeStepOn]}
-              />
-            ))}
-          </View>
-          <TouchableOpacity
-            onPress={() => changeSize(sizeIndex + 1)}
-            disabled={sizeIndex === MAX_TEXT_SIZE_INDEX}
-            style={[styles.sizeButton, sizeIndex === MAX_TEXT_SIZE_INDEX && styles.sizeButtonDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel={t('readAlong.textLarger') || 'Larger text'}
-            accessibilityState={{ disabled: sizeIndex === MAX_TEXT_SIZE_INDEX }}
-            testID="read-along-size-larger"
-          >
-            <Text style={[styles.sizeButtonLabel, { fontSize: 26 }]}>A</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Transcript text — bottomInset reserves room for the overlay player
           so the last lines can scroll up above the slider. */}
@@ -730,51 +686,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerButtonActive: {
-    backgroundColor: colors.burgundy[50],
-  },
-  aaLabel: {
-    fontSize: 20,
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.burgundy[500],
-  },
-  sizePicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.burgundy[50],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
+  // Same look as the player's speed button: bold value over a small label.
   sizeButton: {
     minWidth: 44,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sizeButtonDisabled: {
-    opacity: 0.35,
-  },
-  sizeButtonLabel: {
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: colors.burgundy[500],
-  },
-  sizeSteps: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
     paddingHorizontal: 8,
   },
-  sizeStep: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.burgundy[100],
+  aaLabel: {
+    fontWeight: '700',
+    color: colors.gray[700],
   },
-  sizeStepOn: {
-    backgroundColor: colors.burgundy[500],
+  sizeLabel: {
+    fontSize: 10,
+    color: colors.gray[500],
+    marginTop: 2,
   },
   loadingContainer: {
     flex: 1,
