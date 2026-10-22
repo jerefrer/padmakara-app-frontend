@@ -1,10 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLockScreen } from '@/components/AppLockScreen';
 import {
   APP_LOCK_GRACE_MS,
+  appLockEnabledAtStart,
   authenticate,
   biometricKind,
   getAppLockEnabled,
@@ -51,7 +53,8 @@ export function useAppLock(): AppLockContextType {
 export function AppLockProvider({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const { isAuthenticated, isLoading } = useAuth();
-  const [enabled, setEnabled] = useState(false);
+  // Read during the splash (app/_layout.tsx), so an enabled lock covers the very first frame.
+  const [enabled, setEnabled] = useState(() => appLockEnabledAtStart() ?? false);
   const [locked, setLocked] = useState(false);
   const [kind, setKind] = useState<BiometricKind | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -67,6 +70,14 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const startHandledRef = useRef(false);
   const wasAuthedRef = useRef(false);
   const backgroundedAtRef = useRef<number | null>(null);
+  // With the lock on at start, the root layout leaves the native splash up and this provider
+  // lifts it once the lock screen is on screen (or once it turns out nothing is to be locked).
+  const holdsSplashRef = useRef(appLockEnabledAtStart() === true);
+  const releaseSplash = useCallback(() => {
+    if (!holdsSplashRef.current) return;
+    holdsSplashRef.current = false;
+    SplashScreen.hideAsync().catch(() => undefined);
+  }, []);
 
   const label = useCallback(
     (key: string, fallback: string) => t(key) || fallback,
@@ -152,7 +163,14 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     if (!loaded || isLoading || startHandledRef.current) return;
     startHandledRef.current = true;
     if (enabled && isAuthenticated) lock();
-  }, [loaded, isLoading, enabled, isAuthenticated, lock]);
+    else releaseSplash();
+  }, [loaded, isLoading, enabled, isAuthenticated, lock, releaseSplash]);
+
+  // Never strand the person behind the splash, whatever happens above.
+  useEffect(() => {
+    const timer = setTimeout(releaseSplash, 4000);
+    return () => clearTimeout(timer);
+  }, [releaseSplash]);
 
   // Signing out or forgetting the device ends the lock: it belongs to the signed-in person.
   useEffect(() => {
@@ -181,16 +199,21 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [lock]);
 
-  // While the sign-in state is still loading at cold start, an enabled lock keeps the app covered:
-  // otherwise the content would flash for a moment before the lock screen. (Reading the flag itself
-  // takes a few milliseconds; covering during that read would cover every app, locked or not.)
-  const pending = !startHandledRef.current && loaded && enabled && isLoading;
+  // Until the cold start is decided, an enabled lock keeps the app covered: otherwise the content
+  // would flash for a moment before the lock screen. The flag itself was read during the splash.
+  const pending = !startHandledRef.current && enabled && (isLoading || !loaded);
 
   return (
     <AppLockContext.Provider value={{ enabled, locked, kind, unlock, enable, disable }}>
       {children}
       {locked || (pending && Platform.OS !== 'web') ? (
-        <AppLockScreen kind={kind} onUnlock={unlock} pending={!locked} prompting={prompting} />
+        <AppLockScreen
+          kind={kind}
+          onUnlock={unlock}
+          pending={!locked}
+          prompting={prompting}
+          onShown={releaseSplash}
+        />
       ) : null}
     </AppLockContext.Provider>
   );

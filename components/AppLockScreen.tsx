@@ -13,6 +13,8 @@ interface Props {
   pending?: boolean;
   /** The system prompt is open: say so instead of offering the button. */
   prompting?: boolean;
+  /** Called once the cover is on screen, so the native splash can lift without a gap. */
+  onShown?: () => void;
 }
 
 const GLYPH_SIZE = 56;
@@ -41,14 +43,14 @@ function BiometricGlyph({ kind }: { kind: BiometricKind | null }) {
  * also covers any modal already open (the full-screen player) when the lock comes back. It carries
  * the launch screen's lockup on the same burgundy.
  */
-export function AppLockScreen({ kind, onUnlock, pending = false, prompting = false }: Props) {
+export function AppLockScreen({ kind, onUnlock, pending = false, prompting = false, onShown }: Props) {
   const { t } = useLanguage();
   const labels = kindLabels(kind);
   const unlockLabel = t(labels.unlockKey) || labels.unlockFallback;
 
   return (
     // Closing it with the Android back button would skip the lock.
-    <Modal visible animationType="none" statusBarTranslucent onRequestClose={() => undefined}>
+    <Modal visible animationType="none" statusBarTranslucent onShow={onShown} onRequestClose={() => undefined}>
       <View testID="app-lock-screen" style={styles.cover} accessibilityViewIsModal>
         <Image
           source={require('@/assets/images/splash.png')}

@@ -18,6 +18,7 @@ jest.mock('@/services/appLock', () => ({
   setAppLockEnabled: jest.fn(async () => undefined),
   biometricKind: jest.fn(async () => 'faceId'),
   authenticate: jest.fn(),
+  appLockEnabledAtStart: jest.fn(() => null),
 }));
 
 const svc = appLock as jest.Mocked<typeof appLock>;
@@ -41,6 +42,7 @@ beforeEach(() => {
   svc.getAppLockEnabled.mockResolvedValue(true);
   svc.biometricKind.mockResolvedValue('faceId');
   svc.authenticate.mockResolvedValue({ success: false, error: 'user_cancel' });
+  svc.appLockEnabledAtStart.mockReturnValue(null);
   now = 1_000_000;
   appStateHandler = undefined;
   jest.spyOn(AppState, 'addEventListener').mockImplementation(((_: string, handler: (s: string) => void) => {
@@ -57,6 +59,13 @@ describe('AppLockProvider', () => {
     await flush();
     expect(screen.getByTestId('app-lock-screen')).toBeTruthy();
     expect(svc.authenticate).toHaveBeenCalledTimes(1);
+  });
+
+  it('should cover the app from the first render when the lock was read on at start', () => {
+    svc.appLockEnabledAtStart.mockReturnValue(true);
+    svc.getAppLockEnabled.mockImplementation(() => new Promise(() => undefined));
+    const screen = setup();
+    expect(screen.getByTestId('app-lock-screen')).toBeTruthy();
   });
 
   it('should offer an unlock button when the first prompt is cancelled', async () => {

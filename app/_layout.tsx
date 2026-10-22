@@ -27,6 +27,7 @@ import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
 import retreatService from '@/services/retreatService';
 import { holdSplashWhile } from '@/utils/startup';
+import { appLockEnabledAtStart, readAppLockAtStart } from '@/services/appLock';
 import { avenirFontsToLoad } from '@/constants/avenirFont';
 
 // Keep the native splash (burgundy Padmakara lockup) on screen until fonts are
@@ -68,10 +69,14 @@ export default function RootLayout() {
     );
     // The schema check can wipe the cache, so the warm-up waits for it:
     // warming first would fill a mirror that is about to be cleared.
+    // The app-lock flag is read here too, while the splash still hides the app.
     const warmUp = () =>
-      ensureCacheSchemaCurrent()
-        .catch((err) => console.warn('[cache] schema check failed:', err))
-        .then(() => retreatService.warmHomeContent());
+      Promise.all([
+        readAppLockAtStart(),
+        ensureCacheSchemaCurrent()
+          .catch((err) => console.warn('[cache] schema check failed:', err))
+          .then(() => retreatService.warmHomeContent()),
+      ]);
     holdSplashWhile(warmUp, SPLASH_HOLD).then(() => setContentWarm(true));
   }, []);
 
@@ -111,7 +116,8 @@ export default function RootLayout() {
   const ready = loaded && contentWarm;
 
   useEffect(() => {
-    if (ready) {
+    // With the app lock on, AppLockProvider lifts the splash once its cover is on screen.
+    if (ready && appLockEnabledAtStart() !== true) {
       SplashScreen.hideAsync().catch(() => {
         /* ignore — splash may already be hidden */
       });

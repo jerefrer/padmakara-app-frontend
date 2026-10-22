@@ -43,6 +43,23 @@ export async function getAppLockEnabled(): Promise<boolean> {
   }
 }
 
+// The flag as read while the native splash is still up; null until then.
+let enabledAtStart: boolean | null = null;
+
+/**
+ * Reads the flag during the splash, so the app knows before its first frame whether to cover
+ * itself: reading it afterwards let the content flash between the splash and the lock screen.
+ */
+export async function readAppLockAtStart(): Promise<boolean> {
+  enabledAtStart = await getAppLockEnabled();
+  return enabledAtStart;
+}
+
+/** The flag read by readAppLockAtStart, or null when it has not been read. */
+export function appLockEnabledAtStart(): boolean | null {
+  return enabledAtStart;
+}
+
 export async function setAppLockEnabled(enabled: boolean): Promise<void> {
   if (!isNative()) return;
   try {
