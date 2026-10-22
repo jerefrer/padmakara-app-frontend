@@ -9,7 +9,7 @@
  * the page header, see components/ui/SectionRule.tsx), and thin dark
  * hairlines between rows (the subdivisions).
  */
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 /** Left/right indent of text and list thumbnails on mobile. */
 export const TEXT_GUTTER = 24;
@@ -26,5 +26,8 @@ export const RULE_COLOR = "#9b1b1b";
 /** Colour of the thin lines between rows: near-black, kept light by the hairline weight. */
 export const SUBDIVISION_COLOR = "#2c2c2c";
 
-/** Weight of the thin lines between rows. */
-export const SUBDIVISION_THICKNESS = StyleSheet.hairlineWidth;
+/**
+ * Weight of the thin lines between rows. On the web hairlineWidth is a full 1px, which
+ * reads as a heavy black bar; half a pixel draws a true hairline on high-density screens.
+ */
+export const SUBDIVISION_THICKNESS = Platform.OS === "web" ? 0.5 : StyleSheet.hairlineWidth;
