@@ -50,38 +50,33 @@ describe('ReadAlongViewer text size', () => {
   });
 
   it('should render words at the saved size', async () => {
-    await AsyncStorage.setItem('readAlong.textSize', '4');
+    await AsyncStorage.setItem('readAlong.textSize.v2', '4');
     const utils = await renderViewer();
     await waitFor(() => expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(4)));
   });
 
-  it('should enlarge the text and persist the choice when tapping larger', async () => {
+  it('should ignore a size saved by the old 21-36px scale', async () => {
+    await AsyncStorage.setItem('readAlong.textSize', '4');
+    const utils = await renderViewer();
+    expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(DEFAULT_TEXT_SIZE_INDEX));
+  });
+
+  it('should enlarge the text and persist the choice when pressing the size button', async () => {
     const utils = await renderViewer();
     fireEvent.press(utils.getByTestId('read-along-size-toggle'));
-    fireEvent.press(utils.getByTestId('read-along-size-larger'));
     await waitFor(() =>
       expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(DEFAULT_TEXT_SIZE_INDEX + 1)),
     );
     await waitFor(async () =>
-      expect(await AsyncStorage.getItem('readAlong.textSize')).toBe(String(DEFAULT_TEXT_SIZE_INDEX + 1)),
+      expect(await AsyncStorage.getItem('readAlong.textSize.v2')).toBe(String(DEFAULT_TEXT_SIZE_INDEX + 1)),
     );
   });
 
-  it('should not go below the smallest step', async () => {
-    await AsyncStorage.setItem('readAlong.textSize', '0');
+  it('should wrap to the smallest size when pressed on the largest', async () => {
+    await AsyncStorage.setItem('readAlong.textSize.v2', String(MAX_TEXT_SIZE_INDEX));
     const utils = await renderViewer();
+    await waitFor(() => expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(MAX_TEXT_SIZE_INDEX)));
     fireEvent.press(utils.getByTestId('read-along-size-toggle'));
-    fireEvent.press(utils.getByTestId('read-along-size-smaller'));
-    await act(async () => {});
-    expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(0));
-  });
-
-  it('should not go above the largest step', async () => {
-    await AsyncStorage.setItem('readAlong.textSize', String(MAX_TEXT_SIZE_INDEX));
-    const utils = await renderViewer();
-    fireEvent.press(utils.getByTestId('read-along-size-toggle'));
-    fireEvent.press(utils.getByTestId('read-along-size-larger'));
-    await act(async () => {});
-    expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(MAX_TEXT_SIZE_INDEX));
+    await waitFor(() => expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(0)));
   });
 });
