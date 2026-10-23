@@ -20,6 +20,7 @@ import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
 import { useFocalCover } from '@/hooks/useFocalCover';
+import { useEventBookmarks } from '@/hooks/useEventBookmarks';
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
@@ -78,6 +79,7 @@ export default function TeacherDetailScreen() {
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
+  const eventBookmarks = useEventBookmarks();
 
   const [teacher, setTeacher] = useState<GatheringTeacher | null>(() => {
     const sync = retreatService.getEventsByTeacherSync(abbreviation);
@@ -278,11 +280,27 @@ export default function TeacherDetailScreen() {
                       <Ionicons name="book-outline" size={18} color={colors.gray600} style={styles.eventIcon} />
                     )}
                   </View>
-                  {/* Visual placeholder — event-level bookmark not wired to a
-                      backend yet. Tap is a no-op until the feature lands. */}
-                  <View style={styles.eventBookmarkButton}>
-                    <Ionicons name="bookmark-outline" size={20} color={colors.burgundy500} />
-                  </View>
+                  {/* Own touchable so tapping it does not open the event. Hidden
+                      for signed-out users, like the event page header. */}
+                  {eventBookmarks.enabled && (
+                    <TouchableOpacity
+                      style={styles.eventBookmarkButton}
+                      onPress={() => eventBookmarks.toggle(event.id)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        eventBookmarks.isBookmarked(event.id)
+                          ? t('bookmarks.remove') || 'Remove bookmark'
+                          : t('bookmarks.add') || 'Bookmark this event'
+                      }
+                    >
+                      <Ionicons
+                        name={eventBookmarks.isBookmarked(event.id) ? 'bookmark' : 'bookmark-outline'}
+                        size={20}
+                        color={colors.burgundy500}
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </TouchableOpacity>
             );
