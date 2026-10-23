@@ -247,7 +247,14 @@
     "preDownload": "Pré-transferir",
     "preDownloadRemove": "Remover transferência",
     "preDownloadTracks": "faixas",
-    "preDownloadDescription": "Estas gravações serão guardadas no seu dispositivo para poder ouvir sem ligação à internet. Não serão removidas automaticamente."
+    "preDownloadDescription": "Estas gravações serão guardadas no seu dispositivo para poder ouvir sem ligação à internet. Não serão removidas automaticamente.",
+    "preDownloadConfirm": "Transferir",
+    "removeDownloadMessage": "Remover \"{{name}}\" do armazenamento offline?",
+    "downloadFailedTitle": "Falha na transferência",
+    "downloadFailedMessage": "Não foi possível transferir o retiro",
+    "unexpectedError": "Ocorreu um erro inesperado",
+    "zipFailed": "Não foi possível transferir o ZIP",
+    "loadFailed": "Não foi possível carregar os detalhes do retiro"
   },
   "home": {
     "greetingMorning": "Bom dia",

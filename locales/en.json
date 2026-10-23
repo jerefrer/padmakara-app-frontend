@@ -247,7 +247,14 @@
     "preDownload": "Pre-download",
     "preDownloadRemove": "Remove download",
     "preDownloadTracks": "tracks",
-    "preDownloadDescription": "These recordings will be saved to your device so you can listen offline, without an internet connection. They won't be removed automatically."
+    "preDownloadDescription": "These recordings will be saved to your device so you can listen offline, without an internet connection. They won't be removed automatically.",
+    "preDownloadConfirm": "Download",
+    "removeDownloadMessage": "Remove \"{{name}}\" from offline storage?",
+    "downloadFailedTitle": "Download failed",
+    "downloadFailedMessage": "Failed to download retreat",
+    "unexpectedError": "An unexpected error occurred",
+    "zipFailed": "Failed to download ZIP",
+    "loadFailed": "Failed to load retreat details"
   },
   "home": {
     "greetingMorning": "Good morning",

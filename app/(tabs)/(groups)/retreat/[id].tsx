@@ -324,7 +324,7 @@ export default function RetreatDetailScreen() {
   const showModal = (
     title: string,
     message: string,
-    buttons: ConfirmationButton[] = [{ text: 'OK' }],
+    buttons: ConfirmationButton[] = [{ text: t('common.ok') || 'OK' }],
     icon?: keyof typeof Ionicons.glyphMap
   ) => {
     setModalState({ visible: true, title, message, buttons, icon });
@@ -638,9 +638,9 @@ export default function RetreatDetailScreen() {
           console.log('Download cancelled');
         } else {
           showModal(
-            'Download Failed',
-            result.error || 'Failed to download retreat',
-            [{ text: 'OK' }],
+            t('events.downloadFailedTitle') || 'Download failed',
+            result.error || t('events.downloadFailedMessage') || 'Failed to download retreat',
+            [{ text: t('common.ok') || 'OK' }],
             'alert-circle-outline'
           );
         }
@@ -651,9 +651,9 @@ export default function RetreatDetailScreen() {
         setDownloadProgress({ current: 0, total: 0, startTime: 0 });
         console.error('Download error:', error);
         showModal(
-          'Download Failed',
-          'An unexpected error occurred',
-          [{ text: 'OK' }],
+          t('events.downloadFailedTitle') || 'Download failed',
+          t('events.unexpectedError') || 'An unexpected error occurred',
+          [{ text: t('common.ok') || 'OK' }],
           'alert-circle-outline'
         );
       }
@@ -687,10 +687,10 @@ export default function RetreatDetailScreen() {
       } else if (response.locked) {
         setLocked(response.locked);
       } else {
-        setError(response.error || 'Failed to load retreat details');
+        setError(response.error || t('events.loadFailed') || 'Failed to load retreat details');
       }
     } catch (err) {
-      setError('Failed to load retreat details');
+      setError(t('events.loadFailed') || 'Failed to load retreat details');
       console.error('Load retreat error:', err);
     } finally {
       setLoading(false);
@@ -996,12 +996,12 @@ export default function RetreatDetailScreen() {
 
     if (isRetreatDownloaded) {
       showModal(
-        'Remove Download',
-        `Remove "${getTranslatedName(retreat, language)}" from offline storage?`,
+        t('events.preDownloadRemove') || 'Remove download',
+        (t('events.removeDownloadMessage') || 'Remove "{{name}}" from offline storage?').replace('{{name}}', getTranslatedName(retreat, language)),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel') || 'Cancel', style: 'cancel' },
           {
-            text: 'Remove',
+            text: t('common.remove') || 'Remove',
             style: 'destructive',
             onPress: async () => {
               const result = await downloadService.removeDownloadedRetreat(retreat.id);
@@ -1023,9 +1023,9 @@ export default function RetreatDetailScreen() {
       t('events.preDownload') || 'Pre-download',
       `${tracks.length} ${t('events.preDownloadTracks') || 'tracks'} · ${totalSize}\n\n${t('events.preDownloadDescription') || "These recordings will be saved to your device so you can listen offline, without an internet connection. They won't be removed automatically."}`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
-          text: 'Download',
+          text: t('events.preDownloadConfirm') || 'Download',
           onPress: () => {
             setPendingDownloadConfirm(true);
           },
@@ -1065,12 +1065,12 @@ export default function RetreatDetailScreen() {
       if (zipCancelledRef.current) return;
 
       if (!requestResponse.success) {
-        throw new Error(requestResponse.error || 'Failed to prepare download');
+        throw new Error(requestResponse.error || t('events.zipFailed') || 'Failed to download ZIP');
       }
 
       const requestId = (requestResponse.data as any)?.request_id;
       if (!requestId) {
-        throw new Error('No request ID received');
+        throw new Error(t('events.zipFailed') || 'Failed to download ZIP');
       }
 
       setCurrentDownloadRequestId(requestId);
@@ -1098,7 +1098,7 @@ export default function RetreatDetailScreen() {
         if (zipCancelledRef.current) return;
 
         if (!statusResponse.success) {
-          throw new Error(statusResponse.error || 'Failed to check ZIP status');
+          throw new Error(statusResponse.error || t('events.zipFailed') || 'Failed to download ZIP');
         }
 
         if ((statusResponse.data as any)?.status === 'ready') {
@@ -1106,7 +1106,7 @@ export default function RetreatDetailScreen() {
           setZipProgressPercent(100);
           setZipDownloadProgress(t('downloads.zipReady') || 'ZIP ready! Starting download...');
         } else if ((statusResponse.data as any)?.status === 'failed') {
-          throw new Error((statusResponse.data as any)?.error_message || 'ZIP generation failed');
+          throw new Error((statusResponse.data as any)?.error_message || t('events.zipFailed') || 'Failed to download ZIP');
         } else if ((statusResponse.data as any)?.status === 'processing') {
           const progressPercent = (statusResponse.data as any)?.progress_percent;
           if (typeof progressPercent === 'number') {
@@ -1125,14 +1125,14 @@ export default function RetreatDetailScreen() {
       }
 
       if (!isComplete) {
-        throw new Error('Download preparation timed out');
+        throw new Error(t('events.zipFailed') || 'Failed to download ZIP');
       }
 
       const downloadResponse = await apiService.get(API_ENDPOINTS.DOWNLOAD_FILE(requestId));
       if (zipCancelledRef.current) return;
 
       if (!(downloadResponse.data as any)?.success || !(downloadResponse.data as any)?.download_url) {
-        throw new Error('Failed to get download URL');
+        throw new Error(t('events.zipFailed') || 'Failed to download ZIP');
       }
 
       const { Linking } = require('react-native');
@@ -1144,9 +1144,9 @@ export default function RetreatDetailScreen() {
       console.error('ZIP download error:', error);
       await downloadStateService.removeDownloadState(retreat?.id || '');
       showModal(
-        'Download Error',
-        error.message || 'Failed to download ZIP',
-        [{ text: 'OK' }],
+        t('events.downloadFailedTitle') || 'Download failed',
+        error.message || t('events.zipFailed') || 'Failed to download ZIP',
+        [{ text: t('common.ok') || 'OK' }],
         'alert-circle-outline'
       );
     } finally {
@@ -1204,7 +1204,7 @@ export default function RetreatDetailScreen() {
       showModal(
         t('documents.openError') || 'Could not open this document',
         '',
-        [{ text: 'OK' }],
+        [{ text: t('common.ok') || 'OK' }],
         'alert-circle-outline'
       );
 
