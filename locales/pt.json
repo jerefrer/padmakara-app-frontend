@@ -247,7 +247,14 @@
     "preDownload": "Pré-transferir",
     "preDownloadRemove": "Remover transferência",
     "preDownloadTracks": "faixas",
-    "preDownloadDescription": "Estas gravações serão guardadas no seu dispositivo para poder ouvir sem ligação à internet. Não serão removidas automaticamente."
+    "preDownloadDescription": "Estas gravações serão guardadas no seu dispositivo para poder ouvir sem ligação à internet. Não serão removidas automaticamente.",
+    "preDownloadConfirm": "Transferir",
+    "removeDownloadMessage": "Remover \"{{name}}\" do armazenamento offline?",
+    "downloadFailedTitle": "Falha na transferência",
+    "downloadFailedMessage": "Não foi possível transferir o retiro",
+    "unexpectedError": "Ocorreu um erro inesperado",
+    "zipFailed": "Não foi possível transferir o ZIP",
+    "loadFailed": "Não foi possível carregar os detalhes do retiro"
   },
   "home": {
     "greetingMorning": "Bom dia",
@@ -343,13 +350,13 @@
     "pages": "páginas"
   },
   "documents": {
-    "tab": "Documentos",
+    "tab": "Textos",
     "transcript": "Transcrição",
-    "empty": "Nenhum documento disponível",
+    "empty": "Nenhum texto disponível",
     "open": "Abrir",
     "download": "Descarregar",
     "downloading": "A descarregar…",
-    "openError": "Não foi possível abrir este documento",
+    "openError": "Não foi possível abrir este texto",
     "close": "Fechar",
     "image": "Imagem",
     "document": "Documento"
