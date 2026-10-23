@@ -37,6 +37,9 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
 }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: false }),
+}));
 jest.mock('@/contexts/AudioPlayerContext', () => ({
   useAudioPlayerContext: () => ({ isPlaying: false, setVideoPlaying: jest.fn() }),
 }));

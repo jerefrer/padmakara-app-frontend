@@ -1,10 +1,14 @@
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
+import videoBookmarkService, { type VideoBookmark } from '@/services/videoBookmarkService';
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
 import type { Bookmark, EventVideo } from '@/types';
 import { getVideoTitle } from '@/utils/videoTitle';
+import { pickResumePosition } from '@/utils/videoDeepLink';
+import { migrateLocalVideoBookmarks } from '@/utils/videoBookmarkMigration';
 import { pickPreferredSubtitle, resolveSubtitleLanguage } from '@/utils/subtitlePreference';
 import videoPreferencesService from '@/services/videoPreferencesService';
 import { WebHlsVideo } from './WebHlsVideo';
@@ -57,6 +61,12 @@ interface VideoPlayerProps {
    * survives remounts when switching between videos in the same screen visit.
    */
   cellularAcceptedRef?: React.MutableRefObject<boolean>;
+  /**
+   * Start the first load of this video here instead of at the saved resume
+   * position (opened from a video bookmark). Applied once per video; the
+   * caller clears it when the user picks another video.
+   */
+  initialPositionSeconds?: number;
 }
 
 type CellularGate = 'pending' | 'allowed' | 'blocked';
@@ -78,6 +88,19 @@ const FORWARD_BUFFER_SECONDS = 300;
  */
 function videoProgressKey(videoId: number): string {
   return `video-${videoId}`;
+}
+
+/** Server bookmarks use numeric ids; the ones kept on the device start with this prefix. */
+const LOCAL_BOOKMARK_PREFIX = 'bookmark_';
+
+function fromServerBookmark(bm: VideoBookmark): Bookmark {
+  return {
+    id: String(bm.id),
+    trackId: videoProgressKey(bm.videoId),
+    position: bm.positionSeconds,
+    note: bm.note ?? undefined,
+    createdAt: bm.createdAt,
+  };
 }
 
 /**
@@ -119,8 +142,10 @@ export function VideoPlayer({
   onClose,
   onComplete,
   cellularAcceptedRef,
+  initialPositionSeconds,
 }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useAuth();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
   const { t, language } = useLanguage();
@@ -161,6 +186,17 @@ export function VideoPlayer({
   const [hlsUrl, setHlsUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resumePosition, setResumePosition] = useState<number>(0);
+  // The deep-link position is read when a load finishes, and used for one video only.
+  const initialPositionRef = useRef(initialPositionSeconds);
+  initialPositionRef.current = initialPositionSeconds;
+  const initialConsumedForRef = useRef<number | null>(null);
+  const resolveResume = (videoId: number, computed: number, duration: number): number => {
+    if (initialPositionRef.current === undefined || initialConsumedForRef.current === videoId) {
+      return computed;
+    }
+    initialConsumedForRef.current = videoId;
+    return pickResumePosition(initialPositionRef.current, computed, duration);
+  };
   const [cellularGate, setCellularGate] = useState<CellularGate>('allowed');
   const [isLocal, setIsLocal] = useState<boolean>(false);
   const [downloadStatus, setDownloadStatus] = useState<VideoDownloadStatus>({ state: 'idle' });
@@ -266,7 +302,7 @@ export function VideoPlayer({
           duration > 0 && saved > 0 && saved < duration * COMPLETE_THRESHOLD_RATIO
             ? saved
             : 0;
-        setResumePosition(safeResume);
+        setResumePosition(resolveResume(video.id, safeResume, duration));
         return;
       }
 
@@ -369,7 +405,7 @@ export function VideoPlayer({
         duration > 0 && savedPosition > 0 && savedPosition < duration * COMPLETE_THRESHOLD_RATIO
           ? Math.floor(savedPosition)
           : 0;
-      setResumePosition(safeResume);
+      setResumePosition(resolveResume(video.id, safeResume, duration));
 
       // Single playback path: backend HLS proxy. Each variant + segment URL
       // routes back through our backend, which signs the upstream Bunny URL
@@ -463,13 +499,40 @@ export function VideoPlayer({
 
   const bookmarksKeyFor = (videoId: number) => `bookmarks_${videoProgressKey(videoId)}`;
 
-  const loadBookmarks = async (videoId: number) => {
+  const loadLocalBookmarks = async (videoId: number): Promise<Bookmark[]> => {
     try {
       const raw = await AsyncStorage.getItem(bookmarksKeyFor(videoId));
       const list: Bookmark[] = raw ? JSON.parse(raw) : [];
-      setBookmarks(list.sort((a, b) => a.position - b.position));
+      return list.sort((a, b) => a.position - b.position);
     } catch {
-      setBookmarks([]);
+      return [];
+    }
+  };
+
+  const loadBookmarks = async (videoId: number) => {
+    if (!isAuthenticated) {
+      setBookmarks(await loadLocalBookmarks(videoId));
+      return;
+    }
+    // Signed in: bookmarks live on the server. Bookmarks saved on the device
+    // by older versions (or while offline) are uploaded first, then removed.
+    await migrateLocalVideoBookmarks({
+      videoId,
+      storageKey: bookmarksKeyFor(videoId),
+      storage: AsyncStorage,
+      upload: async (payload) => (await videoBookmarkService.add(payload)).success,
+    });
+    const res = await videoBookmarkService.list();
+    if (res.success && res.data) {
+      const mine = res.data
+        .filter((bm) => bm.videoId === videoId)
+        .map(fromServerBookmark)
+        .sort((a, b) => a.position - b.position);
+      // Bookmarks that could not be uploaded yet stay visible from the device.
+      const pending = await loadLocalBookmarks(videoId);
+      setBookmarks([...mine, ...pending].sort((a, b) => a.position - b.position));
+    } else {
+      setBookmarks(await loadLocalBookmarks(videoId));
     }
   };
 
@@ -477,7 +540,7 @@ export function VideoPlayer({
   useEffect(() => {
     if (video) loadBookmarks(video.id);
     else setBookmarks([]);
-  }, [video]);
+  }, [video, isAuthenticated]);
 
   // Allow the device to rotate while the video player is open. The app is
   // locked to portrait globally (app.json), so we unlock here and restore
@@ -518,8 +581,15 @@ export function VideoPlayer({
     if (!video) return;
     const filtered = bookmarks.filter((b) => b.id !== bookmarkId);
     setBookmarks(filtered);
+    if (!bookmarkId.startsWith(LOCAL_BOOKMARK_PREFIX)) {
+      const res = await videoBookmarkService.remove(Number(bookmarkId));
+      // Put it back when the server refused, so the list does not lie.
+      if (!res.success) await loadBookmarks(video.id);
+      return;
+    }
     try {
-      await AsyncStorage.setItem(bookmarksKeyFor(video.id), JSON.stringify(filtered));
+      const local = (await loadLocalBookmarks(video.id)).filter((b) => b.id !== bookmarkId);
+      await AsyncStorage.setItem(bookmarksKeyFor(video.id), JSON.stringify(local));
     } catch {
       // ignore
     }
@@ -537,22 +607,38 @@ export function VideoPlayer({
     setBookmarkModalVisible(true);
   };
 
+  const saveBookmarkLocally = async (videoId: number, position: number, note: string) => {
+    const key = bookmarksKeyFor(videoId);
+    const existing = await AsyncStorage.getItem(key);
+    const list: Bookmark[] = existing ? JSON.parse(existing) : [];
+    list.push({
+      id: `${LOCAL_BOOKMARK_PREFIX}${Date.now()}`,
+      trackId: videoProgressKey(videoId),
+      position,
+      note,
+      createdAt: new Date().toISOString(),
+    });
+    await AsyncStorage.setItem(key, JSON.stringify(list));
+  };
+
   const saveBookmark = async () => {
     if (!video || bookmarkSavedAt === null) return;
     const note = bookmarkNote.trim();
+    const position = Math.floor(bookmarkSavedAt);
     try {
-      const key = bookmarksKeyFor(video.id);
-      const existing = await AsyncStorage.getItem(key);
-      const list: Bookmark[] = existing ? JSON.parse(existing) : [];
-      list.push({
-        id: `bookmark_${Date.now()}`,
-        trackId: videoProgressKey(video.id),
-        position: Math.floor(bookmarkSavedAt),
-        note,
-        createdAt: new Date().toISOString(),
-      });
-      await AsyncStorage.setItem(key, JSON.stringify(list));
-      setBookmarks(list.sort((a, b) => a.position - b.position));
+      let savedOnServer = false;
+      if (isAuthenticated) {
+        const res = await videoBookmarkService.add({
+          videoId: video.id,
+          positionSeconds: position,
+          note,
+        });
+        savedOnServer = res.success;
+      }
+      // Signed out, or the server is unreachable: keep it on the device. It is
+      // uploaded the next time the video loads while signed in.
+      if (!savedOnServer) await saveBookmarkLocally(video.id, position, note);
+      await loadBookmarks(video.id);
       setBookmarkModalVisible(false);
       setBookmarkNote('');
       setBookmarkSavedAt(null);

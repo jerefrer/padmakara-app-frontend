@@ -25,6 +25,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { resolveVideoDeepLink } from '@/utils/videoDeepLink';
 import { LevelTrail } from '@/components/LevelTrail';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -178,10 +179,18 @@ interface RetreatDetails {
 const LAST_TRACK_KEY = (eventId: string) => `last_played_track:${eventId}`;
 
 export default function RetreatDetailScreen() {
-  const { id, from, trackId: trackIdParam } = useLocalSearchParams<{
+  const {
+    id,
+    from,
+    trackId: trackIdParam,
+    videoId: videoIdParam,
+    position: positionParam,
+  } = useLocalSearchParams<{
     id: string;
     from?: string;
     trackId?: string;
+    videoId?: string;
+    position?: string;
   }>();
   const { t, showPortuguese, language } = useLanguage();
   const { isDesktop, isMobile } = useDesktopLayout();
@@ -256,6 +265,10 @@ export default function RetreatDetailScreen() {
   // An event may have several videos; tap a card in the Video tab to open
   // the specific recording here.
   const [activeVideo, setActiveVideo] = useState<EventVideo | null>(null);
+  // Set when the event is opened from a video bookmark; cleared as soon as the
+  // user picks a video themselves or closes the player.
+  const [initialVideoPosition, setInitialVideoPosition] = useState<number | undefined>(undefined);
+  const appliedVideoLinkRef = useRef<string | null>(null);
   // App-session-of-use ref to remember "I accepted cellular playback" — survives
   // remounts when the user opens different videos in the same screen visit.
   const cellularAcceptedRef = useRef<boolean>(false);
@@ -712,6 +725,23 @@ export default function RetreatDetailScreen() {
     setActiveContentTab(anyVideo ? 'video' : 'tracks');
   }, [retreat]);
 
+  // Opened from a video bookmark: open that video at the bookmarked position,
+  // once per navigation (not again on re-render or after the user picks another).
+  useEffect(() => {
+    if (!retreat) return;
+    const target = resolveVideoDeepLink(retreat.videos, {
+      videoId: videoIdParam,
+      position: positionParam,
+    });
+    if (!target) return;
+    const linkKey = `${id}:${videoIdParam}:${positionParam ?? ''}`;
+    if (appliedVideoLinkRef.current === linkKey) return;
+    appliedVideoLinkRef.current = linkKey;
+    setActiveContentTab('video');
+    setInitialVideoPosition(target.position);
+    setActiveVideo(target.video);
+  }, [retreat, id, videoIdParam, positionParam]);
+
   // Load whether this event is currently bookmarked. We check by listing
   // the user's bookmarks (typically a small set) rather than adding a
   // dedicated endpoint. Skip entirely when unauthenticated — public-event
@@ -876,6 +906,7 @@ export default function RetreatDetailScreen() {
 
   /** Open the video modal for the given recording. */
   const watchVideo = useCallback((video: EventVideo) => {
+    setInitialVideoPosition(undefined);
     setActiveVideo(video);
   }, []);
 
@@ -1972,7 +2003,11 @@ export default function RetreatDetailScreen() {
         eventTitle={retreat ? (getTranslatedName(retreat as any, language) || retreat.name) : undefined}
         totalVideos={retreat?.videos?.length}
         cellularAcceptedRef={cellularAcceptedRef}
-        onClose={() => setActiveVideo(null)}
+        initialPositionSeconds={initialVideoPosition}
+        onClose={() => {
+          setInitialVideoPosition(undefined);
+          setActiveVideo(null);
+        }}
         onComplete={() => {
           // Video reached the end. Close the modal — there's no "next video"
           // auto-advance within the event yet.
