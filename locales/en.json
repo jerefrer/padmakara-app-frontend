@@ -585,7 +585,9 @@
     "eventsHeader": "Events",
     "tracksHeader": "Tracks",
     "noEventBookmarks": "No bookmarked events yet.",
-    "noTrackBookmarks": "No bookmarked tracks yet."
+    "noTrackBookmarks": "No bookmarked tracks yet.",
+    "videosHeader": "Videos",
+    "noVideoBookmarks": "No bookmarked videos yet."
   },
   "membership": {
     "title": "Become a member",

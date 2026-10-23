@@ -2,6 +2,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import eventBookmarkService, { EventBookmark } from "@/services/eventBookmarkService";
 import trackBookmarkService, { TrackBookmark } from "@/services/trackBookmarkService";
+import videoBookmarkService, { VideoBookmark } from "@/services/videoBookmarkService";
+import type { EventVideo } from "@/types";
+import { formatVideoPosition } from "@/utils/formatVideoPosition";
+import { getVideoTitle } from "@/utils/videoTitle";
 import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -122,6 +126,67 @@ function TrackRow({
   );
 }
 
+// ── Video row ───────────────────────────────────────────────────────────
+
+function VideoRow({
+  bookmark,
+  onPress,
+  language,
+  t,
+  testID,
+}: {
+  bookmark: VideoBookmark;
+  onPress: () => void;
+  language: Language;
+  t: (key: string, params?: Record<string, unknown>) => string;
+  testID?: string;
+}) {
+  const video = bookmark.video;
+  const event = video.event;
+  const eventTitle = (language === "pt" && event.titlePt) || event.titleEn || "";
+  const teacher = event.teachers?.[0];
+  const teacherPhoto = teacher?.avatarUrl || teacher?.photoUrl || null;
+
+  // getVideoTitle only reads the title, date and position fields.
+  const title = getVideoTitle(
+    {
+      id: video.id,
+      eventId: video.eventId,
+      bunnyVideoId: "",
+      position: video.position,
+      titleEn: video.titleEn,
+      titlePt: video.titlePt,
+      videoDate: video.videoDate,
+      durationSeconds: video.durationSeconds,
+      posterUrl: null,
+      createdAt: "",
+      updatedAt: "",
+    } satisfies EventVideo,
+    { language, t },
+  );
+  const subtitle = [eventTitle, formatVideoPosition(bookmark.positionSeconds)]
+    .filter(Boolean)
+    .join(" — ");
+
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
+      <EventThumb
+        uri={teacherPhoto}
+        cacheKey={teacherFeedImageCacheKey(teacher)}
+      />
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
+        {subtitle ? (
+          <Text style={styles.rowTeacher} numberOfLines={1}>{subtitle}</Text>
+        ) : null}
+        {bookmark.note ? (
+          <Text style={styles.rowMeta} numberOfLines={2}>{bookmark.note}</Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ── Screen ──────────────────────────────────────────────────────────────
 
 export default function BookmarksScreen() {
@@ -129,6 +194,7 @@ export default function BookmarksScreen() {
   const { t, language } = useLanguage();
   const [eventBookmarks, setEventBookmarks] = useState<EventBookmark[]>([]);
   const [trackBookmarks, setTrackBookmarks] = useState<TrackBookmark[]>([]);
+  const [videoBookmarks, setVideoBookmarks] = useState<VideoBookmark[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,18 +202,27 @@ export default function BookmarksScreen() {
     if (!isAuthenticated) {
       setEventBookmarks([]);
       setTrackBookmarks([]);
+      setVideoBookmarks([]);
       return;
     }
     setLoading(true);
     setError(null);
-    const [eventsRes, tracksRes] = await Promise.all([
+    const [eventsRes, tracksRes, videosRes] = await Promise.all([
       eventBookmarkService.list(),
       trackBookmarkService.list(),
+      videoBookmarkService.list(),
     ]);
     if (eventsRes.success && eventsRes.data) setEventBookmarks(eventsRes.data);
     if (tracksRes.success && tracksRes.data) setTrackBookmarks(tracksRes.data);
-    if ((!eventsRes.success && !eventsRes.authRequired) || (!tracksRes.success && !tracksRes.authRequired)) {
-      setError(eventsRes.error || tracksRes.error || (t("common.error") || "Something went wrong"));
+    if (videosRes.success && videosRes.data) setVideoBookmarks(videosRes.data);
+    if (
+      (!eventsRes.success && !eventsRes.authRequired) ||
+      (!tracksRes.success && !tracksRes.authRequired) ||
+      (!videosRes.success && !videosRes.authRequired)
+    ) {
+      setError(
+        eventsRes.error || tracksRes.error || videosRes.error || (t("common.error") || "Something went wrong"),
+      );
     }
     setLoading(false);
   }, [isAuthenticated, t]);
@@ -158,7 +233,8 @@ export default function BookmarksScreen() {
     }, [load]),
   );
 
-  const hasAny = eventBookmarks.length > 0 || trackBookmarks.length > 0;
+  const hasAny =
+    eventBookmarks.length > 0 || trackBookmarks.length > 0 || videoBookmarks.length > 0;
 
   return (
     <View style={styles.container}>
@@ -244,6 +320,39 @@ export default function BookmarksScreen() {
                           id: String(bm.track.event.id),
                           from: "bookmarks",
                           trackId: String(bm.trackId),
+                        },
+                      } as any)
+                    }
+                  />
+                ))
+              )}
+            </View>
+
+            {/* Videos section */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionHeader, styles.indented]}>
+                {t("bookmarks.videosHeader") || "Videos"}
+              </Text>
+              {videoBookmarks.length === 0 ? (
+                <Text style={[styles.sectionEmpty, styles.indented]}>
+                  {t("bookmarks.noVideoBookmarks") || "No bookmarked videos yet."}
+                </Text>
+              ) : (
+                videoBookmarks.map((bm) => (
+                  <VideoRow
+                    key={`video-${bm.id}`}
+                    bookmark={bm}
+                    language={language}
+                    t={t}
+                    testID={`video-bookmark-${bm.id}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/(groups)/retreat/[id]",
+                        params: {
+                          id: String(bm.video.event.id),
+                          from: "bookmarks",
+                          videoId: String(bm.videoId),
+                          position: String(bm.positionSeconds),
                         },
                       } as any)
                     }
