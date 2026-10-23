@@ -21,6 +21,7 @@ import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
 import { useFocalCover } from '@/hooks/useFocalCover';
 import { useEventBookmarks } from '@/hooks/useEventBookmarks';
+import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
@@ -359,10 +360,11 @@ const styles = StyleSheet.create({
     fontVariant: ['small-caps'],
     color: colors.burgundy500,
   },
+  // Same look as the count under each name in the "by teacher" list.
   eventCount: {
-    fontFamily: 'EBGaramond_600SemiBold',
-    fontSize: 15,
-    color: colors.gray600,
+    fontFamily: AVENIR_FAMILY,
+    fontSize: 14,
+    color: colors.gray500,
     marginTop: 2,
   },
   eventList: {
