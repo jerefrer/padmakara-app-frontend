@@ -352,11 +352,11 @@
   "documents": {
     "tab": "Texts",
     "transcript": "Transcript",
-    "empty": "No documents available",
+    "empty": "No texts available",
     "open": "Open",
     "download": "Download",
     "downloading": "Downloading…",
-    "openError": "Could not open this document",
+    "openError": "Could not open this text",
     "close": "Close",
     "image": "Image",
     "document": "Document"
