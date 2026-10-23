@@ -7,6 +7,7 @@ import videoBookmarkService, { type VideoBookmark } from '@/services/videoBookma
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
 import type { Bookmark, EventVideo } from '@/types';
 import { getVideoTitle } from '@/utils/videoTitle';
+import { pickResumePosition } from '@/utils/videoDeepLink';
 import { migrateLocalVideoBookmarks } from '@/utils/videoBookmarkMigration';
 import { pickPreferredSubtitle, resolveSubtitleLanguage } from '@/utils/subtitlePreference';
 import videoPreferencesService from '@/services/videoPreferencesService';
@@ -60,6 +61,12 @@ interface VideoPlayerProps {
    * survives remounts when switching between videos in the same screen visit.
    */
   cellularAcceptedRef?: React.MutableRefObject<boolean>;
+  /**
+   * Start the first load of this video here instead of at the saved resume
+   * position (opened from a video bookmark). Applied once per video; the
+   * caller clears it when the user picks another video.
+   */
+  initialPositionSeconds?: number;
 }
 
 type CellularGate = 'pending' | 'allowed' | 'blocked';
@@ -135,6 +142,7 @@ export function VideoPlayer({
   onClose,
   onComplete,
   cellularAcceptedRef,
+  initialPositionSeconds,
 }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuth();
@@ -178,6 +186,17 @@ export function VideoPlayer({
   const [hlsUrl, setHlsUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resumePosition, setResumePosition] = useState<number>(0);
+  // The deep-link position is read when a load finishes, and used for one video only.
+  const initialPositionRef = useRef(initialPositionSeconds);
+  initialPositionRef.current = initialPositionSeconds;
+  const initialConsumedForRef = useRef<number | null>(null);
+  const resolveResume = (videoId: number, computed: number, duration: number): number => {
+    if (initialPositionRef.current === undefined || initialConsumedForRef.current === videoId) {
+      return computed;
+    }
+    initialConsumedForRef.current = videoId;
+    return pickResumePosition(initialPositionRef.current, computed, duration);
+  };
   const [cellularGate, setCellularGate] = useState<CellularGate>('allowed');
   const [isLocal, setIsLocal] = useState<boolean>(false);
   const [downloadStatus, setDownloadStatus] = useState<VideoDownloadStatus>({ state: 'idle' });
@@ -283,7 +302,7 @@ export function VideoPlayer({
           duration > 0 && saved > 0 && saved < duration * COMPLETE_THRESHOLD_RATIO
             ? saved
             : 0;
-        setResumePosition(safeResume);
+        setResumePosition(resolveResume(video.id, safeResume, duration));
         return;
       }
 
@@ -386,7 +405,7 @@ export function VideoPlayer({
         duration > 0 && savedPosition > 0 && savedPosition < duration * COMPLETE_THRESHOLD_RATIO
           ? Math.floor(savedPosition)
           : 0;
-      setResumePosition(safeResume);
+      setResumePosition(resolveResume(video.id, safeResume, duration));
 
       // Single playback path: backend HLS proxy. Each variant + segment URL
       // routes back through our backend, which signs the upstream Bunny URL
