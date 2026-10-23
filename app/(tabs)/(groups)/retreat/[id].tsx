@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, publicationCoverCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
-import { selectHero } from '@/utils/heroVariant';
+import { pickEventHero } from '@/utils/heroVariant';
 import { useFocalCover } from '@/hooks/useFocalCover';
 import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
 import { formatSessionHeader } from '@/utils/sessionHeader';
@@ -212,10 +212,9 @@ export default function RetreatDetailScreen() {
   // out the entire scroll tree, leaving a sub-pixel gray strip on the right
   // edge after returning to the top; (2) shrinking height while content also
   // scrolls made everything below appear to move at ~2× finger speed.
-  // Same group-or-teacher choice as the hero drawn in renderTrackList; hooks cannot live there.
-  const heroOwner = selectHero(retreat?.retreat_group, isMobile).url
-    ? retreat?.retreat_group
-    : retreat?.teachers?.[0];
+  // Same teacher-or-group choice as the hero drawn in renderTrackList; hooks cannot live there.
+  const eventHero = pickEventHero(retreat, isMobile);
+  const heroOwner = eventHero.record;
   const heroFocalCover = useFocalCover({
     focalX: heroOwner?.heroFocalX ?? 50,
     focalY: heroOwner?.heroFocalY ?? 50,
@@ -1352,27 +1351,24 @@ export default function RetreatDetailScreen() {
     let trackSessionId: string | null = null;
     let isFirstSession = true;
 
-    // Mobile-only: collapsing hero. Use the parent group's photo when set;
-    // otherwise fall back to the principal teacher's hero so public talks
-    // (which are not attached to any retreat group) still get a portrait.
+    // Collapsing hero. While listening, people want to see the teacher, so
+    // use the principal teacher's hero when set; otherwise fall back to the
+    // retreat group's photo (the group page already shows the group image).
     // selectHero picks the 1200px mobile WebP variant on phone-sized
     // viewports and the 2400px desktop WebP everywhere else; the variant
     // tag also feeds into the cache key so expo-image keeps the two
     // resolutions in distinct cache buckets.
-    const groupHeroPick = selectHero(retreat?.retreat_group, isMobile);
-    const teacherHeroPick = selectHero(retreat?.teachers?.[0], isMobile);
     // Show the hero on both mobile and desktop now — desktop renders the
     // event content (hero + title + tracks) in the right pane just like
     // mobile, so the hero applies there too.
-    const useGroupHero = !!groupHeroPick.url;
-    const heroSource = groupHeroPick.url ?? teacherHeroPick.url;
-    const heroScale = useGroupHero
-      ? (retreat?.retreat_group?.heroScale ?? 100)
-      : (retreat?.teachers?.[0]?.heroScale ?? 100);
-    const heroCacheKey = useGroupHero && retreat?.retreat_group
-      ? groupHeroCacheKey(retreat.retreat_group as any, groupHeroPick.variant)
-      : retreat?.teachers?.[0]
-        ? teacherHeroCacheKey(retreat.teachers[0], teacherHeroPick.variant)
+    // Image, scale, cache key and (above) focal point all come from the same
+    // entity: eventHero.record.
+    const heroSource = eventHero.url;
+    const heroScale = eventHero.record?.heroScale ?? 100;
+    const heroCacheKey = eventHero.owner === 'teacher' && retreat?.teachers?.[0]
+      ? teacherHeroCacheKey(retreat.teachers[0], eventHero.variant)
+      : eventHero.owner === 'group' && retreat?.retreat_group
+        ? groupHeroCacheKey(retreat.retreat_group as any, eventHero.variant)
         : undefined;
 
     // Computed bits for the title block under the hero.

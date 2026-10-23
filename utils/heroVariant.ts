@@ -54,3 +54,34 @@ export function useHeroUrl(
 ): string | null {
   return useHero(record).url;
 }
+
+interface EventHeroRecord extends WithHero {
+  heroScale?: number | null;
+  heroFocalX?: number | null;
+  heroFocalY?: number | null;
+}
+
+export interface EventHeroPick extends HeroSelection {
+  owner: 'teacher' | 'group' | null;
+  /** The entity the image comes from — focal point, scale and cache key must
+   *  all be read from this same record. */
+  record: EventHeroRecord | null;
+}
+
+/**
+ * Hero for the event page. While listening people want to see the teacher, so
+ * the first teacher's hero wins; the retreat group's hero is the fallback (the
+ * group page already shows the group image).
+ */
+export function pickEventHero(
+  event: { teachers?: EventHeroRecord[] | null; retreat_group?: EventHeroRecord | null } | null | undefined,
+  isMobile: boolean,
+): EventHeroPick {
+  const teacher = event?.teachers?.[0] ?? null;
+  const teacherPick = selectHero(teacher, isMobile);
+  if (teacherPick.url) return { ...teacherPick, owner: 'teacher', record: teacher };
+  const group = event?.retreat_group ?? null;
+  const groupPick = selectHero(group, isMobile);
+  if (groupPick.url) return { ...groupPick, owner: 'group', record: group };
+  return { url: null, variant: 'desktop', owner: null, record: null };
+}
