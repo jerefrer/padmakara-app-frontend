@@ -1515,7 +1515,7 @@ export default function RetreatDetailScreen() {
             tabs={[
               ...(hasVideo ? [{ key: 'video' as const, label: t('eventTabs.videos') || 'Videos', testID: 'event-tab-video' }] : []),
               ...(hasAudio ? [{ key: 'tracks' as const, label: t('eventTabs.tracks') || 'Audio', testID: 'event-tab-tracks' }] : []),
-              ...(hasDocuments ? [{ key: 'documents' as const, label: t('documents.tab') || 'Documents', testID: 'event-tab-documents' }] : []),
+              ...(hasDocuments ? [{ key: 'documents' as const, label: t('documents.tab') || 'Texts', testID: 'event-tab-documents' }] : []),
             ]}
           />
         )}
