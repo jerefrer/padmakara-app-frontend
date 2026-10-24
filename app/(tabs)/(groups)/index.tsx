@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   },
   featuredImageContainer: {
     width: "100%",
-    aspectRatio: 16 / 10,
+    aspectRatio: 3 / 2,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
   },
