@@ -10,10 +10,14 @@ import retreatService, { transcriptErrorKey } from '@/services/retreatService';
 import { transcriptCacheService } from '@/services/transcriptCacheService';
 import * as Sharing from 'expo-sharing';
 import { BackButton } from '@/components/ui/BackButton';
+import { WatermarkNotice } from '@/components/WatermarkNotice';
+import { useAuth } from '@/contexts/AuthContext';
+import { willWatermarkTranscript } from '@/utils/watermark';
 
 export default function TranscriptViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(); // event ID
   const { t, language } = useLanguage();
+  const { isAuthenticated } = useAuth();
 
   const [transcriptUrl, setTranscriptUrl] = useState<string | null>(null);
   const [transcriptId, setTranscriptId] = useState<number | null>(null);
@@ -21,6 +25,8 @@ export default function TranscriptViewerScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  // True while a personal, watermarked copy is being fetched.
+  const [showWatermarkNotice, setShowWatermarkNotice] = useState(false);
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
 
   useEffect(() => {
@@ -52,6 +58,9 @@ export default function TranscriptViewerScreen() {
       }
 
       setTranscriptId(transcript.id);
+      setShowWatermarkNotice(
+        willWatermarkTranscript({ isAuthenticated, audienceSlug: event.audienceSlug })
+      );
 
       // Get watermarked PDF (cached or fetched)
       const urlResult = await retreatService.getTranscriptPdfUrl(
@@ -70,6 +79,7 @@ export default function TranscriptViewerScreen() {
       setError(t('transcript.loadError') || 'Failed to load transcript');
     } finally {
       setLoading(false);
+      setShowWatermarkNotice(false);
     }
   };
 
@@ -131,6 +141,7 @@ export default function TranscriptViewerScreen() {
           <Text style={styles.loadingText}>
             {t('transcript.loadingTranscript') || 'Loading transcript...'}
           </Text>
+          {showWatermarkNotice && <WatermarkNotice />}
         </View>
       </SafeAreaView>
     );

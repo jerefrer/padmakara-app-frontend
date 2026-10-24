@@ -361,7 +361,8 @@
     "openError": "Could not open this text",
     "close": "Close",
     "image": "Image",
-    "document": "Text"
+    "document": "Text",
+    "watermarkNotice": "Your personal copy is being generated and watermarked with your name and email."
   },
   "player": {
     "nowPlaying": "Now Playing",

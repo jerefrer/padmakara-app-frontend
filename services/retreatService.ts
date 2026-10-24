@@ -295,6 +295,7 @@ export function buildEventDocuments(event: any): EventDocument[] {
       extension: (f.extension || '').replace(/^\./, '').toLowerCase(),
       viewer: viewerForExt(f.extension),
       featured: false,
+      sensitive: !!f.sensitive,
     });
   }
   return docs;
@@ -843,6 +844,9 @@ class RetreatService {
 
     return {
       ...mapped,
+      // The audience decides whether the server watermarks the transcript;
+      // null when the event carries none (the server treats that as gated).
+      audienceSlug: rawData.audience?.slug ?? null,
       transcripts,
       eventFiles,
       retreat_group: retreatGroup ? {

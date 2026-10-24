@@ -407,6 +407,17 @@ describe("retreatService.getRetreatDetails (event detail)", () => {
     expect(result.data.transcripts[0].pageCount).toBe(12);
   });
 
+  it("exposes the event audience slug so the app knows whether transcripts are watermarked", async () => {
+    (entityCacheService.getDetail as jest.Mock).mockResolvedValue({
+      ...rawBackendEvent,
+      audience: { slug: "free-anyone" },
+    });
+    expect((await retreatService.getRetreatDetails("42")).data.audienceSlug).toBe("free-anyone");
+
+    (entityCacheService.getDetail as jest.Mock).mockResolvedValue(rawBackendEvent);
+    expect((await retreatService.getRetreatDetails("42")).data.audienceSlug).toBeNull();
+  });
+
   it("cache miss: persists RAW backend data and returns mapped shape", async () => {
     (entityCacheService.getDetail as jest.Mock).mockResolvedValue(null);
     (apiService.get as jest.Mock).mockResolvedValue({

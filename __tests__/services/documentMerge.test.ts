@@ -32,4 +32,16 @@ describe("buildEventDocuments", () => {
     } as any);
     expect(docs[0].viewer).toBe("pdf");
   });
+
+  it("carries the sensitive flag of files so the app can tell when a copy is watermarked", () => {
+    const docs = buildEventDocuments({
+      id: 9, transcripts: [],
+      eventFiles: [
+        { id: 4, originalFilename: "n.pdf", extension: "pdf", fileType: "document", sortOrder: 0, sensitive: true },
+        { id: 5, originalFilename: "m.pdf", extension: "pdf", fileType: "document", sortOrder: 1 },
+      ],
+    } as any);
+    expect(docs[0].sensitive).toBe(true);
+    expect(docs[1].sensitive).toBe(false);
+  });
 });

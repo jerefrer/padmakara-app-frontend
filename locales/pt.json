@@ -361,7 +361,8 @@
     "openError": "Não foi possível abrir este texto",
     "close": "Fechar",
     "image": "Imagem",
-    "document": "Texto"
+    "document": "Texto",
+    "watermarkNotice": "A sua cópia pessoal está a ser gerada, com uma marca de água com o seu nome e email."
   },
   "player": {
     "nowPlaying": "Em reprodução",

@@ -42,6 +42,8 @@ import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import { VideoGrid } from '@/components/VideoGrid';
+import { WatermarkNotice } from '@/components/WatermarkNotice';
+import { willWatermarkFile } from '@/utils/watermark';
 import { getTranslatedName, getTrackTitle } from '@/utils/i18n';
 import { formatBytes, estimateAudioFileSize } from '@/utils/fileSize';
 import { API_ENDPOINTS } from '@/services/apiConfig';
@@ -292,6 +294,7 @@ export default function RetreatDetailScreen() {
   const [documentImageViewer, setDocumentImageViewer] = useState<{ uri: string; title: string } | null>(null);
   const [documentPdfViewer, setDocumentPdfViewer] = useState<{ uri: string; title: string } | null>(null);
   const [documentBusyKey, setDocumentBusyKey] = useState<string | null>(null);
+  const [watermarkNoticeVisible, setWatermarkNoticeVisible] = useState(false);
 
   // Language dropdown state
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -1244,6 +1247,10 @@ export default function RetreatDetailScreen() {
 
     const originalFilename = `${doc.title}.${doc.extension}`;
     setDocumentBusyKey(doc.key);
+    // Sensitive PDFs are stamped with the reader's name before they arrive.
+    setWatermarkNoticeVisible(
+      willWatermarkFile({ isAuthenticated, sensitive: doc.sensitive, extension: doc.extension })
+    );
     try {
       if (doc.viewer === 'image') {
         const result = await retreatService.getFileUrl(doc.id, { originalFilename });
@@ -1288,8 +1295,9 @@ export default function RetreatDetailScreen() {
       openError();
     } finally {
       setDocumentBusyKey(null);
+      setWatermarkNoticeVisible(false);
     }
-  }, [retreat?.id, documentBusyKey, t]);
+  }, [retreat?.id, documentBusyKey, t, isAuthenticated]);
 
   // When the user advances to another track (e.g. via the player's next/prev
   // controls), keep the read-along modal open and load the new track's
@@ -2190,6 +2198,9 @@ export default function RetreatDetailScreen() {
         title={documentImageViewer?.title}
         onClose={() => setDocumentImageViewer(null)}
       />
+
+      {/* Shown while a watermarked copy of a sensitive file is generated */}
+      {watermarkNoticeVisible && <WatermarkNotice floating />}
 
       {/* Confirmation Modal */}
       <ConfirmationModal
