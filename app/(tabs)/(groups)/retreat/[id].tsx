@@ -1662,86 +1662,64 @@ export default function RetreatDetailScreen() {
           );
         })}
 
-        {/* Documents tab content — featured transcript(s) as a distinct top
-            card, then the event's other files (images, slides, etc.) as a
-            list below. Covers both the "tab body" case (2+ content types)
-            and the "only content type" case (event has documents but no
-            audio/video), so the content area is never empty for those
-            events. */}
+        {/* Documents tab content — one plain row per text: the event's
+            transcript(s) first, then its other files (images, slides, etc.).
+            Covers both the "tab body" case (2+ content types) and the "only
+            content type" case (event has documents but no audio/video), so
+            the content area is never empty for those events. */}
         {effectiveTab === 'documents' && (
           <View style={styles.documentsSection}>
-            {documents.filter((doc) => doc.featured).map((doc) => (
-              <TouchableOpacity
-                key={doc.key}
-                style={styles.documentFeaturedCard}
-                onPress={() => handleDocumentPress(doc)}
-                disabled={!!documentBusyKey}
-                accessibilityRole="button"
-                accessibilityLabel={doc.title}
-              >
-                <View style={styles.documentFeaturedIcon}>
-                  <Ionicons name="book-outline" size={26} color={colors.burgundy[500]} />
-                </View>
-                <View style={styles.documentFeaturedInfo}>
-                  <Text style={styles.documentFeaturedTitle} numberOfLines={1}>{doc.title}</Text>
-                  <Text style={styles.documentFeaturedSubtitle}>
-                    {(t('documents.transcript') || 'Transcript')
-                      + (doc.language ? ` · ${getLanguageShortLabel(doc.language, t)}` : '')}
-                  </Text>
-                </View>
-                {documentBusyKey === doc.key ? (
-                  <ActivityIndicator size="small" color={colors.burgundy[500]} />
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color={colors.gray[400]} />
-                )}
-              </TouchableOpacity>
-            ))}
-
-            {documents.filter((doc) => !doc.featured).map((doc) => (
-              <TouchableOpacity
-                key={doc.key}
-                style={[styles.documentListItem, !isDesktop && styles.lineBleed]}
-                onPress={() => handleDocumentPress(doc)}
-                disabled={!!documentBusyKey}
-                accessibilityRole="button"
-                accessibilityLabel={doc.title}
-              >
-                <Ionicons
-                  name={
-                    doc.viewer === 'image'
-                      ? 'image-outline'
-                      : doc.viewer === 'pdf'
-                        ? 'document-text-outline'
-                        : 'document-outline'
-                  }
-                  size={22}
-                  color={colors.gray[600]}
-                />
-                <View style={styles.documentListInfo}>
-                  <Text style={styles.documentListTitle} numberOfLines={1}>{doc.title}</Text>
-                  <Text style={styles.documentListSubtitle}>
-                    {doc.viewer === 'image'
-                      ? (t('documents.image') || 'Image')
-                      : (t('documents.document') || 'Document')}
-                  </Text>
-                </View>
-                {documentBusyKey === doc.key ? (
-                  doc.viewer === 'download' ? (
-                    <Text style={styles.documentListAction}>
-                      {t('documents.downloading') || 'Downloading…'}
+            {documents.map((doc) => {
+              const isTranscript = doc.kind === 'transcript';
+              return (
+                <TouchableOpacity
+                  key={doc.key}
+                  style={[styles.documentListItem, !isDesktop && styles.lineBleed]}
+                  onPress={() => handleDocumentPress(doc)}
+                  disabled={!!documentBusyKey}
+                  accessibilityRole="button"
+                  accessibilityLabel={doc.title}
+                >
+                  <Ionicons
+                    name={
+                      doc.viewer === 'image'
+                        ? 'image-outline'
+                        : isTranscript || doc.viewer === 'pdf'
+                          ? 'document-text-outline'
+                          : 'document-outline'
+                    }
+                    size={22}
+                    color={colors.gray[600]}
+                  />
+                  <View style={styles.documentListInfo}>
+                    <Text style={styles.documentListTitle} numberOfLines={1}>{doc.title}</Text>
+                    <Text style={styles.documentListSubtitle}>
+                      {isTranscript
+                        ? (t('documents.transcript') || 'Transcript')
+                          + (doc.language ? ` · ${getLanguageShortLabel(doc.language, t)}` : '')
+                        : doc.viewer === 'image'
+                          ? (t('documents.image') || 'Image')
+                          : (t('documents.document') || 'Text')}
                     </Text>
+                  </View>
+                  {documentBusyKey === doc.key ? (
+                    doc.viewer === 'download' ? (
+                      <Text style={styles.documentListAction}>
+                        {t('documents.downloading') || 'Downloading…'}
+                      </Text>
+                    ) : (
+                      <ActivityIndicator size="small" color={colors.gray[500]} />
+                    )
                   ) : (
-                    <ActivityIndicator size="small" color={colors.gray[500]} />
-                  )
-                ) : (
-                  <Text style={styles.documentListAction}>
-                    {doc.viewer === 'download'
-                      ? (t('documents.download') || 'Download')
-                      : (t('documents.open') || 'Open')}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            ))}
+                    <Text style={styles.documentListAction}>
+                      {doc.viewer === 'download'
+                        ? (t('documents.download') || 'Download')
+                        : (t('documents.open') || 'Open')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
 
             {documents.length === 0 && (
               <Text style={styles.documentsEmptyText}>
@@ -2782,43 +2760,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Documents tab — featured transcript card(s) followed by a plain list
-  // of the event's other files (images, slides, etc.).
+  // Documents tab — a plain list of the event's texts: transcript(s) first,
+  // then its other files (images, slides, etc.).
   documentsSection: {
     paddingBottom: 8,
-  },
-  documentFeaturedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.burgundy[50],
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
-    gap: 12,
-  },
-  documentFeaturedIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  documentFeaturedInfo: {
-    flex: 1,
-  },
-  documentFeaturedTitle: {
-    fontFamily: 'EBGaramond_600SemiBold',
-    fontSize: 16,
-    color: colors.gray[700],
-    marginBottom: 2,
-  },
-  documentFeaturedSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    color: colors.burgundy[500],
-    textTransform: 'uppercase',
   },
   documentListItem: {
     flexDirection: 'row',
