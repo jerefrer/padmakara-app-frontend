@@ -22,10 +22,15 @@ describe("resolveVideoDeepLink", () => {
     expect(resolveVideoDeepLink(undefined, { videoId: "5" })).toBeNull();
   });
 
-  it("should start at zero when the position is missing or invalid", () => {
-    expect(resolveVideoDeepLink(videos, { videoId: "5" })?.position).toBe(0);
-    expect(resolveVideoDeepLink(videos, { videoId: "5", position: "abc" })?.position).toBe(0);
-    expect(resolveVideoDeepLink(videos, { videoId: "5", position: "-4" })?.position).toBe(0);
+  it("should leave the position undefined, so playback resumes, when it is missing or invalid", () => {
+    expect(resolveVideoDeepLink(videos, { videoId: "5" })?.position).toBeUndefined();
+    expect(resolveVideoDeepLink(videos, { videoId: "5", position: "" })?.position).toBeUndefined();
+    expect(resolveVideoDeepLink(videos, { videoId: "5", position: "abc" })?.position).toBeUndefined();
+    expect(resolveVideoDeepLink(videos, { videoId: "5", position: "-4" })?.position).toBeUndefined();
+  });
+
+  it("should keep an explicit position of zero", () => {
+    expect(resolveVideoDeepLink(videos, { videoId: "5", position: "0" })?.position).toBe(0);
   });
 });
 

@@ -52,6 +52,8 @@
     "deleteOfflineTitle": "Remove from device",
     "deleteOfflineMessage": "This video will be removed from offline storage. You can download it again later.",
     "addBookmark": "Add bookmark",
+    "bookmarkVideo": "Bookmark this video",
+    "removeVideoBookmark": "Remove bookmark",
     "bookmarkPlaceholder": "Add a note for this moment",
     "bookmarkAdded": "Bookmark added",
     "bookmarks": "Bookmarks",
@@ -359,7 +361,8 @@
     "openError": "Could not open this text",
     "close": "Close",
     "image": "Image",
-    "document": "Document"
+    "document": "Text",
+    "watermarkNotice": "Your personal copy is being generated and watermarked with your name and email."
   },
   "player": {
     "nowPlaying": "Now Playing",
@@ -402,11 +405,11 @@
     "cacheLimitDescription": "Maximum space for auto-cached tracks",
     "downloadedRetreats": "DOWNLOADED RETREATS",
     "clearCache": "Clear Cache",
-    "clearCacheDescription": "Remove all auto-cached audio files",
+    "clearCacheDescription": "Remove auto-cached audio, event files and transcripts",
     "clearCacheTitle": "Clear Cache",
-    "clearCacheMessage": "This will remove all cached audio files. They will be re-cached when you play them again.",
+    "clearCacheMessage": "This removes cached audio, event files and transcripts. They are fetched again when you open them. Your downloads, videos and publications are kept.",
     "cacheCleared": "Cache Cleared",
-    "cacheClearedMessage": "Removed {{count}} cached tracks ({{size}})",
+    "cacheClearedMessage": "{{size}} freed.",
     "clearDownloads": "Clear Downloads",
     "clearDownloadsDescription": "Remove all downloaded retreats",
     "clearDownloadsTitle": "Clear Downloads",
@@ -425,7 +428,23 @@
     "clearPublicationsAction": "Clear",
     "publicationsCacheCleared": "Publications Cache Cleared",
     "publicationsCacheClearedMessage": "All cached publication PDFs have been removed.",
-    "publicationsCacheInfo": "{count} publications ({size})"
+    "publicationsCacheInfo": "{count} publications ({size})",
+    "videos": "Videos: {{size}}",
+    "publicationsLegend": "Publications: {{size}}",
+    "other": "Other: {{size}}",
+    "offlineVideos": "OFFLINE VIDEOS",
+    "offlineVideoUntitled": "Offline video",
+    "removeVideoTitle": "Remove video",
+    "removeVideoMessage": "Remove \"{{name}}\" from this device? You can download it again later.",
+    "removeVideoFailed": "The video could not be removed.",
+    "freeUpOther": "Free up other space",
+    "freeUpOtherDescription": "Remove leftovers from interrupted downloads ({{size}})",
+    "freeUpOtherTitle": "Free up other space",
+    "freeUpOtherMessage": "This removes files left by interrupted downloads. Your downloaded retreats, videos and publications are not touched.",
+    "freeUpOtherAction": "Free up",
+    "freedSpaceTitle": "Space freed",
+    "freedSpaceMessage": "{{size}} freed.",
+    "clearFailed": "Something went wrong while clearing. Please try again."
   },
   "search": {
     "placeholder": "Search by topic or teacher",
@@ -463,7 +482,9 @@
     "filters": {
       "all": "All",
       "language": "Language",
-      "allLanguages": "All languages"
+      "allLanguages": "All languages",
+      "languageButton": "Filter by language",
+      "languageButtonActive": "Filter by language, showing {{language}}"
     },
     "languages": {
       "en": "English",

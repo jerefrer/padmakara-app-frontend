@@ -17,9 +17,26 @@
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import apiService from '@/services/apiService';
 import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const VIDEO_DIR = `${FileSystem.documentDirectory}videos/`;
+
+const METADATA_KEY = '@video_downloads:metadata';
+
+/** What we remember about a downloaded video, for the storage screen. */
+export interface VideoDownloadMeta {
+  title?: string;
+  eventTitle?: string;
+  downloadedAt?: string;
+}
+
+/** A downloaded video as found on disk, with metadata when we have it. */
+export interface DownloadedVideo extends VideoDownloadMeta {
+  videoId: number;
+  size: number;
+  localUri: string;
+}
 
 export type VideoDownloadStatus =
   | { state: 'idle' }
@@ -30,6 +47,23 @@ export type VideoDownloadStatus =
 /** Local file path for a downloaded event video. */
 function videoFilePath(videoId: number): string {
   return `${VIDEO_DIR}video-${videoId}.mp4`;
+}
+
+async function readMetadata(): Promise<Record<string, VideoDownloadMeta>> {
+  try {
+    const raw = await AsyncStorage.getItem(METADATA_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeMetadata(metadata: Record<string, VideoDownloadMeta>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(metadata));
+  } catch {
+    // Metadata only feeds labels; losing it must not fail a download.
+  }
 }
 
 async function ensureVideoDir(): Promise<void> {
@@ -94,6 +128,7 @@ class VideoDownloadService {
     videoId: number,
     quality: '240p' | '360p' | '480p' | '720p' | '1080p' = '720p',
     onProgress?: (status: VideoDownloadStatus) => void,
+    meta?: Pick<VideoDownloadMeta, 'title' | 'eventTitle'>,
   ): Promise<string> {
     if (Platform.OS === 'web') {
       throw new Error('Video downloads are not supported on web');
@@ -140,6 +175,11 @@ class VideoDownloadService {
       }
       const info = await FileSystem.getInfoAsync(result.uri);
       const size = info.exists && 'size' in info ? info.size || 0 : 0;
+      if (meta?.title || meta?.eventTitle) {
+        const metadata = await readMetadata();
+        metadata[String(videoId)] = { ...meta, downloadedAt: new Date().toISOString() };
+        await writeMetadata(metadata);
+      }
       onProgress?.({ state: 'done', localUri: result.uri, size });
       return result.uri;
     } catch (err) {
@@ -176,6 +216,44 @@ class VideoDownloadService {
       }
     } catch {
       // ignore
+    }
+    const metadata = await readMetadata();
+    if (String(videoId) in metadata) {
+      delete metadata[String(videoId)];
+      await writeMetadata(metadata);
+    }
+  }
+
+  /**
+   * Every video file in the videos directory, with its size and the title we
+   * stored at download time. Videos downloaded before titles were stored come
+   * back without one — the UI shows a generic label for those.
+   */
+  async listDownloads(): Promise<DownloadedVideo[]> {
+    if (Platform.OS === 'web') return [];
+    try {
+      const info = await FileSystem.getInfoAsync(VIDEO_DIR);
+      if (!info.exists) return [];
+      const names = await FileSystem.readDirectoryAsync(VIDEO_DIR);
+      const metadata = await readMetadata();
+      const result: DownloadedVideo[] = [];
+      for (const name of names) {
+        const match = /^video-(\d+)\.mp4$/.exec(name);
+        if (!match) continue;
+        const videoId = Number(match[1]);
+        const localUri = `${VIDEO_DIR}${name}`;
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+        if (!fileInfo.exists) continue;
+        result.push({
+          videoId,
+          localUri,
+          size: 'size' in fileInfo ? fileInfo.size || 0 : 0,
+          ...metadata[String(videoId)],
+        });
+      }
+      return result.sort((a, b) => b.size - a.size);
+    } catch {
+      return [];
     }
   }
 

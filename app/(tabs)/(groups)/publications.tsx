@@ -494,21 +494,26 @@ export default function PublicationsScreen() {
           availableLanguages.length > 1 ? (
             <View style={[styles.languageDropdownContainer, !isDesktop && styles.languageToGutter]}>
               <TouchableOpacity
+                testID="publications-language-button"
                 style={styles.languageTrigger}
                 onPress={() => setShowLanguageDropdown((v) => !v)}
                 activeOpacity={0.7}
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  languageFilter
+                    ? t('publications.filters.languageButtonActive', { language: getLanguageLabel(languageFilter) }) ||
+                      `Filter by language, showing ${getLanguageLabel(languageFilter)}`
+                    : t('publications.filters.languageButton') || 'Filter by language'
+                }
+                accessibilityState={{ expanded: showLanguageDropdown }}
               >
-                <Text style={styles.languageTriggerText}>
-                  {languageFilter
-                    ? getLanguageLabel(languageFilter)
-                    : t('publications.filters.allLanguages') || 'All languages'}
-                </Text>
                 <Ionicons
-                  name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                  color={colors.gray[500]}
+                  name="globe-outline"
+                  size={22}
+                  color={languageFilter ? colors.burgundy[500] : colors.gray[500]}
                 />
+                {languageFilter && <View testID="publications-language-badge" style={styles.languageBadge} />}
               </TouchableOpacity>
               {showLanguageDropdown && (
                 <View style={styles.languageDropdown}>
@@ -679,18 +684,22 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   languageTrigger: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     paddingVertical: 6,
     paddingHorizontal: 4,
   },
-  languageTriggerText: {
-    fontSize: 14,
-    fontFamily: 'EBGaramond_400Regular',
-    color: colors.gray[600],
-    fontVariant: ['small-caps'],
-    letterSpacing: 0.3,
+  // Small burgundy dot on the globe while a language filter is active.
+  languageBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 1,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.burgundy[500],
+    borderWidth: 1.5,
+    borderColor: colors.white,
   },
   languageDropdown: {
     position: 'absolute',

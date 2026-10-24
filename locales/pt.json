@@ -52,6 +52,8 @@
     "deleteOfflineTitle": "Remover do dispositivo",
     "deleteOfflineMessage": "Este vídeo será removido do armazenamento offline. Pode descarregá-lo novamente mais tarde.",
     "addBookmark": "Adicionar marcador",
+    "bookmarkVideo": "Marcar este vídeo",
+    "removeVideoBookmark": "Remover marcador",
     "bookmarkPlaceholder": "Adicione uma nota para este momento",
     "bookmarkAdded": "Marcador adicionado",
     "bookmarks": "Marcadores",
@@ -359,7 +361,8 @@
     "openError": "Não foi possível abrir este texto",
     "close": "Fechar",
     "image": "Imagem",
-    "document": "Documento"
+    "document": "Texto",
+    "watermarkNotice": "A sua cópia pessoal está a ser gerada, com uma marca de água com o seu nome e email."
   },
   "player": {
     "nowPlaying": "Em reprodução",
@@ -402,11 +405,11 @@
     "cacheLimitDescription": "Espaço máximo para faixas em cache automático",
     "downloadedRetreats": "RETIROS BAIXADOS",
     "clearCache": "Limpar Cache",
-    "clearCacheDescription": "Remover todos os arquivos de áudio em cache",
+    "clearCacheDescription": "Remover o áudio em cache, os ficheiros e as transcrições dos eventos",
     "clearCacheTitle": "Limpar Cache",
-    "clearCacheMessage": "Isso removerá todos os arquivos de áudio em cache. Eles serão armazenados novamente quando você reproduzi-los.",
+    "clearCacheMessage": "Isto remove o áudio em cache, os ficheiros e as transcrições dos eventos. Serão obtidos novamente quando os abrir. As transferências, os vídeos e as publicações são mantidos.",
     "cacheCleared": "Cache Limpo",
-    "cacheClearedMessage": "Removidas {{count}} faixas em cache ({{size}})",
+    "cacheClearedMessage": "{{size}} libertados.",
     "clearDownloads": "Limpar Downloads",
     "clearDownloadsDescription": "Remover todos os retiros baixados",
     "clearDownloadsTitle": "Limpar Downloads",
@@ -425,7 +428,23 @@
     "clearPublicationsAction": "Limpar",
     "publicationsCacheCleared": "Cache de Publicações Limpa",
     "publicationsCacheClearedMessage": "Todas as publicações em cache foram removidas.",
-    "publicationsCacheInfo": "{count} publicações ({size})"
+    "publicationsCacheInfo": "{count} publicações ({size})",
+    "videos": "Vídeos: {{size}}",
+    "publicationsLegend": "Publicações: {{size}}",
+    "other": "Outros: {{size}}",
+    "offlineVideos": "VÍDEOS OFFLINE",
+    "offlineVideoUntitled": "Vídeo offline",
+    "removeVideoTitle": "Remover vídeo",
+    "removeVideoMessage": "Remover \"{{name}}\" deste dispositivo? Pode transferi-lo novamente mais tarde.",
+    "removeVideoFailed": "Não foi possível remover o vídeo.",
+    "freeUpOther": "Libertar outro espaço",
+    "freeUpOtherDescription": "Remover restos de transferências interrompidas ({{size}})",
+    "freeUpOtherTitle": "Libertar outro espaço",
+    "freeUpOtherMessage": "Isto remove os ficheiros deixados por transferências interrompidas. Os retiros, vídeos e publicações que transferiu não são afetados.",
+    "freeUpOtherAction": "Libertar",
+    "freedSpaceTitle": "Espaço libertado",
+    "freedSpaceMessage": "{{size}} libertados.",
+    "clearFailed": "Algo correu mal ao limpar. Tente novamente."
   },
   "search": {
     "placeholder": "Pesquisar por tema ou professor",
@@ -463,7 +482,9 @@
     "filters": {
       "all": "Todos",
       "language": "Idioma",
-      "allLanguages": "Todos os idiomas"
+      "allLanguages": "Todos os idiomas",
+      "languageButton": "Filtrar por idioma",
+      "languageButtonActive": "Filtrar por idioma, a mostrar {{language}}"
     },
     "languages": {
       "en": "Inglês",

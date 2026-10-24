@@ -1,12 +1,14 @@
 /**
  * StorageSection - Storage management UI for Profile screen
  *
- * Shows cache and download storage usage with management options:
+ * Shows the app's real on-disk storage usage with management options:
  * - Device storage context
- * - Cache vs downloads breakdown
+ * - Cache / downloads / videos / publications / other breakdown (measured
+ *   by walking the directories, so orphaned files are counted)
  * - Cache limit picker
  * - Clear cache button
  * - Downloaded retreats list with remove option
+ * - Offline videos list with remove option
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -27,6 +29,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import cacheService, { CacheStats } from '@/services/cacheService';
 import downloadService, { DownloadedRetreat } from '@/services/downloadService';
 import { publicationService } from '@/services/publicationService';
+import { transcriptCacheService } from '@/services/transcriptCacheService';
+import videoDownloadService, { DownloadedVideo } from '@/services/videoDownloadService';
+import {
+  StorageUsage,
+  clearCacheOnlyFiles,
+  getStorageUsage,
+  removeOrphanedDocuments,
+} from '@/services/storageUsageService';
+import { BarSegment, getBarSegments } from '@/utils/storageUsage';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -41,6 +52,12 @@ const colors = {
   },
   saffron: {
     500: '#f59e0b',
+  },
+  slate: {
+    500: '#64748b',
+  },
+  teal: {
+    600: '#0f766e',
   },
   gray: {
     100: '#f3f4f6',
@@ -66,6 +83,15 @@ const CACHE_LIMIT_VALUES = [
   { size: '20 GB', value: 20 * 1024 * 1024 * 1024, isDefault: false },
   { size: null, value: 0, isDefault: false, isNoLimit: true },
 ];
+
+// Bar and legend colour per storage bucket
+const SEGMENT_COLORS: Record<BarSegment['key'], string> = {
+  cache: colors.saffron[500],
+  downloads: colors.burgundy[500],
+  videos: colors.teal[600],
+  publications: colors.gray[400],
+  other: colors.slate[500],
+};
 
 // Format bytes to human readable string
 const formatBytes = (bytes: number): string => {
@@ -96,7 +122,10 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [cacheLimit, setCacheLimit] = useState<number>(2 * 1024 * 1024 * 1024);
   const [downloadedRetreats, setDownloadedRetreats] = useState<DownloadedRetreat[]>([]);
-  const [totalDownloadSize, setTotalDownloadSize] = useState(0);
+  const [usage, setUsage] = useState<StorageUsage | null>(null);
+  const [offlineVideos, setOfflineVideos] = useState<DownloadedVideo[]>([]);
+  const [removingVideoId, setRemovingVideoId] = useState<number | null>(null);
+  const [isFreeingOther, setIsFreeingOther] = useState(false);
   const [deviceFreeSpace, setDeviceFreeSpace] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
@@ -129,7 +158,8 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
   };
 
   // Load storage data
-  const loadStorageData = useCallback(async () => {
+  const loadStorageData = useCallback(async (): Promise<StorageUsage | null> => {
+    let usageResult: StorageUsage | null = null;
     try {
       setLoading(true);
 
@@ -145,9 +175,11 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
       const retreats = await downloadService.getDownloadedRetreats();
       setDownloadedRetreats(retreats);
 
-      // Calculate total download size
-      const downloadSize = await downloadService.getTotalDownloadSize();
-      setTotalDownloadSize(downloadSize);
+      // Measure what is really on disk (orphans and partial files included)
+      const measured = await getStorageUsage(retreats.map(r => r.retreatId));
+      usageResult = measured;
+      setUsage(measured);
+      setOfflineVideos(await videoDownloadService.listDownloads());
 
       // Load publication cache stats
       try {
@@ -171,6 +203,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
     } finally {
       setLoading(false);
     }
+    return usageResult;
   }, []);
 
   // Refresh data when screen comes into focus
@@ -207,28 +240,32 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
     if (isClearing) return;
 
     showModal(
-      'Clear Cache',
-      'This will remove all cached audio files. They will be re-cached when you play them again.',
+      t('storage.clearCacheTitle') || 'Clear Cache',
+      t('storage.clearCacheMessage') || 'This removes cached audio, event files and transcripts. They are fetched again when you open them. Your downloads, videos and publications are kept.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
-          text: 'Clear Cache',
+          text: t('storage.clearCacheTitle') || 'Clear Cache',
           style: 'destructive',
           onPress: async () => {
             setIsClearing(true);
             try {
-              const result = await cacheService.clearCache();
+              const before = usage?.clearableBytes ?? 0;
+              await cacheService.clearCache();
+              await transcriptCacheService.clearCache();
+              await clearCacheOnlyFiles();
+              const after = await loadStorageData();
+              const freed = Math.max(0, before - (after?.clearableBytes ?? 0));
               showModal(
-                'Cache Cleared',
-                `Removed ${result.tracksRemoved} cached tracks (${formatBytes(result.freedBytes)})`,
-                [{ text: 'OK' }],
+                t('storage.cacheCleared') || 'Cache Cleared',
+                t('storage.cacheClearedMessage', { size: formatBytes(freed) }) || `${formatBytes(freed)} freed.`,
+                [{ text: t('common.ok') || 'OK' }],
                 'checkmark-circle-outline'
               );
-              await loadStorageData();
               onStorageChange?.();
             } catch (error) {
               console.error('Failed to clear cache:', error);
-              showModal('Error', 'Failed to clear cache', [{ text: 'OK' }], 'alert-circle-outline');
+              showModal(t('common.error') || 'Error', t('storage.clearFailed') || 'Something went wrong while clearing. Please try again.', [{ text: t('common.ok') || 'OK' }], 'alert-circle-outline');
             } finally {
               setIsClearing(false);
             }
@@ -236,6 +273,75 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
         },
       ],
       'trash-outline'
+    );
+  };
+
+  // Handle freeing leftovers in document storage (orphaned downloads)
+  const handleFreeOtherSpace = () => {
+    if (isFreeingOther) return;
+
+    showModal(
+      t('storage.freeUpOtherTitle') || 'Free up other space',
+      t('storage.freeUpOtherMessage') || 'This removes files left by interrupted downloads. Your downloaded retreats, videos and publications are not touched.',
+      [
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: t('storage.freeUpOtherAction') || 'Free up',
+          style: 'destructive',
+          onPress: async () => {
+            setIsFreeingOther(true);
+            try {
+              const freed = await removeOrphanedDocuments(downloadedRetreats.map(r => r.retreatId));
+              await loadStorageData();
+              showModal(
+                t('storage.freedSpaceTitle') || 'Space freed',
+                t('storage.freedSpaceMessage', { size: formatBytes(freed) }) || `${formatBytes(freed)} freed.`,
+                [{ text: t('common.ok') || 'OK' }],
+                'checkmark-circle-outline'
+              );
+              onStorageChange?.();
+            } catch (error) {
+              console.error('Failed to free up space:', error);
+              showModal(t('common.error') || 'Error', t('storage.clearFailed') || 'Something went wrong while clearing. Please try again.', [{ text: t('common.ok') || 'OK' }], 'alert-circle-outline');
+            } finally {
+              setIsFreeingOther(false);
+            }
+          },
+        },
+      ],
+      'trash-outline'
+    );
+  };
+
+  // Handle remove offline video
+  const handleRemoveVideo = (video: DownloadedVideo) => {
+    if (removingVideoId !== null) return;
+    const name = video.title || t('storage.offlineVideoUntitled') || 'Offline video';
+
+    showModal(
+      t('storage.removeVideoTitle') || 'Remove video',
+      t('storage.removeVideoMessage', { name }) || `Remove "${name}" from this device? You can download it again later.`,
+      [
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: t('common.remove') || 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingVideoId(video.videoId);
+            try {
+              await videoDownloadService.delete(video.videoId);
+              await loadStorageData();
+              onStorageChange?.();
+            } catch (error) {
+              console.error('Failed to remove video:', error);
+              showModal(t('common.error') || 'Error', t('storage.removeVideoFailed') || 'The video could not be removed.', [{ text: t('common.ok') || 'OK' }], 'alert-circle-outline');
+            } finally {
+              setRemovingVideoId(null);
+            }
+          },
+        },
+      ],
+      'videocam-outline'
     );
   };
 
@@ -356,11 +462,17 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
     );
   };
 
-  // Calculate storage bar widths
-  const totalUsed = (cacheStats?.totalSize || 0) + totalDownloadSize;
-  const maxForBar = cacheLimit > 0 ? cacheLimit : totalUsed * 1.5 || 1;
-  const cacheWidth = cacheStats?.totalSize ? (cacheStats.totalSize / maxForBar) * 100 : 0;
-  const downloadWidth = totalDownloadSize ? (totalDownloadSize / maxForBar) * 100 : 0;
+  // Bar segments are each bucket's share of the app's total storage
+  const barSegments = usage ? getBarSegments(usage) : [];
+  const legendItems: { key: BarSegment['key']; label: string }[] = usage
+    ? [
+        { key: 'cache', label: t('storage.cache', { size: formatBytes(usage.cache) }) || `Cache: ${formatBytes(usage.cache)}` },
+        { key: 'downloads', label: t('storage.downloads', { size: formatBytes(usage.downloads) }) || `Downloads: ${formatBytes(usage.downloads)}` },
+        { key: 'videos', label: t('storage.videos', { size: formatBytes(usage.videos) }) || `Videos: ${formatBytes(usage.videos)}` },
+        { key: 'publications', label: t('storage.publicationsLegend', { size: formatBytes(usage.publications) }) || `Publications: ${formatBytes(usage.publications)}` },
+        { key: 'other', label: t('storage.other', { size: formatBytes(usage.other) }) || `Other: ${formatBytes(usage.other)}` },
+      ]
+    : [];
 
   if (loading) {
     return (
@@ -386,20 +498,15 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
       {/* Storage Bar */}
       <View style={styles.storageBarContainer}>
         <View style={styles.storageBar}>
-          <View
-            style={[
-              styles.storageBarSegment,
-              styles.cacheSegment,
-              { width: `${Math.min(cacheWidth, 100)}%` },
-            ]}
-          />
-          <View
-            style={[
-              styles.storageBarSegment,
-              styles.downloadSegment,
-              { width: `${Math.min(downloadWidth, 100 - cacheWidth)}%` },
-            ]}
-          />
+          {barSegments.map(segment => (
+            <View
+              key={segment.key}
+              style={[
+                styles.storageBarSegment,
+                { width: `${segment.percent}%`, backgroundColor: SEGMENT_COLORS[segment.key] },
+              ]}
+            />
+          ))}
         </View>
         {cacheLimit > 0 && (
           <Text style={styles.limitLabel}>{t('storage.limit', { size: formatBytes(cacheLimit) }) || `Limit: ${formatBytes(cacheLimit)}`}</Text>
@@ -408,18 +515,12 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
 
       {/* Legend */}
       <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.saffron[500] }]} />
-          <Text style={styles.legendText}>
-            {t('storage.cache', { size: formatBytes(cacheStats?.totalSize || 0) }) || `Cache: ${formatBytes(cacheStats?.totalSize || 0)}`}
-          </Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.burgundy[500] }]} />
-          <Text style={styles.legendText}>
-            {t('storage.downloads', { size: formatBytes(totalDownloadSize) }) || `Downloads: ${formatBytes(totalDownloadSize)}`}
-          </Text>
-        </View>
+        {legendItems.map(item => (
+          <View key={item.key} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: SEGMENT_COLORS[item.key] }]} />
+            <Text style={styles.legendText}>{item.label}</Text>
+          </View>
+        ))}
       </View>
 
       {/* Cache Limit Setting */}
@@ -446,7 +547,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
       </Pressable>
 
       {/* Clear Cache Button */}
-      {(cacheStats?.trackCount || 0) > 0 && (
+      {((usage?.clearableBytes || 0) > 0 || (cacheStats?.trackCount || 0) > 0) && (
         <Pressable
           style={({ pressed }) => [
             styles.settingItem,
@@ -467,7 +568,36 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
                 {t('storage.clearCache') || 'Clear Cache'}
               </Text>
               <Text style={styles.settingSubtitle}>
-                {t('storage.clearCacheDescription') || 'Remove all auto-cached audio files'}
+                {t('storage.clearCacheDescription') || 'Remove auto-cached audio, event files and transcripts'}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      )}
+
+      {/* Free Up Other Space (orphaned downloads in document storage) */}
+      {(usage?.orphanBytes || 0) > 0 && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingItem,
+            isFreeingOther && styles.disabledSetting,
+            pressed && Platform.OS === 'web' && styles.webPressed,
+          ]}
+          onPress={handleFreeOtherSpace}
+          disabled={isFreeingOther}
+        >
+          <View style={styles.settingLeft}>
+            {isFreeingOther ? (
+              <ActivityIndicator size="small" color={colors.slate[500]} />
+            ) : (
+              <Ionicons name="file-tray-outline" size={20} color={colors.slate[500]} />
+            )}
+            <View style={styles.textContainer}>
+              <Text style={[styles.settingTitle, isFreeingOther && styles.disabledText]}>
+                {t('storage.freeUpOther') || 'Free up other space'}
+              </Text>
+              <Text style={styles.settingSubtitle}>
+                {t('storage.freeUpOtherDescription', { size: formatBytes(usage?.orphanBytes || 0) }) || `Remove leftovers from interrupted downloads (${formatBytes(usage?.orphanBytes || 0)})`}
               </Text>
             </View>
           </View>
@@ -525,7 +655,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
                 {t('storage.clearPublications') || 'Clear Publications Cache'}
               </Text>
               <Text style={styles.settingSubtitle}>
-                {(t('storage.publicationsCacheInfo') || '{count} publications ({size})').replace('{count}', String(publicationCacheStats?.count || 0)).replace('{size}', formatBytes(publicationCacheStats?.totalSize || 0))}
+                {(t('storage.publicationsCacheInfo') || '{count} publications ({size})').replace('{count}', String(publicationCacheStats?.count || 0)).replace('{size}', formatBytes(usage?.publications ?? publicationCacheStats?.totalSize ?? 0))}
               </Text>
             </View>
           </View>
@@ -561,6 +691,44 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
                 disabled={removingRetreatId === retreat.retreatId}
               >
                 {removingRetreatId === retreat.retreatId ? (
+                  <ActivityIndicator size="small" color={colors.gray[400]} />
+                ) : (
+                  <Ionicons name="close-circle" size={24} color={colors.gray[400]} />
+                )}
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Offline Videos List */}
+      {offlineVideos.length > 0 && (
+        <View style={styles.downloadsSection}>
+          <View style={styles.downloadsSectionHeader}>
+            <Ionicons name="videocam" size={14} color={colors.gray[500]} />
+            <Text style={styles.downloadsSectionTitle}>{t('storage.offlineVideos') || 'OFFLINE VIDEOS'}</Text>
+          </View>
+          {offlineVideos.map(video => (
+            <View key={video.videoId} style={styles.downloadedRetreatItem}>
+              <View style={styles.retreatInfo}>
+                <Text style={styles.retreatName} numberOfLines={1}>
+                  {video.title || t('storage.offlineVideoUntitled') || 'Offline video'}
+                </Text>
+                <Text style={styles.retreatMeta} numberOfLines={1}>
+                  {video.eventTitle ? `${video.eventTitle} • ` : ''}{formatBytes(video.size)}
+                </Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.removeButton,
+                  pressed && styles.removeButtonPressed,
+                ]}
+                onPress={() => handleRemoveVideo(video)}
+                disabled={removingVideoId === video.videoId}
+                accessibilityRole="button"
+                accessibilityLabel={t('storage.removeVideoTitle') || 'Remove video'}
+              >
+                {removingVideoId === video.videoId ? (
                   <ActivityIndicator size="small" color={colors.gray[400]} />
                 ) : (
                   <Ionicons name="close-circle" size={24} color={colors.gray[400]} />
@@ -681,12 +849,6 @@ const styles = StyleSheet.create({
   storageBarSegment: {
     height: '100%',
   },
-  cacheSegment: {
-    backgroundColor: colors.saffron[500],
-  },
-  downloadSegment: {
-    backgroundColor: colors.burgundy[500],
-  },
   limitLabel: {
     fontSize: 12,
     color: colors.gray[500],
@@ -695,7 +857,9 @@ const styles = StyleSheet.create({
   },
   legend: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    columnGap: 16,
+    rowGap: 8,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[100],

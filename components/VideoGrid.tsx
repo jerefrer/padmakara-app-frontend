@@ -19,9 +19,13 @@ interface VideoGridProps {
   onPlay: (video: EventVideo) => void;
   /** Formats an EventVideo's `durationSeconds` for the duration chip. */
   formatDuration: (seconds: number) => string;
+  /** Whether a video has a whole-video bookmark. Omit (with `onToggleBookmark`)
+   *  to hide the bookmark button, e.g. for signed-out viewers. */
+  isBookmarked?: (videoId: number) => boolean;
+  onToggleBookmark?: (video: EventVideo) => void;
 }
 
-export function VideoGrid({ items, onPlay, formatDuration }: VideoGridProps) {
+export function VideoGrid({ items, onPlay, formatDuration, isBookmarked, onToggleBookmark }: VideoGridProps) {
   const { isDesktop } = useDesktopLayout();
   const { t, language } = useLanguage();
   // 3 columns on desktop, 2 on tablet-ish, 1 on phone.
@@ -45,6 +49,8 @@ export function VideoGrid({ items, onPlay, formatDuration }: VideoGridProps) {
               title={title}
               onPress={() => onPlay(video)}
               formatDuration={formatDuration}
+              bookmarked={isBookmarked?.(video.id) ?? false}
+              onToggleBookmark={onToggleBookmark ? () => onToggleBookmark(video) : undefined}
             />
           </View>
         );
@@ -58,9 +64,11 @@ interface CardProps {
   title: string;
   onPress: () => void;
   formatDuration: (seconds: number) => string;
+  bookmarked: boolean;
+  onToggleBookmark?: () => void;
 }
 
-function VideoCard({ video, title, onPress, formatDuration }: CardProps) {
+function VideoCard({ video, title, onPress, formatDuration, bookmarked, onToggleBookmark }: CardProps) {
   const { t } = useLanguage();
   const [thumbError, setThumbError] = useState(false);
   const [hover, setHover] = useState(false);
@@ -108,9 +116,32 @@ function VideoCard({ video, title, onPress, formatDuration }: CardProps) {
         )}
       </View>
 
-      <Text style={styles.cardTitle} numberOfLines={2}>
-        {title}
-      </Text>
+      <View style={styles.captionRow}>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        {onToggleBookmark && (
+          <Pressable
+            onPress={onToggleBookmark}
+            hitSlop={8}
+            style={styles.bookmarkButton}
+            testID={`video-bookmark-toggle-${video.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={
+              bookmarked
+                ? t('video.removeVideoBookmark') || 'Remove bookmark'
+                : t('video.bookmarkVideo') || 'Bookmark this video'
+            }
+            accessibilityState={{ selected: bookmarked }}
+          >
+            <Ionicons
+              name={bookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color={bookmarked ? colors.burgundy[500] : colors.gray[600]}
+            />
+          </Pressable>
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -178,8 +209,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  cardTitle: {
+  captionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     marginTop: 8,
+  },
+  bookmarkButton: {
+    paddingTop: 1,
+  },
+  cardTitle: {
+    flex: 1,
     fontFamily: 'EBGaramond_500Medium',
     fontSize: 15,
     color: colors.gray[800],

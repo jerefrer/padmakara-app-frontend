@@ -650,9 +650,15 @@ export function VideoPlayer({
   const handleDownload = async () => {
     if (!video) return;
     try {
-      await videoDownloadService.download(video.id, '720p', (status) => {
-        setDownloadStatus(status);
-      });
+      await videoDownloadService.download(
+        video.id,
+        '720p',
+        (status) => {
+          setDownloadStatus(status);
+        },
+        // Remembered so the storage screen can label the file.
+        { title: getVideoTitle(video, { language, t, totalVideos }), eventTitle },
+      );
       setIsLocal(true);
     } catch (err) {
       console.warn('Video download failed', err);

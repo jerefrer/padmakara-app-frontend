@@ -149,6 +149,8 @@ export interface EventDocument {
   extension: string;
   viewer: 'pdf' | 'image' | 'download';
   featured: boolean;
+  /** Set for files the server watermarks per reader (PDFs only). */
+  sensitive?: boolean;
 }
 
 export interface Session {
