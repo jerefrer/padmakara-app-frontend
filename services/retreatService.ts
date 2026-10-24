@@ -7,6 +7,7 @@ import { getAuthToken } from './tokenStorage';
 import apiService from './apiService';
 import entityCacheService from './entityCacheService';
 import { hasExpiredPresignedUrl } from '@/utils/presignedUrlExpiry';
+import { safeFilename } from '@/utils/safeFilename';
 
 interface UserRetreatData {
   retreat_groups: RetreatGroup[];
@@ -1284,7 +1285,8 @@ class RetreatService {
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
       }
-      const localPath = `${cacheDir}${filename || `file-${fileId}`}`;
+      // Titles may contain "/" or other characters a file name cannot hold.
+      const localPath = `${cacheDir}${safeFilename(filename, `file-${fileId}`)}`;
       await FileSystem.writeAsStringAsync(localPath, arrayBufferToBase64(fileBytes), {
         encoding: FileSystem.EncodingType.Base64,
       });
