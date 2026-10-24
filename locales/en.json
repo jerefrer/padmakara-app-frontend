@@ -359,6 +359,8 @@
     "download": "Download",
     "downloading": "Downloading…",
     "openError": "Could not open this text",
+    "share": "Share or save this text",
+    "shareError": "Could not share this text",
     "close": "Close",
     "image": "Image",
     "document": "Text",
