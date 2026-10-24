@@ -1,3 +1,4 @@
+import type { HeroFrameOverrides } from '@/utils/heroFrames';
 export interface User {
   id: string;
   name: string;
@@ -44,6 +45,8 @@ export interface RetreatGroup {
   heroFocalX?: number;
   heroFocalY?: number;
   heroScale?: number;
+  /** Per-layout framing set in the admin; null/absent = every layout follows the focal point. */
+  heroFrameOverrides?: HeroFrameOverrides | null;
   avatarUpdatedAt?: string | null;
   heroUpdatedAt?: string | null;
   created_at: string;
@@ -63,6 +66,8 @@ export interface GatheringTeacher {
   heroFocalX?: number;
   heroFocalY?: number;
   heroScale?: number;
+  /** Per-layout framing set in the admin; null/absent = every layout follows the focal point. */
+  heroFrameOverrides?: HeroFrameOverrides | null;
   avatarUpdatedAt?: string | null;
   heroUpdatedAt?: string | null;
 }

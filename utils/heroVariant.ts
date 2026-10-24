@@ -1,5 +1,6 @@
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { HeroVariant } from '@/utils/cacheKeys';
+import type { HeroFrameOverrides } from '@/utils/heroFrames';
 
 interface WithHero {
   heroUrl?: string | null;
@@ -59,12 +60,13 @@ interface EventHeroRecord extends WithHero {
   heroScale?: number | null;
   heroFocalX?: number | null;
   heroFocalY?: number | null;
+  heroFrameOverrides?: HeroFrameOverrides | null;
 }
 
 export interface EventHeroPick extends HeroSelection {
   owner: 'teacher' | 'group' | null;
-  /** The entity the image comes from — focal point, scale and cache key must
-   *  all be read from this same record. */
+  /** The entity the image comes from — focal point, scale, frame overrides and cache key
+   *  must all be read from this same record. */
   record: EventHeroRecord | null;
 }
 

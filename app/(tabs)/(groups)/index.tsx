@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { useFocalCover } from "@/hooks/useFocalCover";
+import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
@@ -153,7 +154,11 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
   const focal = focusTeacher?.heroUrl
     ? { x: focusTeacher.heroFocalX ?? 50, y: focusTeacher.heroFocalY ?? 50 }
     : { x: 50, y: 0 };
-  const focalCover = useFocalCover({ focalX: focal.x, focalY: focal.y });
+  // This layout's own framing from the admin, when the picture is the teacher's hero.
+  const frameOverride = focusTeacher?.heroUrl
+    ? pickFrameOverride(focusTeacher.heroFrameOverrides, homeFrameKey({ isDesktop: !!isDesktop, shortScreen }))
+    : null;
+  const focalCover = useFocalCover({ focalX: focal.x, focalY: focal.y, override: frameOverride });
 
   return (
     <TouchableOpacity
@@ -173,7 +178,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
             source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(event.teachers?.[0]) }}
             cachePolicy="memory-disk"
             transition={0}
-            style={styles.featuredImage}
+            style={[styles.featuredImage, focalCover.zoomStyle]}
             contentFit="cover"
             contentPosition={focalCover.contentPosition}
             onLayout={focalCover.onLayout}

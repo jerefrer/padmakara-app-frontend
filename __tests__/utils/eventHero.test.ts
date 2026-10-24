@@ -32,4 +32,13 @@ describe('pickEventHero', () => {
     expect(pick.url).toBe('https://img/teacher-m.webp');
     expect(pick.variant).toBe('mobile');
   });
+
+  it('should hand back the frame overrides of the record that owns the image', () => {
+    const teacherOverrides = { page: { focalX: 30, focalY: 40, zoom: 2 } };
+    const groupOverrides = { page: { focalX: 60, focalY: 10, zoom: 1.5 } };
+    const t = { ...teacher, heroFrameOverrides: teacherOverrides };
+    const g = { ...group, heroFrameOverrides: groupOverrides };
+    expect(pickEventHero({ teachers: [t], retreat_group: g }, false).record?.heroFrameOverrides).toBe(teacherOverrides);
+    expect(pickEventHero({ teachers: [{ heroUrl: null }], retreat_group: g }, false).record?.heroFrameOverrides).toBe(groupOverrides);
+  });
 });
