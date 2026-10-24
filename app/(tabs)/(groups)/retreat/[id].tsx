@@ -18,6 +18,7 @@ import { formatSessionHeader } from '@/utils/sessionHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftBadge } from '@/components/DraftBadge';
 import { PDFViewer } from '@/components/PDFViewer';
+import { DocumentShareButton } from '@/components/DocumentShareButton';
 import { DocumentImageViewer } from '@/components/DocumentImageViewer';
 
 const HERO_HEIGHT = 380;
@@ -297,7 +298,7 @@ export default function RetreatDetailScreen() {
   // Documents tab viewer state — which modal (if any) is currently showing,
   // and which document key is mid-fetch (disables taps + shows a spinner).
   const [documentImageViewer, setDocumentImageViewer] = useState<{ uri: string; title: string } | null>(null);
-  const [documentPdfViewer, setDocumentPdfViewer] = useState<{ uri: string; title: string } | null>(null);
+  const [documentPdfViewer, setDocumentPdfViewer] = useState<{ uri: string; title: string; filename: string } | null>(null);
   const [documentBusyKey, setDocumentBusyKey] = useState<string | null>(null);
   const [watermarkNoticeVisible, setWatermarkNoticeVisible] = useState(false);
 
@@ -1270,7 +1271,7 @@ export default function RetreatDetailScreen() {
       if (doc.viewer === 'pdf') {
         const result = await retreatService.getFileUrl(doc.id, { originalFilename });
         if (result.success && result.url) {
-          setDocumentPdfViewer({ uri: result.url, title: doc.title });
+          setDocumentPdfViewer({ uri: result.url, title: doc.title, filename: originalFilename });
         } else {
           openError();
         }
@@ -2183,6 +2184,21 @@ export default function RetreatDetailScreen() {
             <Text style={styles.documentViewerTitle} numberOfLines={1}>
               {documentPdfViewer?.title}
             </Text>
+            {documentPdfViewer && (
+              <DocumentShareButton
+                filePath={documentPdfViewer.uri}
+                filename={documentPdfViewer.filename}
+                onError={() =>
+                  showModal(
+                    t('documents.shareError') || 'Could not share this text',
+                    '',
+                    [{ text: t('common.ok') || 'OK' }],
+                    'alert-circle-outline'
+                  )
+                }
+                style={styles.documentViewerShareButton}
+              />
+            )}
             <TouchableOpacity
               onPress={() => setDocumentPdfViewer(null)}
               accessibilityRole="button"
@@ -2837,6 +2853,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.gray[700],
     marginRight: 12,
+  },
+  documentViewerShareButton: {
+    padding: 4,
+    marginRight: 8,
   },
   documentViewerCloseButton: {
     padding: 4,

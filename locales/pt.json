@@ -359,6 +359,8 @@
     "download": "Descarregar",
     "downloading": "A descarregar…",
     "openError": "Não foi possível abrir este texto",
+    "share": "Partilhar ou guardar este texto",
+    "shareError": "Não foi possível partilhar este texto",
     "close": "Fechar",
     "image": "Imagem",
     "document": "Texto",
