@@ -479,7 +479,9 @@
     "filters": {
       "all": "All",
       "language": "Language",
-      "allLanguages": "All languages"
+      "allLanguages": "All languages",
+      "languageButton": "Filter by language",
+      "languageButtonActive": "Filter by language, showing {{language}}"
     },
     "languages": {
       "en": "English",
