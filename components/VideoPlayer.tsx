@@ -716,7 +716,7 @@ export function VideoPlayer({
     >
       <View style={styles.root}>
         <View style={[styles.header, { paddingTop: (isLandscape ? 0 : insets.top) + 8 }]}>
-          <TouchableOpacity onPress={handleClose} style={styles.iconButton} accessibilityLabel={t('common.close') || 'Close'}>
+          <TouchableOpacity onPress={handleClose} style={styles.iconButton} testID="video-close" accessibilityLabel={t('common.close') || 'Close'}>
             <Ionicons name="chevron-down" size={28} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.title} numberOfLines={1}>
@@ -726,6 +726,7 @@ export function VideoPlayer({
             <TouchableOpacity
               onPress={openBookmarkList}
               style={styles.iconButton}
+              testID="video-bookmarks"
               accessibilityLabel={t('video.bookmarks') || 'Bookmarks'}
               disabled={!video || !hlsUrl}
             >
@@ -800,6 +801,7 @@ export function VideoPlayer({
                   renderItem={({ item }) => (
                     <View style={styles.bookmarkListRow}>
                       <TouchableOpacity
+                        testID={`video-bookmark-row-${item.id}`}
                         style={styles.bookmarkListPlay}
                         onPress={() => seekToBookmark(item)}
                       >
@@ -823,6 +825,7 @@ export function VideoPlayer({
                 />
               )}
               <TouchableOpacity
+                testID="video-bookmark-add"
                 style={styles.bookmarkListAdd}
                 onPress={() => {
                   setBookmarkListVisible(false);
@@ -851,10 +854,11 @@ export function VideoPlayer({
               <Text style={styles.bookmarkTitle}>
                 {t('video.addBookmark') || 'Add bookmark'}
               </Text>
-              <Text style={styles.bookmarkTime}>
+              <Text style={styles.bookmarkTime} testID="video-bookmark-time">
                 {bookmarkSavedAt !== null ? formatTime(bookmarkSavedAt) : ''}
               </Text>
               <TextInput
+                testID="video-bookmark-note"
                 style={styles.bookmarkInput}
                 value={bookmarkNote}
                 onChangeText={setBookmarkNote}
@@ -871,6 +875,7 @@ export function VideoPlayer({
                   <Text style={styles.bookmarkCancelText}>{t('common.cancel') || 'Cancel'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  testID="video-bookmark-save"
                   style={styles.bookmarkSave}
                   onPress={saveBookmark}
                 >

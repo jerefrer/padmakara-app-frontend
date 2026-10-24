@@ -90,8 +90,8 @@ export function ConfirmationModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.container} onPress={e => e.stopPropagation()}>
+      <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
+        <Pressable accessible={false} style={styles.container} onPress={e => e.stopPropagation()}>
           {icon && (
             <View style={styles.iconContainer}>
               <Ionicons name={icon} size={32} color={colors.burgundy[500]} />
@@ -103,6 +103,7 @@ export function ConfirmationModal({
             {buttons.map((button, index) => (
               <TouchableOpacity
                 key={index}
+                testID={`confirm-${button.style ?? 'default'}`}
                 style={[styles.button, getButtonStyle(button.style)]}
                 onPress={() => handleButtonPress(button)}
               >

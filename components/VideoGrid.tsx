@@ -70,6 +70,7 @@ function VideoCard({ video, title, onPress, formatDuration }: CardProps) {
   return (
     <Pressable
       onPress={onPress}
+      testID={`video-card-${video.id}`}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       // @ts-ignore — RN Web only
       onHoverIn={() => setHover(true)}
