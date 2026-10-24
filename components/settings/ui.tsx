@@ -109,6 +109,7 @@ export function SwitchRow({
       subtitle={subtitle}
       right={
         <Switch
+          testID={testID ? `${testID}-switch` : undefined}
           accessibilityLabel={title}
           value={value}
           onValueChange={onValueChange}

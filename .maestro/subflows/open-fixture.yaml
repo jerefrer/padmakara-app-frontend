@@ -1,0 +1,27 @@
+# Opens the fixture event (E2E-FIXTURE, seeded by fixtures/seed.sql) from the Search tab and
+# leaves it on its Audio tab. Run it from any screen with the tab bar showing.
+appId: org.padmakara.pt
+---
+- tapOn: "Search.*"
+- tapOn:
+    id: search-input
+# An earlier search may still be in the box.
+- eraseText: 40
+- inputText: "E2E Fixture"
+- extendedWaitUntil:
+    visible:
+      id: search-result-990001
+    timeout: 15000
+- tapOn:
+    id: search-result-990001
+# The event opens on its Videos tab; the tracks are under Audio.
+- extendedWaitUntil:
+    visible:
+      id: event-tab-tracks
+    timeout: 15000
+- tapOn:
+    id: event-tab-tracks
+- extendedWaitUntil:
+    visible:
+      id: track-row-990001
+    timeout: 15000

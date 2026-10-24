@@ -1,0 +1,60 @@
+# e2e: ios-only (media fixtures, the runner's control server and the simulator's Face ID)
+# Pre-download the fixture event, then make everything remote unreachable (the runner stops
+# the API, the object storage and the video CDN: the simulator shares the Mac's network, so
+# this is how the app is cut off), and a track still plays: it comes from the device.
+# The runner brings the servers back afterwards (and before the next flow, if this one fails).
+appId: org.padmakara.pt
+name: Play a pre-downloaded track offline
+---
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /reset
+- runFlow: ../subflows/sign-in.yaml
+- runFlow: ../subflows/open-fixture.yaml
+
+# Pre-download: the download button asks first, and saying yes fetches both tracks.
+- assertVisible: "Pre-download"
+- tapOn:
+    id: event-menu-button
+- extendedWaitUntil:
+    visible:
+      id: confirm-default
+    timeout: 10000
+- tapOn:
+    id: confirm-default
+# Done when the button offers to remove the download.
+- extendedWaitUntil:
+    visible: "Remove download"
+    timeout: 120000
+- assertNotVisible:
+    id: event-offline-progress
+
+# Cut the network: no API, no object storage, no CDN.
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /network/off
+
+# Play the second track, which nothing has played yet: its audio can only come from the device.
+- tapOn:
+    id: track-row-990002
+- tapOn:
+    id: audio-play-pause
+- extendedWaitUntil:
+    visible:
+      id: audio-current-time
+      text: "0:0[3-9]|0:[1-5][0-9]"
+    timeout: 60000
+- assertVisible:
+    id: track-row-990002
+
+# Back online, and leave the fixture as found.
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /network/on
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /reset

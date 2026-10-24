@@ -247,6 +247,7 @@ export function AudioPlayer({
           style={[styles.toolbarButton, !onBookmarkPress && styles.toolbarButtonDisabled]}
           onPress={onBookmarkPress}
           disabled={!onBookmarkPress}
+          testID="audio-bookmark"
         >
           <Ionicons
             name={isBookmarked ? 'bookmark' : 'bookmark-outline'}

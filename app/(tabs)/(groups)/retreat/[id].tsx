@@ -1779,7 +1779,7 @@ export default function RetreatDetailScreen() {
   const renderDownloadBanners = () => (
     <>
       {isDownloadingRetreat && (
-        <View style={styles.downloadBanner}>
+        <View style={styles.downloadBanner} testID="event-offline-progress">
           <View style={styles.downloadBannerContent}>
             <View style={styles.downloadBannerHeader}>
               <Text style={styles.downloadBannerTitle}>
@@ -1901,6 +1901,7 @@ export default function RetreatDetailScreen() {
             disabled={bookmarkBusy}
             style={styles.floatingTopButtonInline}
             hitSlop={8}
+            testID="event-bookmark-button"
             accessibilityLabel={
               isBookmarked
                 ? t('bookmarks.remove') || 'Remove bookmark'

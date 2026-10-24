@@ -17,17 +17,22 @@ npm run e2e:all        # both, one after the other
 Run `npm run e2e:all` when a build for both stores is going out. `run-all.sh --platform
 ios|android|all` is the same thing.
 
-It checks JAVA_HOME, boots the simulator, checks the dev client is installed, checks the
-local API on :3000 (and that its database has the public event 920 the flows search for),
-starts Metro if needed (dev-client mode, not `CI=1`), then runs `.maestro/*.yaml` and
-`run-signed-in.sh`. It stops only what it started (simulator, Metro, API) and always
-removes `.env.development.local`. A full run takes about 6 minutes on iOS, 9 on Android.
+It checks JAVA_HOME and the tools the media flows need, boots the simulator (default
+`iPhone 17 Pro`, `IOS_SIMULATOR` for another), checks the dev client is installed, starts the
+local servers (see "Media fixtures"), checks the local database has the public event 920 the
+flows search for, starts Metro if needed (dev-client mode, not `CI=1`), then runs
+`.maestro/*.yaml` and `run-signed-in.sh`. It stops only what it started (simulator, Metro, the
+servers) and always removes `.env.development.local`. Maestro's iOS driver is given 4 minutes
+to start (`MAESTRO_DRIVER_STARTUP_TIMEOUT`), and a flow that failed only because the driver
+was not ready is run once more; any other failure is final. A full run takes about
+20 minutes on iOS (the media flows are the long ones), 9 on Android.
 
 Everything runs against the local API, never production: the script writes the local URL
 to `.env.development.local` before Metro starts and refuses to run if Metro does not serve
-it. An API already running on :3000 is reused, and must have been started with
-`RATE_LIMIT_ENABLED=false` (the summary says so when sign-in requests were rate limited);
-without one, the script starts it. Set `IOS_SIMULATOR` for another simulator name.
+it. It also refuses to run unless `DATABASE_URL` in `padmakara-api/.env` is a local database,
+since the media flows write rows. The API is always started by the script (rate limiting off,
+wired to the local media): ports 3000, 3999, 9000 and 9443 must be free, so stop a `bun run
+dev` you have running first.
 
 What the flows cover:
 
@@ -37,7 +42,49 @@ What the flows cover:
 | `event-original-language` | event 920 (Tibetan) lists TIB and EN tracks and the control reads "Tibetan + English" |
 | `settings-language` | Language holds the Portuguese-tracks switch and the subtitle row; the choice shows as its value; Video playback exists |
 | `publications-signed-out` | only the public editions are listed; the members-only ones are not |
-| `signed-in/*` | sign in, sign out, signed-in settings |
+| `signed-in/*` (sign-in, sign-out, settings-signed-in) | sign in, sign out, signed-in settings |
+| `signed-in/play-audio` | a track of the fixture event plays: the inline clock runs, pausing stops it, and the mini-player follows to other tabs and reopens the event |
+| `signed-in/bookmarks` | event, track and video bookmarks (the video one with a note) are listed in their three sections on the Bookmarks tab, and the video bookmark reopens the video at its position, not at the saved resume point |
+| `signed-in/video-bookmark-upload` | a video bookmark made signed out stays on the device (no database row), is uploaded when the video opens after signing in (a database row), and then shows on the Bookmarks tab |
+| `signed-in/offline-playback` | pre-download the fixture event, stop the API, object storage and CDN, and a track nobody played yet still plays |
+| `signed-in/app-lock` | with the app lock on, a cold start shows the lock cover (burgundy, Face ID prompt) and not the home screen, until Face ID matches |
+
+The five media flows are iOS only (`# e2e: ios-only` in the file): the Android run skips
+them and says so in the summary.
+
+## Media fixtures
+
+Local storage credentials for the real bucket are denied and local and prod use different
+buckets, so the media flows run on a fixture the script builds itself (`fixtures/`):
+
+- `seed.sql` (idempotent, local database only): event `E2E-FIXTURE` (id 990001, published,
+  free) with two 90 s audio tracks (`track-row-990001`, `-990002`) and one video (id 990001).
+- `media.sh`: generates the audio (mp3) and the video (HLS) with ffmpeg into
+  `fixtures/.cache/` (git-ignored) and uploads the audio to a throwaway MinIO. The video's
+  picture is eight black/white columns that spell the playback second in binary: the player
+  shows no clock, so the flows read the position from a screenshot.
+- `services.sh`: MinIO on :9000, a stand-in for the Bunny CDN on :9443 (`cdn-server.ts`;
+  the API only knows Bunny, over https, so it signs with a throwaway CA that the script
+  trusts in the simulator keychain and gives to the API), and the API on :3000 pointed at
+  both. The API stays on the real code paths: presigned audio URLs, the HLS proxy.
+- `control-server.ts` (127.0.0.1:3999): what a flow cannot do itself and asks the runner for
+  through `scripts/control.js`: stop/start the three servers (offline flow), match Face ID,
+  clear the fixture's bookmarks, read `video_bookmarks`, read the video position or the
+  lock cover from a screenshot.
+
+Needs `minio`, `ffmpeg`, `openssl`, `psql` and `bun` on the PATH (`brew install minio/stable/minio
+ffmpeg openssl libpq oven-sh/bun/bun`). The fixture rows stay in the local database after a run
+(harmless: the event is dated 2024 and only the local API serves it).
+
+Things the flows learned about the app, so they are not rediscovered:
+
+- Tapping a track while nothing plays loads it paused, by design: the flows tap play too.
+- The native video player exposes no clock or controls to Maestro.
+- The Face ID system prompt hides the app's own elements from the accessibility tree: the
+  lock flow waits for the prompt ("Face ID") and judges the cover by colour.
+- `ConfirmationModal` is built from `accessible={false}` containers so its buttons have their
+  own accessibility elements (`confirm-default`, `confirm-cancel`, `confirm-destructive`);
+  before, VoiceOver and Maestro saw the whole card as one element.
 
 Not covered locally: **Read Along** (Aa size picker). The alignment JSON is served from
 object storage, local credentials are denied and local and prod use different buckets, so
