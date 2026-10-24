@@ -37,6 +37,7 @@ import { EventDocument, EventFile, EventPreview, EventVideo, Session, Track, Use
 import { LockedRetreat } from '@/components/membership/LockedRetreat';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useVideoBookmarks } from '@/hooks/useVideoBookmarks';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
@@ -317,6 +318,9 @@ export default function RetreatDetailScreen() {
   // Event-level bookmark state
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+
+  // Whole-video bookmarks, toggled from the cards in the Video tab.
+  const videoBookmarks = useVideoBookmarks();
 
   // Track-level bookmark state — set of bookmarked track IDs (as strings).
   // The AudioPlayer reads currentTrack from context; we expose
@@ -1552,6 +1556,8 @@ export default function RetreatDetailScreen() {
             items={videoItems}
             onPlay={(video) => watchVideo(video)}
             formatDuration={formatDurationForGrid}
+            isBookmarked={videoBookmarks.enabled ? videoBookmarks.isBookmarked : undefined}
+            onToggleBookmark={videoBookmarks.enabled ? (video) => videoBookmarks.toggle(video.id) : undefined}
           />
         )}
 

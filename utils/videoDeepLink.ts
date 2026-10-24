@@ -3,13 +3,15 @@
 export function resolveVideoDeepLink<V extends { id: number }>(
   videos: V[] | undefined,
   params: { videoId?: string; position?: string },
-): { video: V; position: number } | null {
+): { video: V; position: number | undefined } | null {
   if (!params.videoId || !videos) return null;
   const id = Number(params.videoId);
   const video = videos.find((v) => v.id === id);
   if (!video) return null;
-  const parsed = Number(params.position);
-  const position = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+  // No usable position (a whole-video bookmark) means "resume where the user
+  // left off", which the caller expresses as `undefined`.
+  const parsed = params.position === undefined || params.position === '' ? NaN : Number(params.position);
+  const position = Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : undefined;
   return { video, position };
 }
 

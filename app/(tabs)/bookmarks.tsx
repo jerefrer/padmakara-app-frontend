@@ -5,6 +5,7 @@ import trackBookmarkService, { TrackBookmark } from "@/services/trackBookmarkSer
 import videoBookmarkService, { VideoBookmark } from "@/services/videoBookmarkService";
 import type { EventVideo } from "@/types";
 import { formatVideoPosition } from "@/utils/formatVideoPosition";
+import { isWholeVideoBookmark } from "@/utils/wholeVideoBookmark";
 import { getVideoTitle } from "@/utils/videoTitle";
 import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
@@ -164,7 +165,9 @@ function VideoRow({
     } satisfies EventVideo,
     { language, t },
   );
-  const subtitle = [eventTitle, formatVideoPosition(bookmark.positionSeconds)]
+  // A whole-video bookmark has no moment to show.
+  const positionLabel = isWholeVideoBookmark(bookmark) ? "" : formatVideoPosition(bookmark.positionSeconds);
+  const subtitle = [eventTitle, positionLabel]
     .filter(Boolean)
     .join(" — ");
 
@@ -352,7 +355,8 @@ export default function BookmarksScreen() {
                           id: String(bm.video.event.id),
                           from: "bookmarks",
                           videoId: String(bm.videoId),
-                          position: String(bm.positionSeconds),
+                          // A whole-video bookmark opens where the user left off.
+                          ...(isWholeVideoBookmark(bm) ? {} : { position: String(bm.positionSeconds) }),
                         },
                       } as any)
                     }

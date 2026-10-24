@@ -52,6 +52,8 @@
     "deleteOfflineTitle": "Remover do dispositivo",
     "deleteOfflineMessage": "Este vídeo será removido do armazenamento offline. Pode descarregá-lo novamente mais tarde.",
     "addBookmark": "Adicionar marcador",
+    "bookmarkVideo": "Marcar este vídeo",
+    "removeVideoBookmark": "Remover marcador",
     "bookmarkPlaceholder": "Adicione uma nota para este momento",
     "bookmarkAdded": "Marcador adicionado",
     "bookmarks": "Marcadores",
