@@ -1,0 +1,8 @@
+# Lets the app settle for about three seconds (Maestro has no plain sleep): waits for an
+# element that never shows, then moves on.
+appId: org.padmakara.pt
+---
+- extendedWaitUntil:
+    visible: "this text is never on screen"
+    timeout: 3000
+    optional: true

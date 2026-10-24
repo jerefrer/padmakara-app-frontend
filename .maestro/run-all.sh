@@ -7,8 +7,9 @@
 #   npm run e2e:all             both, one after the other
 #   .maestro/run-all.sh --platform ios|android|all
 #
-# It checks the prerequisites, starts what is missing (simulator or emulator, Metro, the
-# local API) and stops only what it started. It always points the app at the LOCAL API
+# It checks the prerequisites, starts what is missing (simulator or emulator, Metro) plus the
+# local servers of the media flows (MinIO, a CDN stand-in, the API: see fixtures/) and stops
+# only what it started. It always points the app at the LOCAL API
 # through .env.development.local, which it removes on exit, and refuses to run if Metro
 # does not serve that URL: no flow can talk to production.
 set -uo pipefail
@@ -20,11 +21,14 @@ local_env="$app/.env.development.local"
 local_url="http://localhost:3000/api"
 bundle_ios="http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=ios&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=app"
 app_id="org.padmakara.pt"
-ios_name="${IOS_SIMULATOR:-iPhone 16}"
+ios_name="${IOS_SIMULATOR:-iPhone 17 Pro}"
 android_avd="${ANDROID_AVD:-Medium_Phone_API_35}"
 android_sdk="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 adb="$android_sdk/platform-tools/adb"
 platform="ios"
+control_port=3999
+fixtures="$here/fixtures"
+cache="$fixtures/.cache"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -35,13 +39,17 @@ while [ $# -gt 0 ]; do
 done
 case "$platform" in ios | android | all) ;; *) echo "--platform must be ios, android or all" >&2; exit 2 ;; esac
 
+# A first simulator boot often outlasts Maestro's default wait for its iOS driver.
+export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-240000}"
+export MAESTRO_E2E_CONTROL_URL="http://127.0.0.1:$control_port"
 export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/padmakara-e2e.XXXXXX")"
 created_env=false
 started_metro=""
-started_api=""
+started_services=false
+started_control=false
 booted_sim=""
 started_emulator=false
 results=()
@@ -53,7 +61,8 @@ die() { echo "e2e: $*" >&2; exit 1; }
 cleanup() {
   # npx and bun spawn children: stop whatever listens on the port we started a server on.
   if [ -n "$started_metro" ]; then kill $(lsof -tiTCP:8081 -sTCP:LISTEN) 2>/dev/null; fi
-  if [ -n "$started_api" ]; then kill $(lsof -tiTCP:3000 -sTCP:LISTEN) 2>/dev/null; fi
+  if [ "$started_control" = true ]; then kill $(lsof -tiTCP:"$control_port" -sTCP:LISTEN) 2>/dev/null; fi
+  if [ "$started_services" = true ]; then bash "$fixtures/services.sh" down >/dev/null 2>&1; fi
   if [ -n "$booted_sim" ]; then xcrun simctl shutdown "$booted_sim" 2>/dev/null; fi
   if [ "$started_emulator" = true ]; then "$adb" emu kill >/dev/null 2>&1; fi
   if [ "$created_env" = true ]; then rm -f "$local_env"; fi
@@ -66,6 +75,16 @@ trap 'exit 130' INT TERM
 command -v maestro >/dev/null || die "maestro is not installed (brew install mobile-dev-inc/tap/maestro)"
 [ -x "$JAVA_HOME/bin/java" ] || die "JAVA_HOME ($JAVA_HOME) has no java (brew install openjdk@17)"
 [ -n "$api_dir" ] || die "padmakara-api is not next to padmakara-app"
+for tool in minio ffmpeg openssl psql bun curl; do
+  command -v "$tool" >/dev/null || die "$tool is required by the media flows (brew install $tool; bun: brew install oven-sh/bun/bun)"
+done
+
+# The media flows write to the database (a fixture event, bookmarks): LOCAL ONLY.
+database_url="$(grep -E '^DATABASE_URL=' "$api_dir/.env" 2>/dev/null | head -n1 | cut -d= -f2-)"
+case "$database_url" in
+  postgresql://*@localhost[:/]* | postgresql://*@127.0.0.1[:/]* | postgres://*@localhost[:/]* | postgres://*@127.0.0.1[:/]*) ;;
+  *) die "DATABASE_URL in $api_dir/.env is not a local database: refusing to seed fixtures" ;;
+esac
 
 # Everything, signed out or in, runs against the local API. Written before Metro starts.
 if [ -e "$local_env" ]; then
@@ -76,30 +95,24 @@ else
   created_env=true
 fi
 
-# Local API on :3000. Reuse a running one (and read its log), else start one.
-if curl -sf -o /dev/null "http://localhost:3000/api/events/public"; then
-  if [ -z "${API_LOG:-}" ]; then
-    pid="$(lsof -tiTCP:3000 -sTCP:LISTEN | head -n1)"
-    API_LOG="$(lsof -p "$pid" -a -d 1 -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1)"
-  fi
-  [ -f "${API_LOG:-}" ] ||
-    die "the API on :3000 does not log to a file I can find: set API_LOG=<its output file> or stop it and let me start one"
-else
-  API_LOG="$work/api.log"
-  (cd "$api_dir" && RATE_LIMIT_ENABLED=false exec bun run dev > "$API_LOG" 2>&1) &
-  started_api=$!
-  for _ in $(seq 1 60); do
-    curl -sf -o /dev/null "http://localhost:3000/api/events/public" && break
-    sleep 1
-  done
-  curl -sf -o /dev/null "http://localhost:3000/api/events/public" || die "the local API did not start (see $API_LOG)"
-fi
+# The local servers: MinIO (audio), a CDN stand-in (video), the API wired to both, plus the
+# fixture event they serve (fixtures/seed.sql, media.sh). The API is always started here, with
+# that wiring: one already running on :3000 would not serve the fixture media.
+for port in 3000 9000 9443 "$control_port"; do
+  [ -z "$(lsof -tiTCP:"$port" -sTCP:LISTEN)" ] ||
+    die "port $port is busy: stop what listens on it (the e2e run starts its own API on :3000 with local media)"
+done
+export E2E_WORK="$work" E2E_CACHE="$cache" E2E_API_DIR="$api_dir" E2E_DATABASE_URL="$database_url"
+export E2E_SERVICES="$fixtures/services.sh"
+API_LOG="$work/api.log"; export E2E_API_LOG="$API_LOG"; : > "$API_LOG"
+started_services=true
+bash "$fixtures/services.sh" up || die "the local servers did not start (see $work/*.log and $API_LOG)"
 export API_LOG
 # The flows need the seeded teaching (event 920) of the local database.
 curl -sf "http://localhost:3000/api/events/public" | grep -q '"id":920' ||
   die "the local database has no public event 920 (the flows search for it)"
 api_log_start=$(wc -l < "$API_LOG")
-echo "e2e: local API ok, log $API_LOG"
+echo "e2e: local API, MinIO and CDN stand-in ok, log $API_LOG"
 
 # Metro, in dev-client mode with file watching (CI=1 would serve a stale bundle).
 if ! curl -sf http://localhost:8081/status | grep -q running; then
@@ -136,6 +149,13 @@ prepare_ios() {
     [ -d "$built" ] || die "the dev client is not installed and not built: see .maestro/README.md (One-time setup)"
     xcrun simctl install "$ios_udid" "$built" || die "could not install the dev client"
   fi
+  # The video comes from an https stand-in for the CDN, signed by a throwaway CA.
+  xcrun simctl keychain "$ios_udid" add-root-cert "$cache/tls/ca.pem" || die "could not trust the e2e CA in the simulator"
+  # The control server lets the flows cut the network, match Face ID, read the database.
+  E2E_UDID="$ios_udid" bun "$fixtures/control-server.ts" "$control_port" > "$work/control.log" 2>&1 &
+  started_control=true
+  for _ in $(seq 1 20); do curl -sf "http://127.0.0.1:$control_port/health" >/dev/null && break; sleep 0.5; done
+  curl -sf "http://127.0.0.1:$control_port/health" >/dev/null || die "the control server did not start (see $work/control.log)"
 }
 
 android_serial=""
@@ -163,20 +183,52 @@ prepare_android() {
 }
 
 # --- Flows -----------------------------------------------------------------------------
+# The flows that need the media fixtures, Face ID or the control server say so on a line of
+# their own and are skipped on Android.
+ios_only() { grep -q '^# e2e: ios-only' "$1"; }
+
+# A flow that cuts the network puts it back itself; if it failed first, do it here.
+ensure_servers() {
+  curl -sf -o /dev/null "http://localhost:3000/api/events/public" && return 0
+  echo "e2e: the local servers are down (a flow stopped early): starting them again"
+  bash "$fixtures/services.sh" net-on || die "could not restart the local servers"
+}
+
+# Runs a maestro command, once more if (and only if) Maestro could not reach its iOS driver
+# in time: that is the simulator's slow first boot, not a failing flow.
+run_maestro() {
+  local attempt rc log="$work/maestro.log"
+  for attempt in 1 2; do
+    "$@" 2>&1 | tee "$log"; rc=${PIPESTATUS[0]}
+    [ $rc -eq 0 ] && return 0
+    if [ "$attempt" -eq 1 ] && grep -qi "driver not ready in time" "$log"; then
+      echo "e2e: Maestro's iOS driver was not ready in time: trying once more"
+      continue
+    fi
+    return $rc
+  done
+}
+
 run_flows() {
   local label="$1" udid="$2" start flow rc
   # Signed-out flows first, then every signed-in flow through run-signed-in.sh.
   for flow in "$here"/*.yaml; do
     start=$SECONDS
     echo; echo "e2e: [$label] $(basename "$flow")"
-    maestro test --udid "$udid" "$flow"; rc=$?
+    ensure_servers
+    run_maestro maestro test --udid "$udid" "$flow"; rc=$?
     results+=("$([ $rc -eq 0 ] && echo PASS || echo FAIL)  $label  $(basename "$flow")  $((SECONDS - start))s")
     [ $rc -eq 0 ] || failed=$((failed + 1))
   done
   for flow in "$here"/signed-in/*.yaml; do
+    if [ "$label" = android ] && ios_only "$flow"; then
+      results+=("SKIP  $label  signed-in/$(basename "$flow")  (iOS only)")
+      continue
+    fi
     start=$SECONDS
     echo; echo "e2e: [$label] signed-in/$(basename "$flow")"
-    "$here/run-signed-in.sh" --udid "$udid" "$flow"; rc=$?
+    ensure_servers
+    run_maestro "$here/run-signed-in.sh" --udid "$udid" "$flow"; rc=$?
     results+=("$([ $rc -eq 0 ] && echo PASS || echo FAIL)  $label  signed-in/$(basename "$flow")  $((SECONDS - start))s")
     [ $rc -eq 0 ] || failed=$((failed + 1))
   done
@@ -195,7 +247,9 @@ printf '  %s\n' "${results[@]}"
 if [ "$failed" -ne 0 ] && tail -n "+$((api_log_start + 1))" "$API_LOG" | grep -q 'request-magic-link.* 429'; then
   echo "e2e: the API rate-limited the sign-in requests: restart it with RATE_LIMIT_ENABLED=false (bun run dev)." >&2
 fi
-echo "e2e: $((${#results[@]} - failed))/${#results[@]} flows passed in $((SECONDS - t_start))s"
+skipped=$(printf '%s\n' "${results[@]}" | grep -c '^SKIP' || true)
+ran=$((${#results[@]} - skipped))
+echo "e2e: $((ran - failed))/$ran flows passed in $((SECONDS - t_start))s${skipped:+ ($skipped skipped on this platform)}"
 if [ "$failed" -ne 0 ]; then
   echo "e2e: FAILED. Do not ship a build until this is green." >&2
   exit 1

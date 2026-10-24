@@ -1,0 +1,9 @@
+# Asks the runner (fixtures/control-server.ts) to do something a flow cannot: pass
+# CONTROL_PATH and optionally CONTROL_METHOD. The response text is left in output.body.
+appId: org.padmakara.pt
+---
+- runScript:
+    file: ../scripts/control.js
+    env:
+      CONTROL_PATH: ${CONTROL_PATH}
+      CONTROL_METHOD: ${CONTROL_METHOD || "POST"}
