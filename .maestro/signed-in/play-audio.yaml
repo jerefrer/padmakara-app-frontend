@@ -1,0 +1,54 @@
+# e2e: ios-only (media fixtures, the runner's control server and the simulator's Face ID)
+# Playing a track from the fixture event: the inline player's clock runs, and the mini-player
+# follows you to the other tabs. The audio comes from local object storage (see
+# fixtures/), so this also proves the API's presigned URL reaches a playable file.
+appId: org.padmakara.pt
+name: Play a track
+---
+- runFlow: ../subflows/sign-in.yaml
+- runFlow: ../subflows/open-fixture.yaml
+- tapOn:
+    id: track-row-990001
+# Selecting a track while nothing plays loads it paused (by design): play it, and the clock
+# moves past a couple of seconds once the file is buffered.
+- tapOn:
+    id: audio-play-pause
+- extendedWaitUntil:
+    visible:
+      id: audio-current-time
+      text: "0:0[3-9]|0:[1-5][0-9]"
+    timeout: 60000
+# Pausing stops the clock: after a settling pause the elapsed time no longer moves.
+- tapOn:
+    id: audio-play-pause
+- runFlow: ../subflows/pause.yaml
+- copyTextFrom:
+    id: audio-current-time
+- runFlow: ../subflows/pause.yaml
+- assertVisible:
+    id: audio-current-time
+    text: ${maestro.copiedText}
+- tapOn:
+    id: audio-play-pause
+# Leaving the event: the mini-player is playing, and opening it returns to the event with the
+# inline player on the same track.
+- tapOn: "Account.*"
+- extendedWaitUntil:
+    visible:
+      id: miniplayer-playing
+    timeout: 10000
+- assertVisible: "Pause"
+- tapOn:
+    id: miniplayer
+- extendedWaitUntil:
+    visible:
+      id: event-tab-tracks
+    timeout: 10000
+- tapOn:
+    id: event-tab-tracks
+- extendedWaitUntil:
+    visible:
+      id: audio-play-pause
+    timeout: 10000
+- assertVisible:
+    id: track-row-990001

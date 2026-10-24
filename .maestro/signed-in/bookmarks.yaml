@@ -1,0 +1,143 @@
+# e2e: ios-only (media fixtures, the runner's control server and the simulator's Face ID)
+# Bookmarks round trip: bookmark the fixture event, one of its tracks and a moment of its
+# video (with a note), find all three on the Bookmarks tab, and reopen the video bookmark at
+# its position. The player shows no clock, so the position is read from the fixture video
+# itself (its picture spells the playback second in binary: see fixtures/media.sh).
+# The runner clears the fixture's bookmarks before and after, so the flow can run again.
+appId: org.padmakara.pt
+name: Bookmarks round trip
+---
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /reset
+- runFlow: ../subflows/sign-in.yaml
+- runFlow: ../subflows/open-fixture.yaml
+
+# 1. The event.
+- tapOn:
+    id: event-bookmark-button
+- extendedWaitUntil:
+    visible: "Remove bookmark"
+    timeout: 10000
+
+# 2. A track: select it, play it, bookmark it from the player.
+- tapOn:
+    id: track-row-990001
+- tapOn:
+    id: audio-play-pause
+- extendedWaitUntil:
+    visible:
+      id: audio-current-time
+      text: "0:0[1-9]|0:[1-5][0-9]"
+    timeout: 60000
+- tapOn:
+    id: audio-bookmark
+# The track bookmark is on the server before we leave: the Bookmarks tab asks for it below.
+# Pause it, so the audio does not run on under the video.
+- tapOn:
+    id: audio-play-pause
+
+# 3. A video moment, with a note. Start it, let it run, then bookmark the second it reached.
+- tapOn:
+    id: event-tab-video
+- tapOn:
+    id: video-card-990001
+- extendedWaitUntil:
+    visible:
+      id: video-bookmarks
+    timeout: 30000
+- runScript:
+    file: ../scripts/assert-video-seconds.js
+    env:
+      EXPECT_MIN: "5"
+      EXPECT_MAX: "250"
+- tapOn:
+    id: video-bookmarks
+- tapOn:
+    id: video-bookmark-add
+- extendedWaitUntil:
+    visible:
+      id: video-bookmark-note
+    timeout: 10000
+- copyTextFrom:
+    id: video-bookmark-time
+- evalScript: ${output.bookmarkText = maestro.copiedText}
+- tapOn:
+    id: video-bookmark-note
+- inputText: "E2E video note"
+- tapOn:
+    id: video-bookmark-save
+# Back in the list: the new bookmark is there, with its note.
+- extendedWaitUntil:
+    notVisible:
+      id: video-bookmark-note
+    timeout: 10000
+- tapOn:
+    id: video-close
+- runScript:
+    file: ../scripts/parse-position.js
+    env:
+      TEXT: ${output.bookmarkText}
+      EXTRA: "10"
+      LATER: "15"
+# Watch on past the bookmark and close, so the video's own resume point is well after the
+# bookmark: reopening from the bookmark must go to the bookmark, not to where we left off.
+- tapOn:
+    id: video-card-990001
+- extendedWaitUntil:
+    visible:
+      id: video-bookmarks
+    timeout: 30000
+- runScript:
+    file: ../scripts/assert-video-seconds.js
+    env:
+      EXPECT_MIN: ${output.later}
+      EXPECT_MAX: "250"
+- tapOn:
+    id: video-close
+- extendedWaitUntil:
+    visible:
+      id: event-tab-tracks
+    timeout: 10000
+
+# 4. The Bookmarks tab lists all three, each in its own section.
+- tapOn: "Bookmarks, tab.*"
+- extendedWaitUntil:
+    visible: "Videos"
+    timeout: 15000
+- assertVisible: "Events"
+- assertVisible: "Tracks"
+- assertVisible: "E2E Fixture Teaching.*"
+- assertVisible: ".*Fixture track one.*"
+- assertVisible:
+    id: "video-bookmark-.*"
+- assertVisible: ".*${output.bookmarkText}.*"
+- assertVisible: ".*E2E video note.*"
+
+# 5. Tapping the video bookmark opens the event's video at that position.
+- tapOn:
+    id: "video-bookmark-.*"
+- extendedWaitUntil:
+    visible:
+      id: video-bookmarks
+    timeout: 30000
+- runScript:
+    file: ../scripts/parse-position.js
+    env:
+      TEXT: ${output.bookmarkText}
+      EXTRA: "10"
+      LATER: "15"
+- runScript:
+    file: ../scripts/assert-video-seconds.js
+    env:
+      EXPECT_MIN: ${output.seconds}
+      EXPECT_MAX: ${output.max}
+- tapOn:
+    id: video-close
+
+# Leave the fixture as found.
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /reset

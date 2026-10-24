@@ -1,0 +1,93 @@
+# e2e: ios-only (media fixtures, the runner's control server and the simulator's Face ID)
+# The app lock covers a cold start: with it on, relaunching the app shows the lock cover (the
+# launch screen's lockup and the Face ID glyph) and not the home screen, until Face ID
+# matches. The simulator is enrolled by the runner and "matches" when the runner says so.
+appId: org.padmakara.pt
+name: App lock at cold start
+---
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /face-id/enroll
+- runFlow: ../subflows/sign-in.yaml
+
+# Turn the lock on in settings; the switch asks for Face ID first.
+- tapOn: "Account.*"
+- scrollUntilVisible:
+    element:
+      id: settings-row-signin
+- tapOn:
+    id: settings-row-signin
+- assertVisible:
+    id: settings-app-lock
+# The simulator's Face ID only matches once its scan is listening, a moment after the prompt
+# shows: the runner sends the match several times, and the whole step is tried again if the
+# switch is still off (never tapping a switch that is already on).
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: settings-app-lock-switch
+              checked: true
+          commands:
+            - tapOn:
+                id: settings-app-lock-switch
+            # The system prompt is up when "Face ID" shows; matching before that does nothing.
+            - extendedWaitUntil:
+                visible: "Face ID"
+                timeout: 15000
+            - runFlow:
+                file: ../subflows/control.yaml
+                env:
+                  CONTROL_PATH: /face-id/match
+      - extendedWaitUntil:
+          visible:
+            id: settings-app-lock-switch
+            checked: true
+          timeout: 10000
+
+# Cold start: kill the app and open it again (the dev launcher may ask for its server first).
+- stopApp
+- launchApp
+- runFlow:
+    when:
+      visible: "http://localhost:8081"
+    commands:
+      - tapOn: "http://localhost:8081"
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+      - tapOn:
+          point: "50%,15%"
+# The system Face ID prompt opens over the cover at once (the app's own elements are hidden
+# from the accessibility tree while it is up, so the cover itself is recognised by its colour
+# from a screenshot: burgundy edge to edge, where the home screen is white).
+- extendedWaitUntil:
+    visible: "Face ID"
+    timeout: 60000
+- runScript:
+    file: ../scripts/assert-lock-cover.js
+    env:
+      EXPECT_COVER: "true"
+# Nothing of the app shows behind the cover.
+- assertNotVisible: "Recently added"
+- assertNotVisible: "Home, tab.*"
+- takeScreenshot: app-lock-cover
+
+# Face ID matches: the cover lifts and the home screen is there.
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /face-id/match
+- extendedWaitUntil:
+    visible: "Recently added"
+    timeout: 30000
+- runScript:
+    file: ../scripts/assert-lock-cover.js
+    env:
+      EXPECT_COVER: "false"
+- assertNotVisible: "Face ID"

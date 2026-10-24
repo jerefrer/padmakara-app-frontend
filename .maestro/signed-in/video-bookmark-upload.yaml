@@ -1,0 +1,98 @@
+# e2e: ios-only (media fixtures, the runner's control server and the simulator's Face ID)
+# A video bookmark added while signed out stays on the device, and is uploaded the next time
+# the video opens signed in: it then shows on the Bookmarks tab (which the server serves) and
+# is a row in the database (read by the runner). Signed-out viewers can open videos, so the
+# whole path is real: nothing is seeded into the app's storage.
+appId: org.padmakara.pt
+name: Local video bookmark is uploaded after sign-in
+---
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /reset
+- runFlow: ../subflows/launch.yaml
+- runFlow: ../subflows/open-fixture.yaml
+
+# Signed out: bookmark a moment of the video.
+- tapOn:
+    id: event-tab-video
+- tapOn:
+    id: video-card-990001
+- extendedWaitUntil:
+    visible:
+      id: video-bookmarks
+    timeout: 30000
+- runScript:
+    file: ../scripts/assert-video-seconds.js
+    env:
+      EXPECT_MIN: "4"
+      EXPECT_MAX: "250"
+- tapOn:
+    id: video-bookmarks
+- tapOn:
+    id: video-bookmark-add
+- extendedWaitUntil:
+    visible:
+      id: video-bookmark-note
+    timeout: 10000
+- tapOn:
+    id: video-bookmark-note
+- inputText: "E2E local note"
+- tapOn:
+    id: video-bookmark-save
+- extendedWaitUntil:
+    notVisible:
+      id: video-bookmark-note
+    timeout: 10000
+- tapOn:
+    id: video-close
+# It is on the device only: the server knows nothing of it.
+- runScript:
+    file: ../scripts/assert-video-bookmarks.js
+    env:
+      EXPECT_COUNT: "0"
+
+# Sign in, on the Account tab, without leaving the app (a fresh install would lose the bookmark).
+- tapOn: "Account.*"
+- tapOn:
+    id: sign-in-email
+- inputText: ${EMAIL || "payment-test@padmakara.pt"}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: sign-in-sent
+- extendedWaitUntil:
+    notVisible:
+      id: sign-in-sent
+    timeout: 60000
+
+# Opening the video signed in uploads what the device kept.
+- runFlow: ../subflows/open-fixture.yaml
+- tapOn:
+    id: event-tab-video
+- tapOn:
+    id: video-card-990001
+- extendedWaitUntil:
+    visible:
+      id: video-bookmarks
+    timeout: 30000
+- runScript:
+    file: ../scripts/assert-video-bookmarks.js
+    env:
+      EXPECT_COUNT: "1"
+      EXPECT_NOTE: "E2E local note"
+- tapOn:
+    id: video-close
+
+# And the Bookmarks tab, served by the API, lists it.
+- tapOn: "Bookmarks, tab.*"
+- extendedWaitUntil:
+    visible:
+      id: "video-bookmark-.*"
+    timeout: 15000
+- assertVisible: ".*E2E local note.*"
+
+- runFlow:
+    file: ../subflows/control.yaml
+    env:
+      CONTROL_PATH: /reset
