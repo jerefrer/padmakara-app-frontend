@@ -20,6 +20,7 @@ import type { Gathering, GatheringTeacher } from '@/types';
 import { teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { useHero } from '@/utils/heroVariant';
 import { useFocalCover } from '@/hooks/useFocalCover';
+import { pickFrameOverride } from '@/utils/heroFrames';
 import { useEventBookmarks } from '@/hooks/useEventBookmarks';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
@@ -149,6 +150,7 @@ export default function TeacherDetailScreen() {
     focalX: teacher?.heroFocalX ?? 50,
     focalY: teacher?.heroFocalY ?? 50,
     frameHeight: HERO_HEIGHT,
+    override: pickFrameOverride(teacher?.heroFrameOverrides, 'page'),
   });
   const hasHero = !!heroSrc;
 
@@ -195,7 +197,7 @@ export default function TeacherDetailScreen() {
               source={{ uri: heroSrc!, cacheKey: teacherHeroCacheKey(teacher, heroVariant) }}
               cachePolicy="memory-disk"
               transition={0}
-              style={StyleSheet.absoluteFillObject}
+              style={[StyleSheet.absoluteFillObject, heroFocalCover.zoomStyle]}
               contentFit="cover"
               contentPosition={heroFocalCover.contentPosition}
               onLayout={heroFocalCover.onLayout}

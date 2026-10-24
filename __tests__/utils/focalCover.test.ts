@@ -1,4 +1,4 @@
-import { focalCoverPosition } from '../../utils/focalCover';
+import { focalCoverPlacement, focalCoverPosition, focalCoverTransform } from '../../utils/focalCover';
 
 /**
  * Reference vectors for the admin preview (copy these as-is). Values are the
@@ -102,5 +102,87 @@ describe('focalCoverPosition', () => {
   it('should clamp out-of-range focal values', () => {
     const r = focalCoverPosition({ frameWidth: 400, frameHeight: 200, imageWidth: 1000, imageHeight: 2000, focalX: 50, focalY: 250 });
     expect(r.top).toBe('100%');
+  });
+});
+
+/**
+ * Shared cases: padmakara-api/tests/services/focal-cover.test.ts carries the same table and checks
+ * the admin preview against it, so the previews and the app cannot drift apart.
+ */
+const ZOOM_CASES: Array<{
+  name: string;
+  input: [number, number, number, number, number, number, number];
+  expected: { w: number; h: number; ox: number; oy: number };
+}> = [
+  {
+    name: 'zoom 1 keeps the plain cover fit',
+    input: [390, 260, 1200, 1800, 50, 25, 1],
+    expected: { w: 390, h: 585, ox: 0, oy: -16.25 },
+  },
+  {
+    name: 'zoom 2 doubles the cover size and centres on the focal point',
+    input: [390, 260, 1200, 1800, 50, 25, 2],
+    expected: { w: 780, h: 1170, ox: -195, oy: -162.5 },
+  },
+  {
+    name: 'zoom 1.5 on a landscape image centres on an off-centre focal point',
+    input: [390, 380, 2400, 1350, 30, 50, 1.5],
+    expected: { w: 1013.33, h: 570, ox: -109, oy: -95 },
+  },
+  {
+    name: 'zoom 3 at the bottom-right corner is clamped so the frame stays covered',
+    input: [400, 280, 1000, 1000, 100, 100, 3],
+    expected: { w: 1200, h: 1200, ox: -800, oy: -920 },
+  },
+  {
+    name: 'zoom above 3 is treated as 3',
+    input: [400, 280, 1000, 1000, 100, 100, 5],
+    expected: { w: 1200, h: 1200, ox: -800, oy: -920 },
+  },
+];
+
+const r2 = (n: number) => Math.round(n * 100) / 100 + 0;
+const toInput = ([frameWidth, frameHeight, imageWidth, imageHeight, focalX, focalY, zoom]: number[]) => ({
+  frameWidth,
+  frameHeight,
+  imageWidth,
+  imageHeight,
+  focalX,
+  focalY,
+  zoom,
+});
+
+describe('focalCoverPlacement (shared with the admin previews)', () => {
+  it.each(ZOOM_CASES)('should match the shared table when $name', ({ input, expected }) => {
+    const p = focalCoverPlacement(toInput(input));
+    expect({ w: r2(p.width), h: r2(p.height), ox: r2(p.offsetX), oy: r2(p.offsetY) }).toEqual(expected);
+  });
+
+  it('should return a zero offset when sizes are invalid', () => {
+    expect(focalCoverPlacement({ frameWidth: 100, frameHeight: 100, imageWidth: 0, imageHeight: 200, focalX: 30, focalY: 30 })).toEqual({
+      width: 100,
+      height: 100,
+      offsetX: 0,
+      offsetY: 0,
+    });
+  });
+});
+
+describe('focalCoverTransform', () => {
+  it.each(ZOOM_CASES)('should land the image where the placement says when $name', ({ input }) => {
+    // A frame-sized view with a centred cover image, scaled around the frame centre then translated.
+    const i = toInput(input);
+    const p = focalCoverPlacement(i);
+    const t = focalCoverTransform(i);
+    const s = Math.max(i.frameWidth / i.imageWidth, i.frameHeight / i.imageHeight);
+    const coverW = i.imageWidth * s;
+    const coverH = i.imageHeight * s;
+    const leftBefore = (i.frameWidth - coverW) / 2;
+    const topBefore = (i.frameHeight - coverH) / 2;
+    const left = i.frameWidth / 2 + t.scale * (leftBefore - i.frameWidth / 2) + t.translateX;
+    const top = i.frameHeight / 2 + t.scale * (topBefore - i.frameHeight / 2) + t.translateY;
+    expect(r2(left)).toBe(r2(p.offsetX));
+    expect(r2(top)).toBe(r2(p.offsetY));
+    expect(r2(coverW * t.scale)).toBe(r2(p.width));
   });
 });

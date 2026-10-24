@@ -11,6 +11,7 @@ import Animated, {
 import { Image as ExpoImage } from 'expo-image';
 import { groupHeroCacheKey, publicationCoverCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { pickEventHero } from '@/utils/heroVariant';
+import { eventPageFrameKey, pickFrameOverride, type HeroFrameOverrides } from '@/utils/heroFrames';
 import { useFocalCover } from '@/hooks/useFocalCover';
 import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
 import { formatSessionHeader } from '@/utils/sessionHeader';
@@ -146,6 +147,7 @@ interface RetreatDetails {
     heroFocalX?: number;
     heroFocalY?: number;
     heroScale?: number;
+    heroFrameOverrides?: HeroFrameOverrides | null;
     avatarUpdatedAt?: string | null;
     heroUpdatedAt?: string | null;
   }>;
@@ -162,6 +164,7 @@ interface RetreatDetails {
     heroFocalX?: number;
     heroFocalY?: number;
     heroScale?: number;
+    heroFrameOverrides?: HeroFrameOverrides | null;
     avatarUpdatedAt?: string | null;
     heroUpdatedAt?: string | null;
   };
@@ -224,10 +227,12 @@ export default function RetreatDetailScreen() {
   // Same teacher-or-group choice as the hero drawn in renderTrackList; hooks cannot live there.
   const eventHero = pickEventHero(retreat, isMobile);
   const heroOwner = eventHero.record;
+  // The overrides come from the same record as the image and the focal point.
   const heroFocalCover = useFocalCover({
     focalX: heroOwner?.heroFocalX ?? 50,
     focalY: heroOwner?.heroFocalY ?? 50,
     frameHeight: HERO_HEIGHT,
+    override: pickFrameOverride(heroOwner?.heroFrameOverrides, eventPageFrameKey(isDesktop)),
   });
 
   const heroStyle = useAnimatedStyle(() => ({
@@ -1483,7 +1488,9 @@ export default function RetreatDetailScreen() {
                 transition={0}
                 style={[
                   StyleSheet.absoluteFillObject,
-                  heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },
+                  // The legacy scale yields to a per-frame framing, which already carries its own zoom.
+                  !heroFocalCover.hasOverride && heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },
+                  heroFocalCover.zoomStyle,
                 ]}
                 contentFit="cover"
                 contentPosition={heroFocalCover.contentPosition}

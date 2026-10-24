@@ -18,6 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useHero } from '@/utils/heroVariant';
 import { useFocalCover } from '@/hooks/useFocalCover';
+import { pickFrameOverride } from '@/utils/heroFrames';
 import { groupHeroCacheKey } from '@/utils/cacheKeys';
 import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
@@ -270,6 +271,7 @@ export default function GroupDetailScreen() {
     focalX: groupData?.heroFocalX ?? 50,
     focalY: groupData?.heroFocalY ?? 50,
     frameHeight: HERO_HEIGHT,
+    override: pickFrameOverride(groupData?.heroFrameOverrides, 'page'),
   });
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -463,9 +465,11 @@ export default function GroupDetailScreen() {
                 source={{ uri: groupHeroSrc!, cacheKey: groupHeroCacheKey(groupData as any, groupHeroVariant) }}
                 style={[
                   StyleSheet.absoluteFillObject,
-                  (groupData.heroScale ?? 100) !== 100 && {
+                  // The legacy scale yields to a per-frame framing, which already carries its own zoom.
+                  !heroFocalCover.hasOverride && (groupData.heroScale ?? 100) !== 100 && {
                     transform: [{ scale: (groupData.heroScale ?? 100) / 100 }],
                   },
+                  heroFocalCover.zoomStyle,
                 ]}
                 contentFit="cover"
                 contentPosition={heroFocalCover.contentPosition}
