@@ -22,7 +22,7 @@ export function DesktopShell({
   children,
   playerBar,
 }: DesktopShellProps) {
-  const { sidebarWidth, playerBarHeight } = useDesktopLayout();
+  const { sidebarWidth, playerBarHeight, showSidebar, showRightRail, isMobile } = useDesktopLayout();
 
   // Activate keyboard shortcuts for audio playback on web
   useKeyboardShortcuts();
@@ -39,6 +39,9 @@ export function DesktopShell({
         sidebarWidth={sidebarWidth}
         playerBarHeight={playerBarHeight}
         insets={insets}
+        showSidebar={showSidebar}
+        showRightRail={showRightRail}
+        showPlayerBar={!isMobile}
       >
         {children}
       </NativeShell>
@@ -129,6 +132,9 @@ interface NativeShellProps extends DesktopShellProps {
   sidebarWidth: number;
   playerBarHeight: number;
   insets: { top: number; bottom: number; left: number; right: number };
+  showSidebar: boolean;
+  showRightRail: boolean;
+  showPlayerBar: boolean;
 }
 
 /**
@@ -137,6 +143,11 @@ interface NativeShellProps extends DesktopShellProps {
  * notch / rounded corners on the sides); the player bar absorbs the home
  * indicator. The main pane keeps the full height, screens handle their own
  * top inset like they do on the phone layout.
+ *
+ * The tree is identical in every mode: slots that are hidden (phone-width
+ * Split View, tablet without a right rail) keep their container and render
+ * nothing inside, so `children` (the navigator) never remounts when the
+ * width crosses a breakpoint.
  */
 function NativeShell({
   sidebar,
@@ -147,6 +158,9 @@ function NativeShell({
   sidebarWidth,
   playerBarHeight,
   insets,
+  showSidebar,
+  showRightRail,
+  showPlayerBar,
 }: NativeShellProps) {
   return (
     <View style={styles.nativeShell}>
@@ -154,46 +168,48 @@ function NativeShell({
         <View
           style={[
             styles.sidebarContainer,
-            {
-              width: sidebarWidth + insets.left,
-              paddingLeft: insets.left,
-              paddingTop: insets.top,
-            },
+            showSidebar
+              ? {
+                  width: sidebarWidth + insets.left,
+                  paddingLeft: insets.left,
+                  paddingTop: insets.top,
+                }
+              : styles.hidden,
           ]}
         >
-          {sidebar}
+          {showSidebar ? sidebar : null}
         </View>
-        <View style={styles.nativeMain}>{children}</View>
-        {rightSidebar && (
-          <View
-            style={[
-              styles.rightSidebarContainer,
-              {
-                width: rightSidebarWidth + insets.right,
-                paddingRight: insets.right,
-                paddingTop: insets.top,
-              },
-            ]}
-          >
-            {rightSidebar}
-          </View>
-        )}
-      </View>
-      {playerBar && (
+        <View style={[styles.nativeMain, showSidebar && styles.nativeMainFilled]}>{children}</View>
         <View
           style={[
-            styles.playerBar,
-            {
-              height: playerBarHeight + insets.bottom,
-              paddingBottom: insets.bottom,
-              paddingLeft: insets.left,
-              paddingRight: insets.right,
-            },
+            styles.rightSidebarContainer,
+            showRightRail && rightSidebar
+              ? {
+                  width: rightSidebarWidth + insets.right,
+                  paddingRight: insets.right,
+                  paddingTop: insets.top,
+                }
+              : styles.hidden,
           ]}
         >
-          {playerBar}
+          {showRightRail ? rightSidebar : null}
         </View>
-      )}
+      </View>
+      <View
+        style={[
+          styles.playerBar,
+          showPlayerBar && playerBar
+            ? {
+                height: playerBarHeight + insets.bottom,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+                paddingRight: insets.right,
+              }
+            : styles.hidden,
+        ]}
+      >
+        {showPlayerBar ? playerBar : null}
+      </View>
     </View>
   );
 }
@@ -209,9 +225,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: 0,
   },
+  hidden: {
+    display: 'none',
+  },
   nativeMain: {
     flex: 1,
     minWidth: 0,
+  },
+  nativeMainFilled: {
     backgroundColor: colors.cream[100],
   },
   shell: {

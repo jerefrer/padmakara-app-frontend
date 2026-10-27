@@ -38,3 +38,12 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** the API gains a local media mode, or the run time becomes a reason to skip it.
 
 ---
+
+## 2026-10-27 — Native iPad uses the web tablet/desktop layouts, driven by width
+**Chosen:** `utils/layout.ts` (`computeLayout`) is the single source for the layout. iPhones are always mobile. An iPad follows its window WIDTH, never its orientation: below 744 mobile (Split View, Slide Over), 744-1024 tablet (a 72pt icon rail, no right rail, no related-events column, the shell's player bar is the only player), 1025+ the web desktop layout. Web output is unchanged (768/1025 thresholds, full sidebar and right rail on 768-1024); the only web change is that Bookmarks and Account are now in the sidebar. On native, the (tabs) and (groups) layouts keep one tree at every width: hidden slots stay mounted-but-empty so the navigator never remounts when the width crosses a breakpoint.
+**Alternatives:** an orientation-based switch (wrong in Split View and on 13-inch iPads); making web 768-1024 use the new compact tablet too (would change shipped web behaviour); a separate iPad route tree (duplicates every screen).
+**Why:** an iPad has a desktop-class screen, the layouts already existed for web, and width is the only signal that stays right through multitasking and rotation. 744 (not 768) so an iPad mini in portrait gets the tablet layout.
+**Trade-offs:** the web 768-1024 range keeps its odd desktop chrome with mobile content for now; native content on the iPad tablet is still the phone content (full-bleed lists) next to a rail.
+**Revisit if:** web tablet gets the compact rail too, or a tablet-specific event page (two columns) is wanted.
+
+---

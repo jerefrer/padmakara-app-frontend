@@ -200,7 +200,10 @@ export default function RetreatDetailScreen() {
     position?: string;
   }>();
   const { t, showPortuguese, language } = useLanguage();
-  const { isDesktop, isMobile } = useDesktopLayout();
+  const { isDesktop, isMobile, compactSidebar, showInlinePlayer: layoutAllowsInlinePlayer } = useDesktopLayout();
+  // The shell's player bar is the only player here (desktop, and the iPad tablet
+  // layout); the screen then drops its inline player and mobile-only chrome.
+  const playerInShell = isDesktop || !!compactSidebar;
   const insets = useSafeAreaInsets();
   const audioContext = useAudioPlayerContext();
   const { isAuthenticated } = useAuth();
@@ -1345,6 +1348,7 @@ export default function RetreatDetailScreen() {
     String(audioContext.retreatId) === String(retreat.id);
   const showInlinePlayer =
     !isDesktop &&
+    layoutAllowsInlinePlayer !== false &&
     !!retreat &&
     shouldShowInlinePlayer({
       ownsCurrentTrack,
@@ -1867,7 +1871,7 @@ export default function RetreatDetailScreen() {
           { top: isDesktop ? 16 : insets.top + 8 },
         ]}
       >
-        {isDesktop && showLanguagePicker && (
+        {playerInShell && showLanguagePicker && (
           <View style={styles.languageDropdownContainerFloating}>
             <TouchableOpacity
               style={styles.languageButtonFloating}
@@ -1956,7 +1960,7 @@ export default function RetreatDetailScreen() {
       {(isDownloadingRetreat || isDownloadingZip) && (
         <View
           style={
-            isDesktop
+            playerInShell
               ? styles.desktopDownloadToast
               : [styles.mobileDownloadBannerOverlay, { top: insets.top + 8 + 48 }]
           }
@@ -1969,7 +1973,7 @@ export default function RetreatDetailScreen() {
           (groups)/_layout.tsx so it survives event-to-event navigation —
           the screen itself just renders the event content (hero + title +
           tracks) on both platforms. */}
-      {isDesktop ? (
+      {playerInShell ? (
         renderTrackList(24)
       ) : (
         <>
@@ -2135,7 +2139,7 @@ export default function RetreatDetailScreen() {
           player's own bottom offset (49 + safe area when the regular
           player is showing, just safe area inside the read-along
           modal) plus enough clearance to sit above the toolbar row. */}
-      {!isDesktop && showLanguagePicker && (
+      {!playerInShell && showLanguagePicker && (
         <Modal
           visible={showLanguageDropdown}
           transparent
