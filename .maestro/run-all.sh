@@ -26,6 +26,8 @@ android_avd="${ANDROID_AVD:-Medium_Phone_API_35}"
 android_sdk="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 adb="$android_sdk/platform-tools/adb"
 platform="ios"
+suite="all"
+shots_dir="${SHOTS_DIR:-}"
 control_port=3999
 fixtures="$here/fixtures"
 cache="$fixtures/.cache"
@@ -34,9 +36,20 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --platform) platform="${2:-}"; shift 2 ;;
     --platform=*) platform="${1#*=}"; shift ;;
-    *) echo "Unknown option: $1 (usage: run-all.sh [--platform ios|android|all])" >&2; exit 2 ;;
+    --suite) suite="${2:-}"; shift 2 ;;
+    --suite=*) suite="${1#*=}"; shift ;;
+    *) echo "Unknown option: $1 (usage: run-all.sh [--platform ios|android|all] [--suite all|ipad])" >&2; exit 2 ;;
   esac
 done
+case "$suite" in all | ipad) ;; *) echo "--suite must be all or ipad" >&2; exit 2 ;; esac
+if [ "$suite" = ipad ]; then
+  # The iPad tour: iOS only, on an iPad simulator, screenshots into SHOTS_DIR.
+  platform="ios"
+  ios_name="${IOS_SIMULATOR:-iPad Air 11-inch (M3)}"
+  : "${shots_dir:=${TMPDIR:-/tmp}/ipad-shots}"
+  mkdir -p "$shots_dir"
+  export MAESTRO_SHOTS_DIR="$shots_dir"
+fi
 case "$platform" in ios | android | all) ;; *) echo "--platform must be ios, android or all" >&2; exit 2 ;; esac
 
 # A first simulator boot often outlasts Maestro's default wait for its iOS driver.
@@ -211,6 +224,17 @@ run_maestro() {
 
 run_flows() {
   local label="$1" udid="$2" start flow rc
+  if [ "$suite" = ipad ]; then
+    for flow in "$here"/ipad/tour.yaml; do
+      start=$SECONDS
+      echo; echo "e2e: [$label] ipad/$(basename "$flow")"
+      ensure_servers
+      run_maestro "$here/run-signed-in.sh" --udid "$udid" "$flow"; rc=$?
+      results+=("$([ $rc -eq 0 ] && echo PASS || echo FAIL)  $label  ipad/$(basename "$flow")  $((SECONDS - start))s")
+      [ $rc -eq 0 ] || failed=$((failed + 1))
+    done
+    return
+  fi
   # Signed-out flows first, then every signed-in flow through run-signed-in.sh.
   for flow in "$here"/*.yaml; do
     start=$SECONDS

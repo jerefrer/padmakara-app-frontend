@@ -1,0 +1,47 @@
+# Not a test on its own (it needs ORIENT and a signed-in iPad): one pass over the main
+# screens with a screenshot of each, in the current orientation. Called by tour.yaml.
+# Screenshots land in $MAESTRO_SHOTS_DIR as <ORIENT>-<screen>.png.
+appId: org.padmakara.pt
+---
+- tapOn: "What's New"
+- runFlow: ../subflows/pause.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-1-home
+- tapOn: "Teachings & Talks"
+- runFlow: ../subflows/pause.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-2-events
+# An event with audio, played: the shell's player bar is the only player.
+- tapOn: "Search"
+- tapOn:
+    id: search-input
+- eraseText: 40
+- inputText: "E2E Fixture"
+- extendedWaitUntil:
+    visible:
+      id: search-result-990001
+    timeout: 15000
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-3-search
+- tapOn:
+    id: search-result-990001
+- extendedWaitUntil:
+    visible:
+      id: event-tab-tracks
+    timeout: 15000
+- tapOn:
+    id: event-tab-tracks
+- extendedWaitUntil:
+    visible:
+      id: track-row-990001
+    timeout: 15000
+- tapOn:
+    id: track-row-990001
+- runFlow: ../subflows/pause.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-4-event
+- tapOn: "Publications"
+- runFlow: ../subflows/pause.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-5-publications
+- tapOn: "Bookmarks"
+- runFlow: ../subflows/pause.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-6-bookmarks
+- tapOn: "Account"
+- runFlow: ../subflows/pause.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-7-settings

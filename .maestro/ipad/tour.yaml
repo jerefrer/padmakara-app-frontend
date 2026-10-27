@@ -1,0 +1,36 @@
+# e2e: ios-only (iPad simulator: run with `.maestro/run-all.sh --suite ipad`)
+# One signed-in tour of the iPad layouts, screenshots in portrait and landscape. The pictures
+# are the product: they are read by a person (the layout has no accessibility-tree assertions
+# for "no overlap"), so the flow only checks that every screen is reachable from the sidebar.
+appId: org.padmakara.pt
+name: iPad tour
+---
+- runFlow: ../subflows/launch.yaml
+- takeScreenshot: ${MAESTRO_SHOTS_DIR}/portrait-0-signed-out
+- tapOn: "Account"
+- scrollUntilVisible:
+    element: "Sign In"
+- tapOn: "Sign In"
+- tapOn:
+    id: sign-in-email
+- inputText: ${EMAIL || "payment-test@padmakara.pt"}
+- tapOn:
+    id: sign-in-submit
+- assertVisible:
+    id: sign-in-sent
+- extendedWaitUntil:
+    notVisible:
+      id: sign-in-sent
+    timeout: 60000
+- setOrientation: PORTRAIT
+- runFlow:
+    file: screens.yaml
+    env:
+      ORIENT: portrait
+- setOrientation: LANDSCAPE_LEFT
+- runFlow: ../subflows/pause.yaml
+- runFlow:
+    file: screens.yaml
+    env:
+      ORIENT: landscape
+- setOrientation: PORTRAIT
