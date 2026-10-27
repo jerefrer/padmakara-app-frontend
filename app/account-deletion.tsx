@@ -1,22 +1,15 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  StyleSheet,
-  Platform,
-  Pressable,
-  TextInput,
-  ActivityIndicator,
-} from 'react-native';
+import { Text, StyleSheet, Platform, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
-import { BackButton } from '@/components/ui/BackButton';
+import { useFocusRing } from '@/components/membership/focusRing';
+import { pageStyles } from '@/components/membership/pageStyles';
+import { membershipColors as c } from '@/components/membership/theme';
+import { LegalBody, LegalPage, LegalSection, legalStyles } from '@/components/legal/LegalPage';
+import { Segmented } from '@/components/settings/ui';
 
 /**
  * Public page (no sign-in) for deleting a Padmakara account. It is the URL listed in
@@ -41,6 +34,7 @@ export default function AccountDeletionScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkInvalid, setLinkInvalid] = useState(false);
+  const ring = useFocusRing();
 
   const tr = (key: string, fallback: string) => t(`accountDeletionPage.${key}`) || fallback;
 
@@ -104,259 +98,178 @@ export default function AccountDeletionScreen() {
     setStep('form');
   };
 
-  const info = (title: string, body: string) => (
-    <View style={styles.infoBlock}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.body}>{body}</Text>
-    </View>
+  const keptSection = (
+    <LegalSection title={tr('whatKeptTitle', 'What is kept')}>
+      <LegalBody>
+        {tr(
+          'whatKept',
+          'Records of payments made to the Association are kept, without your personal details, because Portuguese accounting law requires us to keep them for several years. Any recurring payment is cancelled.',
+        )}
+      </LegalBody>
+    </LegalSection>
   );
 
   const errorBox = error ? (
-    <View style={styles.errorContainer} accessibilityRole="alert">
-      <Ionicons name="alert-circle" size={16} color="#dc2626" />
-      <Text style={styles.errorText}>{error}</Text>
-    </View>
+    <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+      {error}
+    </Text>
   ) : null;
 
+  const languageSwitch = (
+    <Segmented
+      label={t('profile.language') || 'App Language'}
+      value={language === 'pt' ? 'pt' : 'en'}
+      onChange={setLanguage}
+      options={[
+        { value: 'en', label: 'English' },
+        { value: 'pt', label: 'Português' },
+      ]}
+    />
+  );
+
+  const title =
+    step === 'sent'
+      ? tr('sentTitle', 'Check your email')
+      : step === 'confirm'
+        ? tr('confirmTitle', 'Confirm account deletion')
+        : step === 'done'
+          ? tr('doneTitle', 'Your account has been deleted')
+          : tr('title', 'Delete your Padmakara account');
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <BackButton variant="inline" style={styles.headerBack} disabled={busy} />
-        <Text style={styles.headerTitle}>{tr('title', 'Delete your Padmakara account')}</Text>
-        <Pressable
-          style={styles.langButton}
-          onPress={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
-          accessibilityRole="button"
-        >
-          <Text style={styles.langText}>{tr('switchLanguage', language === 'pt' ? 'English' : 'Português')}</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {step === 'form' && (
-          <>
-            <Text style={styles.pageTitle}>{tr('title', 'Delete your Padmakara account')}</Text>
-            <Text style={styles.lead}>
-              {tr(
-                'intro',
-                'This page explains how to delete your account for the Padmakara app, run by Associação Padmakara Portugal. You can do it without opening the app.',
-              )}
-            </Text>
-
-            {info(
-              tr('inAppTitle', 'From the app'),
-              tr('inApp', 'Open the Padmakara app and go to Settings, then Delete account.'),
+    <LegalPage title={title} headerRight={languageSwitch} backDisabled={busy}>
+      {step === 'form' && (
+        <>
+          <LegalBody style={styles.lead}>
+            {tr(
+              'intro',
+              'This page explains how to delete your account for the Padmakara app, run by Associação Padmakara Portugal. You can do it without opening the app.',
             )}
-            {info(
-              tr('whatDeletedTitle', 'What is deleted'),
-              tr(
+          </LegalBody>
+
+          <LegalSection title={tr('inAppTitle', 'From the app')}>
+            <LegalBody>{tr('inApp', 'Open the Padmakara app and go to Settings, then Delete account.')}</LegalBody>
+          </LegalSection>
+          <LegalSection title={tr('whatDeletedTitle', 'What is deleted')}>
+            <LegalBody>
+              {tr(
                 'whatDeleted',
                 'Your account, your name and email address, your registered devices, your listening and viewing progress, your bookmarks and your access to retreat content. This cannot be undone.',
-              ),
-            )}
-            {info(
-              tr('whatKeptTitle', 'What is kept'),
-              tr(
-                'whatKept',
-                'Records of payments made to the Association are kept, without your personal details, because Portuguese accounting law requires us to keep them for several years. Any recurring payment is cancelled.',
-              ),
-            )}
-            {info(
-              tr('fromPageTitle', 'From this page'),
-              tr(
+              )}
+            </LegalBody>
+          </LegalSection>
+          {keptSection}
+          <LegalSection title={tr('fromPageTitle', 'From this page')}>
+            <LegalBody>
+              {tr(
                 'fromPageBody',
                 'Enter the email address of your Padmakara account. If an account exists, we will email you a confirmation link that is valid for one hour. Nothing is deleted until you use that link.',
-              ),
-            )}
+              )}
+            </LegalBody>
+          </LegalSection>
 
-            <Text style={styles.inputLabel}>{tr('emailLabel', 'Email address of your account')}</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder={tr('emailPlaceholder', 'you@example.com')}
-              placeholderTextColor={colors.gray[400]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!busy}
-              onSubmitEditing={handleRequest}
-              accessibilityLabel={tr('emailLabel', 'Email address of your account')}
-            />
-            {errorBox}
+          <Text style={legalStyles.fieldLabel}>{tr('emailLabel', 'Email address of your account')}</Text>
+          <TextInput
+            style={[styles.input, ring.style]}
+            value={email}
+            onChangeText={setEmail}
+            placeholder={tr('emailPlaceholder', 'you@example.com')}
+            placeholderTextColor={c.gray[400]}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            autoComplete="email"
+            editable={!busy}
+            onSubmitEditing={handleRequest}
+            onFocus={ring.onFocus}
+            onBlur={ring.onBlur}
+            accessibilityLabel={tr('emailLabel', 'Email address of your account')}
+          />
+          {errorBox}
+          <Pressable
+            style={({ pressed }) => [styles.button, pressed && pageStyles.buttonPressed, busy && styles.busy]}
+            onPress={handleRequest}
+            disabled={busy}
+            accessibilityRole="button"
+          >
+            {busy ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <Text style={pageStyles.buttonText}>{tr('sendButton', 'Send confirmation link')}</Text>
+            )}
+          </Pressable>
+        </>
+      )}
+
+      {step === 'sent' && (
+        <LegalBody style={styles.lead}>
+          {tr(
+            'sentBody',
+            'If an account exists for this address, we have sent a confirmation link. It is valid for one hour.',
+          )}
+        </LegalBody>
+      )}
+
+      {step === 'confirm' && (
+        <>
+          <LegalBody style={styles.lead}>
+            {tr(
+              'confirmWarning',
+              'You are about to permanently delete your Padmakara account and all of its personal data. This cannot be undone.',
+            )}
+          </LegalBody>
+          {keptSection}
+          {errorBox}
+          {linkInvalid ? (
             <Pressable
-              style={[styles.primaryButton, busy && styles.buttonBusy]}
-              onPress={handleRequest}
+              style={({ pressed }) => [styles.button, pressed && pageStyles.buttonPressed]}
+              onPress={requestNewLink}
+              accessibilityRole="button"
+            >
+              <Text style={pageStyles.buttonText}>{tr('requestNewLink', 'Request a new link')}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [styles.button, styles.danger, pressed && styles.dangerPressed, busy && styles.busy]}
+              onPress={handleConfirm}
               disabled={busy}
               accessibilityRole="button"
             >
               {busy ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.primaryButtonText}>{tr('sendButton', 'Send confirmation link')}</Text>
+                <Text style={pageStyles.buttonText}>{tr('confirmButton', 'Delete my account permanently')}</Text>
               )}
             </Pressable>
-          </>
-        )}
+          )}
+        </>
+      )}
 
-        {step === 'sent' && (
-          <View style={styles.centered}>
-            <Ionicons name="mail-outline" size={48} color={colors.burgundy[500]} />
-            <Text style={styles.pageTitle}>{tr('sentTitle', 'Check your email')}</Text>
-            <Text style={styles.lead}>
-              {tr(
-                'sentBody',
-                'If an account exists for this address, we have sent a confirmation link. It is valid for one hour.',
-              )}
-            </Text>
-          </View>
-        )}
-
-        {step === 'confirm' && (
-          <>
-            <View style={styles.centered}>
-              <Ionicons name="warning" size={48} color="#dc2626" />
-              <Text style={styles.pageTitle}>{tr('confirmTitle', 'Confirm account deletion')}</Text>
-              <Text style={styles.lead}>
-                {tr(
-                  'confirmWarning',
-                  'You are about to permanently delete your Padmakara account and all of its personal data. This cannot be undone.',
-                )}
-              </Text>
-            </View>
-            {info(
-              tr('whatKeptTitle', 'What is kept'),
-              tr(
-                'whatKept',
-                'Records of payments made to the Association are kept, without your personal details, because Portuguese accounting law requires us to keep them for several years. Any recurring payment is cancelled.',
-              ),
-            )}
-            {errorBox}
-            {linkInvalid ? (
-              <Pressable style={styles.primaryButton} onPress={requestNewLink} accessibilityRole="button">
-                <Text style={styles.primaryButtonText}>{tr('requestNewLink', 'Request a new link')}</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={[styles.deleteButton, busy && styles.buttonBusy]}
-                onPress={handleConfirm}
-                disabled={busy}
-                accessibilityRole="button"
-              >
-                {busy ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="trash-outline" size={18} color="#ffffff" />
-                    <Text style={styles.primaryButtonText}>
-                      {tr('confirmButton', 'Delete my account permanently')}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            )}
-          </>
-        )}
-
-        {step === 'done' && (
-          <View style={styles.centered}>
-            <Ionicons name="checkmark-circle-outline" size={48} color={colors.burgundy[500]} />
-            <Text style={styles.pageTitle}>{tr('doneTitle', 'Your account has been deleted')}</Text>
-            <Text style={styles.lead}>
-              {tr('doneBody', 'Your account and personal data have been deleted. Thank you for being part of Padmakara.')}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-    </View>
+      {step === 'done' && (
+        <LegalBody style={styles.lead}>
+          {tr('doneBody', 'Your account and personal data have been deleted. Thank you for being part of Padmakara.')}
+        </LegalBody>
+      )}
+    </LegalPage>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream[200] },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 56 : 16,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: colors.cream[200],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
-  },
-  headerBack: { marginLeft: 0 },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: colors.gray[800], textAlign: 'center' },
-  langButton: { minWidth: 44, height: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  langText: { fontSize: 14, color: colors.burgundy[500], fontWeight: '600' },
-  scrollView: { flex: 1 },
-  content: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    maxWidth: 560,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  centered: { alignItems: 'center', marginBottom: 12 },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.gray[800],
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  lead: { fontSize: 15, lineHeight: 24, color: colors.gray[600], textAlign: 'center', marginBottom: 28 },
-  infoBlock: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.gray[800], marginBottom: 6 },
-  body: { fontSize: 15, lineHeight: 23, color: colors.gray[600] },
-  inputLabel: { fontSize: 15, fontWeight: '500', color: colors.gray[700], marginTop: 8, marginBottom: 10 },
+  lead: { marginTop: 8 },
+  // Same field as the sign-in form.
   input: {
+    height: 50,
     borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 8,
+    borderColor: c.gray[300],
+    backgroundColor: c.white,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.gray[800],
-    backgroundColor: colors.white,
-    marginBottom: 16,
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+    fontSize: 17,
+    color: c.gray[800],
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null),
   },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fef2f2',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: { flex: 1, fontSize: 14, color: '#dc2626' },
-  primaryButton: {
-    backgroundColor: colors.burgundy[500],
-    borderRadius: 10,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  deleteButton: {
-    backgroundColor: '#dc2626',
-    borderRadius: 10,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  buttonBusy: { opacity: 0.7 },
-  primaryButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  bottomSpacer: { height: 60 },
+  error: { fontSize: 14, color: c.red[700], marginTop: 8 },
+  button: { ...pageStyles.button, marginTop: 24, minWidth: 160, alignItems: 'center' },
+  danger: { backgroundColor: c.red[700] },
+  dangerPressed: { backgroundColor: '#991b1b' },
+  busy: { opacity: 0.7 },
 });
