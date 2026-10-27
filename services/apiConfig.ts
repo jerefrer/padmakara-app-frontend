@@ -79,6 +79,10 @@ export const API_ENDPOINTS = {
   
   // Account Management
   DELETE_ACCOUNT: '/auth/user/delete',
+  /** Public (no login): emails a one-time deletion link. Always answers 200. */
+  ACCOUNT_DELETION_REQUEST: '/auth/account-deletion/request',
+  /** Public: redeems the emailed link and deletes the account. */
+  ACCOUNT_DELETION_CONFIRM: '/auth/account-deletion/confirm',
 
   // Membership
   MEMBERSHIP: '/payment/membership',

@@ -147,6 +147,7 @@ export default function RootLayout() {
             <Stack.Screen name="subscription/[...rest]" options={{ headerShown: false }} />
             <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
             <Stack.Screen name="delete-account" options={{ headerShown: false }} />
+            <Stack.Screen name="account-deletion" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
             <StatusBar style="dark" backgroundColor="#e8e6e3" />
