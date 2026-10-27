@@ -38,3 +38,12 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** the API gains a local media mode, or the run time becomes a reason to skip it.
 
 ---
+
+---
+
+## 2026-10-27 — Sign-out is best effort, then honest
+**Chosen:** "Sign out of this device" always ends in the signed-out UI. Each local removal (tokens, cached user, activation record) runs independently; if one fails, the user is told ("signed out, but some data could not be removed — restart the app") and a `pending_local_cleanup` flag (a timestamp only) makes the next app start retry the removal. The retry is skipped, and the flag dropped, when `activation_date` is newer than the flag, so a sign-in made in between is never undone.
+**Alternatives:** rethrow and show "sign-out failed" (misleading when the user is half signed out); keep swallowing errors (could leave a token on a shared device without anyone knowing); guard on `isDeviceActivated` (a failed removal leaves it true, so the cleanup would never run).
+**Why:** the user asked to be signed out; the UI must say so, and any leftover credential must not stay silent.
+**Trade-offs:** the freshness check compares `activation_date` with the device clock; `activation_date` can come from the server's `activated_at`, so heavy clock skew could misjudge it (worst case: a leftover is cleared one start later, or a cleanup is skipped).
+**Revisit if:** sign-out failures show up in Sentry, or activation dates move fully server-side.
