@@ -56,6 +56,10 @@ export default function MagicLinkScreen() {
   const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '');
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(approval === '1');
+  // Store-review account: the server asks for a code instead of emailing a link.
+  const [showCodeForm, setShowCodeForm] = useState(false);
+  const [reviewCode, setReviewCode] = useState('');
+  const [codeError, setCodeError] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState('');
@@ -145,6 +149,12 @@ export default function MagicLinkScreen() {
           });
           break;
 
+        case 'code_required':
+          setReviewCode('');
+          setCodeError(false);
+          setShowCodeForm(true);
+          break;
+
         case 'approval_required':
           // Show approval form
           setShowApprovalForm(true);
@@ -155,6 +165,32 @@ export default function MagicLinkScreen() {
       }
     } catch (error) {
       console.error('Magic link request error:', error);
+      Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCodeSubmit = async () => {
+    const value = reviewCode.trim();
+    if (value.length < 6 || value.length > 12) {
+      setCodeError(true);
+      return;
+    }
+    setCodeError(false);
+    setIsLoading(true);
+    Keyboard.dismiss();
+    try {
+      const result = await magicLinkService.reviewLogin(email.trim(), value);
+      if (result.success) {
+        // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect.
+        await refreshAuth();
+      } else if (result.incorrectCode) {
+        setCodeError(true);
+      } else {
+        Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to process your request. Please try again.');
+      }
+    } catch (error) {
       Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));
     } finally {
       setIsLoading(false);
@@ -327,6 +363,54 @@ export default function MagicLinkScreen() {
     </Animated.View>
   );
 
+  const renderCodeForm = () => (
+    <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>{t('auth.signInPanel.codeLabel') || 'Review code'}</Text>
+        <Text style={styles.subtitle}>
+          {t('auth.signInPanel.codeHelp') || 'This account signs in with a code provided to app reviewers.'}
+        </Text>
+      </View>
+      <View style={styles.formContainer}>
+        <View style={styles.inputContainer}>
+          <TextInput
+            testID="review-code-input"
+            style={styles.textInput}
+            value={reviewCode}
+            onChangeText={setReviewCode}
+            maxLength={12}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoading}
+            onSubmitEditing={handleCodeSubmit}
+            returnKeyType="go"
+          />
+          {codeError ? (
+            <Text testID="review-code-error" style={styles.deviceHint}>
+              {t('auth.signInPanel.codeIncorrect') || 'Incorrect code'}
+            </Text>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          testID="review-code-submit"
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={handleCodeSubmit}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.primaryButtonText}>{t('auth.magicLink.continueButton')}</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowCodeForm(false)} disabled={isLoading}>
+          <Text style={styles.secondaryButtonText}>{t('auth.magicLink.approval.backButton')}</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+
   const renderApprovalForm = () => (
     <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
       {renderLanguageSwitcher()}
@@ -407,7 +491,7 @@ export default function MagicLinkScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.background}>
-        {showApprovalForm ? renderApprovalForm() : renderEmailForm()}
+        {showCodeForm ? renderCodeForm() : showApprovalForm ? renderApprovalForm() : renderEmailForm()}
       </View>
     </SafeAreaView>
   );
