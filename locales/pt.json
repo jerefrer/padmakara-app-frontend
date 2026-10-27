@@ -87,6 +87,9 @@
       "resend": "Reenviar email",
       "resendIn": "Reenviar dentro de {{seconds}}s",
       "another": "Usar outro endereço",
+      "codeLabel": "Código de revisão",
+      "codeHelp": "Esta conta inicia sessão com um código fornecido aos revisores da aplicação.",
+      "codeIncorrect": "Código incorreto",
       "signedIn": "Sessão iniciada.",
       "close": "Fechar",
       "stayHere": "Continua nesta página."

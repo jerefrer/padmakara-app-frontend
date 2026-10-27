@@ -7,7 +7,7 @@ const mockRefreshAuth = jest.fn(() => Promise.resolve());
 
 jest.mock('@/services/magicLinkService', () => ({
   __esModule: true,
-  default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn() },
+  default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn(), reviewLogin: jest.fn() },
 }));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ refreshAuth: mockRefreshAuth }),
@@ -18,6 +18,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 
 const request = magicLinkService.requestMagicLink as jest.Mock;
 const check = magicLinkService.checkActivationStatus as jest.Mock;
+const reviewLogin = magicLinkService.reviewLogin as jest.Mock;
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -125,5 +126,47 @@ describe('useMagicLinkSignIn', () => {
     });
     expect(request).toHaveBeenCalledTimes(2);
     expect(result.current.resent).toBe(true);
+  });
+
+  describe('review code sign-in', () => {
+    it('should ask for the code instead of waiting for an email when the server requires one', async () => {
+      const { result } = await submit({ success: true, data: { status: 'code_required' } }, 'review@padmakara.pt');
+      expect(result.current.phase).toBe('code');
+      expect(check).not.toHaveBeenCalled();
+    });
+
+    it('should sign in with the right code', async () => {
+      const { result } = await submit({ success: true, data: { status: 'code_required' } }, 'review@padmakara.pt');
+      reviewLogin.mockResolvedValueOnce({ success: true, data: { status: 'already_activated' } });
+      act(() => result.current.setCode('demo-code-1'));
+      await act(async () => {
+        await result.current.submitCode();
+      });
+      expect(reviewLogin).toHaveBeenCalledWith('review@padmakara.pt', 'demo-code-1');
+      expect(mockRefreshAuth).toHaveBeenCalledTimes(1);
+      expect(result.current.phase).toBe('done');
+    });
+
+    it('should flag a wrong code and stay on the code step', async () => {
+      const { result } = await submit({ success: true, data: { status: 'code_required' } }, 'review@padmakara.pt');
+      reviewLogin.mockResolvedValueOnce({ success: false, incorrectCode: true });
+      act(() => result.current.setCode('wrong-code'));
+      await act(async () => {
+        await result.current.submitCode();
+      });
+      expect(result.current.error).toBe('badCode');
+      expect(result.current.phase).toBe('code');
+      expect(mockRefreshAuth).not.toHaveBeenCalled();
+    });
+
+    it('should refuse a code outside 6 to 12 characters without calling the server', async () => {
+      const { result } = await submit({ success: true, data: { status: 'code_required' } }, 'review@padmakara.pt');
+      act(() => result.current.setCode('abc'));
+      await act(async () => {
+        await result.current.submitCode();
+      });
+      expect(result.current.error).toBe('badCode');
+      expect(reviewLogin).not.toHaveBeenCalled();
+    });
   });
 });
