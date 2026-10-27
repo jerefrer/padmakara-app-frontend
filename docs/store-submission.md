@@ -31,7 +31,10 @@ How it works:
   sign-in is the same as for any member.
 - The account is "App Review" (user id 6 on prod), a plain member of the retreat
   groups Mind Training 1 and 2 (ids 17 and 18), with an admin-granted membership
-  so it can open their retreats. The admin shows it with a "Review account" chip:
+  (status active, source admin, expires 2099-12-31; set 2026-10-27) so it can open
+  their retreats. Checked 2026-10-27: it opens "Parallel Retreat 1" (18 tracks) and
+  "Mind Training 1 | Spring Retreat 2025" (98 tracks, 49 with read-along, 3 videos)
+  — the best retreat to point reviewers to. The admin shows it with a "Review account" chip:
   do not delete it or remove it from its groups — Apple and Google re-review every
   update.
 - Changing the code: edit `REVIEW_ACCOUNT_CODE` in the prod `.env`, restart
@@ -42,6 +45,13 @@ How it works:
   in the admin (status active, source admin, far-future expiry).
 - The app must be a build that includes the review-code step (merged 2026-10-27);
   older builds treat `code_required` as an error.
+
+### Before each submission, check
+
+- [ ] Signing in with the demo account works in the build being submitted.
+- [ ] "Mind Training 1 | Spring Retreat 2025" opens and plays (no "Active subscription
+      required"). If it doesn't, the membership was lost: grant it again in the admin.
+- [ ] The code in the store consoles matches `REVIEW_ACCOUNT_CODE` on prod.
 
 ## Public URLs
 
