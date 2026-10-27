@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
@@ -25,6 +26,24 @@ export function DesktopShell({
 
   // Activate keyboard shortcuts for audio playback on web
   useKeyboardShortcuts();
+
+  const insets = useSafeAreaInsets();
+
+  if (Platform.OS !== 'web') {
+    return (
+      <NativeShell
+        sidebar={sidebar}
+        rightSidebar={rightSidebar}
+        rightSidebarWidth={rightSidebarWidth}
+        playerBar={playerBar}
+        sidebarWidth={sidebarWidth}
+        playerBarHeight={playerBarHeight}
+        insets={insets}
+      >
+        {children}
+      </NativeShell>
+    );
+  }
 
   const gridColumns = rightSidebar
     ? `${sidebarWidth}px 1fr ${rightSidebarWidth}px`
@@ -106,7 +125,95 @@ export function DesktopShell({
   );
 }
 
+interface NativeShellProps extends DesktopShellProps {
+  sidebarWidth: number;
+  playerBarHeight: number;
+  insets: { top: number; bottom: number; left: number; right: number };
+}
+
+/**
+ * Native (iPad) shell: a flex row for the rails and content, the player bar
+ * underneath. Rails absorb the safe-area insets (status bar on top, the
+ * notch / rounded corners on the sides); the player bar absorbs the home
+ * indicator. The main pane keeps the full height, screens handle their own
+ * top inset like they do on the phone layout.
+ */
+function NativeShell({
+  sidebar,
+  rightSidebar,
+  rightSidebarWidth = 220,
+  children,
+  playerBar,
+  sidebarWidth,
+  playerBarHeight,
+  insets,
+}: NativeShellProps) {
+  return (
+    <View style={styles.nativeShell}>
+      <View style={styles.nativeRow}>
+        <View
+          style={[
+            styles.sidebarContainer,
+            {
+              width: sidebarWidth + insets.left,
+              paddingLeft: insets.left,
+              paddingTop: insets.top,
+            },
+          ]}
+        >
+          {sidebar}
+        </View>
+        <View style={styles.nativeMain}>{children}</View>
+        {rightSidebar && (
+          <View
+            style={[
+              styles.rightSidebarContainer,
+              {
+                width: rightSidebarWidth + insets.right,
+                paddingRight: insets.right,
+                paddingTop: insets.top,
+              },
+            ]}
+          >
+            {rightSidebar}
+          </View>
+        )}
+      </View>
+      {playerBar && (
+        <View
+          style={[
+            styles.playerBar,
+            {
+              height: playerBarHeight + insets.bottom,
+              paddingBottom: insets.bottom,
+              paddingLeft: insets.left,
+              paddingRight: insets.right,
+            },
+          ]}
+        >
+          {playerBar}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  nativeShell: {
+    flex: 1,
+    flexDirection: 'column',
+    backgroundColor: colors.white,
+  },
+  nativeRow: {
+    flex: 1,
+    flexDirection: 'row',
+    minHeight: 0,
+  },
+  nativeMain: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: colors.cream[100],
+  },
   shell: {
     flex: 1,
   },
