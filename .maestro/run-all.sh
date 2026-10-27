@@ -6,6 +6,7 @@
 #   npm run e2e:android         Android emulator
 #   npm run e2e:all             both, one after the other
 #   .maestro/run-all.sh --platform ios|android|all
+#   ONLY=original-language .maestro/run-all.sh   only the flows whose path contains the text
 #
 # It checks the prerequisites, starts what is missing (simulator or emulator, Metro) plus the
 # local servers of the media flows (MinIO, a CDN stand-in, the API: see fixtures/) and stops
@@ -237,6 +238,7 @@ run_flows() {
   fi
   # Signed-out flows first, then every signed-in flow through run-signed-in.sh.
   for flow in "$here"/*.yaml; do
+    [ -z "${ONLY:-}" ] || [[ "$flow" == *"$ONLY"* ]] || continue
     start=$SECONDS
     echo; echo "e2e: [$label] $(basename "$flow")"
     ensure_servers
@@ -245,6 +247,7 @@ run_flows() {
     [ $rc -eq 0 ] || failed=$((failed + 1))
   done
   for flow in "$here"/signed-in/*.yaml; do
+    [ -z "${ONLY:-}" ] || [[ "$flow" == *"$ONLY"* ]] || continue
     if [ "$label" = android ] && ios_only "$flow"; then
       results+=("SKIP  $label  signed-in/$(basename "$flow")  (iOS only)")
       continue
