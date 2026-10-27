@@ -8,6 +8,7 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
 import { createLevelMeter, fadeOut as fadeOutAudioLevel, reset as resetAudioLevel } from '@/services/audioLevel';
 
 /**
@@ -579,6 +580,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [userId, pullAndMergeLastPlayedRemote, runBulkAudioSync]);
 
   // ─── Lock screen / Now Playing controls (iOS + Android) ───
+  const [artworkUri, setArtworkUri] = useState<string | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    void getLockScreenArtworkUri().then((uri) => { if (!cancelled) setArtworkUri(uri); });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
     if (!player || typeof player.setActiveForLockScreen !== 'function') return;
@@ -588,6 +597,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         const metadata: Record<string, string> = { title: track.title };
         if (track.speakerName) metadata.artist = track.speakerName;
         if (metaRetreatName) metadata.albumTitle = metaRetreatName;
+        if (artworkUri) metadata.artworkUrl = artworkUri;
         player.setActiveForLockScreen(true, metadata, {
           showSeekForward: true,
           showSeekBackward: true,
@@ -598,7 +608,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     } else {
       try { player.setActiveForLockScreen(false); } catch {}
     }
-  }, [track, player, metaRetreatName]);
+  }, [track, player, metaRetreatName, artworkUri]);
 
   // ─── Live audio level for the playing indicator (iOS only) ───
   // Sampling is on only while the engine is really playing, and off on pause,
