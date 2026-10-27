@@ -120,6 +120,22 @@ npm run android    # Android emulator
 npm run web        # Web browser
 ```
 
+## Android release
+
+```bash
+# Installable APK for the test phone (internal distribution)
+eas build -p android --profile preview
+
+# Play Store: build an app bundle, then submit it to the internal track (draft)
+eas build -p android --profile production
+eas submit -p android --profile production
+```
+
+`eas submit` reads the Play service account key from `secrets/play-service-account.json`
+(gitignored, never committed). The very first upload of a new app must be done manually in
+the Play Console (create the app, then upload the first `.aab` by hand); `eas submit` only
+works for subsequent releases.
+
 ## License
 
 Proprietary software developed for Associação Padmakara Portugal.

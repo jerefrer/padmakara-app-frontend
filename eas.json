@@ -23,6 +23,9 @@
       },
       "ios": {
         "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
@@ -30,6 +33,9 @@
       "environment": "production",
       "env": {
         "APP_VARIANT": "pt"
+      },
+      "android": {
+        "buildType": "app-bundle"
       }
     }
   },
@@ -38,6 +44,11 @@
       "ios": {
         "appleTeamId": "8A879BZ53C",
         "ascAppId": "6801840375"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./secrets/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }
