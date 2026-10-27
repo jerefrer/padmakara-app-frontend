@@ -551,6 +551,7 @@
     "deleteDevices": "Todos os dispositivos registados",
     "deleteGroupAccess": "Acesso a todo o conteúdo dos grupos de retiro",
     "warningNote": "Após a eliminação, precisará de solicitar uma nova conta se desejar usar a app novamente.",
+    "paymentsNote": "Os registos de pagamentos anteriores são conservados, sem os seus dados de contacto, durante o prazo exigido pela lei contabilística. Qualquer pagamento recorrente é interrompido.",
     "accountLabel": "Conta a ser eliminada:",
     "confirmLabel": "Escreva \"eliminar permanentemente\" para confirmar:",
     "confirmLabelPt": "Escreva \"eliminar permanentemente\" para confirmar:",

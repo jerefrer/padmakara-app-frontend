@@ -551,6 +551,7 @@
     "deleteDevices": "All registered devices",
     "deleteGroupAccess": "Access to all retreat group content",
     "warningNote": "After deletion, you will need to request a new account if you wish to use the app again.",
+    "paymentsNote": "Records of past payments are kept, without your contact details, for as long as accounting law requires. Any recurring payment is stopped.",
     "accountLabel": "Account to be deleted:",
     "confirmLabel": "Type \"permanently delete\" to confirm:",
     "confirmLabelPt": "Type \"eliminar permanentemente\" to confirm:",
