@@ -156,3 +156,28 @@ export async function deleteRefreshToken(): Promise<void> {
 export async function deleteAllTokens(): Promise<void> {
   await Promise.all([deleteAuthToken(), deleteRefreshToken()]);
 }
+
+// ─── Pending device deactivation ─────────────────────────────────────────────
+// A signed-out device whose server-side deactivation could not be delivered
+// keeps the credentials needed to retry it. They are bearer secrets, so they
+// go through the same SecureStore / AsyncStorage split as the tokens.
+
+const PENDING_DEACTIVATION_KEY = 'pending_device_deactivation';
+
+export async function getPendingDeactivationRaw(): Promise<string | null> {
+  return Platform.OS === 'web'
+    ? webGet(PENDING_DEACTIVATION_KEY)
+    : nativeGet(PENDING_DEACTIVATION_KEY);
+}
+
+export async function setPendingDeactivationRaw(value: string): Promise<void> {
+  return Platform.OS === 'web'
+    ? webSet(PENDING_DEACTIVATION_KEY, value)
+    : nativeSet(PENDING_DEACTIVATION_KEY, value);
+}
+
+export async function deletePendingDeactivation(): Promise<void> {
+  return Platform.OS === 'web'
+    ? webDelete(PENDING_DEACTIVATION_KEY)
+    : nativeDelete(PENDING_DEACTIVATION_KEY);
+}
