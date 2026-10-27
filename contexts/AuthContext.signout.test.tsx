@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { render, act, waitFor } from '@testing-library/react-native';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '@/services/authService';
 import magicLinkService from '@/services/magicLinkService';
 
@@ -42,8 +43,9 @@ function Probe() {
   return <Text>probe</Text>;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  await AsyncStorage.clear();
   ml.isDeviceActivated.mockResolvedValue(true);
   ml.clearDeviceActivation.mockResolvedValue(undefined);
   ml.captureDeviceDeactivation.mockResolvedValue(record);
@@ -80,6 +82,73 @@ describe('forgetDevice', () => {
     });
     expect(ml.captureDeviceDeactivation.mock.invocationCallOrder[0]).toBeLessThan(auth.logout.mock.invocationCallOrder[0]);
     expect(ml.deactivateInBackground).toHaveBeenCalledWith(record);
+  });
+});
+
+const FLAG = 'pending_local_cleanup';
+
+describe('forgetDevice when a local step fails', () => {
+  const steps: [string, () => void][] = [
+    ['capture', () => ml.captureDeviceDeactivation.mockRejectedValue(new Error('boom'))],
+    ['logout', () => auth.logout.mockRejectedValue(new Error('boom'))],
+    ['clearDeviceActivation', () => ml.clearDeviceActivation.mockRejectedValue(new Error('boom'))],
+  ];
+
+  it.each(steps)('should still run the other steps and end signed out when %s throws', async (_name, breakStep) => {
+    ml.deactivateInBackground.mockResolvedValue(undefined);
+    await mount();
+    breakStep();
+    let result: { complete: boolean } | undefined;
+    await act(async () => {
+      result = await ctx.forgetDevice();
+    });
+    expect(ml.captureDeviceDeactivation).toHaveBeenCalled();
+    expect(auth.logout).toHaveBeenCalled();
+    expect(ml.clearDeviceActivation).toHaveBeenCalled();
+    expect(ctx.isAuthenticated).toBe(false);
+    expect(ctx.user).toBeNull();
+    expect(ctx.isDeviceActivated).toBe(false);
+    expect(result).toEqual({ complete: false });
+    expect(await AsyncStorage.getItem(FLAG)).not.toBeNull();
+  });
+
+  it('should report complete and store no flag when every step succeeds', async () => {
+    ml.deactivateInBackground.mockResolvedValue(undefined);
+    await mount();
+    let result: { complete: boolean } | undefined;
+    await act(async () => {
+      result = await ctx.forgetDevice();
+    });
+    expect(result).toEqual({ complete: true });
+    expect(await AsyncStorage.getItem(FLAG)).toBeNull();
+  });
+});
+
+describe('app start with a pending local cleanup', () => {
+  it('should re-run the local clearing and clear the flag when no fresh session exists', async () => {
+    await AsyncStorage.setItem(FLAG, JSON.stringify({ at: '2026-10-27T10:00:00.000Z' }));
+    await mount();
+    await waitFor(() => expect(AsyncStorage.getItem(FLAG)).resolves.toBeNull());
+    expect(auth.logout).toHaveBeenCalledWith({ strict: true });
+    expect(ml.clearDeviceActivation).toHaveBeenCalledWith({ strict: true });
+  });
+
+  it('should clear nothing but the flag when the person signed in again after the failed sign-out', async () => {
+    await AsyncStorage.setItem(FLAG, JSON.stringify({ at: '2026-10-27T10:00:00.000Z' }));
+    await AsyncStorage.setItem('activation_date', '2026-10-27T11:00:00.000Z');
+    await mount();
+    await waitFor(() => expect(AsyncStorage.getItem(FLAG)).resolves.toBeNull());
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(ml.clearDeviceActivation).not.toHaveBeenCalled();
+  });
+
+  it('should keep the flag when the clearing fails again', async () => {
+    await AsyncStorage.setItem(FLAG, JSON.stringify({ at: '2026-10-27T10:00:00.000Z' }));
+    auth.logout.mockRejectedValue(new Error('boom'));
+    await mount();
+    await waitFor(() => expect(auth.logout).toHaveBeenCalled());
+    await act(async () => {});
+    expect(await AsyncStorage.getItem(FLAG)).not.toBeNull();
   });
 });
 

@@ -150,17 +150,28 @@ class AuthService {
   }
 
 
-  async logout(): Promise<void> {
-    try {
-      // Note: No backend logout call needed for magic link auth
-      // Device deactivation is handled separately in the logout flow
-      
-      // auth_token and refresh_token live in SecureStore on native.
-      await deleteAuthToken();
-      await deleteRefreshToken();
-      await this.safeRemoveItem('user_data');
-    } catch (error) {
-      console.error('Logout error:', error);
+  /**
+   * Remove the local session: both tokens (SecureStore on native) and the cached user.
+   * Each removal runs even if another fails. By default failures are only logged;
+   * with `strict` they are rethrown once every removal has been attempted.
+   */
+  async logout(options: { strict?: boolean } = {}): Promise<void> {
+    // Note: No backend logout call needed for magic link auth
+    // Device deactivation is handled separately in the logout flow
+    const failures: unknown[] = [];
+    const attempt = async (step: () => Promise<unknown>) => {
+      try {
+        await step();
+      } catch (error) {
+        console.error('Logout error:', error);
+        failures.push(error);
+      }
+    };
+    await attempt(() => deleteAuthToken());
+    await attempt(() => deleteRefreshToken());
+    await attempt(() => AsyncStorage.removeItem('user_data'));
+    if (options.strict && failures.length > 0) {
+      throw failures[0];
     }
   }
 

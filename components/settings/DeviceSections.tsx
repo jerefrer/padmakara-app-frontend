@@ -29,21 +29,6 @@ function showAlert(title: string, message: string, buttons?: Button[]) {
   }
 }
 
-function storageErrorMessage(error: any): string {
-  const message = error?.message || error?.toString() || 'Unknown error';
-  if (Platform.OS === 'web') {
-    if (message.includes('localStorage') || message.includes('storage')) {
-      return 'Storage access blocked. Please check browser settings and allow storage for this site.';
-    }
-    if (message.includes('quota') || message.includes('QuotaExceededError')) {
-      return 'Browser storage is full. Please clear browser data or try in incognito mode.';
-    }
-    return 'Web storage error. Please try refreshing the page or using a different browser.';
-  }
-  if (message.includes('AsyncStorage')) return 'Device storage error. Please restart the app and try again.';
-  return 'Storage operation failed. Please restart the app and try again.';
-}
-
 /**
  * Which audio tracks appear and which subtitles videos start with. Stored on this device only,
  * and shown under Language next to the app language.
@@ -191,14 +176,17 @@ export function SignInSection() {
             setIsClearing(true);
             try {
               clearTrack();
-              await forgetDevice();
+              const { complete } = await forgetDevice();
               router.replace('/(tabs)/(groups)');
+              if (!complete) {
+                showAlert(
+                  t('settings.signedOutIncompleteTitle') || 'Signed out',
+                  t('settings.signedOutIncompleteMessage') ||
+                    'You are signed out, but some data could not be removed from this device. Restart the app to finish.',
+                );
+              }
             } catch (error) {
               console.error('Sign out error:', error);
-              showAlert(
-                t('settings.signOutError') || 'Sign Out Error',
-                `${t('settings.signOutFailed') || 'Failed to sign out'}: ${storageErrorMessage(error)}. You may need to restart the app.`,
-              );
             } finally {
               setIsClearing(false);
             }
