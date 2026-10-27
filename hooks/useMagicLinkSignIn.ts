@@ -3,8 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 
-export type SignInPhase = 'email' | 'sending' | 'sent' | 'done';
-export type SignInError = 'invalid' | 'generic' | 'network';
+export type SignInPhase = 'email' | 'sending' | 'sent' | 'code' | 'done';
+export type SignInError = 'invalid' | 'generic' | 'network' | 'badCode';
+
+// The store-review account signs in with a code the reviewers are given (6 to 12 characters).
+const CODE_MIN = 6;
+const CODE_MAX = 12;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FIRST_CHECK_MS = 2000;
@@ -23,12 +27,15 @@ interface Options {
  * activated (the link may be opened on any device) and refresh the session. Shared by the
  * sign-in sheet and the inline sign-in card.
  */
+export const REVIEW_CODE_MAX_LENGTH = CODE_MAX;
+
 export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
   const { refreshAuth } = useAuth();
   const { language } = useLanguage();
   const [email, setEmail] = useState('');
   const [phase, setPhase] = useState<SignInPhase>('email');
   const [error, setError] = useState<SignInError | null>(null);
+  const [code, setCode] = useState('');
   const [cooldown, setCooldown] = useState(0);
   const [resent, setResent] = useState(false);
   const sentTo = useRef('');
@@ -52,6 +59,11 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
       } else if (status === 'already_activated') {
         await refreshAuth();
         setPhase('done');
+      } else if (status === 'code_required') {
+        // Store-review account: no email is sent, the person types the review code instead.
+        sentTo.current = address;
+        setCode('');
+        setPhase('code');
       } else if (status === 'approval_required') {
         setPhase('email');
         onApprovalRequired?.(address);
@@ -64,6 +76,29 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
       setError('network');
     }
   }, [email, language, refreshAuth, onApprovalRequired]);
+
+  const submitCode = useCallback(async () => {
+    const value = code.trim();
+    if (value.length < CODE_MIN || value.length > CODE_MAX) {
+      setError('badCode');
+      return;
+    }
+    setError(null);
+    setPhase('sending');
+    try {
+      const res = await magicLinkService.reviewLogin(sentTo.current, value);
+      if (res.success) {
+        await refreshAuth();
+        setPhase('done');
+      } else {
+        setPhase('code');
+        setError(res.incorrectCode ? 'badCode' : 'generic');
+      }
+    } catch {
+      setPhase('code');
+      setError('network');
+    }
+  }, [code, refreshAuth]);
 
   // Wait for the link to be opened.
   useEffect(() => {
@@ -120,7 +155,22 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
     setPhase('email');
     setError(null);
     setResent(false);
+    setCode('');
   }, []);
 
-  return { email, setEmail, phase, error, cooldown, resent, sentTo: sentTo.current, submit, resend, reset };
+  return {
+    email,
+    setEmail,
+    code,
+    setCode,
+    phase,
+    error,
+    cooldown,
+    resent,
+    sentTo: sentTo.current,
+    submit,
+    submitCode,
+    resend,
+    reset,
+  };
 }

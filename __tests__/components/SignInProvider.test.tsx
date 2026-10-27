@@ -20,10 +20,11 @@ jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => mockAuth }));
 jest.mock('@/hooks/useDesktopLayout', () => ({ useDesktopLayout: () => ({ isMobile: false }) }));
 jest.mock('@/services/magicLinkService', () => ({
   __esModule: true,
-  default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn() },
+  default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn(), reviewLogin: jest.fn() },
 }));
 
 const request = magicLinkService.requestMagicLink as jest.Mock;
+const reviewLogin = magicLinkService.reviewLogin as jest.Mock;
 
 function Opener() {
   const { openSignIn } = useSignIn();
@@ -133,5 +134,52 @@ describe('SignInProvider', () => {
       params: { email: 'new@example.pt', approval: '1' },
     });
     expect(queryByTestId('sign-in-dialog')).toBeNull();
+  });
+
+  describe('review code', () => {
+    async function openAtCodeStep() {
+      request.mockResolvedValueOnce({ success: true, data: { status: 'code_required' } });
+      const utils = render(
+        <SignInProvider>
+          <Opener />
+        </SignInProvider>,
+      );
+      fireEvent.press(utils.getByTestId('open'));
+      fireEvent.changeText(utils.getByTestId('sign-in-email'), 'review@padmakara.pt');
+      await act(async () => {
+        fireEvent.press(utils.getByTestId('sign-in-submit'));
+      });
+      return utils;
+    }
+
+    it('should show the code field with its help text when the server asks for a code', async () => {
+      const { getByTestId, getByText } = await openAtCodeStep();
+      expect(getByTestId('review-code-input')).toBeTruthy();
+      expect(getByTestId('review-code-submit')).toBeTruthy();
+      expect(getByText('This account signs in with a code provided to app reviewers.')).toBeTruthy();
+    });
+
+    it('should sign in and finish like an activated device when the code is right', async () => {
+      const { getByTestId } = await openAtCodeStep();
+      reviewLogin.mockResolvedValueOnce({ success: true, data: { status: 'already_activated' } });
+      fireEvent.changeText(getByTestId('review-code-input'), 'demo-code-1');
+      await act(async () => {
+        fireEvent.press(getByTestId('review-code-submit'));
+      });
+      expect(reviewLogin).toHaveBeenCalledWith('review@padmakara.pt', 'demo-code-1');
+      expect(mockAuth.refreshAuth).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(getByTestId('sign-in-done')).toBeTruthy());
+    });
+
+    it('should show an error when the code is wrong', async () => {
+      const { getByTestId, getByText } = await openAtCodeStep();
+      reviewLogin.mockResolvedValueOnce({ success: false, incorrectCode: true });
+      fireEvent.changeText(getByTestId('review-code-input'), 'wrong-code');
+      await act(async () => {
+        fireEvent.press(getByTestId('review-code-submit'));
+      });
+      expect(getByText('Incorrect code')).toBeTruthy();
+      expect(mockAuth.refreshAuth).not.toHaveBeenCalled();
+    });
   });
 });

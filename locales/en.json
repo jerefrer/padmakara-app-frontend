@@ -87,6 +87,9 @@
       "resend": "Resend email",
       "resendIn": "Resend in {{seconds}}s",
       "another": "Use another address",
+      "codeLabel": "Review code",
+      "codeHelp": "This account signs in with a code provided to app reviewers.",
+      "codeIncorrect": "Incorrect code",
       "signedIn": "You are signed in.",
       "close": "Close",
       "stayHere": "You stay on this page."

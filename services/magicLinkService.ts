@@ -31,7 +31,7 @@ interface DeviceInfo {
 }
 
 interface MagicLinkResponse {
-  status: 'magic_link_sent' | 'already_activated' | 'approval_required';
+  status: 'magic_link_sent' | 'already_activated' | 'approval_required' | 'code_required';
   message: string;
   access_token?: string;
   refresh_token?: string;
@@ -226,21 +226,7 @@ class MagicLinkService {
 
       // If device already activated, store tokens and activation flags
       if (response.data.status === 'already_activated' && response.data.access_token) {
-        try {
-          // auth_token and refresh_token are written to SecureStore on native.
-          await setAuthToken(response.data.access_token);
-          await setRefreshToken(response.data.refresh_token || '');
-          const metaResults = await Promise.all([
-            this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-            this.safeSetItem('device_activated', 'true'),
-            this.safeSetItem('activation_date', new Date().toISOString())
-          ]);
-          if (!metaResults.every(result => result)) {
-            console.warn('Some activation metadata failed to save to AsyncStorage');
-          }
-        } catch (storeError) {
-          console.warn('Some activation tokens failed to save to secure storage', storeError);
-        }
+        await this.storeActivation(response.data);
       }
 
       return { success: true, data: response.data };
@@ -248,6 +234,60 @@ class MagicLinkService {
       console.error('Error requesting magic link:', error);
       
       
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  }
+
+  /** Persist the tokens and activation flags of a response that signs this device in. */
+  private async storeActivation(data: MagicLinkResponse): Promise<void> {
+    try {
+      // auth_token and refresh_token are written to SecureStore on native.
+      await setAuthToken(data.access_token as string);
+      await setRefreshToken(data.refresh_token || '');
+      const metaResults = await Promise.all([
+        this.safeSetItem('user_data', JSON.stringify(data.user)),
+        this.safeSetItem('device_activated', 'true'),
+        this.safeSetItem('activation_date', new Date().toISOString())
+      ]);
+      if (!metaResults.every(result => result)) {
+        console.warn('Some activation metadata failed to save to AsyncStorage');
+      }
+    } catch (storeError) {
+      console.warn('Some activation tokens failed to save to secure storage', storeError);
+    }
+  }
+
+  /**
+   * Store-review account: sign in with the review code instead of an emailed link.
+   * On success the response is the same as "already_activated" and is stored the same way.
+   * A wrong code comes back as `incorrectCode` (the server answers 401).
+   */
+  async reviewLogin(
+    email: string,
+    code: string,
+  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean }> {
+    try {
+      const deviceInfo = await this.getDeviceInfo();
+      const response = await apiService.post<MagicLinkResponse>(API_ENDPOINTS.REVIEW_LOGIN, {
+        email: email.toLowerCase().trim(),
+        code: code.trim(),
+        device_fingerprint: deviceInfo.fingerprint,
+        device_name: deviceInfo.name,
+        device_type: deviceInfo.type,
+      });
+
+      if (!response.success || !response.data) {
+        // No stored session yet, so apiService reports the 401 as authRequired.
+        const incorrectCode = response.status === 401 || response.authRequired === true;
+        return { success: false, error: response.error || 'Failed to sign in', incorrectCode };
+      }
+
+      if (response.data.access_token) {
+        await this.storeActivation(response.data);
+      }
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Error signing in with review code:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }
   }

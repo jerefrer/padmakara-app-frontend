@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useMagicLinkSignIn, type SignInError } from '@/hooks/useMagicLinkSignIn';
+import { REVIEW_CODE_MAX_LENGTH, useMagicLinkSignIn, type SignInError } from '@/hooks/useMagicLinkSignIn';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
@@ -41,6 +41,7 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
     invalid: tx('invalid', 'Please enter a valid email address.'),
     generic: tx('error', 'Something went wrong. Please try again.'),
     network: tx('network', 'No connection. Please try again.'),
+    badCode: tx('codeIncorrect', 'Incorrect code'),
   };
 
   if (s.phase === 'done') {
@@ -48,6 +49,57 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
       <View testID="sign-in-done" style={styles.done}>
         <ActivityIndicator color={c.burgundy[500]} />
         <Text style={styles.body}>{tx('signedIn', 'You are signed in.')}</Text>
+      </View>
+    );
+  }
+
+  if (s.phase === 'code' || (s.phase === 'sending' && s.code !== '')) {
+    const checking = s.phase === 'sending';
+    return (
+      <View testID="sign-in-code">
+        <Text style={[styles.title, card && styles.titleCard]} accessibilityRole="header">
+          {tx('codeLabel', 'Review code')}
+        </Text>
+        <Text style={styles.body}>
+          {tx('codeHelp', 'This account signs in with a code provided to app reviewers.')}
+        </Text>
+        <TextInput
+          testID="review-code-input"
+          accessibilityLabel={tx('codeLabel', 'Review code')}
+          value={s.code}
+          onChangeText={s.setCode}
+          onSubmitEditing={s.submitCode}
+          maxLength={REVIEW_CODE_MAX_LENGTH}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          textContentType="oneTimeCode"
+          returnKeyType="go"
+          autoFocus
+          editable={!checking}
+          onFocus={ring.onFocus}
+          onBlur={ring.onBlur}
+          style={[styles.input, styles.codeInput, ring.style]}
+        />
+        {s.error ? (
+          <Text testID="review-code-error" style={styles.error} accessibilityLiveRegion="polite">
+            {errorText[s.error]}
+          </Text>
+        ) : null}
+        <Pressable
+          testID="review-code-submit"
+          accessibilityRole="button"
+          disabled={checking}
+          onPress={s.submitCode}
+          style={({ pressed }) => [styles.submit, pressed && pageStyles.buttonPressed]}
+        >
+          {checking ? <ActivityIndicator color={c.white} /> : <Text style={pageStyles.buttonText}>{tx('submit', 'Continue')}</Text>}
+        </Pressable>
+        <View style={styles.links}>
+          <Pressable testID="sign-in-another" accessibilityRole="button" onPress={s.reset} style={styles.linkHit}>
+            <Text style={styles.link}>{tx('another', 'Use another address')}</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -165,6 +217,7 @@ const styles = StyleSheet.create({
     color: c.gray[800],
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null),
   },
+  codeInput: { marginTop: 18, letterSpacing: 2 },
   fieldHint: { fontSize: 13, lineHeight: 18, color: c.gray[500], marginTop: 8 },
   error: { fontSize: 14, color: c.red[700], marginTop: 8 },
   submit: {
