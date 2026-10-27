@@ -1542,7 +1542,7 @@ export default function RetreatDetailScreen() {
             desktop. On mobile it replaces the title that used to live in
             the fixed top bar; on desktop it's the main event header. */}
         {(
-          <View style={[styles.eventTitleSection, !isDesktop && styles.lineBleed]}>
+          <View style={[styles.eventTitleSection, !isDesktop && styles.lineBleed, compactSidebar && !heroSource && styles.eventTitleSectionBesideBack]}>
             <View style={styles.eventTitleRow}>
               <Text style={styles.eventTitleText}>{titleText}</Text>
               {retreat.status === 'draft' && <DraftBadge />}
@@ -1868,7 +1868,7 @@ export default function RetreatDetailScreen() {
       <View
         style={[
           styles.floatingTopRightCluster,
-          { top: isDesktop ? 16 : insets.top + 8 },
+          { top: isDesktop && Platform.OS === 'web' ? 16 : insets.top + 8 },
         ]}
       >
         {playerInShell && showLanguagePicker && (
@@ -2573,6 +2573,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.burgundy[500],
     marginBottom: 8,
+  },
+  // Tablet without a hero image: the round back button floats at the top-left, so the
+  // title starts to its right instead of under it.
+  eventTitleSectionBesideBack: {
+    paddingLeft: 52,
   },
   eventTitleRow: {
     flexDirection: 'row' as const,
