@@ -54,3 +54,6 @@ playwright/.cache/
 /ios
 /android
 .maestro/fixtures/.cache/
+
+# Secrets (Play service account key, etc.)
+secrets/
