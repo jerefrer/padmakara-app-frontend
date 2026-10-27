@@ -120,6 +120,11 @@ npm run android    # Android emulator
 npm run web        # Web browser
 ```
 
+## Store submission
+
+Demo account for Apple and Google reviewers, public URLs, payment rules and store
+forms: see [docs/store-submission.md](docs/store-submission.md).
+
 ## Android release
 
 ```bash
