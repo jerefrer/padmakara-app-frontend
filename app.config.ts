@@ -158,6 +158,17 @@ const config: PadmakaraConfig = {
       backgroundColor: "#C4423E",
     },
     edgeToEdgeEnabled: true,
+    // Permissions pulled in by Expo libraries that the app never uses (it only
+    // plays audio, and stores files in app-private directories). Play reviewers
+    // flag them. USE_BIOMETRIC stays; FOREGROUND_SERVICE(_MEDIA_PLAYBACK) stays
+    // for the lock-screen player.
+    blockedPermissions: [
+      "android.permission.RECORD_AUDIO",
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.USE_FINGERPRINT",
+    ],
   },
   web: {
     bundler: "metro",
@@ -166,7 +177,11 @@ const config: PadmakaraConfig = {
     name: variant.name,
   },
   plugins: [
-    "expo-audio",
+    [
+      "expo-audio",
+      // Playback only: no microphone usage string on iOS, no RECORD_AUDIO on Android.
+      { microphonePermission: false, recordAudioAndroid: false },
+    ],
     "expo-router",
     [
       "expo-splash-screen",
