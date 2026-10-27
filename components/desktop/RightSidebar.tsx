@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Modal, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +26,10 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
   const { clearTrack } = useAudioPlayerContext();
   const { t } = useLanguage();
 
+  const insets = useSafeAreaInsets();
+  const { playerBarHeight } = useDesktopLayout();
+  const isWeb = Platform.OS === 'web';
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
 
@@ -31,7 +37,8 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
   const isNarrow = variant === 'narrow';
 
   useEffect(() => {
-    if (!menuOpen) return;
+    // Web only: native uses a Modal with its own backdrop (no `document`).
+    if (!menuOpen || !isWeb) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('[data-right-menu]')) {
@@ -40,7 +47,7 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
+  }, [menuOpen, isWeb]);
 
   const getUserInitials = (): string => {
     if (!user?.name) return '?';
@@ -58,6 +65,52 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
     await forgetDevice();
     router.replace('/(tabs)/(groups)' as any);
   }, [forgetDevice, clearTrack]);
+
+  const menuItems = (
+    <>
+      <Pressable
+        style={({ pressed }) => [
+          styles.menuItem,
+          isSettingsActive && styles.menuItemActive,
+          (pressed || hoveredMenuItem === 'settings') && styles.menuItemHover,
+        ]}
+        onPress={() => {
+          setMenuOpen(false);
+          router.push('/(tabs)/settings' as any);
+        }}
+        // @ts-ignore
+        onMouseEnter={() => setHoveredMenuItem('settings')}
+        // @ts-ignore
+        onMouseLeave={() => setHoveredMenuItem(null)}
+        data-right-menu="true"
+      >
+        <Ionicons name="settings-outline" size={16} color={colors.gray[700]} />
+        <Text style={styles.menuItemText}>
+          {t('navigation.settings') || 'Settings'}
+        </Text>
+      </Pressable>
+
+      <View style={styles.menuDivider} />
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.menuItem,
+          (pressed || hoveredMenuItem === 'signout') && styles.menuItemHover,
+        ]}
+        onPress={handleSignOut}
+        // @ts-ignore
+        onMouseEnter={() => setHoveredMenuItem('signout')}
+        // @ts-ignore
+        onMouseLeave={() => setHoveredMenuItem(null)}
+        data-right-menu="true"
+      >
+        <Ionicons name="log-out-outline" size={16} color={colors.gray[700]} />
+        <Text style={styles.menuItemText}>
+          {t('common.logout') || 'Log out'}
+        </Text>
+      </Pressable>
+    </>
+  );
 
   return (
     <View style={styles.container}>
@@ -86,7 +139,7 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
         {/* Dropdown menu (opens upward). In narrow mode it's anchored to
             the right edge but expands leftward so the menu items aren't
             clipped by the 64px rail. */}
-        {menuOpen && (
+        {menuOpen && isWeb && (
           <View
             style={[
               styles.dropdownMenu,
@@ -94,48 +147,34 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
             ]}
             data-right-menu="true"
           >
-            <Pressable
-              style={[
-                styles.menuItem,
-                isSettingsActive && styles.menuItemActive,
-                hoveredMenuItem === 'settings' && styles.menuItemHover,
-              ]}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push('/(tabs)/settings' as any);
-              }}
-              // @ts-ignore
-              onMouseEnter={() => setHoveredMenuItem('settings')}
-              // @ts-ignore
-              onMouseLeave={() => setHoveredMenuItem(null)}
-              data-right-menu="true"
-            >
-              <Ionicons name="settings-outline" size={16} color={colors.gray[700]} />
-              <Text style={styles.menuItemText}>
-                {t('navigation.settings') || 'Settings'}
-              </Text>
-            </Pressable>
-
-            <View style={styles.menuDivider} />
-
-            <Pressable
-              style={[
-                styles.menuItem,
-                hoveredMenuItem === 'signout' && styles.menuItemHover,
-              ]}
-              onPress={handleSignOut}
-              // @ts-ignore
-              onMouseEnter={() => setHoveredMenuItem('signout')}
-              // @ts-ignore
-              onMouseLeave={() => setHoveredMenuItem(null)}
-              data-right-menu="true"
-            >
-              <Ionicons name="log-out-outline" size={16} color={colors.gray[700]} />
-              <Text style={styles.menuItemText}>
-                {t('common.logout') || 'Log out'}
-              </Text>
-            </Pressable>
+            {menuItems}
           </View>
+        )}
+
+        {menuOpen && !isWeb && (
+          <Modal
+            transparent
+            animationType="fade"
+            visible
+            onRequestClose={() => setMenuOpen(false)}
+            supportedOrientations={['portrait', 'landscape', 'portrait-upside-down', 'landscape-left', 'landscape-right']}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setMenuOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close') || 'Close'}
+            />
+            <View
+              pointerEvents="box-none"
+              style={[
+                styles.modalAnchor,
+                { right: insets.right + 8, bottom: insets.bottom + playerBarHeight + 8 },
+              ]}
+            >
+              <View style={[styles.dropdownMenu, styles.dropdownMenuModal]}>{menuItems}</View>
+            </View>
+          </Modal>
         )}
 
         {isAuthenticated && user ? (
@@ -297,6 +336,17 @@ const styles = StyleSheet.create({
   },
   // Narrow rail can't fit a usable menu, so anchor to the right edge of
   // the rail and extend leftward into the main content area.
+  modalAnchor: {
+    position: 'absolute',
+  },
+  // In the native Modal the menu is positioned by `modalAnchor`, not by the rail.
+  dropdownMenuModal: {
+    position: 'relative',
+    bottom: undefined,
+    width: 220,
+    marginBottom: 0,
+    paddingVertical: 6,
+  },
   dropdownMenuNarrow: {
     right: 8,
     width: 200,
@@ -304,7 +354,7 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 9,
+    paddingVertical: Platform.OS === 'web' ? 9 : 13,
     paddingHorizontal: 12,
     borderRadius: 6,
     marginHorizontal: 4,
