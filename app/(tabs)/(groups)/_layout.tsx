@@ -1,6 +1,6 @@
 import { Stack, useSegments } from 'expo-router';
 import { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import {
   RelatedEventsProvider,
@@ -36,7 +36,8 @@ function DesktopWithSidebar({ children }: { children: ReactNode }) {
   const { meta } = useRelatedEvents();
   const segments = useSegments() as string[];
   const isOnEventDetail = segments.includes('retreat');
-  const showSidebar = isOnEventDetail && !!meta;
+  const { showRelatedEvents } = useDesktopLayout();
+  const showSidebar = isOnEventDetail && !!meta && showRelatedEvents;
   return (
     <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>
       {showSidebar ? (
@@ -57,9 +58,12 @@ function DesktopWithSidebar({ children }: { children: ReactNode }) {
 
 export default function GroupsLayout() {
   const { isMobile } = useDesktopLayout();
+  // Native keeps the wrapper at every width so the Stack never remounts when
+  // the width crosses a breakpoint; it just stops showing the related column.
+  const alwaysWrap = Platform.OS !== 'web';
   return (
     <RelatedEventsProvider>
-      {isMobile ? stack : <DesktopWithSidebar>{stack}</DesktopWithSidebar>}
+      {isMobile && !alwaysWrap ? stack : <DesktopWithSidebar>{stack}</DesktopWithSidebar>}
     </RelatedEventsProvider>
   );
 }

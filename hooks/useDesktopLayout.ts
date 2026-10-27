@@ -1,34 +1,13 @@
 import { Platform, useWindowDimensions } from 'react-native';
+import { computeLayout, type Layout } from '@/utils/layout';
 
-export interface DesktopLayout {
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-  isWide: boolean;
-  showSidebar: boolean;
-  showMasterDetail: boolean;
-  sidebarWidth: number;
-  playerBarHeight: number;
-}
+export type DesktopLayout = Layout;
 
 export function useDesktopLayout(): DesktopLayout {
-  const isWeb = Platform.OS === 'web';
   const { width } = useWindowDimensions();
-
-  const isMobile = !isWeb || width < 768;
-  const isTablet = isWeb && width >= 768 && width < 1025;
-  const isDesktop = isWeb && width >= 1025;
-  const isWide = isWeb && width > 1440;
-  const showSidebar = isWeb && width >= 768;
-
-  return {
-    isMobile,
-    isTablet,
-    isDesktop,
-    isWide,
-    showSidebar,
-    showMasterDetail: isDesktop,
-    sidebarWidth: 280,
-    playerBarHeight: 80,
-  };
+  return computeLayout({
+    platform: Platform.OS,
+    isPad: Platform.OS === 'ios' && Platform.isPad === true,
+    width,
+  });
 }

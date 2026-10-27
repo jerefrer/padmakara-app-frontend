@@ -52,6 +52,24 @@ What the flows cover:
 The five media flows are iOS only (`# e2e: ios-only` in the file): the Android run skips
 them and says so in the summary.
 
+## iPad layouts
+
+`.maestro/ipad/tour.yaml` signs in on an iPad simulator and takes a screenshot of home, events,
+search, an event with audio, publications, bookmarks and settings, in portrait and then
+landscape (`setOrientation`). The pictures are the check: read them for overlaps, clipped
+content, a second player or an unreachable sidebar. The layout follows the window width
+(<744 phone, 744-1024 compact rail, 1025+ desktop), so also try a 13-inch iPad and Split View.
+
+```bash
+IOS_SIMULATOR="iPad Air 11-inch (M3)" SHOTS_DIR=/some/dir npm run e2e -- --suite ipad
+# or: .maestro/run-all.sh --suite ipad
+```
+
+It uses the same local servers, Metro and magic-link helper as the full run, then writes
+`<portrait|landscape>-<n>-<screen>.png` into `SHOTS_DIR` (default `$TMPDIR/ipad-shots`). It is not
+part of the default run. The dev client must be installed on the iPad simulator (the runner
+installs it from `ios/build` when missing).
+
 ## Media fixtures
 
 Local storage credentials for the real bucket are denied and local and prod use different

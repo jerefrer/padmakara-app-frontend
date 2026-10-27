@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
@@ -21,10 +22,31 @@ export function DesktopShell({
   children,
   playerBar,
 }: DesktopShellProps) {
-  const { sidebarWidth, playerBarHeight } = useDesktopLayout();
+  const { sidebarWidth, playerBarHeight, showSidebar, showRightRail, isMobile } = useDesktopLayout();
 
   // Activate keyboard shortcuts for audio playback on web
   useKeyboardShortcuts();
+
+  const insets = useSafeAreaInsets();
+
+  if (Platform.OS !== 'web') {
+    return (
+      <NativeShell
+        sidebar={sidebar}
+        rightSidebar={rightSidebar}
+        rightSidebarWidth={rightSidebarWidth}
+        playerBar={playerBar}
+        sidebarWidth={sidebarWidth}
+        playerBarHeight={playerBarHeight}
+        insets={insets}
+        showSidebar={showSidebar}
+        showRightRail={showRightRail}
+        showPlayerBar={!isMobile}
+      >
+        {children}
+      </NativeShell>
+    );
+  }
 
   const gridColumns = rightSidebar
     ? `${sidebarWidth}px 1fr ${rightSidebarWidth}px`
@@ -106,7 +128,113 @@ export function DesktopShell({
   );
 }
 
+interface NativeShellProps extends DesktopShellProps {
+  sidebarWidth: number;
+  playerBarHeight: number;
+  insets: { top: number; bottom: number; left: number; right: number };
+  showSidebar: boolean;
+  showRightRail: boolean;
+  showPlayerBar: boolean;
+}
+
+/**
+ * Native (iPad) shell: a flex row for the rails and content, the player bar
+ * underneath. Rails absorb the safe-area insets (status bar on top, the
+ * notch / rounded corners on the sides); the player bar absorbs the home
+ * indicator. The main pane keeps the full height, screens handle their own
+ * top inset like they do on the phone layout.
+ *
+ * The tree is identical in every mode: slots that are hidden (phone-width
+ * Split View, tablet without a right rail) keep their container and render
+ * nothing inside, so `children` (the navigator) never remounts when the
+ * width crosses a breakpoint.
+ */
+function NativeShell({
+  sidebar,
+  rightSidebar,
+  rightSidebarWidth = 220,
+  children,
+  playerBar,
+  sidebarWidth,
+  playerBarHeight,
+  insets,
+  showSidebar,
+  showRightRail,
+  showPlayerBar,
+}: NativeShellProps) {
+  return (
+    <View style={styles.nativeShell}>
+      <View style={styles.nativeRow}>
+        <View
+          style={[
+            styles.sidebarContainer,
+            showSidebar
+              ? {
+                  width: sidebarWidth + insets.left,
+                  paddingLeft: insets.left,
+                  paddingTop: insets.top,
+                }
+              : styles.hidden,
+          ]}
+        >
+          {showSidebar ? sidebar : null}
+        </View>
+        <View style={[styles.nativeMain, showSidebar && styles.nativeMainFilled]}>{children}</View>
+        <View
+          style={[
+            styles.rightSidebarContainer,
+            showRightRail && rightSidebar
+              ? {
+                  width: rightSidebarWidth + insets.right,
+                  paddingRight: insets.right,
+                  paddingTop: insets.top,
+                }
+              : styles.hidden,
+          ]}
+        >
+          {showRightRail ? rightSidebar : null}
+        </View>
+      </View>
+      <View
+        style={[
+          styles.playerBar,
+          showPlayerBar && playerBar
+            ? {
+                height: playerBarHeight + insets.bottom,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+                paddingRight: insets.right,
+              }
+            : styles.hidden,
+        ]}
+      >
+        {showPlayerBar ? playerBar : null}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  nativeShell: {
+    flex: 1,
+    flexDirection: 'column',
+    backgroundColor: colors.white,
+  },
+  nativeRow: {
+    flex: 1,
+    flexDirection: 'row',
+    minHeight: 0,
+  },
+  hidden: {
+    display: 'none',
+  },
+  nativeMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  nativeMainFilled: {
+    backgroundColor: colors.cream[100],
+  },
   shell: {
     flex: 1,
   },

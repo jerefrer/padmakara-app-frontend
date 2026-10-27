@@ -97,6 +97,8 @@ interface FeaturedEventProps {
 
 function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel, testID }: FeaturedEventProps) {
   const { height: windowHeight } = useWindowDimensions();
+  // iPad tablet: the photo stays inside the text margins instead of bleeding to the screen edge.
+  const { compactSidebar } = useDesktopLayout();
   // On short phones (SE, mini) a 4:3 photo fills the first screen and hides who is teaching.
   const shortScreen = !isDesktop && windowHeight < SHORT_SCREEN_HEIGHT;
   const title =
@@ -171,6 +173,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
           styles.featuredImageContainer,
           shortScreen && styles.featuredImageContainerShort,
           isDesktop && styles.featuredImageContainerDesktop,
+          compactSidebar && styles.featuredImageContainerTablet,
         ]}
       >
         {teacherImage ? (
@@ -632,6 +635,14 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 2,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
+  },
+  featuredImageContainerTablet: {
+    width: undefined,
+    alignSelf: "stretch",
+    marginLeft: TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET,
+    aspectRatio: 2,
+    borderRadius: 4,
   },
   featuredImageContainerShort: {
     aspectRatio: 2,

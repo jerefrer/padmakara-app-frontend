@@ -110,6 +110,27 @@ export default function TabLayout() {
     </Tabs>
   );
 
+  if (Platform.OS !== 'web') {
+    // Native keeps one tree for every width (Split View resize, rotation):
+    // the shell hides the slots it doesn't need, so the navigator below
+    // never remounts and keeps its navigation state.
+    return (
+      <SidebarNavigationProvider>
+        <DesktopShell
+          sidebar={<Sidebar />}
+          rightSidebar={<RightSidebar variant={rightVariant} />}
+          rightSidebarWidth={rightWidth}
+          playerBar={<DesktopPlayerBar />}
+        >
+          <View style={{ flex: 1 }}>
+            {tabsElement}
+            {isMobile ? <MiniPlayer /> : null}
+          </View>
+        </DesktopShell>
+      </SidebarNavigationProvider>
+    );
+  }
+
   if (isMobile) {
     return (
       <View style={{ flex: 1 }}>
