@@ -639,7 +639,8 @@ const styles = StyleSheet.create({
   featuredImageContainerTablet: {
     width: undefined,
     alignSelf: "stretch",
-    marginHorizontal: TEXT_GUTTER,
+    marginLeft: TEXT_GUTTER,
+    marginRight: RULE_RIGHT_INSET,
     aspectRatio: 2,
     borderRadius: 4,
   },
