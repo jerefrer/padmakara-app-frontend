@@ -117,6 +117,9 @@ export default function DeleteAccountScreen() {
         </View>
 
         <Text style={styles.warningNote}>
+          {t('deleteAccount.paymentsNote') || 'Records of past payments are kept, without your contact details, for as long as accounting law requires. Any recurring payment is stopped.'}
+        </Text>
+        <Text style={styles.warningNote}>
           {t('deleteAccount.warningNote') || 'If you wish to use the app again in the future, you will need to request a new account and wait for approval from the administration.'}
         </Text>
 
