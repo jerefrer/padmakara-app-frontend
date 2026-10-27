@@ -6,7 +6,7 @@ appId: org.padmakara.pt
 name: iPad tour
 ---
 - runFlow: ../subflows/launch.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/portrait-0-signed-out
+- takeScreenshot: portrait-0-signed-out
 - tapOn: "Account"
 - scrollUntilVisible:
     element: "Sign In"
@@ -16,12 +16,12 @@ name: iPad tour
 - inputText: ${EMAIL || "payment-test@padmakara.pt"}
 - tapOn:
     id: sign-in-submit
-- assertVisible:
-    id: sign-in-sent
+# On iPad the sign-in is the inline Settings card, which keeps its spinner until the
+# device is activated (no "link sent" sheet as on iPhone): wait for the signed-in Settings.
 - extendedWaitUntil:
     notVisible:
-      id: sign-in-sent
-    timeout: 60000
+      id: sign-in-submit
+    timeout: 90000
 - setOrientation: PORTRAIT
 - runFlow:
     file: screens.yaml

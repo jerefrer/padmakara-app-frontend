@@ -229,7 +229,7 @@ run_flows() {
       start=$SECONDS
       echo; echo "e2e: [$label] ipad/$(basename "$flow")"
       ensure_servers
-      run_maestro "$here/run-signed-in.sh" --udid "$udid" "$flow"; rc=$?
+      run_maestro "$here/run-signed-in.sh" --udid "$udid" --test-output-dir "$MAESTRO_SHOTS_DIR" "$flow"; rc=$?
       results+=("$([ $rc -eq 0 ] && echo PASS || echo FAIL)  $label  ipad/$(basename "$flow")  $((SECONDS - start))s")
       [ $rc -eq 0 ] || failed=$((failed + 1))
     done

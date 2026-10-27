@@ -5,10 +5,10 @@ appId: org.padmakara.pt
 ---
 - tapOn: "What's New"
 - runFlow: ../subflows/pause.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-1-home
+- takeScreenshot: ${ORIENT}-1-home
 - tapOn: "Teachings & Talks"
 - runFlow: ../subflows/pause.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-2-events
+- takeScreenshot: ${ORIENT}-2-events
 # An event with audio, played: the shell's player bar is the only player.
 - tapOn: "Search"
 - tapOn:
@@ -19,7 +19,7 @@ appId: org.padmakara.pt
     visible:
       id: search-result-990001
     timeout: 15000
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-3-search
+- takeScreenshot: ${ORIENT}-3-search
 - tapOn:
     id: search-result-990001
 - extendedWaitUntil:
@@ -35,13 +35,13 @@ appId: org.padmakara.pt
 - tapOn:
     id: track-row-990001
 - runFlow: ../subflows/pause.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-4-event
+- takeScreenshot: ${ORIENT}-4-event
 - tapOn: "Publications"
 - runFlow: ../subflows/pause.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-5-publications
+- takeScreenshot: ${ORIENT}-5-publications
 - tapOn: "Bookmarks"
 - runFlow: ../subflows/pause.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-6-bookmarks
+- takeScreenshot: ${ORIENT}-6-bookmarks
 - tapOn: "Account"
 - runFlow: ../subflows/pause.yaml
-- takeScreenshot: ${MAESTRO_SHOTS_DIR}/${ORIENT}-7-settings
+- takeScreenshot: ${ORIENT}-7-settings
