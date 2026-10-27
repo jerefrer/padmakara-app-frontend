@@ -14,6 +14,8 @@ interface AuthContextType {
   hasActiveSubscription: boolean;
   user: User | null;
   isLoading: boolean;
+  /** True once the first auth check has finished (unlike isLoading, not reset by sign-out). */
+  isInitialized: boolean;
   isDeviceActivated: boolean;
   logout: () => Promise<void>;
   forgetDevice: () => Promise<void>;
@@ -89,7 +91,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    initializeAuth();
+    // Deliver a device deactivation that could not reach the server at sign-out.
+    initializeAuth().finally(() => {
+      magicLinkService.retryPendingDeactivation().catch(() => {});
+    });
 
     // Listen for auth state changes from API service (401 responses)
     const handleAuthStateChange = async () => {
@@ -349,23 +354,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const handleForgetDevice = async () => {
     try {
-      setIsLoading(true);
-      
-      // Full device deactivation: deactivate on backend AND clear local data (all platforms)
-      // This forces user to go through email activation again
-      await magicLinkService.deactivateDeviceOnBackend();
-      
-      // Clear local auth data
+      // Sign out locally first, so the UI is signed out the moment this resolves.
+      // The tokens the server request needs are read now: logout deletes them.
+      const deactivation = await magicLinkService.captureDeviceDeactivation();
+
       await authService.logout();
       await magicLinkService.clearDeviceActivation();
-      
+
       setIsAuthenticated(false);
       setUser(null);
       setIsDeviceActivated(false);
+
+      // Tell the server in the background; if it cannot be delivered the
+      // service keeps the request and retries it at the next app start.
+      magicLinkService.deactivateInBackground(deactivation).catch((error) => {
+        console.warn('Background device deactivation failed:', error);
+      });
     } catch (error) {
       console.error('Forget device error:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -402,6 +408,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     hasActiveSubscription,
     user,
     isLoading,
+    isInitialized,
     isDeviceActivated,
     logout: handleLogout,
     forgetDevice: handleForgetDevice,

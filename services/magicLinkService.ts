@@ -2,14 +2,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import apiService from './apiService';
-import { API_ENDPOINTS } from './apiConfig';
+import { API_CONFIG, API_ENDPOINTS } from './apiConfig';
 import {
   getAuthToken,
+  getRefreshToken,
   setAuthToken,
   setRefreshToken,
+  getPendingDeactivationRaw,
+  setPendingDeactivationRaw,
+  deletePendingDeactivation,
   deleteAuthToken,
   deleteRefreshToken,
 } from './tokenStorage';
+
+/** What the server needs to deactivate a device once local credentials are gone. */
+export interface DeviceDeactivation {
+  fingerprint: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+}
+
+type DeactivationOutcome = 'done' | 'retry' | 'drop';
 
 interface DeviceInfo {
   fingerprint: string;
@@ -334,6 +347,107 @@ class MagicLinkService {
     } catch (error) {
       console.error('Error getting activation info:', error);
       return { isActivated: false };
+    }
+  }
+
+  /**
+   * Read what a later deactivation request needs. Call BEFORE logging out:
+   * logout deletes the tokens the request authenticates with.
+   */
+  async captureDeviceDeactivation(): Promise<DeviceDeactivation> {
+    const [fingerprint, accessToken, refreshToken] = await Promise.all([
+      this.generateDeviceFingerprint(),
+      getAuthToken().catch(() => null),
+      getRefreshToken().catch(() => null),
+    ]);
+    return { fingerprint, accessToken, refreshToken };
+  }
+
+  private async postDeactivation(fingerprint: string, accessToken: string): Promise<Response> {
+    return fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.DEACTIVATE_DEVICE}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ device_fingerprint: fingerprint }),
+    });
+  }
+
+  /**
+   * One attempt with explicit credentials (stored ones are already cleared).
+   * An expired access token is renewed with the refresh token, in memory only.
+   */
+  private async attemptDeactivation(d: DeviceDeactivation): Promise<DeactivationOutcome> {
+    try {
+      let accessToken = d.accessToken;
+      let response = accessToken ? await this.postDeactivation(d.fingerprint, accessToken) : null;
+      if (!response || response.status === 401) {
+        if (!d.refreshToken) return 'drop';
+        const refreshed = await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.REFRESH_TOKEN}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: d.refreshToken }),
+        });
+        if (refreshed.status === 401 || refreshed.status === 403) return 'drop';
+        if (!refreshed.ok) return 'retry';
+        accessToken = (await refreshed.json())?.accessToken ?? null;
+        if (!accessToken) return 'retry';
+        response = await this.postDeactivation(d.fingerprint, accessToken);
+      }
+      if (response.ok) return 'done';
+      if (response.status === 401 || response.status === 403) return 'drop';
+      return 'retry';
+    } catch (error) {
+      console.warn('Device deactivation request failed:', error);
+      return 'retry';
+    }
+  }
+
+  /**
+   * Tell the backend this device signed out, without blocking the caller.
+   * Never throws; if the request cannot be delivered the credentials are kept
+   * in secure storage for retryPendingDeactivation().
+   */
+  async deactivateInBackground(d: DeviceDeactivation): Promise<void> {
+    const outcome = await this.attemptDeactivation(d);
+    if (outcome === 'retry') {
+      try {
+        await setPendingDeactivationRaw(JSON.stringify(d));
+      } catch (error) {
+        console.warn('Could not store pending device deactivation:', error);
+      }
+    } else if (outcome === 'drop') {
+      console.warn('Device deactivation dropped: credentials no longer valid');
+    }
+  }
+
+  /** Retry a stored deactivation once (app start). The record is deleted either way unless the network is still down. */
+  async retryPendingDeactivation(): Promise<void> {
+    try {
+      const raw = await getPendingDeactivationRaw();
+      if (!raw) return;
+      // The device signed in again since: that activation must not be undone.
+      if (await this.isDeviceActivated()) {
+        await deletePendingDeactivation();
+        return;
+      }
+      let record: DeviceDeactivation | null = null;
+      try {
+        record = JSON.parse(raw);
+      } catch {
+        record = null;
+      }
+      if (!record?.fingerprint) {
+        await deletePendingDeactivation();
+        return;
+      }
+      const outcome = await this.attemptDeactivation(record);
+      if (outcome === 'drop') {
+        console.warn('Pending device deactivation dropped: credentials no longer valid');
+      }
+      // One retry only: a second transient failure also ends it, so a dead
+      // credential never lingers in storage.
+      await deletePendingDeactivation();
+    } catch (error) {
+      console.warn('Pending device deactivation retry failed:', error);
     }
   }
 

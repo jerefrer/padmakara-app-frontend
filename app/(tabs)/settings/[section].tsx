@@ -15,11 +15,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 export default function SettingsSectionScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitialized } = useAuth();
   const { section } = useLocalSearchParams<{ section: string }>();
 
   const def = visibleSections({ isWeb: Platform.OS === 'web', isAuthenticated }).find((s) => s.id === section);
-  if (isLoading) return null;
+  // Only the very first auth check blanks the page; signing out must not.
+  if (!isInitialized) return null;
   // Unknown, hidden here (membership in the native app), or gone after signing out.
   if (!def) return <Redirect href={'/(tabs)/settings' as any} />;
   // The membership keeps its own page, which already has a back control and a title.
