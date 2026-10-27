@@ -49,12 +49,13 @@ describe('SignInSection', () => {
   });
 
   it('should forget the device and not just log out when the person confirms', async () => {
-    mockForgetDevice.mockResolvedValue(undefined);
+    mockForgetDevice.mockResolvedValue({ complete: true });
     const { getByTestId } = render(<SignInSection />);
     await act(async () => {
       fireEvent.press(getByTestId('settings-sign-out'));
     });
     expect(mockForgetDevice).toHaveBeenCalledTimes(1);
+    expect(window.confirm).toHaveBeenCalledTimes(1); // only the sign-out confirmation
     expect(mockLogout).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/(groups)');
   });
@@ -66,5 +67,16 @@ describe('SignInSection', () => {
       fireEvent.press(getByTestId('settings-sign-out'));
     });
     expect(mockForgetDevice).not.toHaveBeenCalled();
+  });
+
+  it('should tell the person to restart the app when some data could not be removed', async () => {
+    mockForgetDevice.mockResolvedValue({ complete: false });
+    const { getByTestId } = render(<SignInSection />);
+    await act(async () => {
+      fireEvent.press(getByTestId('settings-sign-out'));
+    });
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/(groups)');
+    expect(window.confirm).toHaveBeenCalledTimes(2); // confirmation, then the notice
+    expect((window.confirm as jest.Mock).mock.calls[1][0]).toContain('Restart the app to finish');
   });
 });

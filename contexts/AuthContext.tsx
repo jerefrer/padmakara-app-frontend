@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from '@/services/apiConfig';
 import imagePrefetchService, { type PrefetchTarget } from '@/services/imagePrefetch';
 import { ImagePrewarmer } from '@/components/ImagePrewarmer';
 import syncService from '@/services/syncService';
+import { clearLocalSession, finishPendingLocalCleanup, markPendingLocalCleanup } from '@/services/pendingLocalCleanup';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -18,7 +19,8 @@ interface AuthContextType {
   isInitialized: boolean;
   isDeviceActivated: boolean;
   logout: () => Promise<void>;
-  forgetDevice: () => Promise<void>;
+  /** Always ends signed out; `complete` is false when some local data could not be removed. */
+  forgetDevice: () => Promise<{ complete: boolean }>;
   updateUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   refreshAuth: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -93,6 +95,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     // Deliver a device deactivation that could not reach the server at sign-out.
     initializeAuth().finally(() => {
+      finishPendingLocalCleanup().catch(() => {});
       magicLinkService.retryPendingDeactivation().catch(() => {});
     });
 
@@ -352,27 +355,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const handleForgetDevice = async () => {
+  const handleForgetDevice = async (): Promise<{ complete: boolean }> => {
+    // Best effort, then tell the truth: every local step runs on its own, the UI
+    // always ends signed out, and `complete` says whether anything was left behind.
+    let deactivation: Awaited<ReturnType<typeof magicLinkService.captureDeviceDeactivation>> | null = null;
+    let captured = true;
     try {
-      // Sign out locally first, so the UI is signed out the moment this resolves.
-      // The tokens the server request needs are read now: logout deletes them.
-      const deactivation = await magicLinkService.captureDeviceDeactivation();
+      // The credentials the server request needs are read now: logout deletes them.
+      deactivation = await magicLinkService.captureDeviceDeactivation();
+    } catch (error) {
+      console.error('Forget device: could not capture credentials:', error);
+      captured = false;
+    }
 
-      await authService.logout();
-      await magicLinkService.clearDeviceActivation();
+    const cleared = await clearLocalSession();
+    const complete = captured && cleared;
 
-      setIsAuthenticated(false);
-      setUser(null);
-      setIsDeviceActivated(false);
+    setIsAuthenticated(false);
+    setUser(null);
+    setIsDeviceActivated(false);
 
+    if (!complete) {
+      // Finish the removal at the next app start.
+      await markPendingLocalCleanup();
+    }
+
+    if (deactivation) {
       // Tell the server in the background; if it cannot be delivered the
       // service keeps the request and retries it at the next app start.
       magicLinkService.deactivateInBackground(deactivation).catch((error) => {
         console.warn('Background device deactivation failed:', error);
       });
-    } catch (error) {
-      console.error('Forget device error:', error);
     }
+    return { complete };
   };
 
   const handleUpdateUser = async (userData: Partial<User>) => {

@@ -485,26 +485,30 @@ class MagicLinkService {
    * Clear device activation (for logout) with enhanced error handling
    * Note: Backend deactivation should be called separately BEFORE this method
    */
-  async clearDeviceActivation(): Promise<void> {
-    try {
-      console.log('📱 Clearing local device activation data...');
-      
-      // auth_token and refresh_token live in SecureStore on native.
-      await deleteAuthToken();
-      await deleteRefreshToken();
-      const success = await this.safeMultiRemove([
-        'device_activated',
-        'activation_date',
-        'user_data'
-      ]);
-
-      if (success) {
-        console.log('✅ Device activation cleared successfully');
-      } else {
-        console.warn('⚠️ Some activation data may not have been cleared');
+  async clearDeviceActivation(options: { strict?: boolean } = {}): Promise<void> {
+    console.log('📱 Clearing local device activation data...');
+    // Each removal runs even if another fails. Failures are logged; with
+    // `strict` the first one is rethrown after every removal was attempted.
+    const failures: unknown[] = [];
+    const attempt = async (step: () => Promise<unknown>) => {
+      try {
+        await step();
+      } catch (error) {
+        console.error('Error clearing activation:', error);
+        failures.push(error);
       }
-    } catch (error) {
-      console.error('Error clearing activation:', error);
+    };
+    // auth_token and refresh_token live in SecureStore on native.
+    await attempt(() => deleteAuthToken());
+    await attempt(() => deleteRefreshToken());
+    await attempt(async () => {
+      const success = await this.safeMultiRemove(['device_activated', 'activation_date', 'user_data']);
+      if (!success) throw new Error('Some activation data could not be removed');
+    });
+    if (failures.length === 0) {
+      console.log('✅ Device activation cleared successfully');
+    } else if (options.strict) {
+      throw failures[0];
     }
   }
 

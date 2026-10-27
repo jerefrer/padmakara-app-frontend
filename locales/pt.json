@@ -821,8 +821,8 @@
     "signOutDevice": "Terminar sessão neste dispositivo",
     "signOutDeviceHint": "Para voltar a entrar, será enviado um link para o seu email.",
     "signOutConfirm": "{{here}} será removido da sua conta. Para voltar a entrar é preciso um link enviado por email. Continuar?",
-    "signOutError": "Erro ao terminar sessão",
-    "signOutFailed": "Não foi possível terminar a sessão",
+    "signedOutIncompleteTitle": "Sessão terminada",
+    "signedOutIncompleteMessage": "Terminou a sessão, mas alguns dados não puderam ser removidos deste dispositivo. Reinicie a app para concluir.",
     "contact": "Contactar a Associação"
   },
   "appLock": {
