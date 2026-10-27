@@ -9,17 +9,21 @@ import {
   groupHeroCacheKey,
 } from '@/utils/cacheKeys';
 import { selectHero } from '@/utils/heroVariant';
+import { computeLayout } from '@/utils/layout';
 
 /**
- * Mirrors the breakpoint in `useDesktopLayout` so prefetched bytes match
- * the variant the screen will actually request: native + narrow web ⇒
- * mobile (1200px), wider web ⇒ desktop (2400px). Read once at prefetch
- * time — refetching after a window resize on web would tear the cooldown
- * accounting and is not worth the complexity for a few hidden Image tags.
+ * Uses the same pure function as `useDesktopLayout` so prefetched bytes match
+ * the variant the screen will request: iPhone and narrow web / Split View
+ * iPad => mobile (1200px), wider => desktop (2400px). Read once at prefetch
+ * time -- refetching after a resize would tear the cooldown accounting and is
+ * not worth the complexity for a few hidden Image tags.
  */
 function isMobileViewport(): boolean {
-  if (Platform.OS !== 'web') return true;
-  return Dimensions.get('window').width < 768;
+  return computeLayout({
+    platform: Platform.OS,
+    isPad: Platform.OS === 'ios' && Platform.isPad === true,
+    width: Dimensions.get('window').width,
+  }).isMobile;
 }
 
 export interface PrefetchTarget {
