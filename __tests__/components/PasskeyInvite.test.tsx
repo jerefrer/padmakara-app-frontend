@@ -173,3 +173,33 @@ describe('invitation after sign-in (SignInForm)', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 });
+
+describe('PasskeyInvite copy', () => {
+  it('should use the specified iOS body', () => {
+    const { Platform } = require('react-native');
+    const original = Platform.OS;
+    Platform.OS = 'ios';
+    render(<PasskeyInvite userId="42" onContinue={jest.fn()} />);
+    Platform.OS = original;
+
+    expect(
+      screen.getByText(
+        'Save a key on this phone. When you come back, on the website or on a new iPhone or iPad, a glance with Face ID or Touch ID is enough. No more waiting for an email.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('should use the specified Android body', () => {
+    const { Platform } = require('react-native');
+    const original = Platform.OS;
+    Platform.OS = 'android';
+    render(<PasskeyInvite userId="42" onContinue={jest.fn()} />);
+    Platform.OS = original;
+
+    expect(
+      screen.getByText(
+        'Save a key on this phone. When you come back, on the website or on a new phone, a glance with your fingerprint or face is enough. No more waiting for an email.',
+      ),
+    ).toBeTruthy();
+  });
+});

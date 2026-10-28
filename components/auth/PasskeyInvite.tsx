@@ -61,12 +61,24 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
         : device === 'mac' || device === 'desktop'
           ? tx('method.desktop', "your computer's fingerprint, face or PIN")
           : tx('method.generic', 'your face or fingerprint');
+  const isPad = Platform.OS === 'ios' && Platform.isPad === true;
   const deviceWord =
-    (device === 'ios' && Platform.OS === 'ios' && Platform.isPad) || device === 'other'
+    device === 'other' || isPad
       ? tx('deviceWord.other', 'device')
       : device === 'ios' || device === 'android'
         ? tx('deviceWord.phone', 'phone')
         : tx('deviceWord.computer', 'computer');
+  const bodyKey = { ios: 'bodyIos', android: 'bodyAndroid', mac: 'bodyDesktop', desktop: 'bodyDesktop', other: 'bodyGeneric' }[device];
+  const bodyFallback = {
+    bodyIos:
+      'Save a key on this {{device}}. When you come back, on the website or on a new iPhone or iPad, a glance with {{method}} is enough. No more waiting for an email.',
+    bodyAndroid:
+      'Save a key on this phone. When you come back, on the website or on a new phone, a glance with {{method}} is enough. No more waiting for an email.',
+    bodyDesktop:
+      'Save a key on this computer. When you come back to the website, {{method}} is enough. No more waiting for an email.',
+    bodyGeneric:
+      'Save a key on this device. When you come back, on the website or on a new device, {{method}} is enough. No more waiting for an email.',
+  }[bodyKey] as string;
   const sync =
     device === 'ios' || device === 'mac'
       ? tx('pointApple', 'Works with your other Apple devices')
@@ -124,11 +136,7 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
             {tx('title', 'Next time, sign in without an email')}
           </Text>
           <Text style={styles.body}>
-            {tx(
-              'body',
-              'Save a key on this {{device}}. Next time, {{method}} is enough, on the website or in the app. No more waiting for an email.',
-              { device: deviceWord, method },
-            )}
+            {tx(bodyKey, bodyFallback, { device: deviceWord, method })}
           </Text>
           <View style={styles.points}>
             {points.map((p) => (

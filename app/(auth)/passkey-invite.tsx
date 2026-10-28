@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { safeInternalPath } from '@/utils/safeInternalPath';
 import { PasskeyInvite } from '@/components/auth/PasskeyInvite';
 
 /**
@@ -13,7 +14,7 @@ export default function PasskeyInviteScreen() {
   const userId = user?.id ? String(user.id) : '';
 
   const onContinue = useCallback(() => {
-    if (next) router.replace(next as any);
+    if (next) router.replace(safeInternalPath(next) as any);
     else if (router.canGoBack()) router.back();
     else router.replace('/(tabs)' as any);
   }, [next]);

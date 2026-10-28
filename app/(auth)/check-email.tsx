@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
 import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
+import { safeInternalPath } from '@/utils/safeInternalPath';
 import { inviteAfterEmailSignIn } from '@/hooks/usePasskeyInvite';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -46,7 +47,7 @@ export default function CheckEmailScreen() {
   const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
   const { isAuthenticated, isDeviceActivated, refreshAuth, user } = useAuth();
   const { language, t } = useLanguage();
-  const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
+  const redirectTarget = safeInternalPath(returnTo) as any;
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isPolling, setIsPolling] = useState(true);

@@ -199,7 +199,10 @@
     },
     "passkeyInvite": {
       "title": "Next time, sign in without an email",
-      "body": "Save a key on this {{device}}. Next time, {{method}} is enough, on the website or in the app. No more waiting for an email.",
+      "bodyIos": "Save a key on this {{device}}. When you come back, on the website or on a new iPhone or iPad, a glance with {{method}} is enough. No more waiting for an email.",
+      "bodyAndroid": "Save a key on this phone. When you come back, on the website or on a new phone, a glance with {{method}} is enough. No more waiting for an email.",
+      "bodyDesktop": "Save a key on this computer. When you come back to the website, {{method}} is enough. No more waiting for an email.",
+      "bodyGeneric": "Save a key on this device. When you come back, on the website or on a new device, {{method}} is enough. No more waiting for an email.",
       "pointNothing": "Nothing to remember",
       "pointOnlyYou": "Only you can use it",
       "pointApple": "Works with your other Apple devices",
