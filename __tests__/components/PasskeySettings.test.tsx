@@ -151,3 +151,28 @@ describe('PasskeySettings', () => {
     expect(screen.queryByTestId('passkey-settings')).toBeNull();
   });
 });
+
+describe('PasskeySettings web wording follows the browser', () => {
+  const WIN_CHROME =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+  const { Platform } = require('react-native');
+  const originalOS = Platform.OS;
+  const originalUA = Object.getOwnPropertyDescriptor(global.navigator, 'userAgent');
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+    if (originalUA) Object.defineProperty(global.navigator, 'userAgent', originalUA);
+    else delete (global.navigator as any).userAgent;
+  });
+
+  it('should title the block Passkeys and name the fingerprint, face or PIN on Chrome for Windows', async () => {
+    Platform.OS = 'web';
+    Object.defineProperty(global.navigator, 'userAgent', { value: WIN_CHROME, configurable: true });
+    await renderBlock();
+
+    expect(screen.getByText('Passkeys')).toBeTruthy();
+    expect(
+      screen.getByText('Sign in with your fingerprint, face or PIN instead of waiting for an email.'),
+    ).toBeTruthy();
+  });
+});

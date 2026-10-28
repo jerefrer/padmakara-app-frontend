@@ -195,7 +195,8 @@
       "signInIos": "Sign in with Face ID",
       "signInAndroid": "Sign in with your fingerprint",
       "signInWeb": "Sign in with a passkey",
-      "failed": "That didn't work. You can use your email instead."
+      "failed": "That didn't work. You can use your email instead.",
+      "signInMac": "Sign in with Touch ID"
     },
     "passkeyInvite": {
       "title": "Next time, sign in without an email",
@@ -206,7 +207,7 @@
       "pointNothing": "Nothing to remember",
       "pointOnlyYou": "Only you can use it",
       "pointApple": "Works with your other Apple devices",
-      "pointGoogle": "Works with your Google account",
+      "pointGoogle": "Works on your other devices with your Google account",
       "pointOther": "Works on your other devices",
       "accept": "Yes, set it up",
       "later": "Not now",
@@ -221,8 +222,9 @@
       "method": {
         "ios": "Face ID or Touch ID",
         "android": "your fingerprint or face",
-        "desktop": "your computer's fingerprint, face or PIN",
-        "generic": "your face or fingerprint"
+        "desktop": "your fingerprint, face or PIN",
+        "generic": "your face or fingerprint",
+        "mac": "Touch ID"
       }
     }
   },
@@ -866,7 +868,6 @@
       "title": "Face ID & passkeys",
       "titleOther": "Passkeys",
       "explanation": "Sign in with {{method}} instead of waiting for an email.",
-      "explanationOther": "Sign in with your fingerprint, face or screen lock instead of waiting for an email.",
       "methodApple": "Face ID or Touch ID",
       "added": "Added {{date}}",
       "lastUsed": "Last used {{date}}",
@@ -878,7 +879,11 @@
       "removeLabel": "Remove, {{name}}",
       "removeTitle": "Remove this key?",
       "removeMessage": "{{name}} will no longer sign you in. You can add a key again at any time.",
-      "removeFailed": "That key couldn't be removed. Please try again."
+      "removeFailed": "That key couldn't be removed. Please try again.",
+      "titleMac": "Touch ID & passkeys",
+      "methodMac": "Touch ID",
+      "methodAndroid": "your fingerprint or face",
+      "methodAny": "your fingerprint, face or PIN"
     }
   },
   "appLock": {

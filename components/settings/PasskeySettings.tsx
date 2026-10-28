@@ -12,16 +12,9 @@ import {
   tryListPasskeys,
   type PasskeySummary,
 } from '@/services/passkeyService';
+import { currentPasskeyWording } from '@/utils/passkeyWording';
 import { formatLongDate } from '@/utils/dateFormat';
 import { Rows, SettingsRow } from './ui';
-
-// Wording only: chosen by platform / user agent, never by probing the biometric hardware.
-function isApplePlatform(): boolean {
-  if (Platform.OS === 'ios') return true;
-  if (Platform.OS !== 'web') return false;
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-  return /iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(ua);
-}
 
 function RemoveButton({
   label,
@@ -91,13 +84,22 @@ export function PasskeySettings() {
   // Nothing to manage and nothing to add: do not show a block that leads nowhere.
   if (!supported && (keys === null || keys.length === 0)) return null;
 
-  const apple = isApplePlatform();
-  const title = apple ? tx('title', 'Face ID & passkeys') : tx('titleOther', 'Passkeys');
-  const explanation = apple
-    ? tx('explanation', 'Sign in with {{method}} instead of waiting for an email.', {
-        method: tx('methodApple', 'Face ID or Touch ID'),
-      })
-    : tx('explanationOther', 'Sign in with your fingerprint, face or screen lock instead of waiting for an email.');
+  const { method, apple } = currentPasskeyWording(Platform.OS, Platform.OS === 'ios' && Platform.isPad === true);
+  const title = apple
+    ? method === 'mac'
+      ? tx('titleMac', 'Touch ID & passkeys')
+      : tx('title', 'Face ID & passkeys')
+    : tx('titleOther', 'Passkeys');
+  const methodPhrase = {
+    ios: tx('methodApple', 'Face ID or Touch ID'),
+    mac: tx('methodMac', 'Touch ID'),
+    android: tx('methodAndroid', 'your fingerprint or face'),
+    desktop: tx('methodAny', 'your fingerprint, face or PIN'),
+    generic: tx('methodAny', 'your fingerprint, face or PIN'),
+  }[method];
+  const explanation = tx('explanation', 'Sign in with {{method}} instead of waiting for an email.', {
+    method: methodPhrase,
+  });
 
   const confirmRemoval = async () => {
     const target = pendingRemoval;

@@ -5,22 +5,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { markHandled } from '@/hooks/usePasskeyInvite';
 import { registerPasskey } from '@/services/passkeyService';
+import { currentPasskeyWording } from '@/utils/passkeyWording';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
-
-type DeviceKind = 'ios' | 'android' | 'mac' | 'desktop' | 'other';
-
-// Words are chosen by platform alone (no biometric probing); unknown means the generic wording.
-function detectDevice(): DeviceKind {
-  if (Platform.OS === 'ios') return 'ios';
-  if (Platform.OS === 'android') return 'android';
-  if (Platform.OS !== 'web') return 'other';
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
-  if (/Android/i.test(ua)) return 'android';
-  if (/Macintosh|Mac OS X/i.test(ua)) return 'mac';
-  if (/Windows|Linux|CrOS/i.test(ua)) return 'desktop';
-  return 'other';
-}
 
 const SUCCESS_MS = 1800;
 const QUIET_MS = 2200;
@@ -44,7 +30,10 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
   const mounted = useRef(true);
   const finished = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const device = detectDevice();
+  const { device, method: methodKind, sync: syncKind, tablet: isPad } = currentPasskeyWording(
+    Platform.OS,
+    Platform.OS === 'ios' && Platform.isPad === true,
+  );
 
   const tx = (key: string, fallback: string, vars?: Record<string, string>) => {
     const full = `auth.passkeyInvite.${key}`;
@@ -53,15 +42,13 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
     return vars ? text.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '') : text;
   };
 
-  const method =
-    device === 'ios'
-      ? tx('method.ios', 'Face ID or Touch ID')
-      : device === 'android'
-        ? tx('method.android', 'your fingerprint or face')
-        : device === 'mac' || device === 'desktop'
-          ? tx('method.desktop', "your computer's fingerprint, face or PIN")
-          : tx('method.generic', 'your face or fingerprint');
-  const isPad = Platform.OS === 'ios' && Platform.isPad === true;
+  const method = {
+    ios: tx('method.ios', 'Face ID or Touch ID'),
+    mac: tx('method.mac', 'Touch ID'),
+    android: tx('method.android', 'your fingerprint or face'),
+    desktop: tx('method.desktop', 'your fingerprint, face or PIN'),
+    generic: tx('method.generic', 'your face or fingerprint'),
+  }[methodKind];
   const deviceWord =
     device === 'other' || isPad
       ? tx('deviceWord.other', 'device')
@@ -79,12 +66,11 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
     bodyGeneric:
       'Save a key on this device. When you come back, on the website or on a new device, {{method}} is enough. No more waiting for an email.',
   }[bodyKey] as string;
-  const sync =
-    device === 'ios' || device === 'mac'
-      ? tx('pointApple', 'Works with your other Apple devices')
-      : device === 'android'
-        ? tx('pointGoogle', 'Works with your Google account')
-        : tx('pointOther', 'Works on your other devices');
+  const sync = {
+    apple: tx('pointApple', 'Works with your other Apple devices'),
+    google: tx('pointGoogle', 'Works on your other devices with your Google account'),
+    other: tx('pointOther', 'Works on your other devices'),
+  }[syncKind];
   const points = [tx('pointNothing', 'Nothing to remember'), tx('pointOnlyYou', 'Only you can use it'), sync];
 
   const finish = useCallback(() => {

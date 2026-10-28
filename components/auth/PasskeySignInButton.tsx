@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isPasskeySupported, signInWithPasskey } from '@/services/passkeyService';
 import { clearEmailSignInMarker } from '@/hooks/passkeyInviteState';
+import { currentPasskeyWording } from '@/utils/passkeyWording';
 import { membershipColors as c } from '@/components/membership/theme';
 
 interface Props {
@@ -43,13 +44,16 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
 
   if (!supported) return null;
 
+  const { method } = currentPasskeyWording(Platform.OS);
   const label =
-    Platform.OS === 'ios'
+    method === 'ios'
       ? tx('signInIos', 'Sign in with Face ID')
-      : Platform.OS === 'android'
-        ? tx('signInAndroid', 'Sign in with your fingerprint')
-        : tx('signInWeb', 'Sign in with a passkey');
-  const icon = Platform.OS === 'ios' ? 'scan-outline' : Platform.OS === 'android' ? 'finger-print' : 'key-outline';
+      : method === 'mac'
+        ? tx('signInMac', 'Sign in with Touch ID')
+        : method === 'android'
+          ? tx('signInAndroid', 'Sign in with your fingerprint')
+          : tx('signInWeb', 'Sign in with a passkey');
+  const icon = method === 'ios' ? 'scan-outline' : method === 'mac' || method === 'android' ? 'finger-print' : 'key-outline';
 
   const press = async () => {
     if (busy) return;

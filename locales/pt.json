@@ -195,7 +195,8 @@
       "signInIos": "Entrar com Face ID",
       "signInAndroid": "Entrar com a sua impressão digital",
       "signInWeb": "Entrar com uma chave de acesso",
-      "failed": "Não funcionou. Pode usar o seu email."
+      "failed": "Não funcionou. Pode usar o seu email.",
+      "signInMac": "Entrar com Touch ID"
     },
     "passkeyInvite": {
       "title": "Da próxima vez, entre sem precisar de um email",
@@ -206,7 +207,7 @@
       "pointNothing": "Nada para decorar",
       "pointOnlyYou": "Só pode ser usada por si",
       "pointApple": "Funciona com os seus outros dispositivos Apple",
-      "pointGoogle": "Funciona com a sua conta Google",
+      "pointGoogle": "Funciona nos seus outros dispositivos com a sua conta Google",
       "pointOther": "Funciona nos seus outros dispositivos",
       "accept": "Sim, configurar",
       "later": "Agora não",
@@ -221,8 +222,9 @@
       "method": {
         "ios": "Face ID ou Touch ID",
         "android": "a sua impressão digital ou o seu rosto",
-        "desktop": "a impressão digital, o rosto ou o PIN do seu computador",
-        "generic": "o seu rosto ou a sua impressão digital"
+        "desktop": "a sua impressão digital, o seu rosto ou o PIN",
+        "generic": "o seu rosto ou a sua impressão digital",
+        "mac": "Touch ID"
       }
     }
   },
@@ -866,7 +868,6 @@
       "title": "Face ID e chaves de acesso",
       "titleOther": "Chaves de acesso",
       "explanation": "Entre com {{method}} em vez de esperar por um email.",
-      "explanationOther": "Entre com a impressão digital, o rosto ou o bloqueio do ecrã em vez de esperar por um email.",
       "methodApple": "Face ID ou Touch ID",
       "added": "Adicionada em {{date}}",
       "lastUsed": "Última utilização: {{date}}",
@@ -878,7 +879,11 @@
       "removeLabel": "Remover, {{name}}",
       "removeTitle": "Remover esta chave?",
       "removeMessage": "{{name}} deixará de lhe permitir entrar. Pode adicionar uma chave de novo em qualquer altura.",
-      "removeFailed": "Não foi possível remover a chave. Tente de novo."
+      "removeFailed": "Não foi possível remover a chave. Tente de novo.",
+      "titleMac": "Touch ID e chaves de acesso",
+      "methodMac": "Touch ID",
+      "methodAndroid": "a sua impressão digital ou o seu rosto",
+      "methodAny": "a sua impressão digital, o seu rosto ou o PIN"
     }
   },
   "appLock": {

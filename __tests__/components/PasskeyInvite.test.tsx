@@ -207,3 +207,27 @@ describe('PasskeyInvite copy', () => {
     ).toBeTruthy();
   });
 });
+
+describe('PasskeyInvite web wording follows the browser', () => {
+  const MAC_CHROME =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+  const { Platform } = require('react-native');
+  const originalOS = Platform.OS;
+  const originalUA = Object.getOwnPropertyDescriptor(global.navigator, 'userAgent');
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+    if (originalUA) Object.defineProperty(global.navigator, 'userAgent', originalUA);
+    else delete (global.navigator as any).userAgent;
+  });
+
+  it('should show the Google wording and no Apple wording on Chrome for Mac', () => {
+    Platform.OS = 'web';
+    Object.defineProperty(global.navigator, 'userAgent', { value: MAC_CHROME, configurable: true });
+    render(<PasskeyInvite userId="42" onContinue={jest.fn()} />);
+
+    expect(screen.getByText('Works on your other devices with your Google account')).toBeTruthy();
+    expect(screen.queryByText(/Apple/)).toBeNull();
+    expect(screen.queryByText(/Face ID/)).toBeNull();
+  });
+});
