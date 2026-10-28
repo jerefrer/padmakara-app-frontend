@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { membershipColors as c } from '@/components/membership/theme';
 import { SignInForm } from './SignInForm';
+import { PasskeyInviteGate } from './PasskeyInviteGate';
 
 interface SignInContextValue {
   /** Opens sign-in over the current screen. `returnTo` only matters for the full-page fallback. */
@@ -46,6 +47,7 @@ export function SignInProvider({ children }: { children: React.ReactNode }) {
   return (
     <SignInContext.Provider value={value}>
       {children}
+      <PasskeyInviteGate />
       {open ? <SignInModal onClose={() => setOpen(false)} /> : null}
     </SignInContext.Provider>
   );

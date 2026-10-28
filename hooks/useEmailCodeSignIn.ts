@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import magicLinkService from '@/services/magicLinkService';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 
 export const EMAIL_CODE_LENGTH = 6;
 
@@ -33,6 +34,7 @@ export function useEmailCodeSignIn(getEmail: () => string, onSignedIn?: () => vo
       try {
         const res = await magicLinkService.verifyEmailCode(getEmail(), digits);
         if (res.success) {
+          markEmailSignIn();
           await refreshAuth();
           onSignedIn?.();
         } else {

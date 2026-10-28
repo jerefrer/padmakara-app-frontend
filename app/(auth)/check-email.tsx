@@ -4,7 +4,7 @@ import magicLinkService from '@/services/magicLinkService';
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
 import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
 import { safeInternalPath } from '@/utils/safeInternalPath';
-import { inviteAfterEmailSignIn } from '@/hooks/usePasskeyInvite';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -45,7 +45,7 @@ const colors = {
 
 export default function CheckEmailScreen() {
   const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
-  const { isAuthenticated, isDeviceActivated, refreshAuth, user } = useAuth();
+  const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
   const { language, t } = useLanguage();
   const redirectTarget = safeInternalPath(returnTo) as any;
   const [isResending, setIsResending] = useState(false);
@@ -121,14 +121,9 @@ export default function CheckEmailScreen() {
       console.log('✅ User authenticated via AuthContext state change, redirecting to main app');
       setActivationStatus('activated');
       setIsPolling(false); // Stop polling when activation detected via AuthContext
-      // Link or code: the invitation to save a passkey comes first when it is due, then the
-      // person continues to where they were going.
-      const timeout = setTimeout(async () => {
-        const invited = await inviteAfterEmailSignIn(user?.id ? String(user.id) : '', redirectTarget).catch(
-          () => false,
-        );
-        if (!invited) router.replace(redirectTarget);
-      }, 1000);
+      // The passkey invitation (link or code sign-in) opens over the destination from the
+      // persistent PasskeyInviteGate once this screen is gone.
+      const timeout = setTimeout(() => router.replace(redirectTarget), 1000);
       return () => clearTimeout(timeout);
     }
   }, [isAuthenticated, isDeviceActivated]);
@@ -153,6 +148,7 @@ export default function CheckEmailScreen() {
             // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect,
             // so do NOT schedule another router.replace here (would cause a double animation).
             console.log('🔄 Refreshing AuthContext after activation detection');
+            markEmailSignIn();
             await refreshAuth();
           } else {
             setActivationStatus('pending');

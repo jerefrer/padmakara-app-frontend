@@ -21,6 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { PasskeySignInButton } from '@/components/auth/PasskeySignInButton';
 import { usePasskeyAutofill } from '@/hooks/usePasskeyAutofill';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
+import { safeInternalPath } from '@/utils/safeInternalPath';
 
 const colors = {
   cream: {
@@ -55,7 +57,7 @@ export default function MagicLinkScreen() {
   const { returnTo, email: emailParam, approval } = useLocalSearchParams<{ returnTo?: string; email?: string; approval?: string }>();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
-  const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
+  const redirectTarget = safeInternalPath(returnTo) as any;
   const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '');
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(approval === '1');
@@ -144,6 +146,7 @@ export default function MagicLinkScreen() {
           // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect,
           // so do NOT call router.replace here (would cause a double navigation animation).
           console.log('🎉 Device already activated, refreshing auth state');
+          markEmailSignIn();
           await refreshAuth();
           return; // Exit early to prevent further processing
 
@@ -190,6 +193,7 @@ export default function MagicLinkScreen() {
       const result = await magicLinkService.reviewLogin(email.trim(), value);
       if (result.success) {
         // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect.
+        markEmailSignIn();
         await refreshAuth();
       } else if (result.incorrectCode) {
         setCodeError(true);

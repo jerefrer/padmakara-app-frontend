@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { PasskeyInvite } from '@/components/auth/PasskeyInvite';
 import { SignInForm } from '@/components/auth/SignInForm';
+import { clearEmailSignInMarker, hasEmailSignInMarker } from '@/hooks/passkeyInviteState';
 import { registerPasskey, isPasskeySupported } from '@/services/passkeyService';
 
 const mockRefreshAuth = jest.fn(() => Promise.resolve());
@@ -44,6 +45,7 @@ const supported = isPasskeySupported as jest.Mock;
 const magicLink = jest.requireMock('@/services/magicLinkService').default;
 
 beforeEach(() => {
+  clearEmailSignInMarker();
   // Not resetAllMocks: it would also wipe the AsyncStorage mock's implementations.
   for (const fn of [mockPush, register, supported, mockRefreshAuth, ...Object.values<jest.Mock>(magicLink)]) fn.mockReset();
   const svc = jest.requireMock('@/services/passkeyService');
@@ -143,13 +145,15 @@ describe('invitation after sign-in (SignInForm)', () => {
     return utils;
   }
 
-  it('should send the person to the invitation once an email sign-in completes', async () => {
+  it('should leave the invitation to the persistent gate once an email sign-in completes', async () => {
     magicLink.requestMagicLink.mockResolvedValue({ success: true, data: { status: 'already_activated' } });
     supported.mockResolvedValue(true);
 
     await submitEmail();
 
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(auth)/passkey-invite' });
+    // The form only marks the email sign-in (PasskeyInviteGate.test covers the invitation itself).
+    expect(hasEmailSignInMarker()).toBe(true);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('should not invite after a passkey sign-in', async () => {

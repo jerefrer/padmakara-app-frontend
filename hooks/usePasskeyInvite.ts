@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
+import { armInvite } from '@/hooks/passkeyInviteState';
 import { isPasskeySupported } from '@/services/passkeyService';
 
 export const PASSKEY_INVITE_PATH = '/(auth)/passkey-invite';
@@ -44,22 +43,8 @@ export async function shouldInvite(userId: string, method: SignInMethod = 'email
 export async function inviteAfterEmailSignIn(userId: string, next?: string): Promise<boolean> {
   if (!(await shouldInvite(userId, 'email'))) return false;
   await markHandled(userId);
+  armInvite();
   if (next) router.replace({ pathname: PASSKEY_INVITE_PATH, params: { next } } as any);
   else router.push({ pathname: PASSKEY_INVITE_PATH } as any);
   return true;
-}
-
-/**
- * Email sign-in finished (`signedIn` flips to true) and the user is known: invite once.
- * Never call it for a passkey sign-in.
- */
-export function useInviteAfterEmailSignIn(signedIn: boolean) {
-  const { user } = useAuth();
-  const userId = user?.id ? String(user.id) : '';
-  const done = useRef(false);
-  useEffect(() => {
-    if (!signedIn || !userId || done.current) return;
-    done.current = true;
-    inviteAfterEmailSignIn(userId).catch(() => {});
-  }, [signedIn, userId]);
 }

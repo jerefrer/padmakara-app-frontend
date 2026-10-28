@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { router, useGlobalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import magicLinkService from '@/services/magicLinkService';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 
 const colors = {
   cream: {
@@ -53,6 +54,7 @@ export default function RootIndex() {
       
       if (result.success) {
         console.log('✅ Auto-activation successful, refreshing auth state');
+        markEmailSignIn();
         await refreshAuth();
         console.log('🔄 Auth refresh completed, allowing redirect logic');
         setIsAutoActivating(false); // Critical: Allow redirect logic to execute

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isPasskeySupported, signInWithPasskey } from '@/services/passkeyService';
+import { clearEmailSignInMarker } from '@/hooks/passkeyInviteState';
 import { membershipColors as c } from '@/components/membership/theme';
 
 interface Props {
@@ -58,6 +59,7 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
     const result = await signInWithPasskey();
     if (!mounted.current) return;
     if (result.ok) {
+      clearEmailSignInMarker();
       await refreshAuth();
       if (mounted.current) onSignedIn?.();
       return;

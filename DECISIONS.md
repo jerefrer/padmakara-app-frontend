@@ -76,3 +76,12 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** the Play Console signing key is available (fill the fingerprints), the apex domain can serve `.well-known`, or adoption suggests asking again after a time.
 
 ---
+
+## 2026-10-28 — Passkey invitation trigger 1 runs from a persistent gate
+**Chosen:** The invitation right after an email sign-in no longer starts from the sign-in form or the check-email screen. The sign-in code (sheet/card form, 6-digit code, review code, check-email polling, magic-link screen, link auto-activation) sets a module-level "email sign-in just completed" marker (`hooks/passkeyInviteState.ts`) BEFORE awaiting `refreshAuth()`. `PasskeyInviteGate`, mounted inside `SignInProvider` for the whole app lifetime, consumes the marker once `isAuthenticated && user`, waits 1.5 s (sheet dismissal, check-email's own redirect) and then calls `inviteAfterEmailSignIn`. A passkey sign-in never sets the marker and clears a stale one. The invitation route opens only when a trigger armed it just before navigating; a reload or browser Back goes home.
+**Alternatives:** keeping the in-form hook (it almost never ran: `refreshAuth()` flips `isAuthenticated` first, which closes the sheet and unmounts the form before `phase === 'done'` is seen); using the persisted flag to guard the route (the triggers set it before navigating, so it cannot tell the first display from a repeat).
+**Why:** the screens that complete a sign-in unmount as soon as the session is known, so only a component that outlives them can reliably react. One code path, with the shared per-device flag still preventing a second display.
+**Trade-offs:** a fixed settle delay instead of a navigation event; the marker is in-memory, so an app kill between sign-in and the gate drops the invitation (home trigger 2 covers it later).
+**Revisit if:** the delay proves too short on slow devices, or Expo Router exposes a reliable "modal dismissed" signal.
+
+---
