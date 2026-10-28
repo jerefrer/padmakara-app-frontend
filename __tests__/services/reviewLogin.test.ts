@@ -61,3 +61,35 @@ describe('magicLinkService.reviewLogin', () => {
     expect(res.incorrectCode).toBe(false);
   });
 });
+
+describe('magicLinkService.verifyEmailCode', () => {
+  it('should post the digits to verify-code with the device and store the tokens', async () => {
+    post.mockResolvedValue({
+      success: true,
+      data: { status: 'already_activated', access_token: 'acc', refresh_token: 'ref', user: { id: '7' } },
+    });
+
+    const res = await magicLinkService.verifyEmailCode(' Ana@Example.pt ', '123 456');
+
+    expect(res.success).toBe(true);
+    const [endpoint, body] = post.mock.calls[0];
+    expect(endpoint).toBe('/auth/verify-code');
+    expect(body).toMatchObject({ email: 'ana@example.pt', code: '123456' });
+    expect(body.device_fingerprint).toBeTruthy();
+    expect(ts.setAuthToken).toHaveBeenCalledWith('acc');
+  });
+
+  it('should report an incorrect code on 401 and store nothing', async () => {
+    post.mockResolvedValue({ success: false, error: 'Authentication required.', authRequired: true });
+    const res = await magicLinkService.verifyEmailCode('ana@example.pt', '000000');
+    expect(res).toMatchObject({ success: false, incorrectCode: true, network: false });
+    expect(ts.setAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('should report a network failure when the request got no HTTP answer', async () => {
+    post.mockResolvedValue({ success: false, error: 'Network error. Please check your internet connection.' });
+    const res = await magicLinkService.verifyEmailCode('ana@example.pt', '123456');
+    expect(res).toMatchObject({ success: false, network: true });
+    expect(res.incorrectCode).toBeFalsy();
+  });
+});

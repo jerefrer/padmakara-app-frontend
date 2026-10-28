@@ -107,6 +107,13 @@ export default function TabLayout() {
           popToTopOnBlur: true,
         }}
       />
+      {/* /account: stable address, hidden like membership. See account.tsx before changing it. */}
+      <Tabs.Screen
+        name="account"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 

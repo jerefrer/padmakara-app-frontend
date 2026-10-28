@@ -293,6 +293,42 @@ class MagicLinkService {
   }
 
   /**
+   * Sign in with the 6-digit code printed in the sign-in email (the typed alternative to the link).
+   * Same result shape as `reviewLogin`: any server refusal is a 401, reported as `incorrectCode`.
+   */
+  async verifyEmailCode(
+    email: string,
+    code: string,
+  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean; network?: boolean }> {
+    try {
+      const deviceInfo = await this.getDeviceInfo();
+      const response = await apiService.post<MagicLinkResponse>(API_ENDPOINTS.VERIFY_CODE, {
+        email: email.toLowerCase().trim(),
+        code: code.replace(/\s+/g, ''),
+        device_fingerprint: deviceInfo.fingerprint,
+        device_name: deviceInfo.name,
+        device_type: deviceInfo.type,
+      });
+
+      if (!response.success || !response.data) {
+        // No stored session yet, so apiService reports the 401 as authRequired.
+        const incorrectCode = response.status === 401 || response.authRequired === true;
+        // No HTTP status at all means the request never got an answer.
+        const network = !incorrectCode && response.status === undefined;
+        return { success: false, error: response.error || 'Failed to sign in', incorrectCode, network };
+      }
+
+      if (response.data.access_token) {
+        await this.storeActivation(response.data);
+      }
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Error signing in with email code:', error);
+      return { success: false, error: 'Network error. Please try again.', network: true };
+    }
+  }
+
+  /**
    * Step 2b: Request admin approval for new users
    */
   async requestApproval(data: {

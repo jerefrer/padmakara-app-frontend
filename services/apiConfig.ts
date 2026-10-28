@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   // Magic Link Authentication
   REQUEST_MAGIC_LINK: '/auth/request-magic-link',
   REVIEW_LOGIN: '/auth/review-login',
+  VERIFY_CODE: '/auth/verify-code',
   REQUEST_USER_APPROVAL: '/auth/request-approval',
   AUTO_ACTIVATE_DEVICE: '/auth/auto-activate',
   DISCOVER_DEVICE_ACTIVATION: '/auth/device/discover',

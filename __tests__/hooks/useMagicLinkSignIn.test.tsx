@@ -7,7 +7,10 @@ const mockRefreshAuth = jest.fn(() => Promise.resolve());
 
 jest.mock('@/services/magicLinkService', () => ({
   __esModule: true,
-  default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn(), reviewLogin: jest.fn() },
+  default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn(),
+    reviewLogin: jest.fn(),
+    verifyEmailCode: jest.fn(),
+  },
 }));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ refreshAuth: mockRefreshAuth }),
@@ -19,6 +22,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 const request = magicLinkService.requestMagicLink as jest.Mock;
 const check = magicLinkService.checkActivationStatus as jest.Mock;
 const reviewLogin = magicLinkService.reviewLogin as jest.Mock;
+const verifyEmailCode = magicLinkService.verifyEmailCode as jest.Mock;
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -167,6 +171,68 @@ describe('useMagicLinkSignIn', () => {
       });
       expect(result.current.error).toBe('badCode');
       expect(reviewLogin).not.toHaveBeenCalled();
+    });
+  });
+  describe('email code sign-in', () => {
+    const sent = () => submit({ success: true, data: { status: 'magic_link_sent' } });
+
+    it('should sign in with the typed code, stripping spaces, and finish', async () => {
+      const { result } = await sent();
+      verifyEmailCode.mockResolvedValueOnce({ success: true, data: { status: 'already_activated' } });
+      act(() => result.current.setEmailCode('123 456'));
+      expect(result.current.emailCode).toBe('123456');
+      await act(async () => {
+        await result.current.submitEmailCode();
+      });
+      expect(verifyEmailCode).toHaveBeenCalledWith('ana@example.pt', '123456');
+      expect(mockRefreshAuth).toHaveBeenCalledTimes(1);
+      expect(result.current.phase).toBe('done');
+    });
+
+    it('should flag a wrong code and stay on the sent step', async () => {
+      const { result } = await sent();
+      verifyEmailCode.mockResolvedValueOnce({ success: false, incorrectCode: true });
+      await act(async () => {
+        await result.current.submitEmailCode('000000');
+      });
+      expect(result.current.emailCodeError).toBe('badCode');
+      expect(result.current.phase).toBe('sent');
+      expect(mockRefreshAuth).not.toHaveBeenCalled();
+    });
+
+    it('should refuse anything but 6 digits without calling the server', async () => {
+      const { result } = await sent();
+      await act(async () => {
+        await result.current.submitEmailCode('12345');
+      });
+      expect(result.current.emailCodeError).toBe('badCode');
+      expect(verifyEmailCode).not.toHaveBeenCalled();
+    });
+
+    it('should report a lost connection as a network error', async () => {
+      const { result } = await sent();
+      verifyEmailCode.mockResolvedValueOnce({ success: false, network: true });
+      await act(async () => {
+        await result.current.submitEmailCode('123456');
+      });
+      expect(result.current.emailCodeError).toBe('network');
+    });
+
+    it('should keep waiting for the link while the person types', async () => {
+      const { result } = await sent();
+      act(() => result.current.setEmailCode('12'));
+      check.mockResolvedValueOnce({ success: true, data: { isActivated: true } });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(check).toHaveBeenCalled();
+      expect(result.current.phase).toBe('done');
+    });
+
+    it('should leave the review code path untouched', async () => {
+      const { result } = await submit({ success: true, data: { status: 'code_required' } }, 'review@padmakara.pt');
+      expect(result.current.phase).toBe('code');
+      expect(verifyEmailCode).not.toHaveBeenCalled();
     });
   });
 });
