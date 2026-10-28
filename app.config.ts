@@ -144,6 +144,8 @@ const config: PadmakaraConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: variant.applicationId,
+    // Passkeys: ties the app to the web domain (see public/.well-known).
+    associatedDomains: ["webcredentials:app.padmakara.pt"],
     icon: "./assets/images/iOS.icon",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
