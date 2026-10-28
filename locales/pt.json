@@ -861,7 +861,25 @@
     "signOutConfirm": "{{here}} será removido da sua conta. Para voltar a entrar é preciso um link enviado por email. Continuar?",
     "signedOutIncompleteTitle": "Sessão terminada",
     "signedOutIncompleteMessage": "Terminou a sessão, mas alguns dados não puderam ser removidos deste dispositivo. Reinicie a app para concluir.",
-    "contact": "Contactar a Associação"
+    "contact": "Contactar a Associação",
+    "passkeys": {
+      "title": "Face ID e chaves de acesso",
+      "titleOther": "Chaves de acesso",
+      "explanation": "Entre com {{method}} em vez de esperar por um email.",
+      "explanationOther": "Entre com a impressão digital, o rosto ou o bloqueio do ecrã em vez de esperar por um email.",
+      "methodApple": "Face ID ou Touch ID",
+      "added": "Adicionada em {{date}}",
+      "lastUsed": "Última utilização: {{date}}",
+      "neverUsed": "Nunca utilizada",
+      "empty": "Ainda não tem chaves guardadas.",
+      "add": "Adicionar uma chave neste dispositivo",
+      "addFailed": "Não correu bem. Pode tentar de novo.",
+      "remove": "Remover",
+      "removeLabel": "Remover, {{name}}",
+      "removeTitle": "Remover esta chave?",
+      "removeMessage": "{{name}} deixará de a fazer entrar. Pode adicionar uma chave de novo em qualquer altura.",
+      "removeFailed": "Não foi possível remover a chave. Tente de novo."
+    }
   },
   "appLock": {
     "titleFaceId": "Bloquear com Face ID",

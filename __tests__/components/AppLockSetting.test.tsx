@@ -21,6 +21,7 @@ jest.mock('@/contexts/AudioPlayerContext', () => ({
   useAudioPlayerContext: () => ({ clearTrack: jest.fn() }),
 }));
 jest.mock('@/contexts/AppLockContext', () => ({ useAppLock: () => mockLock }));
+jest.mock('@/components/settings/PasskeySettings', () => ({ PasskeySettings: () => null }));
 jest.mock('@/components/StorageSection', () => ({ StorageSection: () => null }));
 jest.mock('@/services/videoPreferencesService', () => ({}));
 

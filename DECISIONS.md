@@ -67,3 +67,12 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** members report being interrupted, or passkey adoption stays low.
 
 ---
+
+## 2026-10-28 — Passkey invitation cadence, wording and Android status
+**Chosen:** The invitation is shown once per user per device (flag `passkeyInvite:<userId>`, set when it is shown, whatever the answer). Platform wording depends on `Platform.OS` and the user agent only, never on probing biometric hardware: "Face ID or Touch ID" on iOS (and iOS/macOS browsers), a generic "fingerprint or face" elsewhere; the Settings block is titled "Face ID & passkeys" on Apple platforms and "Passkeys" otherwise. The relying party ID is `app.padmakara.pt` (the apex is a Wix site that cannot serve `.well-known`). Android native passkeys are pending the signing certificate fingerprints: they must be filled in `public/.well-known/assetlinks.json` and as `android:apk-key-hash:...` origins in the API's `WEBAUTHN_ANDROID_ORIGINS`; until then Android native fails gracefully and web passkeys on Android Chrome work regardless.
+**Alternatives:** asking at every sign-in (nagging); detecting biometrics before choosing the wording (the platform APIs do not say which biometric will be used, and a wrong "Face ID" promise is worse than a generic one); RP ID `padmakara.pt` (cannot host the association files); hiding Android passkeys entirely (web passkeys on Android work today).
+**Why:** one invitation respects the member; platform-only wording is predictable and testable; the RP ID is the only domain where we control `.well-known`.
+**Trade-offs:** a member who dismisses the invitation must find Settings; the wording can be wrong on a Mac without Touch ID; Android native cannot be used until the Play and EAS fingerprints are known; changing the RP ID later invalidates every saved passkey.
+**Revisit if:** the Play Console signing key is available (fill the fingerprints), the apex domain can serve `.well-known`, or adoption suggests asking again after a time.
+
+---

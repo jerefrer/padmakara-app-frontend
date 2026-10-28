@@ -861,7 +861,25 @@
     "signOutConfirm": "{{here}} will be removed from your account. Signing in again takes a link sent to your email. Continue?",
     "signedOutIncompleteTitle": "Signed out",
     "signedOutIncompleteMessage": "You are signed out, but some data could not be removed from this device. Restart the app to finish.",
-    "contact": "Contact the Association"
+    "contact": "Contact the Association",
+    "passkeys": {
+      "title": "Face ID & passkeys",
+      "titleOther": "Passkeys",
+      "explanation": "Sign in with {{method}} instead of waiting for an email.",
+      "explanationOther": "Sign in with your fingerprint, face or screen lock instead of waiting for an email.",
+      "methodApple": "Face ID or Touch ID",
+      "added": "Added {{date}}",
+      "lastUsed": "Last used {{date}}",
+      "neverUsed": "Never used",
+      "empty": "No keys saved yet.",
+      "add": "Add a key on this device",
+      "addFailed": "That didn't work. You can try again.",
+      "remove": "Remove",
+      "removeLabel": "Remove, {{name}}",
+      "removeTitle": "Remove this key?",
+      "removeMessage": "{{name}} will no longer sign you in. You can add a key again at any time.",
+      "removeFailed": "That key couldn't be removed. Please try again."
+    }
   },
   "appLock": {
     "titleFaceId": "Lock with Face ID",

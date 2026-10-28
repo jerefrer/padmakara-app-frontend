@@ -27,6 +27,7 @@ jest.mock('@/contexts/AuthContext', () => ({
     forgetDevice: mockForgetDevice,
   }),
 }));
+jest.mock('@/components/settings/PasskeySettings', () => ({ PasskeySettings: () => null }));
 jest.mock('@/components/StorageSection', () => ({ StorageSection: () => null }));
 jest.mock('@/services/videoPreferencesService', () => ({ __esModule: true, default: {} }));
 
