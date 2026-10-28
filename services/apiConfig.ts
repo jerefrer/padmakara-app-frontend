@@ -26,6 +26,14 @@ export const API_ENDPOINTS = {
   LIST_USER_DEVICES: '/auth/devices',
   REFRESH_TOKEN: '/auth/refresh',
 
+  // Passkeys
+  PASSKEY_REGISTER_OPTIONS: '/auth/passkeys/register/options',
+  PASSKEY_REGISTER_VERIFY: '/auth/passkeys/register/verify',
+  PASSKEY_LOGIN_OPTIONS: '/auth/passkeys/login/options',
+  PASSKEY_LOGIN_VERIFY: '/auth/passkeys/login/verify',
+  PASSKEYS: '/auth/passkeys',
+  PASSKEY: (id: number) => `/auth/passkeys/${id}`,
+
   // User Profile
   USER_PROFILE: '/auth/user',
   UPDATE_PROFILE: '/auth/user',
