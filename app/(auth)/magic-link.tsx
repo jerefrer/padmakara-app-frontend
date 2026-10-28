@@ -9,6 +9,7 @@ import {
   Alert,
   Animated,
   Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +19,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
+import { PasskeySignInButton } from '@/components/auth/PasskeySignInButton';
+import { usePasskeyAutofill } from '@/hooks/usePasskeyAutofill';
 
 const colors = {
   cream: {
@@ -64,6 +67,8 @@ export default function MagicLinkScreen() {
   const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState('');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  // The redirect effect below takes over once refreshAuth has run; only the email step offers autofill.
+  const { abort: abortAutofill } = usePasskeyAutofill(() => {}, !showCodeForm && !showApprovalForm);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -119,6 +124,7 @@ export default function MagicLinkScreen() {
       return;
     }
 
+    abortAutofill();
     setIsLoading(true);
     Keyboard.dismiss();
 
@@ -336,7 +342,7 @@ export default function MagicLinkScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            autoComplete="email"
+            autoComplete={Platform.OS === 'web' ? ('username webauthn' as any) : 'email'}
             editable={!isLoading}
             onSubmitEditing={handleEmailSubmit}
             returnKeyType="go"
@@ -358,6 +364,7 @@ export default function MagicLinkScreen() {
             <Text style={styles.primaryButtonText}>{t('auth.magicLink.continueButton')}</Text>
           )}
         </TouchableOpacity>
+        <PasskeySignInButton onStart={abortAutofill} />
       </View>
 
     </Animated.View>

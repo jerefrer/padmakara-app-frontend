@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { REVIEW_CODE_MAX_LENGTH, useMagicLinkSignIn, type SignInError } from '@/hooks/useMagicLinkSignIn';
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
+import { PasskeySignInButton } from '@/components/auth/PasskeySignInButton';
+import { usePasskeyAutofill } from '@/hooks/usePasskeyAutofill';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
@@ -31,6 +33,14 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
       router.push({ pathname: '/(auth)/magic-link', params: { email, approval: '1' } } as any);
     },
   });
+  const [passkeyDone, setPasskeyDone] = useState(false);
+  const onPasskeySignedIn = React.useCallback(() => setPasskeyDone(true), []);
+  // Only the email step offers saved passkeys; leaving it (or unmounting) drops the pending request.
+  const { abort: abortAutofill } = usePasskeyAutofill(onPasskeySignedIn, s.phase === 'email');
+  const submitEmail = () => {
+    abortAutofill();
+    s.submit();
+  };
   const ring = useFocusRing();
   const card = variant === 'card';
   const tx = (key: string, fallback: string, vars?: Record<string, unknown>) => {
@@ -45,7 +55,7 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
     badCode: tx('codeIncorrect', 'Incorrect code'),
   };
 
-  if (s.phase === 'done') {
+  if (s.phase === 'done' || passkeyDone) {
     return (
       <View testID="sign-in-done" style={styles.done}>
         <ActivityIndicator color={c.burgundy[500]} />
@@ -168,13 +178,13 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
         accessibilityLabelledBy="sign-in-email-label"
         value={s.email}
         onChangeText={s.setEmail}
-        onSubmitEditing={s.submit}
+        onSubmitEditing={submitEmail}
         placeholder="your.email@example.com"
         placeholderTextColor={c.gray[400]}
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}
-        autoComplete="email"
+        autoComplete={Platform.OS === 'web' ? ('username webauthn' as any) : 'email'}
         textContentType="emailAddress"
         returnKeyType="send"
         autoFocus={autoFocus}
@@ -193,11 +203,12 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
         testID="sign-in-submit"
         accessibilityRole="button"
         disabled={sending}
-        onPress={s.submit}
+        onPress={submitEmail}
         style={({ pressed }) => [styles.submit, pressed && pageStyles.buttonPressed]}
       >
         {sending ? <ActivityIndicator color={c.white} /> : <Text style={pageStyles.buttonText}>{tx('submit', 'Continue')}</Text>}
       </Pressable>
+      <PasskeySignInButton onStart={abortAutofill} onSignedIn={onPasskeySignedIn} />
     </View>
   );
 }

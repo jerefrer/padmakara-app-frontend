@@ -190,6 +190,12 @@
         "requiredFields": "Required fields",
         "requiredFieldsMessage": "Please enter your first and last name."
       }
+    },
+    "passkey": {
+      "signInIos": "Sign in with Face ID",
+      "signInAndroid": "Sign in with your fingerprint",
+      "signInWeb": "Sign in with a passkey",
+      "failed": "That didn't work. You can use your email instead."
     }
   },
   "miniPlayer": {

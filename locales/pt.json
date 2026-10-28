@@ -190,6 +190,12 @@
         "requiredFields": "Campos obrigatórios",
         "requiredFieldsMessage": "Por favor, digite seu nome e sobrenome."
       }
+    },
+    "passkey": {
+      "signInIos": "Entrar com Face ID",
+      "signInAndroid": "Entrar com a sua impressão digital",
+      "signInWeb": "Entrar com uma chave de acesso",
+      "failed": "Não funcionou. Pode usar o seu email."
     }
   },
   "miniPlayer": {
