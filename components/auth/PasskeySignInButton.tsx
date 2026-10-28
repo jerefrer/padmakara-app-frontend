@@ -3,7 +3,8 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { isPasskeySupported, signInWithPasskey } from '@/services/passkeyService';
+import { fetchLoginChallenge, isPasskeySupported, signInWithPasskey } from '@/services/passkeyService';
+import { usePasskeyChallenge } from '@/hooks/usePasskeyChallenge';
 import { clearEmailSignInMarker } from '@/hooks/passkeyInviteState';
 import { currentPasskeyWording } from '@/utils/passkeyWording';
 import { membershipColors as c } from '@/components/membership/theme';
@@ -26,6 +27,8 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const mounted = useRef(true);
+  // Web only: Safari needs the browser call inside the tap, so the options are fetched beforehand.
+  const challenge = usePasskeyChallenge(fetchLoginChallenge, supported && Platform.OS === 'web');
 
   useEffect(() => {
     mounted.current = true;
@@ -57,10 +60,13 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
 
   const press = async () => {
     if (busy) return;
+    // Everything before this call is synchronous: the browser must see it inside the user gesture.
+    const prefetched = challenge.take();
     onStart?.();
     setBusy(true);
     setFailed(false);
-    const result = await signInWithPasskey();
+    const result = await signInWithPasskey({ challenge: prefetched });
+    challenge.reload();
     if (!mounted.current) return;
     if (result.ok) {
       clearEmailSignInMarker();

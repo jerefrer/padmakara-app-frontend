@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { markHandled } from '@/hooks/usePasskeyInvite';
-import { registerPasskey } from '@/services/passkeyService';
+import { usePasskeyChallenge } from '@/hooks/usePasskeyChallenge';
+import { fetchRegistrationChallenge, registerPasskey } from '@/services/passkeyService';
 import { currentPasskeyWording } from '@/utils/passkeyWording';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
 
@@ -30,6 +31,8 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
   const mounted = useRef(true);
   const finished = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Web only: Safari needs the browser call inside the tap, so the options are fetched beforehand.
+  const challenge = usePasskeyChallenge(fetchRegistrationChallenge, Platform.OS === 'web');
   const { device, method: methodKind, sync: syncKind, tablet: isPad } = currentPasskeyWording(
     Platform.OS,
     Platform.OS === 'ios' && Platform.isPad === true,
@@ -93,13 +96,16 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
 
   const accept = async () => {
     if (stage !== 'invite') return;
+    // Everything before registerPasskey is synchronous: the browser must see it inside the user gesture.
+    const prefetched = challenge.take();
     setStage('busy');
     let ok = false;
     try {
-      ok = (await registerPasskey()).ok;
+      ok = (await registerPasskey({ challenge: prefetched })).ok;
     } catch {
       ok = false;
     }
+    challenge.reload();
     if (!mounted.current) return;
     setStage(ok ? 'success' : 'quiet');
     timer.current = setTimeout(finish, ok ? SUCCESS_MS : QUIET_MS);

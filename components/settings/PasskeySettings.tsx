@@ -5,7 +5,9 @@ import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
+import { usePasskeyChallenge } from '@/hooks/usePasskeyChallenge';
 import {
+  fetchRegistrationChallenge,
   isPasskeySupported,
   registerPasskey,
   removePasskey,
@@ -53,6 +55,8 @@ export function PasskeySettings() {
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const mounted = useRef(true);
+  // Web only: Safari needs the browser call inside the tap, so the options are fetched beforehand.
+  const challenge = usePasskeyChallenge(fetchRegistrationChallenge, supported && Platform.OS === 'web');
 
   const tx = (key: string, fallback: string, vars?: Record<string, string>) => {
     const full = `settings.passkeys.${key}`;
@@ -121,10 +125,12 @@ export function PasskeySettings() {
 
   const add = async () => {
     if (adding) return;
+    const prefetched = challenge.take();
     setAdding(true);
     setMessage(null);
     try {
-      const result = await registerPasskey();
+      const result = await registerPasskey({ challenge: prefetched });
+      challenge.reload();
       if (!mounted.current) return;
       if (result.ok) await refresh();
       else if (!result.cancelled) setMessage(tx('addFailed', "That didn't work. You can try again."));

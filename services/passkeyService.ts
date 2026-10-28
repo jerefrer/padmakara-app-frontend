@@ -14,10 +14,13 @@ export interface PasskeySummary {
 /** `cancelled` is true when the person dismissed the system sheet (or the request was aborted): not an error. */
 export type PasskeyResult = { ok: true } | { ok: false; cancelled: boolean };
 
-interface ChallengeResponse {
+/** A single-use server challenge with the WebAuthn options built from it (valid for five minutes). */
+export interface PasskeyChallenge {
   challengeId: string;
   options: PasskeyOptionsJSON;
 }
+
+type ChallengeResponse = PasskeyChallenge;
 
 interface LoginVerifyResponse {
   status?: string;
@@ -47,15 +50,41 @@ export async function supportsPasskeyAutofill(): Promise<boolean> {
   }
 }
 
-/** Creates a passkey for the signed-in person on this device. */
-export async function registerPasskey(): Promise<PasskeyResult> {
+/**
+ * Fetches registration options ahead of time. Safari only accepts `credentials.create()` inside the
+ * user gesture, so the web caller fetches on mount and passes the result to `registerPasskey`.
+ */
+export async function fetchRegistrationChallenge(): Promise<PasskeyChallenge | null> {
   try {
-    const challenge = await apiService.post<ChallengeResponse>(API_ENDPOINTS.PASSKEY_REGISTER_OPTIONS, {});
-    if (!challenge.success || !challenge.data) return FAILED;
+    const response = await apiService.post<ChallengeResponse>(API_ENDPOINTS.PASSKEY_REGISTER_OPTIONS, {});
+    return response.success && response.data ? response.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Like `fetchRegistrationChallenge`, for `signInWithPasskey` (`credentials.get()`). */
+export async function fetchLoginChallenge(): Promise<PasskeyChallenge | null> {
+  try {
+    const response = await apiService.post<ChallengeResponse>(API_ENDPOINTS.PASSKEY_LOGIN_OPTIONS, {});
+    return response.success && response.data ? response.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Creates a passkey for the signed-in person on this device. With a prefetched `challenge` the
+ * browser API is called before any `await`, so it still runs inside the click that triggered it.
+ */
+export async function registerPasskey(opts: { challenge?: PasskeyChallenge } = {}): Promise<PasskeyResult> {
+  try {
+    const challenge = opts.challenge ?? (await fetchRegistrationChallenge());
+    if (!challenge) return FAILED;
 
     let credential: PasskeyCredentialJSON;
     try {
-      credential = await passkeyClient.create(challenge.data.options);
+      credential = await passkeyClient.create(challenge.options);
     } catch (error) {
       if (passkeyClient.isCancelled(error)) return CANCELLED;
       console.error('Passkey creation failed:', error);
@@ -63,7 +92,7 @@ export async function registerPasskey(): Promise<PasskeyResult> {
     }
 
     const verified = await apiService.post<{ passkey: PasskeySummary }>(API_ENDPOINTS.PASSKEY_REGISTER_VERIFY, {
-      challengeId: challenge.data.challengeId,
+      challengeId: challenge.challengeId,
       response: credential,
       name: passkeyClient.defaultName(),
     });
@@ -79,15 +108,16 @@ export async function registerPasskey(): Promise<PasskeyResult> {
  * the caller then refreshes its auth state.
  */
 export async function signInWithPasskey(
-  opts: { autofill?: boolean; signal?: AbortSignal } = {},
+  opts: { autofill?: boolean; signal?: AbortSignal; challenge?: PasskeyChallenge } = {},
 ): Promise<PasskeyResult> {
   try {
-    const challenge = await apiService.post<ChallengeResponse>(API_ENDPOINTS.PASSKEY_LOGIN_OPTIONS, {});
-    if (!challenge.success || !challenge.data) return FAILED;
+    // With a prefetched challenge nothing is awaited before passkeyClient.get (Safari user gesture).
+    const challenge = opts.challenge ?? (await fetchLoginChallenge());
+    if (!challenge) return FAILED;
 
     let credential: PasskeyCredentialJSON;
     try {
-      credential = await passkeyClient.get(challenge.data.options, {
+      credential = await passkeyClient.get(challenge.options, {
         autofill: opts.autofill,
         signal: opts.signal,
       });
@@ -99,7 +129,7 @@ export async function signInWithPasskey(
 
     const deviceInfo = await magicLinkService.getDeviceInfo();
     const verified = await apiService.post<LoginVerifyResponse>(API_ENDPOINTS.PASSKEY_LOGIN_VERIFY, {
-      challengeId: challenge.data.challengeId,
+      challengeId: challenge.challengeId,
       response: credential,
       device_fingerprint: deviceInfo.fingerprint,
       device_name: deviceInfo.name,
