@@ -6,6 +6,7 @@ import { REVIEW_CODE_MAX_LENGTH, useMagicLinkSignIn, type SignInError } from '@/
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
 import { PasskeySignInButton } from '@/components/auth/PasskeySignInButton';
 import { usePasskeyAutofill } from '@/hooks/usePasskeyAutofill';
+import { useInviteAfterEmailSignIn } from '@/hooks/usePasskeyInvite';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
@@ -41,6 +42,8 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
     abortAutofill();
     s.submit();
   };
+  // Only an email sign-in (link or code) leads to the invitation; passkeyDone never does.
+  useInviteAfterEmailSignIn(s.phase === 'done');
   const ring = useFocusRing();
   const card = variant === 'card';
   const tx = (key: string, fallback: string, vars?: Record<string, unknown>) => {

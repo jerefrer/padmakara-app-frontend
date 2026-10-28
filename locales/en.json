@@ -196,6 +196,31 @@
       "signInAndroid": "Sign in with your fingerprint",
       "signInWeb": "Sign in with a passkey",
       "failed": "That didn't work. You can use your email instead."
+    },
+    "passkeyInvite": {
+      "title": "Next time, sign in without an email",
+      "body": "Save a key on this {{device}}. Next time, {{method}} is enough, on the website or in the app. No more waiting for an email.",
+      "pointNothing": "Nothing to remember",
+      "pointOnlyYou": "Only you can use it",
+      "pointApple": "Works with your other Apple devices",
+      "pointGoogle": "Works with your Google account",
+      "pointOther": "Works on your other devices",
+      "accept": "Yes, set it up",
+      "later": "Not now",
+      "finePrint": "Your {{device}} keeps it safely. You can remove it any time in Settings.",
+      "success": "Done. Next time, just use {{method}}.",
+      "quiet": "You can set it up later in Settings.",
+      "deviceWord": {
+        "phone": "phone",
+        "computer": "computer",
+        "other": "device"
+      },
+      "method": {
+        "ios": "Face ID or Touch ID",
+        "android": "your fingerprint or face",
+        "desktop": "your computer's fingerprint, face or PIN",
+        "generic": "your face or fingerprint"
+      }
     }
   },
   "miniPlayer": {

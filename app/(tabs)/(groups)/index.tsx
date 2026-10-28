@@ -30,6 +30,7 @@ import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
+import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 
 const colors = {
   burgundy: {
@@ -291,6 +292,8 @@ export default function HomeScreen() {
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
+  // Members already signed in are invited once to save a passkey, at a calm moment on this screen.
+  useHomePasskeyInvite();
 
   // Featured event — loaded for everyone (no auth needed).
   // Lazy initializer reads from the in-memory mirror so the first render

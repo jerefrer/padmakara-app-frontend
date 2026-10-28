@@ -196,6 +196,31 @@
       "signInAndroid": "Entrar com a sua impressão digital",
       "signInWeb": "Entrar com uma chave de acesso",
       "failed": "Não funcionou. Pode usar o seu email."
+    },
+    "passkeyInvite": {
+      "title": "Da próxima vez, entre sem precisar de um email",
+      "body": "Guarde uma chave neste {{device}}. Da próxima vez, {{method}} chega, no site ou na aplicação. Chega de esperar por um email.",
+      "pointNothing": "Nada para decorar",
+      "pointOnlyYou": "Só você a pode usar",
+      "pointApple": "Funciona com os seus outros dispositivos Apple",
+      "pointGoogle": "Funciona com a sua conta Google",
+      "pointOther": "Funciona nos seus outros dispositivos",
+      "accept": "Sim, configurar",
+      "later": "Agora não",
+      "finePrint": "O seu {{device}} guarda-a em segurança. Pode removê-la quando quiser, nas Configurações.",
+      "success": "Feito. Da próxima vez, basta usar {{method}}.",
+      "quiet": "Pode configurar mais tarde nas Configurações.",
+      "deviceWord": {
+        "phone": "telemóvel",
+        "computer": "computador",
+        "other": "dispositivo"
+      },
+      "method": {
+        "ios": "Face ID ou Touch ID",
+        "android": "a sua impressão digital ou o seu rosto",
+        "desktop": "a impressão digital, o rosto ou o PIN do seu computador",
+        "generic": "o seu rosto ou a sua impressão digital"
+      }
     }
   },
   "miniPlayer": {

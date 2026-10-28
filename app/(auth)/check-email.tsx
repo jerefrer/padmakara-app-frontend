@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
 import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
+import { inviteAfterEmailSignIn } from '@/hooks/usePasskeyInvite';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -43,7 +44,7 @@ const colors = {
 
 export default function CheckEmailScreen() {
   const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
-  const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
+  const { isAuthenticated, isDeviceActivated, refreshAuth, user } = useAuth();
   const { language, t } = useLanguage();
   const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
   const [isResending, setIsResending] = useState(false);
@@ -119,9 +120,15 @@ export default function CheckEmailScreen() {
       console.log('✅ User authenticated via AuthContext state change, redirecting to main app');
       setActivationStatus('activated');
       setIsPolling(false); // Stop polling when activation detected via AuthContext
-      setTimeout(() => {
-        router.replace(redirectTarget);
+      // Link or code: the invitation to save a passkey comes first when it is due, then the
+      // person continues to where they were going.
+      const timeout = setTimeout(async () => {
+        const invited = await inviteAfterEmailSignIn(user?.id ? String(user.id) : '', redirectTarget).catch(
+          () => false,
+        );
+        if (!invited) router.replace(redirectTarget);
       }, 1000);
+      return () => clearTimeout(timeout);
     }
   }, [isAuthenticated, isDeviceActivated]);
 

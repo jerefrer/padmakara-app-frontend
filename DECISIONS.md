@@ -58,3 +58,12 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** web tablet gets the compact rail too, or a tablet-specific event page (two columns) is wanted.
 
 ---
+
+## 2026-10-28 — The passkey invitation also reaches members who are already signed in
+**Chosen:** User decision: the invitation to save a passkey is shown once per user per device, by two triggers sharing one flag (`passkeyInvite:<userId>` in AsyncStorage, set when the invitation is shown, whatever the answer). Trigger 1: right after an email sign-in (link or code) in the sign-in form and on the full-page check-email screen, then the person continues where they were going. Trigger 2: on the home screen for a member who was already signed in, after a short pause, only while the screen is in front and no audio or video is playing (so never over the player, a reading screen or a modal), only when passkeys are supported, the member has no passkey yet and the list request succeeded. A passkey sign-in never triggers it.
+**Alternatives:** after-sign-in trigger only (members signed in before this release would never see it); a banner on home (easy to ignore, not the designed moment); showing it at app start (can cover the player or a reading screen).
+**Why:** most members stay signed in for months, so an invitation tied only to a fresh email sign-in would reach almost nobody; a lookup of the member's passkeys (not a guess) keeps those who already have one from being asked.
+**Trade-offs:** one extra request to the passkey list on a member's first home visit per device; `magic-link.tsx` (full-page link verification) does not trigger trigger 1, the home trigger covers it; a member who signs in on the same device shortly after the flag is set is never asked again there.
+**Revisit if:** members report being interrupted, or passkey adoption stays low.
+
+---

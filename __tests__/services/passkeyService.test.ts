@@ -9,6 +9,7 @@ import {
   removePasskey,
   signInWithPasskey,
   supportsPasskeyAutofill,
+  tryListPasskeys,
 } from '@/services/passkeyService';
 
 jest.mock('@/services/apiService', () => ({
@@ -202,5 +203,25 @@ describe('listPasskeys and removePasskey', () => {
     expect(await removePasskey(3)).toBe(true);
     expect(api.delete).toHaveBeenCalledWith('/auth/passkeys/3');
     expect(await removePasskey(4)).toBe(false);
+  });
+});
+
+describe('tryListPasskeys', () => {
+  it('should return null when the request fails, so callers can tell it from an empty list', async () => {
+    api.get.mockResolvedValue({ success: false, error: 'x' });
+
+    expect(await tryListPasskeys()).toBeNull();
+  });
+
+  it('should return null when the request throws', async () => {
+    api.get.mockRejectedValue(new Error('offline'));
+
+    expect(await tryListPasskeys()).toBeNull();
+  });
+
+  it('should return an empty list when the person has no passkey', async () => {
+    api.get.mockResolvedValue({ success: true, data: { passkeys: [] } });
+
+    expect(await tryListPasskeys()).toEqual([]);
   });
 });

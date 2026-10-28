@@ -115,9 +115,18 @@ export async function signInWithPasskey(
   }
 }
 
+/** Like `listPasskeys`, but `null` when the list could not be fetched (so "none yet" is not guessed). */
+export async function tryListPasskeys(): Promise<PasskeySummary[] | null> {
+  try {
+    const response = await apiService.get<{ passkeys: PasskeySummary[] }>(API_ENDPOINTS.PASSKEYS);
+    return response.success && response.data ? response.data.passkeys : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function listPasskeys(): Promise<PasskeySummary[]> {
-  const response = await apiService.get<{ passkeys: PasskeySummary[] }>(API_ENDPOINTS.PASSKEYS);
-  return response.success && response.data ? response.data.passkeys : [];
+  return (await tryListPasskeys()) ?? [];
 }
 
 export async function removePasskey(id: number): Promise<boolean> {
