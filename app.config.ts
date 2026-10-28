@@ -27,6 +27,8 @@ type VariantConfig = {
   easProjectId: string | null;
   /** Deep link prefixes accepted by the app. */
   linkingPrefixes: string[];
+  /** iOS associated domains, only for variants whose bundle id is listed in the AASA file. */
+  associatedDomains: string[] | null;
   /** Sentry upload target, or null to disable source map upload. */
   sentry: { organization: string; project: string } | null;
   /** Sentry DSN read at runtime via Constants.expoConfig.extra.sentryDsn. */
@@ -46,6 +48,8 @@ const VARIANTS: Record<string, VariantConfig> = {
       "https://padmakara.app",
       "https://app.padmakara.pt",
     ],
+    // The AASA file on app.padmakara.pt lists org.padmakara.pt only.
+    associatedDomains: ["webcredentials:app.padmakara.pt"],
     sentry: { organization: "padmakarapt", project: "react-native" },
     sentryDsn:
       "https://a0c5633e88bc9febe3d131bd356303e6@o4510993302618112.ingest.de.sentry.io/4510993304256592",
@@ -66,6 +70,7 @@ const VARIANTS: Record<string, VariantConfig> = {
     owner: null,
     easProjectId: null,
     linkingPrefixes: ["padmakarafr://"],
+    associatedDomains: null,
     sentry: null,
     sentryDsn: null,
   },
@@ -145,7 +150,7 @@ const config: PadmakaraConfig = {
     supportsTablet: true,
     bundleIdentifier: variant.applicationId,
     // Passkeys: ties the app to the web domain (see public/.well-known).
-    associatedDomains: ["webcredentials:app.padmakara.pt"],
+    ...(variant.associatedDomains ? { associatedDomains: variant.associatedDomains } : {}),
     icon: "./assets/images/iOS.icon",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,

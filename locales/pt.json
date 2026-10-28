@@ -204,7 +204,7 @@
       "bodyDesktop": "Guarde uma chave neste computador. Quando voltar ao site, basta {{method}}. Chega de esperar por um email.",
       "bodyGeneric": "Guarde uma chave neste dispositivo. Quando voltar, no site ou num novo dispositivo, basta {{method}}. Chega de esperar por um email.",
       "pointNothing": "Nada para decorar",
-      "pointOnlyYou": "Só a própria pessoa a pode usar",
+      "pointOnlyYou": "Só pode ser usada por si",
       "pointApple": "Funciona com os seus outros dispositivos Apple",
       "pointGoogle": "Funciona com a sua conta Google",
       "pointOther": "Funciona nos seus outros dispositivos",
@@ -877,7 +877,7 @@
       "remove": "Remover",
       "removeLabel": "Remover, {{name}}",
       "removeTitle": "Remover esta chave?",
-      "removeMessage": "{{name}} deixará de a fazer entrar. Pode adicionar uma chave de novo em qualquer altura.",
+      "removeMessage": "{{name}} deixará de lhe permitir entrar. Pode adicionar uma chave de novo em qualquer altura.",
       "removeFailed": "Não foi possível remover a chave. Tente de novo."
     }
   },

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import { Passkey } from 'react-native-passkey';
 import type { PasskeyCreateRequest, PasskeyGetRequest } from 'react-native-passkey';
 import type { PasskeyClient } from './passkeyClient.types';
@@ -17,6 +17,8 @@ function errorCode(error: unknown): string | undefined {
 
 const passkeyClient: PasskeyClient = {
   async isSupported() {
+    // Expo Go and dev clients built before the library was added have no native module.
+    if (!NativeModules.Passkey) return false;
     return NATIVE_PLATFORMS_ENABLED.includes(Platform.OS) && Passkey.isSupported();
   },
 
