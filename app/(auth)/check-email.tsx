@@ -1,6 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
+import { EmailCodeField } from '@/components/auth/EmailCodeField';
+import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -49,6 +51,16 @@ export default function CheckEmailScreen() {
   const [isPolling, setIsPolling] = useState(true);
   const [pollCount, setPollCount] = useState(0);
   const [activationStatus, setActivationStatus] = useState<'checking' | 'pending' | 'activated' | 'error'>('checking');
+
+  // Typing the 6-digit code from the email: same end state as the polling detecting activation;
+  // the effect on [isAuthenticated, isDeviceActivated] then performs the redirect.
+  const emailCode = useEmailCodeSignIn(
+    () => (email as string) || '',
+    () => {
+      setActivationStatus('activated');
+      setIsPolling(false);
+    },
+  );
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -312,6 +324,18 @@ export default function CheckEmailScreen() {
             </View>
           </View>
 
+          {activationStatus !== 'activated' && (
+            <View style={styles.codeContainer}>
+              <EmailCodeField
+                value={emailCode.emailCode}
+                onChange={emailCode.setEmailCode}
+                onSubmit={emailCode.submitEmailCode}
+                error={emailCode.emailCodeError}
+                busy={emailCode.emailCodeBusy}
+              />
+            </View>
+          )}
+
           {/* Security Notice */}
           <View style={styles.securityNotice}>
             <Ionicons
@@ -469,6 +493,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[700],
     lineHeight: 20,
+  },
+  codeContainer: {
+    alignSelf: 'stretch',
+    marginBottom: 20,
   },
   securityNotice: {
     flexDirection: 'row',

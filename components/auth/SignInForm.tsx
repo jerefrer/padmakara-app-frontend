@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import { router } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { REVIEW_CODE_MAX_LENGTH, useMagicLinkSignIn, type SignInError } from '@/hooks/useMagicLinkSignIn';
+import { EmailCodeField } from '@/components/auth/EmailCodeField';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c, fonts } from '@/components/membership/theme';
@@ -112,7 +113,7 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
         </Text>
         <Text style={styles.body}>
           {tx('sentBefore', 'We sent a link to')} <Text style={styles.strong}>{s.sentTo}</Text>.{' '}
-          {tx('sentAfter', 'Open it on any device: this screen signs in by itself.')}
+          {tx('sentAfter', 'Open it on any device and this screen signs in by itself, or type the 6-digit code below.')}
         </Text>
         <View style={styles.waiting} accessibilityLiveRegion="polite">
           <View style={styles.dot} />
@@ -122,6 +123,13 @@ export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = fals
           {s.resent ? tx('resent', 'Sent again.') : tx('spam', 'Nothing after a minute? Look in the spam folder.')}
         </Text>
         {s.error ? <Text style={styles.error}>{errorText[s.error]}</Text> : null}
+        <EmailCodeField
+          value={s.emailCode}
+          onChange={s.setEmailCode}
+          onSubmit={s.submitEmailCode}
+          error={s.emailCodeError}
+          busy={s.emailCodeBusy}
+        />
         <View style={styles.links}>
           <Pressable
             testID="sign-in-resend"

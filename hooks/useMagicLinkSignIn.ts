@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
+import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
 
 export type SignInPhase = 'email' | 'sending' | 'sent' | 'code' | 'done';
 export type SignInError = 'invalid' | 'generic' | 'network' | 'badCode';
@@ -39,6 +40,11 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
   const [cooldown, setCooldown] = useState(0);
   const [resent, setResent] = useState(false);
   const sentTo = useRef('');
+  // The 6-digit code from the sign-in email, typed while the link polling keeps running.
+  const getSentTo = useCallback(() => sentTo.current, []);
+  const onEmailCodeSignedIn = useCallback(() => setPhase('done'), []);
+  const emailCodeState = useEmailCodeSignIn(getSentTo, onEmailCodeSignedIn);
+  const { resetEmailCode } = emailCodeState;
 
   const submit = useCallback(async () => {
     const address = email.trim();
@@ -55,6 +61,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
         sentTo.current = address;
         setResent(false);
         setCooldown(RESEND_COOLDOWN_S);
+        resetEmailCode();
         setPhase('sent');
       } else if (status === 'already_activated') {
         await refreshAuth();
@@ -75,7 +82,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
       setPhase('email');
       setError('network');
     }
-  }, [email, language, refreshAuth, onApprovalRequired]);
+  }, [email, language, refreshAuth, onApprovalRequired, resetEmailCode]);
 
   const submitCode = useCallback(async () => {
     const value = code.trim();
@@ -156,7 +163,8 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
     setError(null);
     setResent(false);
     setCode('');
-  }, []);
+    resetEmailCode();
+  }, [resetEmailCode]);
 
   return {
     email,
@@ -170,6 +178,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
     sentTo: sentTo.current,
     submit,
     submitCode,
+    ...emailCodeState,
     resend,
     reset,
   };
