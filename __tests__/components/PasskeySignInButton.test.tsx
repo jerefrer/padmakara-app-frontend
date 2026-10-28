@@ -15,7 +15,10 @@ jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
 }));
-jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ refreshAuth: mockRefreshAuth }) }));
+let mockFreshIdentity = false;
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ refreshAuth: mockFreshIdentity ? () => mockRefreshAuth() : mockRefreshAuth }),
+}));
 jest.mock('@/services/magicLinkService', () => ({
   __esModule: true,
   default: { requestMagicLink: jest.fn(), checkActivationStatus: jest.fn(), reviewLogin: jest.fn(), verifyEmailCode: jest.fn() },
@@ -33,6 +36,7 @@ const magicLink = jest.requireMock('@/services/magicLinkService').default;
 
 beforeEach(() => {
   jest.resetAllMocks();
+  mockFreshIdentity = false;
   mockRefreshAuth.mockResolvedValue(undefined as never);
   supported.mockResolvedValue(true);
   autofillSupported.mockResolvedValue(false);
@@ -127,6 +131,27 @@ describe('SignInForm passkey autofill', () => {
     signIn.mockResolvedValue({ ok: true });
     const { getByTestId } = render(<SignInForm />);
     await flush();
+    expect(mockRefreshAuth).toHaveBeenCalledTimes(1);
+    expect(getByTestId('sign-in-done')).toBeTruthy();
+  });
+
+  it('should keep the autofill request alive when refreshAuth changes identity between renders', async () => {
+    mockFreshIdentity = true;
+    autofillSupported.mockResolvedValue(true);
+    let signal: AbortSignal | undefined;
+    let resolve: (v: unknown) => void = () => {};
+    signIn.mockImplementation((opts: { signal?: AbortSignal }) => {
+      signal = opts.signal;
+      return new Promise((r) => (resolve = r));
+    });
+    const { getByTestId, rerender } = render(<SignInForm />);
+    await flush();
+    rerender(<SignInForm />);
+    rerender(<SignInForm />);
+    await flush();
+    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(signal?.aborted).toBe(false);
+    await act(async () => resolve({ ok: true }));
     expect(mockRefreshAuth).toHaveBeenCalledTimes(1);
     expect(getByTestId('sign-in-done')).toBeTruthy();
   });

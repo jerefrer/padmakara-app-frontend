@@ -13,6 +13,10 @@ export function usePasskeyAutofill(onSignedIn: () => void, enabled = true) {
   const controller = useRef<AbortController | null>(null);
   const callback = useRef(onSignedIn);
   callback.current = onSignedIn;
+  // AuthContext recreates refreshAuth on every render; keep it out of the effect deps so a
+  // re-render never aborts and restarts the pending request.
+  const refresh = useRef(refreshAuth);
+  refresh.current = refreshAuth;
 
   const abort = useCallback(() => {
     const current = controller.current;
@@ -28,14 +32,14 @@ export function usePasskeyAutofill(onSignedIn: () => void, enabled = true) {
       if (!(await supportsPasskeyAutofill()) || own.signal.aborted) return;
       const result = await signInWithPasskey({ autofill: true, signal: own.signal });
       if (own.signal.aborted || !result.ok) return;
-      await refreshAuth();
+      await refresh.current();
       if (!own.signal.aborted) callback.current();
     })();
     return () => {
       if (controller.current === own) controller.current = null;
       own.abort();
     };
-  }, [enabled, refreshAuth]);
+  }, [enabled]);
 
   return { abort };
 }
