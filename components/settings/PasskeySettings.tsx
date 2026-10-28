@@ -110,8 +110,11 @@ export function PasskeySettings() {
       removed = false;
     }
     if (!mounted.current) return;
-    if (removed) await refresh();
-    else setMessage(tx('removeFailed', "That key couldn't be removed. Please try again."));
+    if (removed) {
+      // Drop it at once: a failed refresh must never leave a removed key on screen.
+      setKeys((current) => (current ? current.filter((k) => k.id !== target.id) : current));
+      await refresh();
+    } else setMessage(tx('removeFailed', "That key couldn't be removed. Please try again."));
   };
 
   const add = async () => {
@@ -205,8 +208,8 @@ export function PasskeySettings() {
 const styles = StyleSheet.create({
   block: { marginBottom: 32 },
   heading: { ...(pageStyles.sectionLabel as object), marginTop: 0, marginBottom: 4 },
-  explanation: { fontSize: 15, lineHeight: 22, color: c.gray[600], marginBottom: 12 },
+  explanation: { fontSize: 17, lineHeight: 24, color: c.gray[600], marginBottom: 12 },
   remove: { minHeight: 48, minWidth: 48, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
-  removeText: { fontSize: 15, fontWeight: '600', color: c.red[700] },
-  message: { fontSize: 14, color: c.gray[600], marginTop: 12 },
+  removeText: { fontSize: 17, fontWeight: '600', color: c.red[700] },
+  message: { fontSize: 17, lineHeight: 24, color: c.gray[600], marginTop: 12 },
 });

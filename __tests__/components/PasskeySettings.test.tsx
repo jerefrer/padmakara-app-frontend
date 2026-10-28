@@ -63,6 +63,20 @@ describe('PasskeySettings', () => {
     expect(screen.getByText('Chrome on Windows')).toBeTruthy();
   });
 
+  it('should drop a removed key at once even when the refresh fails', async () => {
+    remove.mockResolvedValue(true);
+    await renderBlock();
+    list.mockResolvedValue(null);
+
+    fireEvent.press(screen.getByTestId('passkey-remove-1'));
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('confirm-destructive'));
+    });
+
+    expect(screen.queryByText('iPhone')).toBeNull();
+    expect(screen.getByText('Chrome on Windows')).toBeTruthy();
+  });
+
   it('should keep the key when the person cancels the confirmation', async () => {
     await renderBlock();
     fireEvent.press(screen.getByTestId('passkey-remove-1'));
