@@ -190,6 +190,42 @@
         "requiredFields": "Campos obrigatórios",
         "requiredFieldsMessage": "Por favor, digite seu nome e sobrenome."
       }
+    },
+    "passkey": {
+      "signInIos": "Entrar com Face ID",
+      "signInAndroid": "Entrar com a sua impressão digital",
+      "signInWeb": "Entrar com uma chave de acesso",
+      "failed": "Não funcionou. Pode usar o seu email.",
+      "signInMac": "Entrar com Touch ID"
+    },
+    "passkeyInvite": {
+      "title": "Da próxima vez, entre sem precisar de um email",
+      "bodyIos": "Guarde uma chave neste {{device}}. Quando voltar, no site ou num novo iPhone ou iPad, basta um olhar com {{method}}. Chega de esperar por um email.",
+      "bodyAndroid": "Guarde uma chave neste telemóvel. Quando voltar, no site ou num novo telemóvel, basta um toque com {{method}}. Chega de esperar por um email.",
+      "bodyDesktop": "Guarde uma chave neste computador. Quando voltar ao site, basta {{method}}. Chega de esperar por um email.",
+      "bodyGeneric": "Guarde uma chave neste dispositivo. Quando voltar, no site ou num novo dispositivo, basta {{method}}. Chega de esperar por um email.",
+      "pointNothing": "Nada para decorar",
+      "pointOnlyYou": "Só pode ser usada por si",
+      "pointApple": "Funciona com os seus outros dispositivos Apple",
+      "pointGoogle": "Funciona nos seus outros dispositivos com a sua conta Google",
+      "pointOther": "Funciona nos seus outros dispositivos",
+      "accept": "Sim, configurar",
+      "later": "Agora não",
+      "finePrint": "O seu {{device}} guarda-a em segurança. Pode removê-la quando quiser, nas Configurações.",
+      "success": "Feito. Da próxima vez, basta usar {{method}}.",
+      "quiet": "Pode configurar mais tarde nas Configurações.",
+      "deviceWord": {
+        "phone": "telemóvel",
+        "computer": "computador",
+        "other": "dispositivo"
+      },
+      "method": {
+        "ios": "Face ID ou Touch ID",
+        "android": "a sua impressão digital ou o seu rosto",
+        "desktop": "a sua impressão digital, o seu rosto ou o PIN",
+        "generic": "o seu rosto ou a sua impressão digital",
+        "mac": "Touch ID"
+      }
     }
   },
   "miniPlayer": {
@@ -827,7 +863,28 @@
     "signOutConfirm": "{{here}} será removido da sua conta. Para voltar a entrar é preciso um link enviado por email. Continuar?",
     "signedOutIncompleteTitle": "Sessão terminada",
     "signedOutIncompleteMessage": "Terminou a sessão, mas alguns dados não puderam ser removidos deste dispositivo. Reinicie a app para concluir.",
-    "contact": "Contactar a Associação"
+    "contact": "Contactar a Associação",
+    "passkeys": {
+      "title": "Face ID e chaves de acesso",
+      "titleOther": "Chaves de acesso",
+      "explanation": "Entre com {{method}} em vez de esperar por um email.",
+      "methodApple": "Face ID ou Touch ID",
+      "added": "Adicionada em {{date}}",
+      "lastUsed": "Última utilização: {{date}}",
+      "neverUsed": "Nunca utilizada",
+      "empty": "Ainda não tem chaves guardadas.",
+      "add": "Adicionar uma chave neste dispositivo",
+      "addFailed": "Não correu bem. Pode tentar de novo.",
+      "remove": "Remover",
+      "removeLabel": "Remover, {{name}}",
+      "removeTitle": "Remover esta chave?",
+      "removeMessage": "{{name}} deixará de lhe permitir entrar. Pode adicionar uma chave de novo em qualquer altura.",
+      "removeFailed": "Não foi possível remover a chave. Tente de novo.",
+      "titleMac": "Touch ID e chaves de acesso",
+      "methodMac": "Touch ID",
+      "methodAndroid": "a sua impressão digital ou o seu rosto",
+      "methodAny": "a sua impressão digital, o seu rosto ou o PIN"
+    }
   },
   "appLock": {
     "titleFaceId": "Bloquear com Face ID",

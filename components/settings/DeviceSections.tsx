@@ -12,6 +12,7 @@ import { SUBTITLES_OFF, resolveSubtitleLanguage, subtitleChoiceOrder } from '@/u
 import { membershipColors as c } from '@/components/membership/theme';
 import { StorageSection } from '@/components/StorageSection';
 import { tr } from '@/components/membership/tr';
+import { PasskeySettings } from './PasskeySettings';
 import { Rows, SettingsRow, SwitchRow } from './ui';
 
 type Button = { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' };
@@ -197,32 +198,35 @@ export function SignInSection() {
   };
 
   return (
-    <Rows>
-      {isNative ? (
-        <SwitchRow
-          testID="settings-app-lock"
-          icon={kind === 'faceId' ? 'scan' : 'finger-print'}
-          title={t(lockLabels.titleKey) || lockLabels.titleFallback}
-          subtitle={
-            kind
-              ? t('appLock.subtitle') || 'Asks for it when you open the app and after 5 minutes away.'
-              : t('appLock.unavailable') || 'Set up Face ID or a passcode on this device first.'
-          }
-          value={lockEnabled}
-          onValueChange={toggleLock}
-          disabled={!kind && !lockEnabled}
+    <>
+      <PasskeySettings />
+      <Rows>
+        {isNative ? (
+          <SwitchRow
+            testID="settings-app-lock"
+            icon={kind === 'faceId' ? 'scan' : 'finger-print'}
+            title={t(lockLabels.titleKey) || lockLabels.titleFallback}
+            subtitle={
+              kind
+                ? t('appLock.subtitle') || 'Asks for it when you open the app and after 5 minutes away.'
+                : t('appLock.unavailable') || 'Set up Face ID or a passcode on this device first.'
+            }
+            value={lockEnabled}
+            onValueChange={toggleLock}
+            disabled={!kind && !lockEnabled}
+          />
+        ) : null}
+        <SettingsRow
+          testID="settings-sign-out"
+          icon="log-out-outline"
+          danger
+          title={t('settings.signOutDevice') || 'Sign out of this device'}
+          subtitle={t('settings.signOutDeviceHint') || 'The next sign-in asks for a link sent to your email.'}
+          onPress={leave}
+          disabled={isClearing}
         />
-      ) : null}
-      <SettingsRow
-        testID="settings-sign-out"
-        icon="log-out-outline"
-        danger
-        title={t('settings.signOutDevice') || 'Sign out of this device'}
-        subtitle={t('settings.signOutDeviceHint') || 'The next sign-in asks for a link sent to your email.'}
-        onPress={leave}
-        disabled={isClearing}
-      />
-    </Rows>
+      </Rows>
+    </>
   );
 }
 

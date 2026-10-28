@@ -180,7 +180,7 @@ class MagicLinkService {
   /**
    * Get device information for API calls
    */
-  private async getDeviceInfo(): Promise<DeviceInfo> {
+  async getDeviceInfo(): Promise<DeviceInfo> {
     const fingerprint = await this.generateDeviceFingerprint();
     
     // Generate friendly device name
@@ -239,7 +239,7 @@ class MagicLinkService {
   }
 
   /** Persist the tokens and activation flags of a response that signs this device in. */
-  private async storeActivation(data: MagicLinkResponse): Promise<void> {
+  async storeActivation(data: MagicLinkResponse): Promise<void> {
     try {
       // auth_token and refresh_token are written to SecureStore on native.
       await setAuthToken(data.access_token as string);

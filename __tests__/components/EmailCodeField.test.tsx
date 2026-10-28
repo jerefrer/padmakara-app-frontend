@@ -6,6 +6,15 @@ import magicLinkService from '@/services/magicLinkService';
 
 const mockRefreshAuth = jest.fn(() => Promise.resolve());
 
+jest.mock('@expo/vector-icons', () => {
+  const { Text } = require('react-native');
+  return { Ionicons: (props: any) => <Text testID={`icon-${props.name}`}>{props.color}</Text> };
+});
+jest.mock('@/services/passkeyService', () => ({
+  isPasskeySupported: () => Promise.resolve(false),
+  supportsPasskeyAutofill: () => Promise.resolve(false),
+  signInWithPasskey: jest.fn(),
+}));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),

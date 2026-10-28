@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 
 export type SignInPhase = 'email' | 'sending' | 'sent' | 'code' | 'done';
 export type SignInError = 'invalid' | 'generic' | 'network' | 'badCode';
@@ -64,6 +65,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
         resetEmailCode();
         setPhase('sent');
       } else if (status === 'already_activated') {
+        markEmailSignIn();
         await refreshAuth();
         setPhase('done');
       } else if (status === 'code_required') {
@@ -95,6 +97,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
     try {
       const res = await magicLinkService.reviewLogin(sentTo.current, value);
       if (res.success) {
+        markEmailSignIn();
         await refreshAuth();
         setPhase('done');
       } else {
@@ -120,6 +123,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
         const res = await magicLinkService.checkActivationStatus();
         if (cancelled) return;
         if (res.success && res.data?.isActivated) {
+          markEmailSignIn();
           await refreshAuth();
           if (!cancelled) setPhase('done');
           return;

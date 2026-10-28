@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { Platform } from 'react-native';
 
 export default function AuthLayout() {
   return (
@@ -12,6 +13,10 @@ export default function AuthLayout() {
       <Stack.Screen name="check-email" />
       <Stack.Screen name="approval-pending" />
       <Stack.Screen name="device-activated" />
+      <Stack.Screen
+        name="passkey-invite"
+        options={{ presentation: Platform.OS === 'web' ? 'card' : 'modal', gestureEnabled: true }}
+      />
     </Stack>
   );
 }

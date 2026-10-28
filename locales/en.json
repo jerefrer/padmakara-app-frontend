@@ -190,6 +190,42 @@
         "requiredFields": "Required fields",
         "requiredFieldsMessage": "Please enter your first and last name."
       }
+    },
+    "passkey": {
+      "signInIos": "Sign in with Face ID",
+      "signInAndroid": "Sign in with your fingerprint",
+      "signInWeb": "Sign in with a passkey",
+      "failed": "That didn't work. You can use your email instead.",
+      "signInMac": "Sign in with Touch ID"
+    },
+    "passkeyInvite": {
+      "title": "Next time, sign in without an email",
+      "bodyIos": "Save a key on this {{device}}. When you come back, on the website or on a new iPhone or iPad, a glance with {{method}} is enough. No more waiting for an email.",
+      "bodyAndroid": "Save a key on this phone. When you come back, on the website or on a new phone, a glance with {{method}} is enough. No more waiting for an email.",
+      "bodyDesktop": "Save a key on this computer. When you come back to the website, {{method}} is enough. No more waiting for an email.",
+      "bodyGeneric": "Save a key on this device. When you come back, on the website or on a new device, {{method}} is enough. No more waiting for an email.",
+      "pointNothing": "Nothing to remember",
+      "pointOnlyYou": "Only you can use it",
+      "pointApple": "Works with your other Apple devices",
+      "pointGoogle": "Works on your other devices with your Google account",
+      "pointOther": "Works on your other devices",
+      "accept": "Yes, set it up",
+      "later": "Not now",
+      "finePrint": "Your {{device}} keeps it safely. You can remove it any time in Settings.",
+      "success": "Done. Next time, just use {{method}}.",
+      "quiet": "You can set it up later in Settings.",
+      "deviceWord": {
+        "phone": "phone",
+        "computer": "computer",
+        "other": "device"
+      },
+      "method": {
+        "ios": "Face ID or Touch ID",
+        "android": "your fingerprint or face",
+        "desktop": "your fingerprint, face or PIN",
+        "generic": "your face or fingerprint",
+        "mac": "Touch ID"
+      }
     }
   },
   "miniPlayer": {
@@ -827,7 +863,28 @@
     "signOutConfirm": "{{here}} will be removed from your account. Signing in again takes a link sent to your email. Continue?",
     "signedOutIncompleteTitle": "Signed out",
     "signedOutIncompleteMessage": "You are signed out, but some data could not be removed from this device. Restart the app to finish.",
-    "contact": "Contact the Association"
+    "contact": "Contact the Association",
+    "passkeys": {
+      "title": "Face ID & passkeys",
+      "titleOther": "Passkeys",
+      "explanation": "Sign in with {{method}} instead of waiting for an email.",
+      "methodApple": "Face ID or Touch ID",
+      "added": "Added {{date}}",
+      "lastUsed": "Last used {{date}}",
+      "neverUsed": "Never used",
+      "empty": "No keys saved yet.",
+      "add": "Add a key on this device",
+      "addFailed": "That didn't work. You can try again.",
+      "remove": "Remove",
+      "removeLabel": "Remove, {{name}}",
+      "removeTitle": "Remove this key?",
+      "removeMessage": "{{name}} will no longer sign you in. You can add a key again at any time.",
+      "removeFailed": "That key couldn't be removed. Please try again.",
+      "titleMac": "Touch ID & passkeys",
+      "methodMac": "Touch ID",
+      "methodAndroid": "your fingerprint or face",
+      "methodAny": "your fingerprint, face or PIN"
+    }
   },
   "appLock": {
     "titleFaceId": "Lock with Face ID",

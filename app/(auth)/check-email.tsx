@@ -3,6 +3,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import magicLinkService from '@/services/magicLinkService';
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
 import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
+import { safeInternalPath } from '@/utils/safeInternalPath';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -45,7 +47,7 @@ export default function CheckEmailScreen() {
   const { email, returnTo } = useLocalSearchParams<{ email: string; returnTo?: string }>();
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
   const { language, t } = useLanguage();
-  const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
+  const redirectTarget = safeInternalPath(returnTo) as any;
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isPolling, setIsPolling] = useState(true);
@@ -119,9 +121,10 @@ export default function CheckEmailScreen() {
       console.log('✅ User authenticated via AuthContext state change, redirecting to main app');
       setActivationStatus('activated');
       setIsPolling(false); // Stop polling when activation detected via AuthContext
-      setTimeout(() => {
-        router.replace(redirectTarget);
-      }, 1000);
+      // The passkey invitation (link or code sign-in) opens over the destination from the
+      // persistent PasskeyInviteGate once this screen is gone.
+      const timeout = setTimeout(() => router.replace(redirectTarget), 1000);
+      return () => clearTimeout(timeout);
     }
   }, [isAuthenticated, isDeviceActivated]);
 
@@ -145,6 +148,7 @@ export default function CheckEmailScreen() {
             // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect,
             // so do NOT schedule another router.replace here (would cause a double animation).
             console.log('🔄 Refreshing AuthContext after activation detection');
+            markEmailSignIn();
             await refreshAuth();
           } else {
             setActivationStatus('pending');

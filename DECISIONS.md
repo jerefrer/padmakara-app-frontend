@@ -58,3 +58,30 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** web tablet gets the compact rail too, or a tablet-specific event page (two columns) is wanted.
 
 ---
+
+## 2026-10-28 — The passkey invitation also reaches members who are already signed in
+**Chosen:** User decision: the invitation to save a passkey is shown once per user per device, by two triggers sharing one flag (`passkeyInvite:<userId>` in AsyncStorage, set when the invitation is shown, whatever the answer). Trigger 1: right after an email sign-in (link or code) in the sign-in form and on the full-page check-email screen, then the person continues where they were going. Trigger 2: on the home screen for a member who was already signed in, after a short pause, only while the screen is in front and no audio or video is playing (so never over the player, a reading screen or a modal), only when passkeys are supported, the member has no passkey yet and the list request succeeded. A passkey sign-in never triggers it.
+**Alternatives:** after-sign-in trigger only (members signed in before this release would never see it); a banner on home (easy to ignore, not the designed moment); showing it at app start (can cover the player or a reading screen).
+**Why:** most members stay signed in for months, so an invitation tied only to a fresh email sign-in would reach almost nobody; a lookup of the member's passkeys (not a guess) keeps those who already have one from being asked.
+**Trade-offs:** one extra request to the passkey list on a member's first home visit per device; `magic-link.tsx` (full-page link verification) does not trigger trigger 1, the home trigger covers it; a member who signs in on the same device shortly after the flag is set is never asked again there.
+**Revisit if:** members report being interrupted, or passkey adoption stays low.
+
+---
+
+## 2026-10-28 — Passkey invitation cadence, wording and Android status
+**Chosen:** The invitation is shown once per user per device (flag `passkeyInvite:<userId>`, set when it is shown, whatever the answer). Platform wording depends on `Platform.OS` and the user agent only, never on probing biometric hardware: "Face ID or Touch ID" on iOS (and iOS/macOS browsers), a generic "fingerprint or face" elsewhere; the Settings block is titled "Face ID & passkeys" on Apple platforms and "Passkeys" otherwise. The relying party ID is `app.padmakara.pt` (the apex is a Wix site that cannot serve `.well-known`). Android native passkeys are pending the signing certificate fingerprints: they must be filled in `public/.well-known/assetlinks.json` and as `android:apk-key-hash:...` origins in the API's `WEBAUTHN_ANDROID_ORIGINS`; until then Android native fails gracefully and web passkeys on Android Chrome work regardless.
+**Alternatives:** asking at every sign-in (nagging); detecting biometrics before choosing the wording (the platform APIs do not say which biometric will be used, and a wrong "Face ID" promise is worse than a generic one); RP ID `padmakara.pt` (cannot host the association files); hiding Android passkeys entirely (web passkeys on Android work today).
+**Why:** one invitation respects the member; platform-only wording is predictable and testable; the RP ID is the only domain where we control `.well-known`.
+**Trade-offs:** a member who dismisses the invitation must find Settings; the wording can be wrong on a Mac without Touch ID; Android native cannot be used until the Play and EAS fingerprints are known; changing the RP ID later invalidates every saved passkey.
+**Revisit if:** the Play Console signing key is available (fill the fingerprints), the apex domain can serve `.well-known`, or adoption suggests asking again after a time.
+
+---
+
+## 2026-10-28 — Passkey invitation trigger 1 runs from a persistent gate
+**Chosen:** The invitation right after an email sign-in no longer starts from the sign-in form or the check-email screen. The sign-in code (sheet/card form, 6-digit code, review code, check-email polling, magic-link screen, link auto-activation) sets a module-level "email sign-in just completed" marker (`hooks/passkeyInviteState.ts`) BEFORE awaiting `refreshAuth()`. `PasskeyInviteGate`, mounted inside `SignInProvider` for the whole app lifetime, consumes the marker once `isAuthenticated && user`, waits 1.5 s (sheet dismissal, check-email's own redirect) and then calls `inviteAfterEmailSignIn`. A passkey sign-in never sets the marker and clears a stale one. The invitation route opens only when a trigger armed it just before navigating; a reload or browser Back goes home.
+**Alternatives:** keeping the in-form hook (it almost never ran: `refreshAuth()` flips `isAuthenticated` first, which closes the sheet and unmounts the form before `phase === 'done'` is seen); using the persisted flag to guard the route (the triggers set it before navigating, so it cannot tell the first display from a repeat).
+**Why:** the screens that complete a sign-in unmount as soon as the session is known, so only a component that outlives them can reliably react. One code path, with the shared per-device flag still preventing a second display.
+**Trade-offs:** a fixed settle delay instead of a navigation event; the marker is in-memory, so an app kill between sign-in and the gate drops the invitation (home trigger 2 covers it later).
+**Revisit if:** the delay proves too short on slow devices, or Expo Router exposes a reliable "modal dismissed" signal.
+
+---

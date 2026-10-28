@@ -9,6 +9,7 @@ import {
   Alert,
   Animated,
   Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
+import { PasskeySignInButton } from '@/components/auth/PasskeySignInButton';
+import { usePasskeyAutofill } from '@/hooks/usePasskeyAutofill';
+import { markEmailSignIn } from '@/hooks/passkeyInviteState';
+import { safeInternalPath } from '@/utils/safeInternalPath';
 
 const colors = {
   cream: {
@@ -52,7 +57,7 @@ export default function MagicLinkScreen() {
   const { returnTo, email: emailParam, approval } = useLocalSearchParams<{ returnTo?: string; email?: string; approval?: string }>();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
-  const redirectTarget = ((returnTo as string) || '/(tabs)') as any;
+  const redirectTarget = safeInternalPath(returnTo) as any;
   const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '');
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalForm, setShowApprovalForm] = useState(approval === '1');
@@ -64,6 +69,8 @@ export default function MagicLinkScreen() {
   const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState('');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  // The redirect effect below takes over once refreshAuth has run; only the email step offers autofill.
+  const { abort: abortAutofill } = usePasskeyAutofill(() => {}, !showCodeForm && !showApprovalForm);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -119,6 +126,7 @@ export default function MagicLinkScreen() {
       return;
     }
 
+    abortAutofill();
     setIsLoading(true);
     Keyboard.dismiss();
 
@@ -138,6 +146,7 @@ export default function MagicLinkScreen() {
           // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect,
           // so do NOT call router.replace here (would cause a double navigation animation).
           console.log('🎉 Device already activated, refreshing auth state');
+          markEmailSignIn();
           await refreshAuth();
           return; // Exit early to prevent further processing
 
@@ -184,6 +193,7 @@ export default function MagicLinkScreen() {
       const result = await magicLinkService.reviewLogin(email.trim(), value);
       if (result.success) {
         // The useEffect on [isAuthenticated, isDeviceActivated] handles the redirect.
+        markEmailSignIn();
         await refreshAuth();
       } else if (result.incorrectCode) {
         setCodeError(true);
@@ -336,7 +346,7 @@ export default function MagicLinkScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            autoComplete="email"
+            autoComplete={Platform.OS === 'web' ? ('username webauthn' as any) : 'email'}
             editable={!isLoading}
             onSubmitEditing={handleEmailSubmit}
             returnKeyType="go"
@@ -358,6 +368,7 @@ export default function MagicLinkScreen() {
             <Text style={styles.primaryButtonText}>{t('auth.magicLink.continueButton')}</Text>
           )}
         </TouchableOpacity>
+        <PasskeySignInButton onStart={abortAutofill} />
       </View>
 
     </Animated.View>
