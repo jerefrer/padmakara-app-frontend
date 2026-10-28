@@ -127,4 +127,32 @@ describe('useHomePasskeyInvite', () => {
 
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it('should remember a member who already has a passkey and not look again on later focus', async () => {
+    list.mockResolvedValue([{ id: 1, name: 'iPhone', createdAt: 'x', lastUsedAt: null }]);
+
+    const { rerender } = renderHook(() => useHomePasskeyInvite());
+    await settle();
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(await AsyncStorage.getItem('passkeyInvite:42')).not.toBeNull();
+
+    rerender({});
+    await settle();
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('should not open the invitation when the screen is left while the flag is being saved', async () => {
+    let release: () => void = () => {};
+    jest.spyOn(AsyncStorage, 'setItem').mockImplementationOnce(
+      () => new Promise<void>((resolve) => { release = resolve; }),
+    );
+
+    const { unmount } = renderHook(() => useHomePasskeyInvite());
+    await settle();
+    unmount();
+    await act(async () => release());
+
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { armInvite } from '@/hooks/passkeyInviteState';
 import { markHandled, PASSKEY_INVITE_PATH, shouldInvite } from '@/hooks/usePasskeyInvite';
 import { tryListPasskeys } from '@/services/passkeyService';
 
@@ -48,9 +49,17 @@ export function useHomePasskeyInvite() {
         }
         const existing = await tryListPasskeys();
         if (cancelled) return;
-        if (!existing || existing.length > 0) return;
+        if (!existing) return;
+        if (existing.length > 0) {
+          // Already has a key: never ask again, not on every focus and not after removing them all.
+          asked.current = userId;
+          await markHandled(userId);
+          return;
+        }
         asked.current = userId;
         await markHandled(userId);
+        if (cancelled) return;
+        armInvite();
         router.push({ pathname: PASSKEY_INVITE_PATH } as any);
       } catch {
         // Any failure means no invitation.
