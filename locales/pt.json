@@ -864,7 +864,7 @@
     "signedOutIncompleteTitle": "Sessão terminada",
     "signedOutIncompleteMessage": "Terminou a sessão, mas alguns dados não puderam ser removidos deste dispositivo. Reinicie a app para concluir.",
     "sentryTestTitle": "Relatório de teste enviado",
-    "sentryTestMessage": "Foi enviado um erro de teste para os relatórios de falhas. Referência: {id}",
+    "sentryTestMessage": "Foi enviado um erro de teste para os relatórios de falhas. Referência: {{id}}",
     "contact": "Contactar a Associação",
     "passkeys": {
       "title": "Face ID e chaves de acesso",

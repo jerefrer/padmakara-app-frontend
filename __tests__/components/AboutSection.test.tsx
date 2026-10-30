@@ -24,6 +24,7 @@ const originalOS = Platform.OS;
 beforeEach(() => {
   (Platform as any).OS = 'web';
   (window as any).confirm = jest.fn(() => true);
+  (window as any).alert = jest.fn();
 });
 afterAll(() => {
   (Platform as any).OS = originalOS;
@@ -40,13 +41,14 @@ describe('AboutSection', () => {
 
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     expect((Sentry.captureException as jest.Mock).mock.calls[0][0].message).toMatch(/Sentry test report/);
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(window.alert).toHaveBeenCalledTimes(1);
+    expect(window.confirm).not.toHaveBeenCalled();
   });
 
   it('should send nothing after fewer taps', () => {
     tapVersion(6);
 
     expect(Sentry.captureException).not.toHaveBeenCalled();
-    expect(window.confirm).not.toHaveBeenCalled();
+    expect(window.alert).not.toHaveBeenCalled();
   });
 });

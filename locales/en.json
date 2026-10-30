@@ -864,7 +864,7 @@
     "signedOutIncompleteTitle": "Signed out",
     "signedOutIncompleteMessage": "You are signed out, but some data could not be removed from this device. Restart the app to finish.",
     "sentryTestTitle": "Test report sent",
-    "sentryTestMessage": "A test error was sent to the crash reports. Reference: {id}",
+    "sentryTestMessage": "A test error was sent to the crash reports. Reference: {{id}}",
     "contact": "Contact the Association",
     "passkeys": {
       "title": "Face ID & passkeys",

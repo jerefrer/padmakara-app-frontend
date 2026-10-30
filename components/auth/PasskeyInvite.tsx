@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { markHandled } from '@/hooks/usePasskeyInvite';
@@ -113,8 +114,19 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
 
   const card = (
     <View style={[styles.card, !isMobile && styles.cardDesktop]} testID="passkey-invite">
-      <View style={styles.circle}>
-        <Ionicons name="key-outline" size={44} color={c.burgundy[500]} />
+      {/* The association's wheel, so people see the key is for Padmakara; the badge says what it is. */}
+      <View style={styles.emblem}>
+        <View style={styles.circle}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logo}
+            contentFit="contain"
+            accessibilityLabel="Padmakara"
+          />
+        </View>
+        <View style={[styles.badge, !isMobile && styles.badgeOnCard]}>
+          <Ionicons name="key" size={20} color={c.white} />
+        </View>
       </View>
 
       {stage === 'success' ? (
@@ -202,15 +214,31 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
   },
+  emblem: { marginBottom: 28 },
   circle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     backgroundColor: c.cream[500],
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
   },
+  logo: { width: 80, height: 80 },
+  badge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: c.burgundy[500],
+    borderWidth: 3,
+    borderColor: c.cream[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The ring matches what is behind the badge: the cream ground, or the white desktop card.
+  badgeOnCard: { borderColor: c.white },
   title: {
     fontFamily: fonts.display,
     fontSize: 30,
