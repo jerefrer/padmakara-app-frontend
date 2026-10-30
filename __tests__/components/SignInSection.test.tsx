@@ -36,6 +36,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (Platform as any).OS = 'web';
   (window as any).confirm = jest.fn(() => true);
+  (window as any).alert = jest.fn();
 });
 afterAll(() => {
   (Platform as any).OS = originalOS;
@@ -77,7 +78,7 @@ describe('SignInSection', () => {
       fireEvent.press(getByTestId('settings-sign-out'));
     });
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/(groups)');
-    expect(window.confirm).toHaveBeenCalledTimes(2); // confirmation, then the notice
-    expect((window.confirm as jest.Mock).mock.calls[1][0]).toContain('Restart the app to finish');
+    expect(window.confirm).toHaveBeenCalledTimes(1); // the confirmation; the notice has nothing to choose
+    expect((window.alert as jest.Mock).mock.calls[0][0]).toContain('Restart the app to finish');
   });
 });

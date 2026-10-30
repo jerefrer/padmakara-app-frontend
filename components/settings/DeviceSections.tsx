@@ -19,9 +19,12 @@ import { Rows, SettingsRow, SwitchRow } from './ui';
 
 type Button = { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' };
 
-// React Native's Alert does nothing on web, so the browser's confirm stands in for it there.
+// React Native's Alert does nothing on web, so the browser's dialogs stand in for it there:
+// alert for a notice, confirm when there is a choice.
 function showAlert(title: string, message: string, buttons?: Button[]) {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' && !buttons) {
+    window.alert(`${title}\n\n${message}`);
+  } else if (Platform.OS === 'web') {
     const confirmed = window.confirm(`${title}\n\n${message}`);
     if (confirmed && buttons) {
       const confirmButton = buttons.find((b) => b.style === 'destructive' || b.style !== 'cancel');
@@ -264,7 +267,7 @@ export function AboutSection() {
           onPress={() => router.push('/membership/terms' as any)}
         />
       ) : null}
-      <Pressable testID="settings-version" accessible={false} onPress={onVersionTap}>
+      <Pressable testID="settings-version" accessible={false} focusable={false} onPress={onVersionTap}>
         <SettingsRow icon="information-circle-outline" title={t('profile.version') || 'Version'} value="1.0.0 (Beta)" />
       </Pressable>
     </Rows>
