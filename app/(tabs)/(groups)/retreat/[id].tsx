@@ -1355,7 +1355,8 @@ export default function RetreatDetailScreen() {
       activeTab: resolveContentTab(activeContentTab, {
         hasVideo: (retreat.videos?.length ?? 0) > 0,
         hasAudio: !!retreat.sessions?.some((s) => (s.tracks?.length ?? 0) > 0),
-        hasDocuments: buildEventDocuments(retreat).length > 0,
+        hasDocuments:
+          buildEventDocuments(retreat).length > 0 || (retreat.relatedPublications?.length ?? 0) > 0,
       }),
     });
   const { setInlinePlayerVisible } = audioContext;
@@ -1449,7 +1450,10 @@ export default function RetreatDetailScreen() {
     // Merged "Documents" list — transcript(s) featured first, then the
     // event's other files (images, slides, etc.) ordered by sortOrder.
     const documents: EventDocument[] = retreat ? buildEventDocuments(retreat) : [];
-    const hasDocuments = documents.length > 0;
+    // Related publications are texts too: they live in the Texts tab and
+    // keep it visible for events whose only texts are publications.
+    const relatedPublications = retreat?.relatedPublications ?? [];
+    const hasDocuments = documents.length > 0 || relatedPublications.length > 0;
 
     // Videos are event-level — used directly by the Video tab grid. Sort
     // defensively by position, even though the backend already orders them.
@@ -1741,7 +1745,7 @@ export default function RetreatDetailScreen() {
               );
             })}
 
-            {documents.length === 0 && (
+            {documents.length === 0 && relatedPublications.length === 0 && (
               <Text style={styles.documentsEmptyText}>
                 {t('documents.empty') || 'No documents available'}
               </Text>
@@ -1749,12 +1753,15 @@ export default function RetreatDetailScreen() {
           </View>
         )}
 
-        {retreat?.relatedPublications && retreat.relatedPublications.length > 0 && (
-          <View style={[styles.relatedPublicationsSection, !isDesktop && styles.lineBleed]}>
+        {effectiveTab === 'documents' && relatedPublications.length > 0 && (
+          <View
+            style={[styles.relatedPublicationsSection, !isDesktop && styles.lineBleed]}
+            testID="event-related-publications"
+          >
             <Text style={styles.relatedPublicationsTitle}>
               {t('publications.relatedTitle') || 'Related Publications'}
             </Text>
-            {retreat.relatedPublications.map((pub) => (
+            {relatedPublications.map((pub) => (
               <TouchableOpacity
                 key={pub.id}
                 style={styles.relatedPublicationItem}
