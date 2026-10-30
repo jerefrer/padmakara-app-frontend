@@ -297,16 +297,20 @@ eas submit --platform android
 
 ### Web Deployment
 
-1. **Build Web Version**
+The web app is served by Caddy from `~/padmakara-app/dist` on `admin.padmakara.pt`
+(`app.padmakara.pt`). Deploy on the server, one step at a time:
+
 ```bash
-npx expo export:web
+cd ~/padmakara-app && git pull --ff-only
+npm install --no-audit --no-fund
+npm run export:web
 ```
 
-2. **Deploy to S3 + CloudFront**
-```bash
-aws s3 sync web-build/ s3://padmakara-web --delete
-aws cloudfront create-invalidation --distribution-id E1234567890 --paths "/*"
-```
+`npm run export:web` (`scripts/export-web.sh`) exports with source maps, uploads them
+to Sentry (org `padmakarapt`, project `react-native`) and deletes the `.map` files from
+`dist/`. The upload needs `SENTRY_AUTH_TOKEN=<organization token>` in
+`~/padmakara-app/.env.local` (gitignored); without it the build still succeeds and the
+upload is skipped with a warning.
 
 ## Database Setup
 

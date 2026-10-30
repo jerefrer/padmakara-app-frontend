@@ -5,6 +5,8 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('expo-audio'); // resolves to __mocks__/expo-audio.ts
+// The Sentry SDK ships untranspiled ESM and reports nothing in tests anyway.
+jest.mock('@sentry/react-native', () => ({ setUser: jest.fn() }));
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { __reset as __resetAudio } from 'expo-audio';

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { User } from '@/types';
 import authService from '@/services/authService';
 import magicLinkService from '@/services/magicLinkService';
@@ -9,6 +10,7 @@ import imagePrefetchService, { type PrefetchTarget } from '@/services/imagePrefe
 import { ImagePrewarmer } from '@/components/ImagePrewarmer';
 import syncService from '@/services/syncService';
 import { clearLocalSession, finishPendingLocalCleanup, markPendingLocalCleanup } from '@/services/pendingLocalCleanup';
+import { sentryUser } from '@/utils/sentryPrivacy';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -78,6 +80,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       cancelled = true;
     };
   }, [isInitialized, isAuthenticated]);
+
+  // Tag error reports with the account number (never the email).
+  useEffect(() => {
+    Sentry.setUser(sentryUser(user));
+  }, [user?.id]);
 
   // Fire initial sync once after auth becomes truthy. The ref guard
   // prevents re-firing on every re-render; syncService's internal
