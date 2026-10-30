@@ -30,6 +30,7 @@ import { holdSplashWhile } from '@/utils/startup';
 import { liftSplash } from '@/utils/splashHandoff';
 import { appLockEnabledAtStart, readAppLockAtStart } from '@/services/appLock';
 import { avenirFontsToLoad } from '@/constants/avenirFont';
+import { scrubBreadcrumb } from '@/utils/sentryPrivacy';
 
 // Keep the native splash (burgundy Padmakara lockup) on screen until fonts are
 // loaded and the first screens' content is warm (see SPLASH_HOLD below).
@@ -47,6 +48,7 @@ Sentry.init({
   enabled: !__DEV__,
   tracesSampleRate: 0.2,
   sendDefaultPii: false,
+  beforeBreadcrumb: scrubBreadcrumb,
   beforeSend(event) {
     // Strip any email addresses that might leak through
     if (event.user) {

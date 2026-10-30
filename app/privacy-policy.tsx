@@ -48,7 +48,7 @@ export default function PrivacyPolicyScreen() {
         <LegalSubheading>{p('thirdPartyEmailTitle', 'Email — Amazon SES')}</LegalSubheading>
         <LegalBody>{p('thirdPartyEmail', 'The emails we send you (sign-in links, account deletion confirmations) are delivered through Amazon Simple Email Service, which receives your email address and the message.')}</LegalBody>
         <LegalSubheading>{p('thirdPartyCrashTitle', 'Crash reporting — Sentry')}</LegalSubheading>
-        <LegalBody>{p('thirdPartyCrash', "We use Sentry (sentry.io) for error and crash reporting to improve app stability. Sentry receives only technical data (device type, OS version, error stack traces), not your email address. Sentry's privacy policy: https://sentry.io/privacy/")}</LegalBody>
+        <LegalBody>{p('thirdPartyCrash', "We use Sentry (sentry.io) for error and crash reporting to improve app stability. Sentry receives only technical data (device type, OS version, error stack traces) and your account number, never your email address. Sentry's privacy policy: https://sentry.io/privacy/")}</LegalBody>
         <LegalSubheading>{p('thirdPartyPaymentsTitle', 'Payments on our website — Easypay')}</LegalSubheading>
         <LegalBody>{p('thirdPartyPayments', 'Payments made on our website are handled by Easypay, the payment processor. The App itself does not take payments.')}</LegalBody>
         <LegalBody style={styles.after}>{p('thirdPartyNone', 'The App does not include any advertising SDKs or analytics trackers. We do not share your data with any third party for marketing or commercial purposes.')}</LegalBody>

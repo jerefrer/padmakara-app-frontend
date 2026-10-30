@@ -574,7 +574,7 @@
     "thirdPartyEmailTitle": "E-mail — Amazon SES",
     "thirdPartyEmail": "Os e-mails que lhe enviamos (links de início de sessão, confirmações de eliminação de conta) são entregues através do Amazon Simple Email Service, que recebe o seu endereço de e-mail e a mensagem.",
     "thirdPartyCrashTitle": "Relatórios de falhas — Sentry",
-    "thirdPartyCrash": "Utilizamos o Sentry (sentry.io) para relatórios de erros e falhas, de forma a melhorar a estabilidade da app. O Sentry recebe apenas dados técnicos (tipo de dispositivo, versão do SO, rastreamentos de erros), não o seu endereço de e-mail. Política de privacidade do Sentry: https://sentry.io/privacy/",
+    "thirdPartyCrash": "Utilizamos o Sentry (sentry.io) para relatórios de erros e falhas, de forma a melhorar a estabilidade da app. O Sentry recebe apenas dados técnicos (tipo de dispositivo, versão do SO, rastreamentos de erros) e o número da sua conta, nunca o seu endereço de e-mail. Política de privacidade do Sentry: https://sentry.io/privacy/",
     "thirdPartyPaymentsTitle": "Pagamentos no nosso website — Easypay",
     "thirdPartyPayments": "Os pagamentos efetuados no nosso website são tratados pela Easypay, a entidade processadora de pagamentos. A própria App não efetua pagamentos.",
     "thirdPartyNone": "A App não inclui quaisquer SDKs de publicidade ou rastreadores de análise. Não partilhamos os seus dados com terceiros para fins de marketing ou comerciais.",
