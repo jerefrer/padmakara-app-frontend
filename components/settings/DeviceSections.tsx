@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Sentry from '@sentry/react-native';
+import { useSecretTaps } from '@/hooks/useSecretTaps';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAppLock } from '@/contexts/AppLockContext';
@@ -233,6 +235,14 @@ export function SignInSection() {
 /** Contact, legal pages and the version. The membership terms only exist on the web. */
 export function AboutSection() {
   const { t } = useLanguage();
+  // Seven quick taps on the version send a test error, to check a build reports to Sentry.
+  const onVersionTap = useSecretTaps(7, () => {
+    const id = Sentry.captureException(new Error(`Sentry test report (${Platform.OS})`));
+    showAlert(
+      t('settings.sentryTestTitle') || 'Test report sent',
+      t('settings.sentryTestMessage', { id }) || `A test error was sent to the crash reports. Reference: ${id}`,
+    );
+  });
   return (
     <Rows>
       <SettingsRow
@@ -254,7 +264,9 @@ export function AboutSection() {
           onPress={() => router.push('/membership/terms' as any)}
         />
       ) : null}
-      <SettingsRow icon="information-circle-outline" title={t('profile.version') || 'Version'} value="1.0.0 (Beta)" />
+      <Pressable testID="settings-version" accessible={false} onPress={onVersionTap}>
+        <SettingsRow icon="information-circle-outline" title={t('profile.version') || 'Version'} value="1.0.0 (Beta)" />
+      </Pressable>
     </Rows>
   );
 }
