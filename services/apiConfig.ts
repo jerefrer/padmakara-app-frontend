@@ -104,6 +104,11 @@ export const API_ENDPOINTS = {
   MEMBERSHIP_CHECKOUT_STATUS: (id: string) => `/payment/checkout-status/${encodeURIComponent(id)}`,
   EVENT_PREVIEW: (id: string) => `/events/${id}/preview`,
 
+  // Single teachings (web purchase page, no sign-in needed)
+  TEACHING: (eventId: number | string) => `/teachings/${eventId}`,
+  TEACHING_CHECKOUT: (eventId: number | string) => `/teachings/${eventId}/checkout`,
+  TEACHING_ORDER: (publicId: string) => `/teachings/orders/${encodeURIComponent(publicId)}`,
+
   // Search
   SEARCH: (query: string, lang?: string) => `/search?q=${encodeURIComponent(query)}${lang ? `&lang=${lang}` : ''}`,
   SEARCH_LOG: '/search/log',

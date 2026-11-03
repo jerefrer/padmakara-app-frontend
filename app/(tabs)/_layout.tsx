@@ -117,6 +117,14 @@ export default function TabLayout() {
           popToTopOnBlur: true,
         }}
       />
+      {/* /get/:id: public page to get a teaching's recordings (web only), hidden like membership. */}
+      <Tabs.Screen
+        name="get"
+        options={{
+          href: null,
+          popToTopOnBlur: true,
+        }}
+      />
       {/* /account: stable address, hidden like membership. See account.tsx before changing it. */}
       <Tabs.Screen
         name="account"
