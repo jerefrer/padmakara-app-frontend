@@ -13,6 +13,7 @@ import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useSearchLogger } from '@/hooks/useSearchLogger';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
@@ -140,6 +141,13 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestQueryRef = useRef('');
+  const { onResults, onTyping, flush } = useSearchLogger(
+    useCallback(
+      (q: string, count: number) => retreatService.logSearch(q, count, language),
+      [language],
+    ),
+  );
 
   const performSearch = useCallback(
     async (q: string) => {
@@ -158,6 +166,8 @@ export default function SearchScreen() {
         if (response.success && response.data) {
           setResults(response.data.results);
           setTotalResults(response.data.totalResults);
+          // Ignore a late response for text the user has already changed.
+          if (latestQueryRef.current === q) onResults(q, response.data.totalResults);
         } else {
           setError(response.error || 'Search failed');
         }
@@ -167,19 +177,22 @@ export default function SearchScreen() {
         setLoading(false);
       }
     },
-    [language],
+    [language, onResults],
   );
 
   const handleQueryChange = useCallback(
     (text: string) => {
       setQuery(text);
+      latestQueryRef.current = text.trim();
+      onTyping();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => performSearch(text.trim()), 400);
     },
-    [performSearch],
+    [performSearch, onTyping],
   );
 
   const handleEventPress = (eventId: number) => {
+    flush();
     router.push({
       pathname: '/(tabs)/(groups)/retreat/[id]',
       params: { id: String(eventId), from: 'search' },
@@ -208,11 +221,14 @@ export default function SearchScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
+              onSubmitEditing={flush}
               testID="search-input"
             />
             {query.length > 0 && (
               <TouchableOpacity
                 onPress={() => {
+                  latestQueryRef.current = '';
+                  onTyping();
                   setQuery('');
                   setResults(null);
                   setTotalResults(0);

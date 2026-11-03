@@ -1517,6 +1517,15 @@ class RetreatService {
     }
   }
 
+  // Anonymous telemetry: record one final search. Fire-and-forget; failures
+  // are swallowed on purpose because losing a log line must never surface.
+  logSearch(query: string, resultCount: number, language?: string): void {
+    const lang = language === 'pt' || language === 'en' ? language : undefined;
+    apiService
+      .post(API_ENDPOINTS.SEARCH_LOG, { query, resultCount, language: lang })
+      .catch(() => {});
+  }
+
   // Force clear all download tracking entries (for development)
   async forceClearAllRetreatCache(): Promise<void> {
     try {
