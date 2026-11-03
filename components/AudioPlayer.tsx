@@ -107,6 +107,10 @@ export function AudioPlayer({
   // True only while a finger is down on the progress bar. Drives the thumb's
   // visibility — see the Slider below.
   const [isSeeking, setIsSeeking] = useState(false);
+  // The finger's value while scrubbing. Android's bar is drawn here from `position`, which
+  // the audio context only refreshes every so often, so it jumped behind the finger; it
+  // follows this instead while the finger is down.
+  const [scrubValue, setScrubValue] = useState<number | null>(null);
 
   // Show a thin progress ring around the play button only when loading
   // exceeds 300ms — fast cache hits never paint a spinner, while slower
@@ -148,7 +152,8 @@ export function AudioPlayer({
     return null;
   }
 
-  const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
+  const shownPosition = scrubValue ?? position;
+  const progress = duration > 0 ? Math.min(1, Math.max(0, shownPosition / duration)) : 0;
 
   return (
     <View style={[styles.container, { bottom: bottomOffset }]}>
@@ -184,9 +189,13 @@ export function AudioPlayer({
           }}
           onSlidingComplete={(value) => {
             setIsSeeking(false);
+            setScrubValue(null);
             onSlidingComplete(value);
           }}
-          onValueChange={onSliderValueChange}
+          onValueChange={(value) => {
+            if (Platform.OS === 'android') setScrubValue(value);
+            onSliderValueChange(value);
+          }}
           minimumTrackTintColor={Platform.OS === 'android' ? 'transparent' : colors.burgundy[500]}
           maximumTrackTintColor={Platform.OS === 'android' ? 'transparent' : colors.gray[200]}
           thumbTintColor={Platform.OS === 'ios' && isSeeking ? undefined : 'transparent'}

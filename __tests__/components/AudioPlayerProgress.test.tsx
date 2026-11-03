@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { AudioPlayer } from '@/components/AudioPlayer';
 
 jest.mock('@/contexts/AudioPlayerContext', () => ({
@@ -51,5 +51,21 @@ describe('AudioPlayer progress and skip labels', () => {
     (Platform as { OS: string }).OS = 'ios';
     const { queryByTestId } = render(<AudioPlayer />);
     expect(queryByTestId('audio-progress-track')).toBeNull();
+  });
+});
+
+describe('AudioPlayer Android scrubbing', () => {
+  const originalOS = Platform.OS;
+  afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
+
+  it('should fill the bar to the finger while scrubbing, not to the last reported position', () => {
+    (Platform as { OS: string }).OS = 'android';
+    const { getByTestId, UNSAFE_getByProps } = render(<AudioPlayer />);
+    const slider = UNSAFE_getByProps({ testID: 'audio-seek' });
+    act(() => {
+      slider.props.onSlidingStart();
+      slider.props.onValueChange(90);
+    });
+    expect(StyleSheet.flatten(getByTestId('audio-progress-fill').props.style).width).toBe('75%');
   });
 });
