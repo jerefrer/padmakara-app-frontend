@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { AppState, Linking, PermissionsAndroid, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipColors as c } from '@/components/membership/theme';
 import { isNotificationPermissionGranted, requestNotificationPermission } from '@/services/notificationPermission';
@@ -38,9 +38,12 @@ export function LockScreenControlsRow() {
       await refresh();
       return;
     }
-    // Denied, or Android will not show the prompt again: only the phone's settings can help.
     setHint(true);
-    await Linking.openSettings().catch(() => undefined);
+    // Android will not show the prompt again: only the phone's settings can help. A plain
+    // denial just now is respected; the hint stays and the next tap asks again.
+    if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      await Linking.openSettings().catch(() => undefined);
+    }
   };
 
   const label = t('lockScreen.title') || 'Lock-screen controls';

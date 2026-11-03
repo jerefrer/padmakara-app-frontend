@@ -78,6 +78,16 @@ describe('LockScreenControlsRow', () => {
     expect(screen.getByText("Allow notifications in your phone's settings.")).toBeTruthy();
   });
 
+  it('should show the hint without opening settings when the user just denied', async () => {
+    requestSpy.mockResolvedValue('denied');
+    const screen = await renderRow();
+    await act(async () => {
+      fireEvent.press(screen.getByText('Turn on'));
+    });
+    expect(settingsSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("Allow notifications in your phone's settings.")).toBeTruthy();
+  });
+
   it('should switch to On without opening settings when the user allows', async () => {
     requestSpy.mockResolvedValue('granted');
     const screen = await renderRow();
