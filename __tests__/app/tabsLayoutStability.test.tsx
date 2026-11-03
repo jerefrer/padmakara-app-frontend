@@ -32,7 +32,10 @@ jest.mock('@/components/HapticTab', () => ({ HapticTab: () => null }));
 jest.mock('@/components/ui/TabBarBackground', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
 jest.mock('@/components/desktop/DesktopPlayerBar', () => ({ DesktopPlayerBar: () => require('react').createElement(require('react-native').Text, null, 'bar') }));
-jest.mock('@/components/MiniPlayer', () => ({ MiniPlayer: () => require('react').createElement(require('react-native').Text, null, 'mini') }));
+jest.mock('@/components/MiniPlayer', () => ({
+  MiniPlayer: () => require('react').createElement(require('react-native').Text, null, 'mini'),
+  usePlayerBarAboveTabBar: () => false,
+}));
 jest.mock('@/components/desktop/Sidebar', () => ({ Sidebar: () => require('react').createElement(require('react-native').Text, null, 'sidebar') }));
 jest.mock('@/components/desktop/RightSidebar', () => ({ RightSidebar: () => require('react').createElement(require('react-native').Text, null, 'right') }));
 jest.mock('@/contexts/SidebarNavigationContext', () => ({

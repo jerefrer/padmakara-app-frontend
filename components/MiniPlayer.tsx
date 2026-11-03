@@ -7,6 +7,7 @@ import { PlayingIndicator } from '@/components/PlayingIndicator';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { getTrackTitle } from '@/utils/i18n';
 
 const BAR_HEIGHT = 60;
@@ -29,6 +30,32 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
   return [groupName, retreatName].filter(Boolean).join(' · ');
 }
 
+/**
+ * Whether a player bar sits on top of the tab bar: the mini-player, or the
+ * event screen's own player. The tab bar drops its top shadow then, since only
+ * the highest bar of the stack carries one.
+ */
+export function usePlayerBarAboveTabBar(): boolean {
+  const pathname = usePathname();
+  const { currentTrack, isPlaying, retreatId, inlinePlayerVisible } = useAudioPlayerContext();
+  return inlinePlayerVisible || isMiniPlayerShown(pathname, !!currentTrack, isPlaying, retreatId, inlinePlayerVisible);
+}
+
+function isMiniPlayerShown(
+  pathname: string,
+  hasTrack: boolean,
+  isPlaying: boolean,
+  retreatId: string | null,
+  inlinePlayerVisible: boolean,
+): boolean {
+  if (!hasTrack) return false;
+  // On the owning event screen the inline player already covers playback. When
+  // that screen shows another tab (Videos, Documents) there is no player, so
+  // the mini-player steps in, but only while audio is playing: a paused
+  // track would just be a bar over the list with nothing to resume from.
+  return !(isOnOwningEvent(pathname, retreatId) && (inlinePlayerVisible || !isPlaying));
+}
+
 export function MiniPlayer() {
   const { t, language } = useLanguage();
   const pathname = usePathname();
@@ -45,11 +72,7 @@ export function MiniPlayer() {
   } = useAudioPlayerContext();
 
   if (!currentTrack) return null;
-  // On the owning event screen the inline player already covers playback. When
-  // that screen shows another tab (Videos, Documents) there is no player, so
-  // the mini-player steps in, but only while audio is playing: a paused
-  // track would just be a bar over the list with nothing to resume from.
-  if (isOnOwningEvent(pathname, retreatId) && (inlinePlayerVisible || !isPlaying)) return null;
+  if (!isMiniPlayerShown(pathname, true, isPlaying, retreatId, inlinePlayerVisible)) return null;
 
   const subtitle = makeSubtitle(groupName, retreatName);
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');
@@ -135,11 +158,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 8,
+    ...BAR_TOP_SHADOW,
     zIndex: 50,
   },
   wrapperPlaying: {

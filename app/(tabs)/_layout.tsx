@@ -1,6 +1,6 @@
 import { Tabs, useSegments } from 'expo-router';
 import React from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -10,7 +10,8 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DesktopPlayerBar } from '@/components/desktop/DesktopPlayerBar';
-import { MiniPlayer } from '@/components/MiniPlayer';
+import { MiniPlayer, usePlayerBarAboveTabBar } from '@/components/MiniPlayer';
+import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
 import { RightSidebar } from '@/components/desktop/RightSidebar';
@@ -20,15 +21,9 @@ export const unstable_settings = {
   initialRouteName: '(groups)',
 };
 
-// Same top shadow as the mini-player sitting right above the tab bar, so the
-// two read as one family of bars floating over the content.
-const BAR_TOP_SHADOW = {
-  shadowColor: '#000',
-  shadowOpacity: 0.14,
-  shadowRadius: 8,
-  shadowOffset: { width: 0, height: -2 },
-  elevation: 8,
-};
+// Under a player bar the tab bar is the lower half of one block: a hairline
+// instead of its own shadow (the player bar carries the stack's shadow).
+const BAR_JOIN = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb' };
 
 export default function TabLayout() {
   const { t } = useLanguage();
@@ -36,6 +31,8 @@ export default function TabLayout() {
   const segments = useSegments() as string[];
   const tabBarHeight = useTabBarHeight();
   const bottomInset = useSafeAreaInsets().bottom;
+  // elevation 0: drop react-navigation's default Android shadow, the boxShadow replaces it.
+  const barTop: ViewStyle = { ...(usePlayerBarAboveTabBar() ? BAR_JOIN : BAR_TOP_SHADOW), elevation: 0 };
   // The right rail collapses to a 64px strip on focused content screens
   // (event detail, transcript reader). Everywhere else it's the wide
   // brand panel.
@@ -59,7 +56,7 @@ export default function TabLayout() {
               ios: {
                 position: 'absolute' as const,
                 backgroundColor: '#ffffff',
-                ...BAR_TOP_SHADOW,
+                ...barTop,
               },
               // Explicit height and padding: under Android edge-to-edge the
               // bar must extend below the system navigation bar (white all
@@ -69,7 +66,7 @@ export default function TabLayout() {
                 backgroundColor: '#ffffff',
                 height: tabBarHeight,
                 paddingBottom: bottomInset,
-                ...BAR_TOP_SHADOW,
+                ...barTop,
               },
             })
           : { display: 'none' as const },

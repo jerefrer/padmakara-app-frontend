@@ -2,6 +2,7 @@ import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { useTabBarOverlap } from '@/hooks/useTabBarHeight';
 import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
@@ -297,11 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.gray[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 8,
+    ...BAR_TOP_SHADOW,
   },
   progressContainer: {
     height: 6,
