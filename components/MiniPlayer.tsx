@@ -3,7 +3,7 @@ import { router, usePathname } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LevelTrail } from '@/components/LevelTrail';
+import { PlayingIndicator } from '@/components/PlayingIndicator';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -76,7 +76,7 @@ export function MiniPlayer() {
         <View style={styles.iconCircle}>
           {isPlaying ? (
             <View testID="miniplayer-playing">
-              <LevelTrail isPlaying size={20} color={BURGUNDY} />
+              <PlayingIndicator isPlaying size={20} color={BURGUNDY} />
             </View>
           ) : (
             <Ionicons name="musical-notes-outline" size={24} color={BURGUNDY} />

@@ -28,7 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVideoDeepLink } from '@/utils/videoDeepLink';
-import { LevelTrail } from '@/components/LevelTrail';
+import { PlayingIndicator } from '@/components/PlayingIndicator';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1675,7 +1675,7 @@ export default function RetreatDetailScreen() {
                 <View style={styles.trackRightSection}>
                   {isActive && (
                     <View style={styles.playingIndicator}>
-                      <LevelTrail
+                      <PlayingIndicator
                         isPlaying={isTrackPlaying}
                         size={20}
                         color={colors.burgundy[500]}

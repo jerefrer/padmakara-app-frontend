@@ -30,13 +30,6 @@ interface MockPlayer {
   // but providing them keeps the mock surface complete.
   setActiveForLockScreen: jest.Mock;
   replace: jest.Mock;
-  // Audio sampling (real expo-audio: supported on iOS, off on web, and
-  // gated by the RECORD_AUDIO permission on Android). Tests read
-  // `samplingCalls` and drive listeners through __emitAudioSample.
-  isAudioSamplingSupported: boolean;
-  samplingEnabled: boolean;
-  samplingCalls: boolean[];
-  setAudioSamplingEnabled: (enabled: boolean) => void;
   addListener: (event: string, listener: (data: unknown) => void) => { remove: () => void };
   listeners: Map<string, Set<(data: unknown) => void>>;
 }
@@ -144,13 +137,6 @@ const makePlayer = (): MockPlayer => {
     lastSeekTo: null,
     setActiveForLockScreen: jest.fn(),
     replace: jest.fn(),
-    isAudioSamplingSupported: true,
-    samplingEnabled: false,
-    samplingCalls: [],
-    setAudioSamplingEnabled: (enabled: boolean) => {
-      p.samplingEnabled = enabled;
-      p.samplingCalls.push(enabled);
-    },
     addListener: (event: string, listener: (data: unknown) => void) => {
       const set = p.listeners.get(event) ?? new Set();
       set.add(listener);
@@ -226,8 +212,3 @@ export const __getLastSeekTo = () => store.lastSeekTo;
 export const __getCurrentPlayer = (): MockPlayer | null =>
   allPlayers[allPlayers.length - 1] ?? null;
 
-// Deliver one audio sample to every listener on the current player.
-export const __emitAudioSample = (frames: number[]) => {
-  const p = allPlayers[allPlayers.length - 1];
-  p?.listeners.get('audioSampleUpdate')?.forEach((l) => l({ channels: [{ frames }], timestamp: 0 }));
-};
