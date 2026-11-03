@@ -242,8 +242,13 @@ export function AudioPlayer({
           onSlidingComplete={(value) => {
             scrubbingRef.current = false;
             setIsSeeking(false);
+            if (Platform.OS === 'android') {
+              fillProgress.value = progressOf(value, duration);
+              // The context never heard the finger (see above): give it the released value
+              // first, or it shows the pre-scrub time until the seek lands.
+              onSliderValueChange(value);
+            }
             emitScrub(null);
-            if (Platform.OS === 'android') fillProgress.value = progressOf(value, duration);
             onSlidingComplete(value);
           }}
           onValueChange={(value) => {

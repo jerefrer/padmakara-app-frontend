@@ -4,6 +4,7 @@ import { act, render } from '@testing-library/react-native';
 import { AudioPlayer } from '@/components/AudioPlayer';
 
 const mockOnSliderValueChange = jest.fn();
+const mockOnSlidingComplete = jest.fn();
 
 jest.mock('@/contexts/AudioPlayerContext', () => ({
   SKIP_INTERVAL_S: 15,
@@ -23,7 +24,7 @@ jest.mock('@/contexts/AudioPlayerContext', () => ({
     hasPreviousTrack: true,
     changePlaybackSpeed: jest.fn(),
     onSlidingStart: jest.fn(),
-    onSlidingComplete: jest.fn(),
+    onSlidingComplete: mockOnSlidingComplete,
     onSliderValueChange: mockOnSliderValueChange,
   }),
 }));
@@ -60,7 +61,25 @@ describe('AudioPlayer Android scrubbing', () => {
   const originalOS = Platform.OS;
   afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
 
-  beforeEach(() => mockOnSliderValueChange.mockClear());
+  beforeEach(() => {
+    mockOnSliderValueChange.mockClear();
+    mockOnSlidingComplete.mockClear();
+  });
+
+  it('should hand the released position to the audio context before seeking, so the old time does not flash back', () => {
+    (Platform as { OS: string }).OS = 'android';
+    const { UNSAFE_getByProps } = render(<AudioPlayer />);
+    const slider = UNSAFE_getByProps({ testID: 'audio-seek' });
+    act(() => {
+      slider.props.onSlidingStart();
+      slider.props.onValueChange(20);
+      slider.props.onSlidingComplete(20);
+    });
+    expect(mockOnSliderValueChange).toHaveBeenCalledWith(20);
+    expect(mockOnSliderValueChange.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOnSlidingComplete.mock.invocationCallOrder[0],
+    );
+  });
 
   it('should show the finger position in the time label while scrubbing', () => {
     (Platform as { OS: string }).OS = 'android';
