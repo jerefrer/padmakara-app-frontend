@@ -264,6 +264,17 @@ export default function RetreatDetailScreen() {
   // one, as soon as the page moves.
   const topBarHeight = insets.top + FLOATING_BUTTONS_CLEARANCE;
   const scrimFadeStart = eventHero.url ? HERO_HEIGHT - topBarHeight - 24 : 0;
+  // The event title, small and centred in that bar, once the large title has scrolled under
+  // it (the usual large-title / inline-title pattern). Its bottom edge is measured on layout.
+  const largeTitleBottom = useSharedValue(Number.MAX_SAFE_INTEGER);
+  const compactTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scrollY.value,
+      [largeTitleBottom.value - topBarHeight - 24, largeTitleBottom.value - topBarHeight],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
   const statusBarScrimStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       scrollY.value,
@@ -1577,6 +1588,9 @@ export default function RetreatDetailScreen() {
               // download buttons instead of under them and the status bar.
               !isDesktop && !compactSidebar && !heroSource && { paddingTop: insets.top + FLOATING_BUTTONS_CLEARANCE },
             ]}
+            onLayout={(e) => {
+              largeTitleBottom.value = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
+            }}
           >
             <View style={styles.eventTitleRow}>
               <Text style={styles.eventTitleText}>{titleText}</Text>
@@ -1899,7 +1913,14 @@ export default function RetreatDetailScreen() {
         <Animated.View
           pointerEvents="none"
           style={[styles.statusBarScrim, { height: topBarHeight }, statusBarScrimStyle]}
-        />
+        >
+          <Animated.Text
+            numberOfLines={1}
+            style={[styles.compactTitle, { top: insets.top, height: FLOATING_BUTTONS_CLEARANCE }, compactTitleStyle]}
+          >
+            {retreat ? getTranslatedName(retreat as any, language) : ''}
+          </Animated.Text>
+        </Animated.View>
       )}
       {!isDesktop && (
         <BackButton
@@ -2488,6 +2509,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
     zIndex: 15,
+  },
+  // Clears the back button on the left and the bookmark + download cluster on the right,
+  // symmetrically so the title stays centred.
+  compactTitle: {
+    position: 'absolute',
+    left: 100,
+    right: 100,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: FLOATING_BUTTONS_CLEARANCE,
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 17,
+    color: colors.burgundy[500],
   },
   floatingTopButton: {
     position: 'absolute',
