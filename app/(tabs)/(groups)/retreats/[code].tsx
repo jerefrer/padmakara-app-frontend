@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, RefreshControl } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -29,6 +29,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TEXT_GUTTER } from '@/constants/layout';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 230;
@@ -169,7 +170,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
   } : {};
 
   return (
-    <Pressable
+    <ListRowPressable
       onPress={onPress}
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
@@ -242,7 +243,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
         {isDownloaded && <OfflineBadge />}
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
-    </Pressable>
+    </ListRowPressable>
   );
 }
 

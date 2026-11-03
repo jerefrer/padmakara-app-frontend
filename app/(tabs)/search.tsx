@@ -19,6 +19,7 @@ import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { RULE_COLOR, RULE_RIGHT_INSET, RULE_THICKNESS, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
   cream: { 50: '#ffffff', 100: '#fefefe' },
@@ -85,7 +86,7 @@ function ResultEventCard({
   const primarySnippet = result.snippets?.[0];
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity {...getRowPressDelayProps()}
       style={[styles.resultCard, !isDesktop && styles.resultCardToInset]}
       onPress={() => onSessionPress(result.event.id)}
       activeOpacity={0.7}

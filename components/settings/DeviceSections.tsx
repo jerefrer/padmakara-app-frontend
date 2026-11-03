@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
@@ -17,6 +17,7 @@ import { tr } from '@/components/membership/tr';
 import { PasskeySettings } from './PasskeySettings';
 import { LockScreenControlsRow } from './LockScreenControlsRow';
 import { Rows, SettingsRow, SwitchRow } from './ui';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 type Button = { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' };
 
@@ -269,9 +270,9 @@ export function AboutSection() {
           onPress={() => router.push('/membership/terms' as any)}
         />
       ) : null}
-      <Pressable testID="settings-version" accessible={false} focusable={false} onPress={onVersionTap}>
+      <ListRowPressable testID="settings-version" accessible={false} focusable={false} onPress={onVersionTap}>
         <SettingsRow icon="information-circle-outline" title={t('profile.version') || 'Version'} value="1.0.0 (Beta)" />
-      </Pressable>
+      </ListRowPressable>
     </Rows>
   );
 }

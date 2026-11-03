@@ -1,4 +1,5 @@
 import React from "react";
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -94,7 +95,7 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
   const hasAudio = eventHasAudio(event);
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity {...getRowPressDelayProps()}
       onPress={onPress}
       style={[styles.row, !isDesktop && styles.rowToInset]}
       testID={testID}

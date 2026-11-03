@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -73,7 +74,7 @@ export function SettingsRow({ testID, icon, title, subtitle, value, onPress, dan
     );
   }
   return (
-    <Pressable
+    <ListRowPressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={value !== undefined ? `${title}, ${value}` : title}
@@ -85,7 +86,7 @@ export function SettingsRow({ testID, icon, title, subtitle, value, onPress, dan
       style={({ pressed }) => [styles.row, pressed && pageStyles.rowPressed, disabled && styles.disabledRow, ring.style]}
     >
       {content}
-    </Pressable>
+    </ListRowPressable>
   );
 }
 

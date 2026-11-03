@@ -40,6 +40,7 @@ import {
 import { BarSegment, getBarSegments } from '@/utils/storageUsage';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 const colors = {
   cream: {
@@ -524,7 +525,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
       </View>
 
       {/* Cache Limit Setting */}
-      <Pressable
+      <ListRowPressable
         style={({ pressed }) => [
           styles.settingItem,
           pressed && Platform.OS === 'web' && styles.webPressed,
@@ -544,11 +545,11 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
           <Text style={styles.settingValue}>{getCacheLimitLabel(cacheLimit, t)}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
         </View>
-      </Pressable>
+      </ListRowPressable>
 
       {/* Clear Cache Button */}
       {((usage?.clearableBytes || 0) > 0 || (cacheStats?.trackCount || 0) > 0) && (
-        <Pressable
+        <ListRowPressable
           style={({ pressed }) => [
             styles.settingItem,
             isClearing && styles.disabledSetting,
@@ -572,12 +573,12 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
               </Text>
             </View>
           </View>
-        </Pressable>
+        </ListRowPressable>
       )}
 
       {/* Free Up Other Space (orphaned downloads in document storage) */}
       {(usage?.orphanBytes || 0) > 0 && (
-        <Pressable
+        <ListRowPressable
           style={({ pressed }) => [
             styles.settingItem,
             isFreeingOther && styles.disabledSetting,
@@ -601,12 +602,12 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
               </Text>
             </View>
           </View>
-        </Pressable>
+        </ListRowPressable>
       )}
 
       {/* Clear Downloads Button */}
       {downloadedRetreats.length > 0 && (
-        <Pressable
+        <ListRowPressable
           style={({ pressed }) => [
             styles.settingItem,
             isClearingDownloads && styles.disabledSetting,
@@ -630,12 +631,12 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
               </Text>
             </View>
           </View>
-        </Pressable>
+        </ListRowPressable>
       )}
 
       {/* Clear Publications Cache Button */}
       {(publicationCacheStats?.count || 0) > 0 && (
-        <Pressable
+        <ListRowPressable
           style={({ pressed }) => [
             styles.settingItem,
             isClearingPublications && styles.disabledSetting,
@@ -659,7 +660,7 @@ export function StorageSection({ onStorageChange }: StorageSectionProps) {
               </Text>
             </View>
           </View>
-        </Pressable>
+        </ListRowPressable>
       )}
 
       {/* Downloaded Retreats List */}

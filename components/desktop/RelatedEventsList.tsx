@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import retreatService from '@/services/retreatService';
@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslatedName } from '@/utils/i18n';
 import { colors } from '@/constants/colors';
 import type { Gathering } from '@/types';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 /**
  * Formats an event's start date for the sidebar — short and locale-aware,
@@ -189,7 +190,7 @@ export function RelatedEventsList({
             const { hasAudio, hasVideo, hasTranscript } = deriveContentFlags(ev);
             const iconColor = isActive ? colors.burgundy[500] : colors.gray[400];
             return (
-              <Pressable
+              <ListRowPressable
                 key={ev.id}
                 style={[styles.item, isActive && styles.itemActive]}
                 onPress={() => onPick(ev.id)}
@@ -232,7 +233,7 @@ export function RelatedEventsList({
                     </View>
                   )}
                 </View>
-              </Pressable>
+              </ListRowPressable>
             );
           })
         )}

@@ -78,6 +78,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { resolveContentTab, shouldShowInlinePlayer, type EventContentTab } from '@/utils/eventContentTab';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
   cream: {
@@ -1622,7 +1623,7 @@ export default function RetreatDetailScreen() {
               )}
 
               {/* Track Item */}
-              <TouchableOpacity
+              <TouchableOpacity {...getRowPressDelayProps()}
                 onPress={() => selectTrack(track, trackIndex)}
                 onLayout={(e) => {
                   const { y, height } = e.nativeEvent.layout;
@@ -1698,7 +1699,7 @@ export default function RetreatDetailScreen() {
             {documents.map((doc) => {
               const isTranscript = doc.kind === 'transcript';
               return (
-                <TouchableOpacity
+                <TouchableOpacity {...getRowPressDelayProps()}
                   key={doc.key}
                   style={[styles.documentListItem, !isDesktop && styles.lineBleed]}
                   onPress={() => handleDocumentPress(doc)}
@@ -1764,7 +1765,7 @@ export default function RetreatDetailScreen() {
               {t('publications.relatedTitle') || 'Related Publications'}
             </Text>
             {relatedPublications.map((pub) => (
-              <TouchableOpacity
+              <TouchableOpacity {...getRowPressDelayProps()}
                 key={pub.id}
                 style={styles.relatedPublicationItem}
                 onPress={() => router.push('/(tabs)/(groups)/publications' as any)}

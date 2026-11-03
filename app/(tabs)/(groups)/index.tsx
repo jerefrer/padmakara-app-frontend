@@ -31,6 +31,7 @@ import { EventRow, eventHasAudio } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
   burgundy: {
@@ -65,7 +66,7 @@ function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
   // tightened first, as typesetters do (André), and only then shrunk by at most 10%.
   const [tight, setTight] = useState(false);
   return (
-    <TouchableOpacity onPress={onPress} style={styles.categoryRow}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.categoryRow}>
       <View style={styles.categoryText}>
         <Text
           style={[styles.categoryTitle, tight && styles.categoryTitleTight]}
@@ -164,7 +165,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
   const focalCover = useFocalCover({ focalX: focal.x, focalY: focal.y, override: frameOverride });
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity {...getRowPressDelayProps()}
       onPress={onPress}
       style={[styles.featuredCard, isDesktop && styles.featuredCardDesktop]}
       testID={testID}

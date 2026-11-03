@@ -25,6 +25,7 @@ import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const INFO_EMAIL = "info@padmakara.pt";
 
@@ -99,7 +100,7 @@ function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
   const groupImage = groupThumbnailSource(group, getGroupImage(groupName));
 
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.groupRow, !isDesktop && styles.groupRowIndented]} testID={`group-card-${group.id}`}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.groupRow, !isDesktop && styles.groupRowIndented]} testID={`group-card-${group.id}`}>
       {/* Round avatar */}
       <View style={styles.avatarContainer}>
         {groupImage ? (
@@ -359,7 +360,7 @@ export default function RetreatsListScreen() {
               {!isDesktop && <SectionRule />}
               <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
                 {teachings.map((teaching) => (
-                  <TouchableOpacity
+                  <TouchableOpacity {...getRowPressDelayProps()}
                     key={teaching.id}
                     onPress={() => handleTeachingPress(teaching)}
                     style={[styles.groupRow, !isDesktop && styles.groupRowIndented]}
@@ -382,7 +383,7 @@ export default function RetreatsListScreen() {
                 {t("retreats.emptyExplanation") ||
                   "Retreat recordings are for the participants of our retreat groups."}
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity {...getRowPressDelayProps()}
                 style={styles.attendedCard}
                 onPress={handleAttendedPress}
                 testID="attended-retreat-card"
