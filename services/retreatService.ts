@@ -231,6 +231,7 @@ function mapTrack(backend: any): Track {
     originalLanguage: backend.originalLanguage || backend.original_language || backend.language || undefined,
     speaker: backend.speaker || undefined,
     speakerName: backend.speakerName || backend.speaker_name || undefined,
+    speakerArtworkUrl: backend.speakerArtworkUrl || undefined,
     isOriginal: backend.isTranslation != null ? !backend.isTranslation :
                 backend.is_translation != null ? !backend.is_translation : undefined,
     isPractice: backend.isPractice ?? backend.is_practice ?? undefined,
