@@ -890,6 +890,16 @@
       "methodAny": "a sua impressão digital, o seu rosto ou o PIN"
     }
   },
+  "lockScreen": {
+    "title": "Controlos no ecrã de bloqueio",
+    "explainerBody": "Para pausar, recuar ou avançar a partir do ecrã de bloqueio, permita que o Padmakara mostre o leitor nas notificações. Não lhe enviaremos mensagens.",
+    "continue": "Continuar",
+    "notNow": "Agora não",
+    "on": "Ativados",
+    "off": "Desativados",
+    "turnOn": "Ativar",
+    "settingsHint": "Permita as notificações nas definições do telemóvel."
+  },
   "appLock": {
     "titleFaceId": "Bloquear com Face ID",
     "titleTouchId": "Bloquear com Touch ID",

@@ -890,6 +890,16 @@
       "methodAny": "your fingerprint, face or PIN"
     }
   },
+  "lockScreen": {
+    "title": "Lock-screen controls",
+    "explainerBody": "To pause, rewind or skip from the lock screen, allow Padmakara to show its player in notifications. We won't send you messages.",
+    "continue": "Continue",
+    "notNow": "Not now",
+    "on": "On",
+    "off": "Off",
+    "turnOn": "Turn on",
+    "settingsHint": "Allow notifications in your phone's settings."
+  },
   "appLock": {
     "titleFaceId": "Lock with Face ID",
     "titleTouchId": "Lock with Touch ID",

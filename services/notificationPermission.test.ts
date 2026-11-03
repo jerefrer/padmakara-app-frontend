@@ -1,63 +1,89 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PermissionsAndroid, Platform } from 'react-native';
 
-import { requestNotificationPermissionOnce } from './notificationPermission';
+import {
+  offerNotificationExplainer,
+  shouldShowExplainer,
+  subscribeToExplainer,
+} from './notificationPermission';
 
 const setPlatform = (os: string, version: number | string) => {
   Object.defineProperty(Platform, 'OS', { configurable: true, get: () => os });
   Object.defineProperty(Platform, 'Version', { configurable: true, get: () => version });
 };
 
-describe('requestNotificationPermissionOnce', () => {
-  let requestSpy: jest.SpyInstance;
+describe('shouldShowExplainer', () => {
+  const base = { os: 'android', version: 34, asked: false, granted: false };
+
+  it('should show on Android 13+ when not granted and not asked', () => {
+    expect(shouldShowExplainer(base)).toBe(true);
+  });
+  it('should not show when already asked', () => {
+    expect(shouldShowExplainer({ ...base, asked: true })).toBe(false);
+  });
+  it('should not show when granted', () => {
+    expect(shouldShowExplainer({ ...base, granted: true })).toBe(false);
+  });
+  it('should not show below Android 13', () => {
+    expect(shouldShowExplainer({ ...base, version: 32 })).toBe(false);
+  });
+  it.each(['ios', 'web'])('should not show on %s', (os) => {
+    expect(shouldShowExplainer({ ...base, os })).toBe(false);
+  });
+});
+
+describe('offerNotificationExplainer', () => {
   let checkSpy: jest.SpyInstance;
+  let listener: jest.Mock;
+  let unsubscribe: () => void;
 
   beforeEach(async () => {
     await AsyncStorage.clear();
-    requestSpy = jest.spyOn(PermissionsAndroid, 'request').mockResolvedValue('denied');
     checkSpy = jest.spyOn(PermissionsAndroid, 'check').mockResolvedValue(false);
+    listener = jest.fn();
+    unsubscribe = subscribeToExplainer(listener);
+    setPlatform('android', 34);
   });
 
   afterEach(() => {
+    unsubscribe();
     jest.restoreAllMocks();
   });
 
-  it('should ask on Android 13 and above', async () => {
-    setPlatform('android', 34);
-    await requestNotificationPermissionOnce();
-    expect(requestSpy).toHaveBeenCalledTimes(1);
+  it('should notify the explainer on first play', async () => {
+    await offerNotificationExplainer();
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('should ask only once even after a denial', async () => {
-    setPlatform('android', 34);
-    await requestNotificationPermissionOnce();
-    await requestNotificationPermissionOnce();
-    expect(requestSpy).toHaveBeenCalledTimes(1);
+  it('should show only once even when dismissed', async () => {
+    await offerNotificationExplainer();
+    await offerNotificationExplainer();
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('should not ask when the permission is already granted', async () => {
-    setPlatform('android', 33);
+  it('should not use up the chance when no explainer is mounted', async () => {
+    unsubscribe();
+    await offerNotificationExplainer();
+    unsubscribe = subscribeToExplainer(listener);
+    await offerNotificationExplainer();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('should stay silent when the permission is granted', async () => {
     checkSpy.mockResolvedValue(true);
-    await requestNotificationPermissionOnce();
-    expect(requestSpy).not.toHaveBeenCalled();
+    await offerNotificationExplainer();
+    expect(listener).not.toHaveBeenCalled();
   });
 
-  it('should not ask on Android 12', async () => {
-    setPlatform('android', 32);
-    await requestNotificationPermissionOnce();
-    expect(requestSpy).not.toHaveBeenCalled();
-  });
-
-  it.each([['ios', '17.0'], ['web', 0]])('should never ask on %s', async (os, version) => {
+  it.each([['ios', '17.0'], ['web', 0], ['android', 32]])('should stay silent on %s %s', async (os, version) => {
     setPlatform(os, version);
-    await requestNotificationPermissionOnce();
-    expect(requestSpy).not.toHaveBeenCalled();
+    await offerNotificationExplainer();
+    expect(listener).not.toHaveBeenCalled();
   });
 
-  it('should not throw when the request fails', async () => {
-    setPlatform('android', 34);
-    requestSpy.mockRejectedValue(new Error('boom'));
+  it('should not throw when storage fails', async () => {
+    jest.spyOn(AsyncStorage, 'getItem').mockRejectedValue(new Error('boom'));
     jest.spyOn(console, 'warn').mockImplementation(() => {});
-    await expect(requestNotificationPermissionOnce()).resolves.toBeUndefined();
+    await expect(offerNotificationExplainer()).resolves.toBeUndefined();
   });
 });
