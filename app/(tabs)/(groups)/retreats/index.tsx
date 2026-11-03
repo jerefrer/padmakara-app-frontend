@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from "@/contexts/LanguageContext";
 import retreatService from "@/services/retreatService";
+import { teachingService } from "@/services/teachingService";
 import { Gathering, RetreatGroup } from "@/types";
 import { getTranslatedName } from "@/utils/i18n";
 import { groupThumbnailSource } from "@/utils/groupThumbnail";
@@ -11,6 +12,7 @@ import { Stack, router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,8 @@ import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
+
+const INFO_EMAIL = "info@padmakara.pt";
 
 const colors = {
   burgundy: { 500: "#9b1b1b", 600: "#7b1616" },
@@ -130,7 +134,7 @@ function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
 // ── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function RetreatsListScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { openSignIn } = useSignIn();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -145,6 +149,18 @@ export default function RetreatsListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
+  const [teachings, setTeachings] = useState<Gathering[]>([]);
+
+  // Teachings never block the groups list: any failure leaves the section out.
+  const loadTeachings = async () => {
+    try {
+      const res = await teachingService.mine();
+      setTeachings(res.success ? res.data : []);
+    } catch (err) {
+      console.error("Error loading teachings:", err);
+      setTeachings([]);
+    }
+  };
 
   const loadContent = async () => {
     try {
@@ -153,7 +169,9 @@ export default function RetreatsListScreen() {
       if (retreatData === null) setLoading(true);
       setError(null);
       setAuthRequired(false);
+      const teachingsLoad = isAuthenticated ? loadTeachings() : Promise.resolve();
       const response = await retreatService.getUserRetreats();
+      await teachingsLoad;
       if (response.success && response.data) {
         setRetreatData(response.data);
       } else if (response.authRequired) {
@@ -183,6 +201,20 @@ export default function RetreatsListScreen() {
   const handleGroupPress = (group: RetreatGroup) => {
     const code = (group.abbreviation || group.id).toLowerCase();
     router.push(`/(tabs)/(groups)/retreats/${code}` as any);
+  };
+
+  const handleTeachingPress = (teaching: Gathering) => {
+    router.push(`/(tabs)/(groups)/retreat/${teaching.id}` as any);
+  };
+
+  const handleAttendedPress = () => {
+    const subject = t("retreats.attendedMailSubject") || "Access to retreat recordings";
+    const body =
+      t("retreats.attendedMailBody", { email: user?.email || "" }) ||
+      `Hello,\n\nI attended a retreat and would like access to its recordings.\n\nMy account email: ${user?.email || ""}\n`;
+    Linking.openURL(
+      `mailto:${INFO_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+    ).catch((err) => console.error("Could not open mail app:", err));
   };
 
   // Loading
@@ -315,12 +347,50 @@ export default function RetreatsListScreen() {
             ))}
           </View>
 
-          {groups.length === 0 && (
+          {teachings.length > 0 && (
+            <View style={styles.teachingsSection}>
+              <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
+                {t("retreats.teachings") || "Teachings"}
+              </Text>
+              {!isDesktop && <SectionRule />}
+              <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
+                {teachings.map((teaching) => (
+                  <TouchableOpacity
+                    key={teaching.id}
+                    onPress={() => handleTeachingPress(teaching)}
+                    style={[styles.groupRow, !isDesktop && styles.groupRowIndented]}
+                    testID={`teaching-card-${teaching.id}`}
+                  >
+                    <View style={styles.groupInfo}>
+                      <Text style={styles.groupName} numberOfLines={2}>
+                        {getTranslatedName(teaching, language as "en" | "pt")}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {groups.length === 0 && teachings.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
-                {t("groups.noGroupsDescription") ||
-                  "No retreat groups available."}
+                {t("retreats.emptyExplanation") ||
+                  "Retreat recordings are for the participants of our retreat groups."}
               </Text>
+              <TouchableOpacity
+                style={styles.attendedCard}
+                onPress={handleAttendedPress}
+                testID="attended-retreat-card"
+                accessibilityRole="link"
+              >
+                <Text style={styles.attendedTitle}>
+                  {t("retreats.attendedTitle") || "Did you attend a retreat?"}
+                </Text>
+                <Text style={styles.attendedAction}>
+                  {t("retreats.attendedAction") || "Write to us and we'll add you"}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -438,10 +508,46 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
   },
 
+  // Teachings section
+  teachingsSection: {
+    marginTop: 32,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontFamily: "MinionPro",
+    color: colors.burgundy[500],
+    fontVariant: ["small-caps"],
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+
   // Empty / Error
   emptyState: {
     alignItems: "center",
     paddingTop: 40,
+    paddingHorizontal: TEXT_GUTTER,
+  },
+  attendedCard: {
+    marginTop: 24,
+    alignSelf: "stretch",
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    borderRadius: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    alignItems: "center",
+  },
+  attendedTitle: {
+    fontSize: 17,
+    fontFamily: "EBGaramond_500Medium",
+    color: colors.gray[800],
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  attendedAction: {
+    fontSize: 15,
+    color: colors.burgundy[500],
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 15,

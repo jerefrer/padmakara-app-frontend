@@ -330,6 +330,12 @@
   "retreats": {
     "myRetreats": "Meus Retiros",
     "connectionErrorMessage": "Por favor, verifique a sua ligação e tente novamente.",
+    "teachings": "Ensinamentos",
+    "emptyExplanation": "As gravações dos retiros destinam-se aos participantes dos nossos grupos de retiro.",
+    "attendedTitle": "Participou num retiro?",
+    "attendedAction": "Escreva-nos e nós adicionamo-lo",
+    "attendedMailSubject": "Acesso às gravações de retiros",
+    "attendedMailBody": "Olá,\n\nParticipei num retiro e gostaria de ter acesso às suas gravações.\n\nEmail da minha conta: {{email}}\n",
     "spring": "Primavera",
     "fall": "Outono",
     "sessions": "Sessões",

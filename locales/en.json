@@ -330,6 +330,12 @@
   "retreats": {
     "myRetreats": "My Retreats",
     "connectionErrorMessage": "Please check your connection and try again.",
+    "teachings": "Teachings",
+    "emptyExplanation": "Retreat recordings are for the participants of our retreat groups.",
+    "attendedTitle": "Did you attend a retreat?",
+    "attendedAction": "Write to us and we'll add you",
+    "attendedMailSubject": "Access to retreat recordings",
+    "attendedMailBody": "Hello,\n\nI attended a retreat and would like access to its recordings.\n\nMy account email: {{email}}\n",
     "spring": "Spring",
     "fall": "Fall",
     "sessions": "Sessions",
