@@ -206,6 +206,15 @@ const config: PadmakaraConfig = {
         // The app's burgundy, so the launch screen matches everything after it;
         // AppLockScreen uses the same.
         backgroundColor: "#9b1b1b",
+        // Android 12+ masks the splash icon to a circle (160 dp visible of a 240 dp
+        // canvas), which cropped the lockup to the wheel plus a sliver of the
+        // wordmark. Android gets the wheel alone: splash-android.png is a 1600 px
+        // transparent square with the wheel at 59% of its width, so it sits inside
+        // the circular safe zone (66%). imageWidth 240 = the icon canvas in dp.
+        android: {
+          image: "./assets/images/splash-android.png",
+          imageWidth: 240,
+        },
       },
     ],
     ...(variant.sentry
