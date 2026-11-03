@@ -165,6 +165,14 @@ const config: PadmakaraConfig = {
       backgroundColor: "#C4423E",
     },
     edgeToEdgeEnabled: true,
+    // Android 13+ blocks all notifications, including the lock-screen media
+    // player expo-audio posts, unless the app declares this. Requested at runtime
+    // on first play (services/notificationPermission.ts).
+    permissions: ["android.permission.POST_NOTIFICATIONS"],
+    // The UI is light-only. Forcing the light theme on Android makes the system
+    // navigation bar buttons dark (they follow the theme under edge-to-edge),
+    // so they stay readable on the white tab bar when the phone is in dark mode.
+    userInterfaceStyle: "light",
     // Permissions pulled in by Expo libraries that the app never uses (it only
     // plays audio, and stores files in app-private directories). Play reviewers
     // flag them. USE_BIOMETRIC stays; FOREGROUND_SERVICE(_MEDIA_PLAYBACK) stays
@@ -206,6 +214,15 @@ const config: PadmakaraConfig = {
         // The app's burgundy, so the launch screen matches everything after it;
         // AppLockScreen uses the same.
         backgroundColor: "#9b1b1b",
+        // Android 12+ masks the splash icon to a circle (160 dp visible of a 240 dp
+        // canvas), which cropped the lockup to the wheel plus a sliver of the
+        // wordmark. Android gets the wheel alone: splash-android.png is a 1600 px
+        // transparent square with the wheel at 59% of its width, so it sits inside
+        // the circular safe zone (66%). imageWidth 240 = the icon canvas in dp.
+        android: {
+          image: "./assets/images/splash-android.png",
+          imageWidth: 240,
+        },
       },
     ],
     ...(variant.sentry

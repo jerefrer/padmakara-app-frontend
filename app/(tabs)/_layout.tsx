@@ -7,6 +7,8 @@ import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DesktopPlayerBar } from '@/components/desktop/DesktopPlayerBar';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { DesktopShell } from '@/components/desktop/DesktopShell';
@@ -32,6 +34,8 @@ export default function TabLayout() {
   const { t } = useLanguage();
   const { isMobile } = useDesktopLayout();
   const segments = useSegments() as string[];
+  const tabBarHeight = useTabBarHeight();
+  const bottomInset = useSafeAreaInsets().bottom;
   // The right rail collapses to a 64px strip on focused content screens
   // (event detail, transcript reader). Everywhere else it's the wide
   // brand panel.
@@ -57,8 +61,14 @@ export default function TabLayout() {
                 backgroundColor: '#ffffff',
                 ...BAR_TOP_SHADOW,
               },
+              // Explicit height and padding: under Android edge-to-edge the
+              // bar must extend below the system navigation bar (white all
+              // the way down), and MiniPlayer / AudioPlayer position
+              // themselves from the same useTabBarHeight() value.
               default: {
                 backgroundColor: '#ffffff',
+                height: tabBarHeight,
+                paddingBottom: bottomInset,
                 ...BAR_TOP_SHADOW,
               },
             })

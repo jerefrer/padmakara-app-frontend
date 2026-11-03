@@ -2,12 +2,12 @@ import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = {
   burgundy: {
@@ -50,7 +50,7 @@ interface AudioPlayerProps {
   languageLabel?: string;
   /**
    * Override the bottom positioning. By default the player sits above the
-   * tab bar (49px + safe-area inset on iOS); pass an explicit value when
+   * tab bar (49px + bottom safe-area inset); pass an explicit value when
    * mounting the player inside a modal that has no tab bar — typically
    * `insets.bottom` so it just clears the home indicator.
    */
@@ -74,11 +74,9 @@ export function AudioPlayer({
   languageLabel,
   bottom,
 }: AudioPlayerProps = {}) {
-  const insets = useSafeAreaInsets();
   const { t, language } = useLanguage();
-  const TAB_BAR_HEIGHT = 49;
-  const defaultBottom = Platform.OS === 'ios' ? TAB_BAR_HEIGHT + insets.bottom : TAB_BAR_HEIGHT;
-  const bottomOffset = bottom ?? defaultBottom;
+  const tabBarHeight = useTabBarHeight();
+  const bottomOffset = bottom ?? tabBarHeight;
 
   const {
     currentTrack,

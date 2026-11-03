@@ -4,12 +4,12 @@ import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requestNotificationPermissionOnce } from '@/services/notificationPermission';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
-import { createLevelMeter, fadeOut as fadeOutAudioLevel, reset as resetAudioLevel } from '@/services/audioLevel';
 
 /**
  * Audio player phases — a deliberate three-state lifecycle:
@@ -610,43 +610,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [track, player, metaRetreatName, artworkUri]);
 
-  // ─── Live audio level for the playing indicator (iOS only) ───
-  // Sampling is on only while the engine is really playing, and off on pause,
-  // track change and unmount. iOS only: on Android expo-audio sampling needs
-  // the RECORD_AUDIO (microphone) permission, which we never ask for, and on
-  // web it is unsupported — there the indicator shows a still profile. Levels
-  // go to an external store (services/audioLevel), never to React state, so
-  // the app does not re-render at the sampling rate.
-  const isEnginePlaying = !!status?.playing && statusIsCurrentPlayer;
-  useEffect(() => {
-    if (Platform.OS !== 'ios' || !player || !isEnginePlaying) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p = player as any;
-    if (!p.isAudioSamplingSupported || typeof p.setAudioSamplingEnabled !== 'function') return;
-
-    let subscription: { remove: () => void } | undefined;
-    try {
-      const meter = createLevelMeter();
-      subscription = p.addListener('audioSampleUpdate', (sample: { channels?: { frames: number[] }[] }) => {
-        const frames = sample?.channels?.[0]?.frames;
-        if (frames) meter.feed(frames);
-      });
-      p.setAudioSamplingEnabled(true);
-    } catch (error) {
-      console.warn('Enabling audio level sampling failed:', error);
-    }
-    return () => {
-      try { subscription?.remove(); } catch {}
-      try { p.setAudioSamplingEnabled(false); } catch {}
-      fadeOutAudioLevel();
-    };
-  }, [player, isEnginePlaying]);
-
-  // A new player means a new recording: forget the old level history.
-  useEffect(() => {
-    resetAudioLevel();
-  }, [player]);
-
   // ─── Track change → load source + saved position ───
   useEffect(() => {
     if (!track) {
@@ -810,6 +773,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       console.error('pendingPlay play() failed:', error);
     }
   }, [phase, pendingPlay, player]);
+
+  // ─── Notification permission (Android 13+) ───
+  // The lock-screen player is a notification, so ask once, the first time
+  // audio actually plays. Not awaited: playback never waits on the prompt.
+  const isEnginePlaying = !!status?.playing;
+  useEffect(() => {
+    if (isEnginePlaying) void requestNotificationPermissionOnce();
+  }, [isEnginePlaying]);
 
   // ─── Progress save + completion detection during playback ───
   useEffect(() => {

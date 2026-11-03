@@ -28,7 +28,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVideoDeepLink } from '@/utils/videoDeepLink';
-import { LevelTrail } from '@/components/LevelTrail';
+import { PlayingIndicator } from '@/components/PlayingIndicator';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import retreatService, { buildEventDocuments } from '@/services/retreatService';
@@ -205,6 +206,7 @@ export default function RetreatDetailScreen() {
   // layout); the screen then drops its inline player and mobile-only chrome.
   const playerInShell = isDesktop || !!compactSidebar;
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const audioContext = useAudioPlayerContext();
   const { isAuthenticated } = useAuth();
   const { setMeta: setSidebarMeta } = useRelatedEvents();
@@ -1673,7 +1675,7 @@ export default function RetreatDetailScreen() {
                 <View style={styles.trackRightSection}>
                   {isActive && (
                     <View style={styles.playingIndicator}>
-                      <LevelTrail
+                      <PlayingIndicator
                         isPlaying={isTrackPlaying}
                         size={20}
                         color={colors.burgundy[500]}
@@ -1990,8 +1992,8 @@ export default function RetreatDetailScreen() {
               plays — reserve space for that instead. */}
           {renderTrackList(
             showInlinePlayer
-              ? 145 + 49 + insets.bottom + 16
-              : 60 + 49 + insets.bottom + 16
+              ? 145 + tabBarHeight + 16
+              : 60 + tabBarHeight + 16
           )}
           {showInlinePlayer && (
             <AudioPlayer
@@ -2162,11 +2164,7 @@ export default function RetreatDetailScreen() {
                 styles.languagePopupContainer,
                 {
                   bottom:
-                    (readAlongModalVisible
-                      ? insets.bottom
-                      : Platform.OS === 'ios'
-                        ? 49 + insets.bottom
-                        : 49) + 56,
+                    (readAlongModalVisible ? insets.bottom : tabBarHeight) + 56,
                 },
               ]}
             >
