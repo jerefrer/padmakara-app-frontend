@@ -29,6 +29,7 @@ import syncService from '@/services/syncService';
 import retreatService from '@/services/retreatService';
 import { holdSplashWhile } from '@/utils/startup';
 import { liftSplash } from '@/utils/splashHandoff';
+import { SplashCover } from '@/components/SplashCover';
 import { appLockEnabledAtStart, readAppLockAtStart } from '@/services/appLock';
 import { avenirFontsToLoad } from '@/constants/avenirFont';
 import { scrubBreadcrumb } from '@/utils/sentryPrivacy';
@@ -133,10 +134,11 @@ export default function RootLayout() {
   }, [ready]);
 
   if (!ready) {
-    return null;
+    return <SplashCover />;
   }
 
   return (
+    <>
     <Sentry.ErrorBoundary>
       <AuthProvider>
         <LanguageProvider>
@@ -161,5 +163,7 @@ export default function RootLayout() {
         </LanguageProvider>
       </AuthProvider>
     </Sentry.ErrorBoundary>
+    <SplashCover />
+    </>
   );
 }

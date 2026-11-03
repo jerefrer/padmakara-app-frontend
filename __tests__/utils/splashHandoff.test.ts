@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+const originalOS = Platform.OS;
 const mockHideAsync = jest.fn(() => Promise.resolve());
 let mockLockAtStart: boolean | null = false;
 
@@ -51,5 +53,22 @@ describe('splash handoff', () => {
     jest.runOnlyPendingTimers();
 
     expect(mockHideAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('splash handoff on Android', () => {
+  it('should notify the cover instead of hiding the native splash', () => {
+    (Platform as any).OS = 'android';
+    mockHideAsync.mockClear();
+    const { liftSplash, subscribeSplashLift } = load();
+    const listener = jest.fn();
+    subscribeSplashLift(listener);
+
+    liftSplash();
+    liftSplash();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(mockHideAsync).not.toHaveBeenCalled();
+    (Platform as any).OS = originalOS;
   });
 });
