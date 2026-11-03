@@ -18,6 +18,7 @@ import { EasypayCheckout } from '@/components/membership/EasypayCheckout';
 import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles, space } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
+import { refreshAccess } from '@/components/teachings/refreshAccess';
 import { tt } from '@/components/teachings/tt';
 import {
   teachingService,
@@ -45,14 +46,15 @@ type Phase =
   | { name: 'granted' }
   | { name: 'already' };
 
-function openRecordings(eventId: number) {
+async function openRecordings(eventId: number, refreshUserData: () => Promise<void>) {
+  await refreshAccess(refreshUserData);
   router.push(`/(tabs)/(groups)/retreat/${eventId}` as any);
 }
 
 function GetTeachingPage() {
   const { t, language } = useLanguage();
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
-  const { isAuthenticated, hasActiveSubscription, user } = useAuth();
+  const { isAuthenticated, hasActiveSubscription, user, refreshUserData } = useAuth();
   const { openSignIn } = useSignIn();
   const params = useLocalSearchParams<{ id?: Param }>();
   const id = first(params.id);
@@ -155,6 +157,7 @@ function GetTeachingPage() {
         const out: TeachingCheckoutResult = res.data;
         if (out.status === 'granted') {
           setPhase({ name: 'granted' });
+          if (isAuthenticated) void refreshAccess(refreshUserData);
         } else if (out.checkout.session === 'mock') {
           // API mock mode has no Easypay account: the order is already paid.
           router.replace(`/get/${teaching.id}/done?order=${encodeURIComponent(out.orderId)}` as any);
@@ -226,7 +229,7 @@ function GetTeachingPage() {
           </Text>
           {isAuthenticated ? (
             teaching.published && (
-              <ActionButton label={tt(t, 'open', 'Open the recordings')} onPress={() => openRecordings(teaching.id)} />
+              <ActionButton label={tt(t, 'open', 'Open the recordings')} onPress={() => openRecordings(teaching.id, refreshUserData)} />
             )
           ) : (
             <ActionButton label={tt(t, 'signIn', 'Sign in')} onPress={signIn} />
@@ -274,7 +277,7 @@ function GetTeachingPage() {
           <View style={{ marginTop: space.block, gap: 14 }}>
             <Text style={styles.sectionLabel}>{tt(t, 'includedYours', 'Included in your membership')}</Text>
             {teaching.published && (
-              <ActionButton label={tt(t, 'open', 'Open the recordings')} onPress={() => openRecordings(teaching.id)} />
+              <ActionButton label={tt(t, 'open', 'Open the recordings')} onPress={() => openRecordings(teaching.id, refreshUserData)} />
             )}
           </View>
         ) : (

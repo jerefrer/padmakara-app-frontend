@@ -7,10 +7,13 @@ import { useSignIn } from '@/components/auth/SignInProvider';
 import { OutcomeLayout } from '@/components/membership/OutcomeLayout';
 import { membershipColors as c } from '@/components/membership/theme';
 import { tt } from '@/components/teachings/tt';
+import { refreshAccess } from '@/components/teachings/refreshAccess';
 import { teachingService, type TeachingOrder } from '@/services/teachingService';
 import { formatEuro } from '@/utils/membership';
 
 const POLL_MS = 4000;
+/** A Multibanco reference can stay pending for days: stop asking after this long. */
+export const POLL_CAP_MS = 10 * 60 * 1000;
 
 type Param = string | string[] | undefined;
 const first = (v: Param) => (Array.isArray(v) ? v[0] : v);
@@ -26,12 +29,13 @@ type State = { name: 'checking' } | { name: 'invalid' } | { name: 'order'; order
 function DonePage() {
   const { t, language } = useLanguage();
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, refreshUserData } = useAuth();
   const { openSignIn } = useSignIn();
   const params = useLocalSearchParams<{ id?: Param; order?: Param }>();
   const id = first(params.id);
   const orderId = first(params.order);
   const [state, setState] = useState<State>(orderId ? { name: 'checking' } : { name: 'invalid' });
+  const [gaveUp, setGaveUp] = useState(false);
 
   // Poll until the payment reaches a final state. A failed poll is never final: keep trying.
   useEffect(() => {
@@ -41,14 +45,23 @@ function DonePage() {
     }
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const capTimer = setTimeout(() => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      setGaveUp(true);
+    }, POLL_CAP_MS);
     const poll = async () => {
       try {
         const res = await teachingService.order(orderId);
         if (stopped) return;
         if (res.success && res.data) {
           setState({ name: 'order', order: res.data });
-          if (res.data.status !== 'pending') return;
+          if (res.data.status !== 'pending') {
+            clearTimeout(capTimer);
+            return;
+          }
         } else if (res.status === 404) {
+          clearTimeout(capTimer);
           setState({ name: 'invalid' });
           return;
         }
@@ -60,9 +73,17 @@ function DonePage() {
     void poll();
     return () => {
       stopped = true;
+      clearTimeout(capTimer);
       if (timer) clearTimeout(timer);
     };
   }, [orderId]);
+
+  // Paid: the account now holds the grant; re-read what it may open (signed-in buyers only).
+  const paid = state.name === 'order' && state.order.status === 'paid';
+  useEffect(() => {
+    if (paid && isAuthenticated) void refreshAccess(refreshUserData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paid, isAuthenticated]);
 
   const toTeaching = () => router.replace((id ? `/get/${id}` : '/(tabs)') as any);
 
@@ -98,7 +119,13 @@ function DonePage() {
         body={tt(t, 'paidBody', 'The recordings are in your account.')}
         primary={
           isAuthenticated
-            ? { label: tt(t, 'open', 'Open the recordings'), onPress: () => router.replace(returnTo as any) }
+            ? {
+              label: tt(t, 'open', 'Open the recordings'),
+              onPress: async () => {
+                await refreshAccess(refreshUserData);
+                router.replace(returnTo as any);
+              },
+            }
             : { label: tt(t, 'signIn', 'Sign in'), onPress: () => openSignIn({ returnTo }) }
         }
       />
@@ -110,7 +137,11 @@ function DonePage() {
     return (
       <OutcomeLayout
         title={tt(t, 'pendingTitle', 'Waiting for your payment')}
-        body={tt(t, 'pendingBody', "We'll email you when your payment is confirmed.")}
+        body={
+          gaveUp
+            ? tt(t, 'pendingTimeout', "Your payment is not confirmed yet. We'll email you as soon as it is.")
+            : tt(t, 'pendingBody', "We'll email you when your payment is confirmed.")
+        }
       >
         {mb && (
           <View style={styles.mb} testID="mb-reference">

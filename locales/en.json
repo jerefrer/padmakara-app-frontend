@@ -962,6 +962,7 @@
     "tryAgain": "Try again",
     "invalidOrder": "This payment link is no longer valid.",
     "backToTeaching": "Back to the recordings",
-    "sessionOne": "1 session"
+    "sessionOne": "1 session",
+    "pendingTimeout": "Your payment is not confirmed yet. We'll email you as soon as it is."
   }
 }

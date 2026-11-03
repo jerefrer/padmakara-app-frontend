@@ -962,6 +962,7 @@
     "tryAgain": "Tentar novamente",
     "invalidOrder": "Esta ligação de pagamento já não é válida.",
     "backToTeaching": "Voltar às gravações",
-    "sessionOne": "1 sessão"
+    "sessionOne": "1 sessão",
+    "pendingTimeout": "O seu pagamento ainda não foi confirmado. Enviaremos um email assim que for."
   }
 }

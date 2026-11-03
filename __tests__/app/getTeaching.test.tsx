@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import GetScreen from '@/app/(tabs)/get/[id]/index';
-import DoneScreen from '@/app/(tabs)/get/[id]/done';
+import DoneScreen, { POLL_CAP_MS } from '@/app/(tabs)/get/[id]/done';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -37,6 +37,12 @@ jest.mock('@/components/membership/EasypayCheckout', () => {
     },
   };
 });
+const mockSync = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/services/syncService', () => ({
+  __esModule: true,
+  default: { checkAndSync: (...a: any[]) => mockSync(...a) },
+}));
+const mockRefreshUser = jest.fn().mockResolvedValue(undefined);
 const mockGet = jest.fn();
 const mockCheckout = jest.fn();
 const mockOrder = jest.fn();
@@ -62,6 +68,12 @@ const teaching = {
   saleMode: 'paid',
   priceCents: 1500,
   includedInMembership: false,
+};
+const signedIn = {
+  isAuthenticated: true,
+  hasActiveSubscription: false,
+  user: { name: 'Ana Silva', email: 'ana@example.com' },
+  refreshUserData: () => mockRefreshUser(),
 };
 const signedOut = { isAuthenticated: false, hasActiveSubscription: false, user: null };
 const originalOS = Platform.OS;
@@ -214,7 +226,7 @@ describe('get teaching page', () => {
     fireEvent.press(utils.getByText('Continue to payment'));
     await utils.findByText('You already have these recordings');
     fireEvent.press(utils.getByText('Open the recordings'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7');
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7'));
   });
 
   it('should show a payments-unavailable message on a 503', async () => {
@@ -257,7 +269,7 @@ describe('get teaching page', () => {
     expect(queryByLabelText('Email')).toBeNull();
     expect(queryByText('Continue to payment')).toBeNull();
     fireEvent.press(await findByText('Open the recordings'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7');
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7'));
   });
 
   it('should still show the form to a member when the teaching is not included', async () => {
@@ -265,6 +277,48 @@ describe('get teaching page', () => {
     const { findByText, queryByText } = render(<GetScreen />);
     await findByText('Continue to payment');
     expect(queryByText('Included in your membership')).toBeNull();
+  });
+});
+
+describe('get teaching page, errors and access refresh', () => {
+  it('should show the generic error when the page cannot be loaded', async () => {
+    mockGet.mockResolvedValue({ success: false, status: 500 });
+    const { findByText } = render(<GetScreen />);
+    expect(await findByText('We could not load this page. Please try again.')).toBeTruthy();
+  });
+
+  it('should refresh the user and the cached events after a free grant when signed in', async () => {
+    mockAuth = signedIn;
+    mockGet.mockResolvedValue({ success: true, data: { ...teaching, saleMode: 'free', priceCents: null } });
+    mockCheckout.mockResolvedValue({ success: true, data: { status: 'granted' } });
+    const utils = render(<GetScreen />);
+    await utils.findByLabelText('First name');
+    fireEvent.press(utils.getByRole('checkbox'));
+    fireEvent.press(utils.getByText('Get the recordings'));
+    await utils.findByText('The recordings are in your account');
+    await waitFor(() => expect(mockRefreshUser).toHaveBeenCalled());
+    expect(mockSync).toHaveBeenCalledWith({ force: true });
+  });
+
+  it('should not refresh anything after a free grant when signed out', async () => {
+    mockGet.mockResolvedValue({ success: true, data: { ...teaching, saleMode: 'free', priceCents: null } });
+    mockCheckout.mockResolvedValue({ success: true, data: { status: 'granted' } });
+    const utils = render(<GetScreen />);
+    await fill(utils);
+    fireEvent.press(utils.getByText('Get the recordings'));
+    await utils.findByText('The recordings are in your account');
+    expect(mockRefreshUser).not.toHaveBeenCalled();
+    expect(mockSync).not.toHaveBeenCalled();
+  });
+
+  it('should refresh before opening the recordings', async () => {
+    mockAuth = { ...signedIn, hasActiveSubscription: true };
+    mockGet.mockResolvedValue({ success: true, data: { ...teaching, includedInMembership: true } });
+    const { findByText } = render(<GetScreen />);
+    fireEvent.press(await findByText('Open the recordings'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7'));
+    expect(mockRefreshUser).toHaveBeenCalled();
+    expect(mockSync).toHaveBeenCalledWith({ force: true });
   });
 });
 
@@ -293,7 +347,7 @@ describe('get teaching done page', () => {
     mockOrder.mockResolvedValue({ success: true, data: { status: 'paid', eventId: 7, method: 'cc', amountCents: 1500 } });
     const { findByText } = render(<DoneScreen />);
     fireEvent.press(await findByText('Open the recordings'));
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7');
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/(groups)/retreat/7'));
   });
 
   it('should show the Multibanco reference while the payment is pending', async () => {
@@ -327,6 +381,37 @@ describe('get teaching done page', () => {
     });
     expect(await findByText('Thank you')).toBeTruthy();
     expect(mockOrder).toHaveBeenCalledTimes(2);
+  });
+
+  it('should refresh access when a signed-in buyer\'s order turns paid, and not when signed out', async () => {
+    mockAuth = signedIn;
+    mockOrder.mockResolvedValue({ success: true, data: { status: 'paid', eventId: 7, method: 'cc', amountCents: 1500 } });
+    const first = render(<DoneScreen />);
+    await first.findByText('Thank you');
+    await waitFor(() => expect(mockRefreshUser).toHaveBeenCalled());
+    expect(mockSync).toHaveBeenCalledWith({ force: true });
+    first.unmount();
+    jest.clearAllMocks();
+    mockAuth = { ...signedOut };
+    const second = render(<DoneScreen />);
+    await second.findByText('Thank you');
+    expect(mockRefreshUser).not.toHaveBeenCalled();
+  });
+
+  it('should stop polling after the cap and say the payment is not confirmed yet', async () => {
+    jest.useFakeTimers();
+    mockOrder.mockResolvedValue({ success: true, data: { status: 'pending', eventId: 7, method: 'mb', amountCents: 1500 } });
+    const { findByText } = render(<DoneScreen />);
+    await findByText('Waiting for your payment');
+    await act(async () => {
+      jest.advanceTimersByTime(POLL_CAP_MS + 1);
+    });
+    expect(await findByText("Your payment is not confirmed yet. We'll email you as soon as it is.")).toBeTruthy();
+    const calls = mockOrder.mock.calls.length;
+    await act(async () => {
+      jest.advanceTimersByTime(60000);
+    });
+    expect(mockOrder.mock.calls.length).toBe(calls);
   });
 
   it('should offer a retry when the payment failed', async () => {
