@@ -76,6 +76,8 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     elevation: 9999,
   },
-  // The native splash's imageWidth (app.config.ts); the aspect ratio is splash.png's 1800 x 1766.
-  logo: { width: 290, aspectRatio: 1800 / 1766 },
+  // The native splash's imageWidth (app.config.ts) at splash.png's 1800 x 1766 ratio. Both sides are
+  // explicit: with aspectRatio alone, Image takes the file's height (1766) and Yoga derives the
+  // width from it, so the lockup drew at 1800 dp.
+  logo: { width: 290, height: (290 * 1766) / 1800 },
 });
