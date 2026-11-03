@@ -57,11 +57,11 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AudioPlayerProvider>{children}</AudioPlayerProvider>
 );
 
-async function loadTrack() {
+async function loadTrack(playing: Track = track) {
   const utils = renderHook(() => useAudioPlayerContext(), { wrapper });
   act(() => {
     __setDuration(600);
-    utils.result.current.playTrack(track, [track], 0, {
+    utils.result.current.playTrack(playing, [playing], 0, {
       retreatId: 'r1',
       retreatName: 'Spring retreat',
       groupName: 'Group',
@@ -102,5 +102,19 @@ describe('AudioPlayerContext lock screen artwork', () => {
     await loadTrack();
     expect(lastMetadata()).toBeDefined();
     expect(lastMetadata()).not.toHaveProperty('artworkUrl');
+  });
+
+  it('should prefer the track speaker artwork over the bundled fallback', async () => {
+    mockArtwork.mockResolvedValue('file:///cache/ExponentAsset-icon.png');
+    const url = 'https://api.padmakara.pt/api/teachers/4/artwork.jpg?v=1';
+    await loadTrack({ ...track, speakerName: 'Teacher', speakerArtworkUrl: url });
+    expect(lastMetadata()).toMatchObject({ artist: 'Teacher', artworkUrl: url });
+  });
+
+  it('should pass the speaker artwork even when the bundled fallback cannot be resolved', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const url = 'https://api.padmakara.pt/api/teachers/4/artwork.jpg?v=1';
+    await loadTrack({ ...track, speakerArtworkUrl: url });
+    expect(lastMetadata()?.artworkUrl).toBe(url);
   });
 });

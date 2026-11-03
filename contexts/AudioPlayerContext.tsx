@@ -597,7 +597,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         const metadata: Record<string, string> = { title: track.title };
         if (track.speakerName) metadata.artist = track.speakerName;
         if (metaRetreatName) metadata.albumTitle = metaRetreatName;
-        if (artworkUri) metadata.artworkUrl = artworkUri;
+        // The speaker's square photo when the API sent one, else the bundled logo.
+        const artwork = track.speakerArtworkUrl ?? artworkUri;
+        if (artwork) metadata.artworkUrl = artwork;
         player.setActiveForLockScreen(true, metadata, {
           showSeekForward: true,
           showSeekBackward: true,

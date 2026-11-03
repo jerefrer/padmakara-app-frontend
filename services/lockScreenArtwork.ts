@@ -1,9 +1,12 @@
 import { Asset } from 'expo-asset';
 
 /**
- * Artwork shown on the lock screen, Apple Watch, CarPlay and Android Auto.
+ * Fallback artwork for the lock screen, Apple Watch, CarPlay and Android Auto, used when a
+ * track has no speaker photo (`track.speakerArtworkUrl`, a square crop served by the API).
+ * Android 13+ draws the artwork as the full background of the media card, hence the
+ * 1024 px square.
  *
- * Decision: the bundled app icon, not the event hero. The track and the
+ * Decision: the bundled app icon (1024 x 1024) as the fallback. The track and the
  * playback meta carry no image fields, and the heroes live in expo-image's
  * cache under opaque keys, so they cannot be handed to the native players
  * (expo-audio fetches the artwork URL itself). The bundled icon always

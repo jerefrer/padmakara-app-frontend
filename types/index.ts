@@ -202,6 +202,7 @@ export interface Track {
   originalLanguage?: string; // The track's own primary language
   speaker?: string; // Teacher abbreviation (e.g., 'JKR')
   speakerName?: string; // Teacher full name (e.g., 'Jigme Khyentse Rinpoche')
+  speakerArtworkUrl?: string; // Square speaker photo for the lock screen / media notification (absolute https URL)
   isOriginal?: boolean; // True if original track, false if translation
   isPractice?: boolean; // True if practice/meditation track (displays first in session)
   hasReadAlong?: boolean; // Whether Read Along alignment data exists for this track
