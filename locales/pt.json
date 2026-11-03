@@ -561,6 +561,8 @@
     "usageData": "Para proporcionar uma experiência de audição sem interrupções, a App armazena o seu progresso de audição (posição na faixa e estado de conclusão), marcadores e notas. Estes dados são sincronizados entre os seus dispositivos através do nosso servidor.",
     "deviceDataTitle": "Dados do Dispositivo",
     "deviceData": "Armazenamos um identificador de dispositivo para gerir a ativação do mesmo. Se ativar a autenticação biométrica (Face ID, impressão digital), esta é tratada inteiramente pelo seu dispositivo — nunca recebemos nem armazenamos dados biométricos.",
+    "searchDataTitle": "Dados de Pesquisa",
+    "searchData": "As pesquisas feitas na aplicação são registadas de forma anónima, sem qualquer ligação a si ou ao seu dispositivo, para sabermos que ensinamentos as pessoas procuram. São guardadas durante 24 meses.",
     "localDataTitle": "Dados Armazenados Localmente",
     "localData": "A App guarda em cache ficheiros de áudio e transcrições em PDF no seu dispositivo para acesso offline. As suas preferências de idioma e configurações de cache também são armazenadas localmente. Estes dados nunca saem do seu dispositivo.",
     "section2Title": "2. Como Utilizamos os Seus Dados",

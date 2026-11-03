@@ -31,6 +31,8 @@ export default function PrivacyPolicyScreen() {
         <LegalBody>{p('usageData', 'To provide a seamless listening experience, the App stores your listening progress (track position and completion status), bookmarks, and notes. This data is synced across your devices via our server.')}</LegalBody>
         <LegalSubheading>{p('deviceDataTitle', 'Device Data')}</LegalSubheading>
         <LegalBody>{p('deviceData', 'We store a device identifier to manage device activation. If you enable biometric authentication (Face ID, fingerprint), this is handled entirely by your device — we never receive or store biometric data.')}</LegalBody>
+        <LegalSubheading>{p('searchDataTitle', 'Search Data')}</LegalSubheading>
+        <LegalBody>{p('searchData', 'Searches you make in the app are recorded anonymously, without any link to you or your device, so we can see which teachings people look for. They are kept for 24 months.')}</LegalBody>
         <LegalSubheading>{p('localDataTitle', 'Locally Stored Data')}</LegalSubheading>
         <LegalBody>{p('localData', 'The App caches audio files and PDF transcripts on your device for offline access. Your language preferences and cache settings are also stored locally. This data never leaves your device.')}</LegalBody>
       </LegalSection>

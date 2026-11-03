@@ -106,6 +106,7 @@ export const API_ENDPOINTS = {
 
   // Search
   SEARCH: (query: string, lang?: string) => `/search?q=${encodeURIComponent(query)}${lang ? `&lang=${lang}` : ''}`,
+  SEARCH_LOG: '/search/log',
 
   // Publications
   PUBLICATIONS: '/publications',

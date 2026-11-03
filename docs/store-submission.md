@@ -82,7 +82,8 @@ rules (see DECISIONS.md and the reader-app gating on `Platform.OS === 'web'`).
 - Foreground service declaration (media playback): needs a short video of a user
   starting audio playback, then leaving the app with the lock-screen controls.
 - Data safety: collected — email, name, user id, device id, app interactions
-  (progress, bookmarks), crash logs (Sentry); encrypted in transit; deletion
+  (progress, bookmarks), app search history (anonymous, not linked to the
+  user, kept 24 months), crash logs (Sentry); encrypted in transit; deletion
   available. Payment data is collected by Easypay on the website only.
 - Content rating: religious content, no violence, no user-generated content, no
   in-app purchases. Target audience: 18+.
