@@ -134,7 +134,14 @@ export default function RootLayout() {
   }, [ready]);
 
   if (!ready) {
-    return <SplashCover />;
+    // Same position as in the tree below (second child), so React keeps the cover mounted
+    // when the app becomes ready instead of remounting it.
+    return (
+      <>
+        {null}
+        <SplashCover />
+      </>
+    );
   }
 
   return (
