@@ -165,6 +165,10 @@ const config: PadmakaraConfig = {
       backgroundColor: "#C4423E",
     },
     edgeToEdgeEnabled: true,
+    // Android 13+ blocks all notifications, including the lock-screen media
+    // player expo-audio posts, unless the app declares this. Requested at runtime
+    // on first play (services/notificationPermission.ts).
+    permissions: ["android.permission.POST_NOTIFICATIONS"],
     // The UI is light-only. Forcing the light theme on Android makes the system
     // navigation bar buttons dark (they follow the theme under edge-to-edge),
     // so they stay readable on the white tab bar when the phone is in dark mode.
