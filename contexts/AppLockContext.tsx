@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLockScreen } from '@/components/AppLockScreen';
+import { liftSplash } from '@/utils/splashHandoff';
 import {
   APP_LOCK_GRACE_MS,
   appLockEnabledAtStart,
@@ -78,7 +79,9 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const releaseSplash = useCallback(() => {
     if (!holdsSplashRef.current) return;
     holdsSplashRef.current = false;
-    SplashScreen.hideAsync().catch(() => undefined);
+    // On Android the splash is the JS cover, which liftSplash fades out.
+    if (Platform.OS === 'android') liftSplash();
+    else SplashScreen.hideAsync().catch(() => undefined);
   }, []);
 
   const label = useCallback(
