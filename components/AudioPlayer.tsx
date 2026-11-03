@@ -1,6 +1,6 @@
 import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
-import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { SKIP_INTERVAL_S, useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { useTabBarOverlap } from '@/hooks/useTabBarHeight';
@@ -26,6 +26,11 @@ const colors = {
   },
   white: '#ffffff',
 };
+
+/** Thickness of the Android progress bar: iOS's thumbless slider is about 4 pt. */
+const ANDROID_TRACK_HEIGHT = 4;
+/** Horizontal padding Android's SeekBar keeps on each side for its thumb. */
+const ANDROID_SEEKBAR_INSET = 16;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -143,6 +148,8 @@ export function AudioPlayer({
     return null;
   }
 
+  const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
+
   return (
     <View style={[styles.container, { bottom: bottomOffset }]}>
       {/* Progress bar — always interactive. While loading, position
@@ -157,8 +164,17 @@ export function AudioPlayer({
           scrubbing the thumb comes back untinted: the see-through glass dot
           the designer chose. */}
       <View style={styles.progressContainer}>
+        {/* Android's SeekBar draws a 2 dp track inset by its thumb's width and offers no
+            way to change either, so there the bar is drawn here, edge to edge and as thick
+            as iOS's thumbless slider, with the SeekBar laid invisibly over it for touch. */}
+        {Platform.OS === 'android' && (
+          <View style={styles.androidTrack} pointerEvents="none" testID="audio-progress-track">
+            <View style={[styles.androidFill, { width: `${progress * 100}%` }]} testID="audio-progress-fill" />
+            {isSeeking && <View style={[styles.androidThumb, { left: `${progress * 100}%` }]} />}
+          </View>
+        )}
         <Slider
-          style={styles.progressBar}
+          style={Platform.OS === 'android' ? styles.androidSlider : styles.progressBar}
           minimumValue={0}
           maximumValue={Math.max(duration, 1)}
           value={position}
@@ -171,9 +187,9 @@ export function AudioPlayer({
             onSlidingComplete(value);
           }}
           onValueChange={onSliderValueChange}
-          minimumTrackTintColor={colors.burgundy[500]}
-          maximumTrackTintColor={colors.gray[200]}
-          thumbTintColor={isSeeking ? (Platform.OS === 'ios' ? undefined : colors.burgundy[500]) : 'transparent'}
+          minimumTrackTintColor={Platform.OS === 'android' ? 'transparent' : colors.burgundy[500]}
+          maximumTrackTintColor={Platform.OS === 'android' ? 'transparent' : colors.gray[200]}
+          thumbTintColor={Platform.OS === 'ios' && isSeeking ? undefined : 'transparent'}
           testID="audio-seek"
         />
       </View>
@@ -195,7 +211,7 @@ export function AudioPlayer({
           {/* -10s button */}
           <TouchableOpacity onPress={skipBackward} style={styles.circularSkipButton} testID="audio-skip-back">
             <RotateLeftThinIcon size={28} color={colors.gray[700]} strokeWidth={1.5} />
-            <Text style={styles.skipNumber}>10</Text>
+            <Text style={styles.skipNumber}>{SKIP_INTERVAL_S}</Text>
           </TouchableOpacity>
 
           {/* Play/Pause button — wrapped so we can overlay a thin loading
@@ -219,7 +235,7 @@ export function AudioPlayer({
           {/* +10s button */}
           <TouchableOpacity onPress={skipForward} style={styles.circularSkipButton} testID="audio-skip-forward">
             <RotateRightThinIcon size={28} color={colors.gray[700]} strokeWidth={1.5} />
-            <Text style={styles.skipNumber}>10</Text>
+            <Text style={styles.skipNumber}>{SKIP_INTERVAL_S}</Text>
           </TouchableOpacity>
 
           {/* Next track */}
@@ -306,6 +322,34 @@ const styles = StyleSheet.create({
   progressBar: {
     height: 6,
     marginHorizontal: -2,
+  },
+  androidTrack: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: ANDROID_TRACK_HEIGHT,
+    backgroundColor: colors.gray[200],
+  },
+  androidFill: {
+    height: '100%',
+    backgroundColor: colors.burgundy[500],
+  },
+  androidThumb: {
+    position: 'absolute',
+    top: ANDROID_TRACK_HEIGHT / 2 - 7,
+    width: 14,
+    height: 14,
+    marginLeft: -7,
+    borderRadius: 7,
+    backgroundColor: colors.burgundy[500],
+  },
+  // Wider than the screen by the SeekBar's inner padding on each side, so its
+  // value maps to the finger's position on the edge-to-edge bar drawn above.
+  androidSlider: {
+    height: 24,
+    marginTop: -9,
+    marginHorizontal: -ANDROID_SEEKBAR_INSET,
   },
 
   // Transport row: time – controls – time

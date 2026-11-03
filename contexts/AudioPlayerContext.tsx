@@ -36,7 +36,7 @@ export type AudioPlayerState = 'idle' | 'loading' | 'ready';
 const PRE_CACHE_DURATION_SECONDS = 3600;
 const SAFETY_LOAD_TIMEOUT_MS = 15000;
 const PROGRESS_SAVE_INTERVAL_S = 10;
-const SKIP_INTERVAL_S = 15;
+export const SKIP_INTERVAL_S = 15;
 const PLAYBACK_SPEED_CYCLE = [1.0, 1.25, 1.5, 2.0, 0.75] as const;
 
 export interface IdleTrackInfo {
