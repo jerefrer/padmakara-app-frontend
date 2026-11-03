@@ -2,15 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LevelTrail } from '@/components/LevelTrail';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getTrackTitle } from '@/utils/i18n';
 
 const BAR_HEIGHT = 60;
-const TAB_BAR_HEIGHT = 49;
 const BURGUNDY = '#9b1b1b';
 const GRAY_TEXT = '#6b7280';
 const GRAY_BORDER = '#e5e7eb';
@@ -33,8 +32,7 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
 export function MiniPlayer() {
   const { t, language } = useLanguage();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_HEIGHT + insets.bottom;
+  const tabBarHeight = useTabBarHeight();
   const {
     currentTrack,
     isPlaying,

@@ -165,6 +165,10 @@ const config: PadmakaraConfig = {
       backgroundColor: "#C4423E",
     },
     edgeToEdgeEnabled: true,
+    // The UI is light-only. Forcing the light theme on Android makes the system
+    // navigation bar buttons dark (they follow the theme under edge-to-edge),
+    // so they stay readable on the white tab bar when the phone is in dark mode.
+    userInterfaceStyle: "light",
     // Permissions pulled in by Expo libraries that the app never uses (it only
     // plays audio, and stores files in app-private directories). Play reviewers
     // flag them. USE_BIOMETRIC stays; FOREGROUND_SERVICE(_MEDIA_PLAYBACK) stays
