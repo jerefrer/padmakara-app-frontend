@@ -197,6 +197,7 @@ const config: PadmakaraConfig = {
       // Playback only: no microphone usage string on iOS, no RECORD_AUDIO on Android.
       { microphonePermission: false, recordAudioAndroid: false },
     ],
+    "./plugins/withMediaNotificationIcon",
     "expo-router",
     [
       "expo-splash-screen",
