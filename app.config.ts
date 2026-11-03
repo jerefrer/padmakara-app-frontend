@@ -160,8 +160,11 @@ const config: PadmakaraConfig = {
   android: {
     package: variant.applicationId,
     adaptiveIcon: {
-      foregroundImage: "./assets/images/adaptive-icon.png",
-      monochromeImage: "./assets/images/adaptive-icon.png",
+      // The wheel at 56% of the canvas: launchers mask adaptive icons and only the
+      // centre 66% is guaranteed visible, so the full-bleed adaptive-icon.png lost its
+      // outer circles and looked oversized next to the iOS icon.
+      foregroundImage: "./assets/images/adaptive-icon-foreground.png",
+      monochromeImage: "./assets/images/adaptive-icon-foreground.png",
       backgroundColor: "#C4423E",
     },
     edgeToEdgeEnabled: true,
