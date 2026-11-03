@@ -1,6 +1,7 @@
 const mockAsset = { localUri: null as string | null, uri: 'http://metro/icon.png', downloadAsync: jest.fn() };
 jest.mock('expo-asset', () => ({ Asset: { fromModule: jest.fn(() => mockAsset) } }));
 
+import { Platform } from 'react-native';
 import { getLockScreenArtworkUri, __resetLockScreenArtwork } from '@/services/lockScreenArtwork';
 
 describe('getLockScreenArtworkUri', () => {
@@ -18,6 +19,17 @@ describe('getLockScreenArtworkUri', () => {
   it('should fall back to the asset uri when no local copy is produced', async () => {
     mockAsset.downloadAsync.mockResolvedValue(undefined);
     expect(await getLockScreenArtworkUri()).toBe('http://metro/icon.png');
+  });
+
+  it('should return the brand-red square on Android, where the bundled icon is not a URL', async () => {
+    const originalOS = Platform.OS;
+    (Platform as { OS: string }).OS = 'android';
+    try {
+      expect(await getLockScreenArtworkUri()).toBe('https://app.padmakara.pt/lockscreen-artwork.png');
+      expect(mockAsset.downloadAsync).not.toHaveBeenCalled();
+    } finally {
+      (Platform as { OS: string }).OS = originalOS;
+    }
   });
 
   it('should return null when the asset cannot be loaded', async () => {
