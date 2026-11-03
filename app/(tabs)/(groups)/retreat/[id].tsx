@@ -23,6 +23,8 @@ import { DocumentImageViewer } from '@/components/DocumentImageViewer';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
+/** Room below the status bar for the 36 px floating buttons (8 above, 8 below). */
+const FLOATING_BUTTONS_CLEARANCE = 52;
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
@@ -252,6 +254,21 @@ export default function RetreatDetailScreen() {
       scrollY.value,
       [0, HERO_COLLAPSE_END * 0.4, HERO_COLLAPSE_END],
       [1, 1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  // A white bar behind the status bar and the floating buttons once content scrolls under
+  // them: the screen draws edge to edge, so the title and track list otherwise ran under
+  // the clock and behind the buttons. With a hero it fades in as the hero leaves; without
+  // one, as soon as the page moves.
+  const topBarHeight = insets.top + FLOATING_BUTTONS_CLEARANCE;
+  const scrimFadeStart = eventHero.url ? HERO_HEIGHT - topBarHeight - 24 : 0;
+  const statusBarScrimStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scrollY.value,
+      [scrimFadeStart, scrimFadeStart + 16],
+      [0, 1],
       Extrapolation.CLAMP,
     ),
   }));
@@ -1551,7 +1568,16 @@ export default function RetreatDetailScreen() {
             desktop. On mobile it replaces the title that used to live in
             the fixed top bar; on desktop it's the main event header. */}
         {(
-          <View style={[styles.eventTitleSection, !isDesktop && styles.lineBleed, compactSidebar && !heroSource && styles.eventTitleSectionBesideBack]}>
+          <View
+            style={[
+              styles.eventTitleSection,
+              !isDesktop && styles.lineBleed,
+              compactSidebar && !heroSource && styles.eventTitleSectionBesideBack,
+              // Phone without a hero: the title starts below the floating back / bookmark /
+              // download buttons instead of under them and the status bar.
+              !isDesktop && !compactSidebar && !heroSource && { paddingTop: insets.top + FLOATING_BUTTONS_CLEARANCE },
+            ]}
+          >
             <View style={styles.eventTitleRow}>
               <Text style={styles.eventTitleText}>{titleText}</Text>
               {retreat.status === 'draft' && <DraftBadge />}
@@ -1869,6 +1895,12 @@ export default function RetreatDetailScreen() {
       {/* No fixed top bar on either platform — the hero extends to the very
           top of the content area. Controls (language pill + overflow menu)
           float over the hero. Mobile additionally shows a back button. */}
+      {!isDesktop && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.statusBarScrim, { height: topBarHeight }, statusBarScrimStyle]}
+        />
+      )}
       {!isDesktop && (
         <BackButton
           variant="overlay"
@@ -2446,6 +2478,16 @@ const styles = StyleSheet.create({
     // bottom edge of the photo, sitting half over the image and half over
     // the white background — exactly like the mockup.
     overflow: 'visible',
+  },
+  statusBarScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[200],
+    zIndex: 15,
   },
   floatingTopButton: {
     position: 'absolute',
