@@ -14,6 +14,7 @@ import { pageStyles, space } from './pageStyles';
 import { payHref } from './payRoute';
 import { membershipColors as c } from './theme';
 import { tr } from './tr';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 interface Props {
   membership: MembershipView;
@@ -301,7 +302,7 @@ function Row({
     );
   }
   return (
-    <Pressable
+    <ListRowPressable
       testID={`membership-row-${id}`}
       accessibilityRole="button"
       accessibilityLabel={value !== undefined ? `${label}, ${value}` : label}
@@ -312,7 +313,7 @@ function Row({
       style={({ pressed }) => [pageStyles.row, pressed && pageStyles.rowPressed, ring.style]}
     >
       {content}
-    </Pressable>
+    </ListRowPressable>
   );
 }
 

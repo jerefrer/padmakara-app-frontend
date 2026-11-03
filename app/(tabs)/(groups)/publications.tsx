@@ -27,6 +27,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 type SortMode = 'title' | 'author' | 'latest';
 
@@ -277,7 +278,7 @@ export default function PublicationsScreen() {
       const isDownloading = downloading === item.id;
 
       return (
-        <TouchableOpacity
+        <TouchableOpacity {...getRowPressDelayProps()}
           style={[styles.publicationItem, !isDesktop && styles.rowToInset]}
           onPress={() => handleOpenPublication(item)}
           disabled={isDownloading}

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 import { useLanguage } from "@/contexts/LanguageContext";
 import eventBookmarkService, { EventBookmark } from "@/services/eventBookmarkService";
 import trackBookmarkService, { TrackBookmark } from "@/services/trackBookmarkService";
@@ -107,7 +108,7 @@ function TrackRow({
   const subtitle = [eventTitle, sessionTitle].filter(Boolean).join(" — ");
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.row} testID={testID}>
       <EventThumb
         uri={teacherPhoto}
         cacheKey={teacherFeedImageCacheKey(teacher)}
@@ -172,7 +173,7 @@ function VideoRow({
     .join(" — ");
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.row} testID={testID}>
       <EventThumb
         uri={teacherPhoto}
         cacheKey={teacherFeedImageCacheKey(teacher)}

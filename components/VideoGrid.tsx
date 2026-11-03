@@ -12,6 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
 import { getVideoTitle } from '@/utils/videoTitle';
 import type { EventVideo } from '@/types';
+import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 interface VideoGridProps {
   /** Videos belonging to a single event, ordered by `position`. */
@@ -76,7 +77,7 @@ function VideoCard({ video, title, onPress, formatDuration, bookmarked, onToggle
   const durationLabel = video.durationSeconds ? formatDuration(video.durationSeconds) : '';
 
   return (
-    <Pressable
+    <ListRowPressable
       onPress={onPress}
       testID={`video-card-${video.id}`}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
@@ -142,7 +143,7 @@ function VideoCard({ video, title, onPress, formatDuration, bookmarked, onToggle
           </Pressable>
         )}
       </View>
-    </Pressable>
+    </ListRowPressable>
   );
 }
 

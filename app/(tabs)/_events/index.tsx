@@ -16,6 +16,7 @@ import { EventRow } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { ListRowPressable, getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
   burgundy: {
@@ -48,7 +49,7 @@ interface TeacherGroup {
 
 function TeacherRow({ teacher, onPress, t, isDesktop }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined; isDesktop?: boolean }) {
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.teacherRow, !isDesktop && styles.rowToInset]}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.teacherRow, !isDesktop && styles.rowToInset]}>
       <View style={[styles.teacherAvatarLarge, !isDesktop && styles.thumbIndented]}>
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
@@ -173,7 +174,7 @@ function DesktopEventRow({ event, onPress, language, testID }: { event: any; onP
   } : {};
 
   return (
-    <Pressable
+    <ListRowPressable
       onPress={onPress}
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
@@ -194,7 +195,7 @@ function DesktopEventRow({ event, onPress, language, testID }: { event: any; onP
           <DraftBadge />
         </View>
       )}
-    </Pressable>
+    </ListRowPressable>
   );
 }
 

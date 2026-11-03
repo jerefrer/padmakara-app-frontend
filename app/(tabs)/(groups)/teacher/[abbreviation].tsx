@@ -26,6 +26,7 @@ import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -255,7 +256,7 @@ export default function TeacherDetailScreen() {
             ].filter(Boolean);
 
             return (
-              <TouchableOpacity
+              <TouchableOpacity {...getRowPressDelayProps()}
                 key={event.id}
                 style={styles.eventCard}
                 onPress={() => router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: String(event.id), from: 'events' } } as any)}
