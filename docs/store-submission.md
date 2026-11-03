@@ -29,8 +29,9 @@ How it works:
 - The API (`POST /api/auth/request-magic-link`) answers `code_required` for this
   email only, then `POST /api/auth/review-login` checks the code. Everything after
   sign-in is the same as for any member.
-- The account is "App Review" (user id 6 on prod), a plain member of the retreat
-  groups Mind Training 1 and 2 (ids 17 and 18), with an admin-granted membership
+- The account is "App Review" (user id 6 on prod), a plain member of every retreat
+  group (all 10 since 2026-11-03: Google Play's app-access form requires certifying
+  that the credentials open all content), with an admin-granted membership
   (status active, source admin, expires 2099-12-31; set 2026-10-27) so it can open
   their retreats. Checked 2026-10-27: it opens "Parallel Retreat 1" (18 tracks) and
   "Mind Training 1 | Spring Retreat 2025" (98 tracks, 49 with read-along, 3 videos)
@@ -40,7 +41,7 @@ How it works:
 - Changing the code: edit `REVIEW_ACCOUNT_CODE` in the prod `.env`, restart
   `padmakara-api`, and update the code in both store consoles. An empty value
   turns the feature off.
-- Re-creating the account: `bun run src/scripts/create-review-account.ts --groups 17,18`
+- Re-creating the account: `bun run src/scripts/create-review-account.ts --groups <every retreat group id>`
   in `padmakara-api` on the server (idempotent), then grant the membership again
   in the admin (status active, source admin, far-future expiry).
 - The app must be a build that includes the review-code step (merged 2026-10-27);
