@@ -8,39 +8,87 @@ import { PermissionsAndroid, Platform } from 'react-native';
 const ASKED_KEY = 'notificationPermission.asked.v1';
 const ANDROID_13 = 33;
 
-let inFlight: Promise<void> | null = null;
-
 /** Whether this device needs the runtime request at all: Android 13+ only. */
 export function needsNotificationPermission(): boolean {
   return Platform.OS === 'android' && Number(Platform.Version) >= ANDROID_13;
 }
 
-async function run(): Promise<void> {
-  if (!needsNotificationPermission()) return;
+export interface ExplainerInput {
+  os: string;
+  version: number | string;
+  asked: boolean;
+  granted: boolean;
+}
+
+/** Pure decision: show our explanation before the system prompt? */
+export function shouldShowExplainer({ os, version, asked, granted }: ExplainerInput): boolean {
+  return os === 'android' && Number(version) >= ANDROID_13 && !asked && !granted;
+}
+
+// The explainer component registers here; the player context only emits.
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+export function subscribeToExplainer(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+let inFlight: Promise<void> | null = null;
+
+async function offer(): Promise<void> {
   try {
-    if (await AsyncStorage.getItem(ASKED_KEY)) return;
-    // Remember before asking: a denial must never bring the prompt back.
+    if (listeners.size === 0) return; // nobody can show it: do not use up the one chance
+    const asked = !!(await AsyncStorage.getItem(ASKED_KEY));
+    if (asked) return;
+    const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    if (!shouldShowExplainer({ os: Platform.OS, version: Platform.Version, asked, granted })) return;
+    // Remember before showing: dismissing it, however it happens, must never bring it back.
     await AsyncStorage.setItem(ASKED_KEY, '1');
-    const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
-    if (await PermissionsAndroid.check(permission)) return;
-    await PermissionsAndroid.request(permission);
+    listeners.forEach((l) => l());
   } catch (error) {
     // Never let a permission problem get in the way of playback.
-    console.warn('Notification permission request failed:', error);
+    console.warn('Notification explainer failed:', error);
   }
 }
 
 /**
- * Ask once for the notification permission, the first time audio plays.
- * Fire and forget: resolves when done, never rejects, never blocks playback.
- * No-op on iOS and web, below Android 13, and after the first ask.
+ * Called the first time audio plays: shows the explainer at most once, ever.
+ * Fire and forget: never rejects, never blocks playback.
+ * No-op on iOS and web, below Android 13, when granted, and after the first time.
  */
-export function requestNotificationPermissionOnce(): Promise<void> {
+export function offerNotificationExplainer(): Promise<void> {
   if (!needsNotificationPermission()) return Promise.resolve();
   if (!inFlight) {
-    inFlight = run().finally(() => {
+    inFlight = offer().finally(() => {
       inFlight = null;
     });
   }
   return inFlight;
+}
+
+/** The system prompt, after the user chose Continue. Never rejects. */
+export async function requestNotificationPermission(): Promise<string> {
+  try {
+    return await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+  } catch (error) {
+    console.warn('Notification permission request failed:', error);
+    return 'denied';
+  }
+}
+
+/**
+ * Whether lock-screen controls can show. Below Android 13 notifications are on by default,
+ * so that counts as on. Never rejects.
+ */
+export async function isNotificationPermissionGranted(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  if (!needsNotificationPermission()) return true;
+  try {
+    return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+  } catch {
+    return false;
+  }
 }

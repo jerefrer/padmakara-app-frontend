@@ -21,6 +21,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SignInProvider } from '@/components/auth/SignInProvider';
 import { AppLockProvider } from '@/contexts/AppLockContext';
+import { NotificationExplainer } from '@/components/NotificationExplainer';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
 import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
@@ -153,6 +154,7 @@ export default function RootLayout() {
             <Stack.Screen name="+not-found" />
           </Stack>
             <StatusBar style="dark" backgroundColor="#e8e6e3" />
+            <NotificationExplainer />
             </SignInProvider>
             </AppLockProvider>
           </AudioPlayerProvider>

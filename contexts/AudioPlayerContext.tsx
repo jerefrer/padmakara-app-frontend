@@ -4,7 +4,7 @@ import progressService from '@/services/progressService';
 import retreatService from '@/services/retreatService';
 import { Track, UserProgress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestNotificationPermissionOnce } from '@/services/notificationPermission';
+import { offerNotificationExplainer } from '@/services/notificationPermission';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, AppState, type AppStateStatus } from 'react-native';
@@ -779,7 +779,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // audio actually plays. Not awaited: playback never waits on the prompt.
   const isEnginePlaying = !!status?.playing;
   useEffect(() => {
-    if (isEnginePlaying) void requestNotificationPermissionOnce();
+    if (isEnginePlaying) void offerNotificationExplainer();
   }, [isEnginePlaying]);
 
   // ─── Progress save + completion detection during playback ───

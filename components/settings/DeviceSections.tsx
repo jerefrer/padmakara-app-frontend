@@ -15,6 +15,7 @@ import { membershipColors as c } from '@/components/membership/theme';
 import { StorageSection } from '@/components/StorageSection';
 import { tr } from '@/components/membership/tr';
 import { PasskeySettings } from './PasskeySettings';
+import { LockScreenControlsRow } from './LockScreenControlsRow';
 import { Rows, SettingsRow, SwitchRow } from './ui';
 
 type Button = { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' };
@@ -206,6 +207,7 @@ export function SignInSection() {
     <>
       <PasskeySettings />
       <Rows>
+        <LockScreenControlsRow />
         {isNative ? (
           <SwitchRow
             testID="settings-app-lock"
