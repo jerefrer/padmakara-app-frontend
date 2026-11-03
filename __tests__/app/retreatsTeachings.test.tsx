@@ -1,12 +1,12 @@
 import React from 'react';
 import { Linking, Platform, Text } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import RetreatsListScreen from '@/app/(tabs)/(groups)/retreats/index';
 import en from '@/locales/en.json';
 
 const mockPush = jest.fn();
-let mockUser: { email: string } | null = { email: 'ana@example.com' };
+let mockUser: { id: string; email: string } | null = { id: 'u1', email: 'ana@example.com' };
 const mockGetUserRetreats = jest.fn();
 const mockMine = jest.fn();
 
@@ -73,7 +73,7 @@ const FORBIDDEN = /price|buy|purchase|€|membership|subscri|\bpay/i;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUser = { email: 'ana@example.com' };
+  mockUser = { id: 'u1', email: 'ana@example.com' };
   mockMine.mockResolvedValue({ success: true, data: [] });
   setOS('ios');
 });
@@ -141,6 +141,23 @@ describe('Retreats screen teachings section', () => {
 });
 
 describe('Retreats screen empty state', () => {
+  it('should not show the empty state before the teachings request settles', async () => {
+    let resolveMine: (v: any) => void = () => {};
+    mockMine.mockReturnValue(new Promise((r) => (resolveMine = r)));
+    const retreatService = require('@/services/retreatService').default;
+    retreatService.getUserRetreatsSync.mockReturnValueOnce({ retreat_groups: [], recent_gatherings: [], total_stats: {} });
+    mockGetUserRetreats.mockResolvedValue(data([]));
+
+    const screen = render(<RetreatsListScreen />);
+    await waitFor(() => expect(mockMine).toHaveBeenCalled());
+    expect(screen.queryByText(en.retreats.emptyExplanation)).toBeNull();
+    expect(screen.queryByTestId('attended-retreat-card')).toBeNull();
+
+    await act(async () => resolveMine({ success: true, data: [teaching] }));
+    expect(await screen.findByText('Heart Sutra')).toBeTruthy();
+    expect(screen.queryByText(en.retreats.attendedTitle)).toBeNull();
+  });
+
   it.each(['ios', 'android', 'web'])(
     'should explain who the recordings are for and offer to write to us on %s',
     async (os) => {

@@ -6,8 +6,10 @@ import { CACHE_KEY_PREFIX } from "./cacheSchemaVersion";
 import { mapEvent } from "./retreatService";
 import type { Gathering } from "@/types";
 
-// Under the shared cache prefix, so a schema bump or sign-out wipe removes it too.
-const MINE_CACHE_KEY = `${CACHE_KEY_PREFIX}teachings:mine`;
+// One key per user: nothing wipes this cache on sign-out, so a shared key would hand
+// the previous account's teachings to the next one when /mine fails. The shared
+// prefix only lets a cache schema bump clear it.
+const mineCacheKey = (userId: string) => `${CACHE_KEY_PREFIX}teachings:mine:${userId}`;
 
 /** What the public sale page shows (GET /teachings/:eventId). */
 export interface Teaching {
@@ -52,20 +54,20 @@ export const teachingService = {
   /**
    * Teachings the signed-in user has access to (GET /teachings/mine). The last good
    * list is kept so the section still shows offline; with nothing cached a failure
-   * is an empty list, never a throw.
+   * is an empty list, never a throw. Without a user id nothing is cached or read back.
    */
-  async mine(): Promise<{ success: boolean; data: Gathering[]; error?: string }> {
+  async mine(userId?: string): Promise<{ success: boolean; data: Gathering[]; error?: string }> {
     const res = await apiService.get<any[]>(API_ENDPOINTS.TEACHINGS_MINE);
     if (res.success && Array.isArray(res.data)) {
       try {
-        await AsyncStorage.setItem(MINE_CACHE_KEY, JSON.stringify(res.data));
+        if (userId) await AsyncStorage.setItem(mineCacheKey(userId), JSON.stringify(res.data));
       } catch {
         // Cache is best effort.
       }
       return { success: true, data: res.data.map(mapEvent) };
     }
     try {
-      const raw = await AsyncStorage.getItem(MINE_CACHE_KEY);
+      const raw = userId ? await AsyncStorage.getItem(mineCacheKey(userId)) : null;
       const cached = raw ? JSON.parse(raw) : null;
       if (Array.isArray(cached)) return { success: true, data: cached.map(mapEvent) };
     } catch {

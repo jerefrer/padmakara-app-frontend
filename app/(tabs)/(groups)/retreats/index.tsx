@@ -150,15 +150,19 @@ export default function RetreatsListScreen() {
   const [error, setError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [teachings, setTeachings] = useState<Gathering[]>([]);
+  // The empty state waits for /mine to settle, so it never flashes before teachings arrive.
+  const [teachingsSettled, setTeachingsSettled] = useState(!isAuthenticated);
 
   // Teachings never block the groups list: any failure leaves the section out.
   const loadTeachings = async () => {
     try {
-      const res = await teachingService.mine();
+      const res = await teachingService.mine(user?.id);
       setTeachings(res.success ? res.data : []);
     } catch (err) {
       console.error("Error loading teachings:", err);
       setTeachings([]);
+    } finally {
+      setTeachingsSettled(true);
     }
   };
 
@@ -372,7 +376,7 @@ export default function RetreatsListScreen() {
             </View>
           )}
 
-          {groups.length === 0 && teachings.length === 0 && (
+          {teachingsSettled && groups.length === 0 && teachings.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
                 {t("retreats.emptyExplanation") ||

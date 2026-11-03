@@ -24,13 +24,23 @@ describe('teachingService.mine', () => {
 
   it('should fall back to the last good list when the network fails', async () => {
     get.mockResolvedValueOnce({ success: true, data: [{ id: 5, titleEn: 'Heart Sutra' }] });
-    await teachingService.mine();
+    await teachingService.mine('u1');
     get.mockResolvedValueOnce({ success: false, error: 'offline' });
 
-    const res = await teachingService.mine();
+    const res = await teachingService.mine('u1');
 
     expect(res.success).toBe(true);
     expect(res.data.map((g) => g.id)).toEqual(['5']);
+  });
+
+  it('should not return another user\'s cached list when the network fails', async () => {
+    get.mockResolvedValueOnce({ success: true, data: [{ id: 5, titleEn: 'Heart Sutra' }] });
+    await teachingService.mine('u1');
+    get.mockResolvedValueOnce({ success: false, error: 'offline' });
+
+    const res = await teachingService.mine('u2');
+
+    expect(res).toEqual({ success: false, data: [], error: 'offline' });
   });
 
   it('should report failure with an empty list when nothing is cached', async () => {
