@@ -7,7 +7,8 @@ import { useTabBarOverlap } from '@/hooks/useTabBarHeight';
 import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Reanimated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const colors = {
@@ -31,6 +32,39 @@ const colors = {
 const ANDROID_TRACK_HEIGHT = 4;
 /** Horizontal padding Android's SeekBar keeps on each side for its thumb. */
 const ANDROID_SEEKBAR_INSET = 16;
+
+type ScrubListener = (value: number | null) => void;
+
+/** A time label that shows the finger's position while scrubbing, else `position`. */
+function ScrubTime({
+  position,
+  duration,
+  subscribe,
+  remaining = false,
+  testID,
+}: {
+  position: number;
+  duration: number;
+  subscribe: (listener: ScrubListener) => () => void;
+  remaining?: boolean;
+  testID?: string;
+}) {
+  const [scrub, setScrub] = useState<number | null>(null);
+  useEffect(() => subscribe(setScrub), [subscribe]);
+  const time = scrub ?? position;
+  return (
+    <Text style={styles.timeText} testID={testID}>
+      {remaining ? formatTimeRemaining(time, duration) : formatTime(time)}
+    </Text>
+  );
+}
+
+/** How often the time labels follow the finger while scrubbing on Android. */
+const SCRUB_REPORT_MS = 100;
+
+/** Fraction of the track at `position`, clamped to 0..1. */
+const progressOf = (position: number, duration: number) =>
+  duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -107,10 +141,29 @@ export function AudioPlayer({
   // True only while a finger is down on the progress bar. Drives the thumb's
   // visibility — see the Slider below.
   const [isSeeking, setIsSeeking] = useState(false);
-  // The finger's value while scrubbing. Android's bar is drawn here from `position`, which
-  // the audio context only refreshes every so often, so it jumped behind the finger; it
-  // follows this instead while the finger is down.
-  const [scrubValue, setScrubValue] = useState<number | null>(null);
+  // Android draws its own bar (see below). While the finger is down the bar follows the
+  // slider through a shared value, which moves it without re-rendering React, and the time
+  // labels follow a local value refreshed at most every SCRUB_REPORT_MS. The audio context
+  // only hears about the release (onSlidingComplete): its updates re-render the whole event
+  // screen, which blocked JS and made the bar move in ~3 steps a second.
+  const fillProgress = useSharedValue(0);
+  // Time labels subscribe to the finger instead of reading parent state, so a label update
+  // re-renders the two labels only, not the whole player and its native slider.
+  const scrubListeners = useRef(new Set<ScrubListener>()).current;
+  const subscribeScrub = useCallback((listener: ScrubListener) => {
+    scrubListeners.add(listener);
+    return () => {
+      scrubListeners.delete(listener);
+    };
+  }, [scrubListeners]);
+  const emitScrub = (value: number | null) => scrubListeners.forEach((listener) => listener(value));
+  const scrubbingRef = useRef(false);
+  const lastScrubReportRef = useRef(0);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${fillProgress.value * 100}%` }));
+  const thumbStyle = useAnimatedStyle(() => ({ left: `${fillProgress.value * 100}%` }));
+  useEffect(() => {
+    if (!scrubbingRef.current) fillProgress.value = progressOf(position, duration);
+  }, [position, duration, fillProgress]);
 
   // Show a thin progress ring around the play button only when loading
   // exceeds 300ms — fast cache hits never paint a spinner, while slower
@@ -152,8 +205,6 @@ export function AudioPlayer({
     return null;
   }
 
-  const shownPosition = scrubValue ?? position;
-  const progress = duration > 0 ? Math.min(1, Math.max(0, shownPosition / duration)) : 0;
 
   return (
     <View style={[styles.container, { bottom: bottomOffset }]}>
@@ -174,8 +225,8 @@ export function AudioPlayer({
             as iOS's thumbless slider, with the SeekBar laid invisibly over it for touch. */}
         {Platform.OS === 'android' && (
           <View style={styles.androidTrack} pointerEvents="none" testID="audio-progress-track">
-            <View style={[styles.androidFill, { width: `${progress * 100}%` }]} testID="audio-progress-fill" />
-            {isSeeking && <View style={[styles.androidThumb, { left: `${progress * 100}%` }]} />}
+            <Reanimated.View style={[styles.androidFill, fillStyle]} testID="audio-progress-fill" />
+            {isSeeking && <Reanimated.View style={[styles.androidThumb, thumbStyle]} />}
           </View>
         )}
         <Slider
@@ -184,17 +235,28 @@ export function AudioPlayer({
           maximumValue={Math.max(duration, 1)}
           value={position}
           onSlidingStart={() => {
+            scrubbingRef.current = true;
             setIsSeeking(true);
             onSlidingStart();
           }}
           onSlidingComplete={(value) => {
+            scrubbingRef.current = false;
             setIsSeeking(false);
-            setScrubValue(null);
+            emitScrub(null);
+            if (Platform.OS === 'android') fillProgress.value = progressOf(value, duration);
             onSlidingComplete(value);
           }}
           onValueChange={(value) => {
-            if (Platform.OS === 'android') setScrubValue(value);
-            onSliderValueChange(value);
+            if (Platform.OS !== 'android') {
+              onSliderValueChange(value);
+              return;
+            }
+            fillProgress.value = progressOf(value, duration);
+            const now = Date.now();
+            if (now - lastScrubReportRef.current >= SCRUB_REPORT_MS) {
+              lastScrubReportRef.current = now;
+              emitScrub(value);
+            }
           }}
           minimumTrackTintColor={Platform.OS === 'android' ? 'transparent' : colors.burgundy[500]}
           maximumTrackTintColor={Platform.OS === 'android' ? 'transparent' : colors.gray[200]}
@@ -205,7 +267,7 @@ export function AudioPlayer({
 
       {/* Transport row: time | controls | time */}
       <View style={styles.transportRow}>
-        <Text style={styles.timeText} testID="audio-current-time">{formatTime(position)}</Text>
+        <ScrubTime position={position} duration={duration} subscribe={subscribeScrub} testID="audio-current-time" />
 
         <View style={styles.controls}>
           {/* Previous track */}
@@ -257,7 +319,7 @@ export function AudioPlayer({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.timeText}>{formatTimeRemaining(position, duration)}</Text>
+        <ScrubTime position={position} duration={duration} subscribe={subscribeScrub} remaining />
       </View>
 
       {/* Track info */}

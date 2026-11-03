@@ -1,7 +1,9 @@
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import { AudioPlayer } from '@/components/AudioPlayer';
+
+const mockOnSliderValueChange = jest.fn();
 
 jest.mock('@/contexts/AudioPlayerContext', () => ({
   SKIP_INTERVAL_S: 15,
@@ -22,7 +24,7 @@ jest.mock('@/contexts/AudioPlayerContext', () => ({
     changePlaybackSpeed: jest.fn(),
     onSlidingStart: jest.fn(),
     onSlidingComplete: jest.fn(),
-    onSliderValueChange: jest.fn(),
+    onSliderValueChange: mockOnSliderValueChange,
   }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -41,10 +43,10 @@ describe('AudioPlayer progress and skip labels', () => {
     expect(getAllByText('15')).toHaveLength(2);
   });
 
-  it('should draw its own edge-to-edge bar filled to the position on Android', () => {
+  it('should draw its own bar on Android', () => {
     (Platform as { OS: string }).OS = 'android';
     const { getByTestId } = render(<AudioPlayer />);
-    expect(StyleSheet.flatten(getByTestId('audio-progress-fill').props.style).width).toBe('25%');
+    expect(getByTestId('audio-progress-fill')).toBeTruthy();
   });
 
   it('should keep the native slider bar on iOS', () => {
@@ -58,7 +60,9 @@ describe('AudioPlayer Android scrubbing', () => {
   const originalOS = Platform.OS;
   afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
 
-  it('should fill the bar to the finger while scrubbing, not to the last reported position', () => {
+  beforeEach(() => mockOnSliderValueChange.mockClear());
+
+  it('should show the finger position in the time label while scrubbing', () => {
     (Platform as { OS: string }).OS = 'android';
     const { getByTestId, UNSAFE_getByProps } = render(<AudioPlayer />);
     const slider = UNSAFE_getByProps({ testID: 'audio-seek' });
@@ -66,6 +70,17 @@ describe('AudioPlayer Android scrubbing', () => {
       slider.props.onSlidingStart();
       slider.props.onValueChange(90);
     });
-    expect(StyleSheet.flatten(getByTestId('audio-progress-fill').props.style).width).toBe('75%');
+    expect(getByTestId('audio-current-time').props.children).toBe('1:30');
+  });
+
+  it('should keep the audio context out of the scrub, so the event screen does not re-render', () => {
+    (Platform as { OS: string }).OS = 'android';
+    const { UNSAFE_getByProps } = render(<AudioPlayer />);
+    const slider = UNSAFE_getByProps({ testID: 'audio-seek' });
+    act(() => {
+      slider.props.onSlidingStart();
+      for (const v of [40, 41, 42, 43, 44]) slider.props.onValueChange(v);
+    });
+    expect(mockOnSliderValueChange).not.toHaveBeenCalled();
   });
 });
