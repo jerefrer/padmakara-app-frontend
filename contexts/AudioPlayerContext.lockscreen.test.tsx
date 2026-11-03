@@ -111,6 +111,40 @@ describe('AudioPlayerContext lock screen artwork', () => {
     expect(lastMetadata()).toMatchObject({ artist: 'Teacher', artworkUrl: url });
   });
 
+  it('should omit artworkUrl when the bundled artwork resolves to a bare resource name', async () => {
+    // Android release builds embed the image as a drawable: expo-asset returns its name,
+    // which the native player cannot parse as a URL and rejects the whole call.
+    mockArtwork.mockResolvedValue('assets_images_icon');
+    await loadTrack();
+    expect(lastMetadata()).toBeDefined();
+    expect(lastMetadata()).not.toHaveProperty('artworkUrl');
+  });
+
+  it('should still show the controls without artwork when the native player rejects it', async () => {
+    mockArtwork.mockResolvedValue(null);
+    // Record each call's metadata as sent: the context may reuse the object for the retry.
+    const sent: Record<string, string>[] = [];
+    const expoAudio = jest.requireMock('expo-audio');
+    const realUseAudioPlayer = expoAudio.useAudioPlayer;
+    const spy = jest.spyOn(expoAudio, 'useAudioPlayer').mockImplementation((...args: unknown[]) => {
+      const player = realUseAudioPlayer(...args);
+      player.setActiveForLockScreen.mockImplementation((active: boolean, metadata?: Record<string, string>) => {
+        if (active && metadata) sent.push({ ...metadata });
+        if (metadata?.artworkUrl) throw new Error('Cannot cast String for field artworkUrl');
+      });
+      return player;
+    });
+    try {
+      await loadTrack({ ...track, speakerArtworkUrl: 'https://example.org/a.jpg' });
+    } finally {
+      spy.mockRestore();
+    }
+    const last = sent[sent.length - 1];
+    expect(sent.some((m) => m.artworkUrl)).toBe(true);
+    expect(last).toMatchObject({ title: 'Track 1' });
+    expect(last).not.toHaveProperty('artworkUrl');
+  });
+
   it('should pass the speaker artwork even when the bundled fallback cannot be resolved', async () => {
     mockArtwork.mockResolvedValue(null);
     const url = 'https://api.padmakara.pt/api/teachers/4/artwork.jpg?v=1';

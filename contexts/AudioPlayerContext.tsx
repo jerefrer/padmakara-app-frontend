@@ -593,19 +593,24 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!player || typeof player.setActiveForLockScreen !== 'function') return;
 
     if (track) {
+      const metadata: Record<string, string> = { title: track.title };
+      if (track.speakerName) metadata.artist = track.speakerName;
+      if (metaRetreatName) metadata.albumTitle = metaRetreatName;
+      const options = { showSeekForward: true, showSeekBackward: true };
+      // The speaker's square photo when the API sent one, else the bundled logo. Only
+      // real URLs: in an Android release build the bundled logo resolves to a drawable
+      // name ("assets_images_icon"), and the native player rejects the whole call over it.
+      const artwork = track.speakerArtworkUrl ?? artworkUri;
+      if (artwork && /^(https?|file):\/\//i.test(artwork)) metadata.artworkUrl = artwork;
       try {
-        const metadata: Record<string, string> = { title: track.title };
-        if (track.speakerName) metadata.artist = track.speakerName;
-        if (metaRetreatName) metadata.albumTitle = metaRetreatName;
-        // The speaker's square photo when the API sent one, else the bundled logo.
-        const artwork = track.speakerArtworkUrl ?? artworkUri;
-        if (artwork) metadata.artworkUrl = artwork;
-        player.setActiveForLockScreen(true, metadata, {
-          showSeekForward: true,
-          showSeekBackward: true,
-        });
+        player.setActiveForLockScreen(true, metadata, options);
       } catch (error) {
         console.warn('setActiveForLockScreen failed:', error);
+        // The controls matter more than the picture: retry without artwork.
+        if (metadata.artworkUrl) {
+          delete metadata.artworkUrl;
+          try { player.setActiveForLockScreen(true, metadata, options); } catch {}
+        }
       }
     } else {
       try { player.setActiveForLockScreen(false); } catch {}
