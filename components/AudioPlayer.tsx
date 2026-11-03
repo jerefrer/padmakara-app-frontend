@@ -2,7 +2,7 @@ import { RotateLeftThinIcon } from '@/components/icons/RotateLeftThinIcon';
 import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useTabBarOverlap } from '@/hooks/useTabBarHeight';
 import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -49,8 +49,8 @@ interface AudioPlayerProps {
   /** Optional label shown next to the globe icon (e.g. "En + Pt"). */
   languageLabel?: string;
   /**
-   * Override the bottom positioning. By default the player sits above the
-   * tab bar (49px + bottom safe-area inset); pass an explicit value when
+   * Override the bottom positioning. By default the player sits just above the
+   * tab bar (see useTabBarOverlap); pass an explicit value when
    * mounting the player inside a modal that has no tab bar — typically
    * `insets.bottom` so it just clears the home indicator.
    */
@@ -75,8 +75,8 @@ export function AudioPlayer({
   bottom,
 }: AudioPlayerProps = {}) {
   const { t, language } = useLanguage();
-  const tabBarHeight = useTabBarHeight();
-  const bottomOffset = bottom ?? tabBarHeight;
+  const tabBarOverlap = useTabBarOverlap();
+  const bottomOffset = bottom ?? tabBarOverlap;
 
   const {
     currentTrack,

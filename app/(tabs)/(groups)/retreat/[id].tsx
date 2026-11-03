@@ -29,7 +29,7 @@ import { AudioPlayer } from '@/components/AudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVideoDeepLink } from '@/utils/videoDeepLink';
 import { PlayingIndicator } from '@/components/PlayingIndicator';
-import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useTabBarHeight, useTabBarOverlap } from '@/hooks/useTabBarHeight';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import retreatService, { buildEventDocuments } from '@/services/retreatService';
@@ -208,6 +208,8 @@ export default function RetreatDetailScreen() {
   const playerInShell = isDesktop || !!compactSidebar;
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
+  // Inside this screen: the tab bar only overlaps it on iOS (see useTabBarOverlap).
+  const tabBarOverlap = useTabBarOverlap();
   const audioContext = useAudioPlayerContext();
   const { isAuthenticated } = useAuth();
   const { setMeta: setSidebarMeta } = useRelatedEvents();
@@ -1993,8 +1995,8 @@ export default function RetreatDetailScreen() {
               plays — reserve space for that instead. */}
           {renderTrackList(
             showInlinePlayer
-              ? 145 + tabBarHeight + 16
-              : 60 + tabBarHeight + 16
+              ? 145 + tabBarOverlap + 16
+              : 60 + tabBarOverlap + 16
           )}
           {showInlinePlayer && (
             <AudioPlayer
