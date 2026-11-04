@@ -176,8 +176,10 @@ export const __advanceTime = (seconds: number) => {
 
 export const __finishTrack = () => {
   const s = store.getSnapshot();
-  // Atomic update — emits one snapshot with both fields set.
-  store.setMany({ currentTime: s.duration, didJustFinish: true });
+  // Atomic update — emits one snapshot with all fields set. Like the native
+  // players (iOS AudioPlayer.swift, Android STATE_ENDED), the finish status
+  // also reports playing: false.
+  store.setMany({ currentTime: s.duration, didJustFinish: true, playing: false });
 };
 
 export const __setDuration = (seconds: number) => {

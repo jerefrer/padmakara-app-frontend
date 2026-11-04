@@ -1179,6 +1179,36 @@ describe('AudioPlayerContext — playback continuity (matrix I)', () => {
   });
 });
 
+describe('AudioPlayerContext — auto-advance without the event screen', () => {
+  // Listening while browsing elsewhere in the app: no screen has registered
+  // onTrackComplete, and playback must still go on to the next track.
+  it('should play the next track of the list when a track ends and no screen handles completion', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 60 });
+    const tB = makeTrack({ id: 'tB', duration: 60 });
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(60); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    act(() => { __setPlaying(true); __finishTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tB');
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('should stay on the last track when it ends and no screen handles completion', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 60 });
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(60); result.current.playTrack(tA, [tA], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    act(() => { __setPlaying(true); __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tA');
+  });
+});
+
 describe('AudioPlayerContext — audio and video never play together', () => {
   const startPlaying = async (result: ReturnType<typeof renderPlayer>['result'], id = 'tMedia') => {
     const t = makeTrack({ id, duration: 600 });

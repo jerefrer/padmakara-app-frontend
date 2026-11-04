@@ -228,6 +228,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const audioSourceTrackIdRef = useRef<string | null>(null);
   // Guards against the completion callback firing more than once per track.
   const hasCompletedRef = useRef(false);
+  // Set while onTrackComplete runs: the track it starts must play, since the
+  // player has just stopped at the end of the previous one.
+  const advancingFromCompletionRef = useRef(false);
+  // Latest list, position and playTrack, for advancing on completion when no
+  // screen has registered onTrackComplete (listening while browsing elsewhere).
+  const trackListRef = useRef<Track[]>([]);
+  const currentTrackIndexRef = useRef(0);
+  const playTrackRef = useRef<((next: Track, list: Track[], index: number) => void) | null>(null);
   // Throttles the every-10s progress save.
   const lastSavedSecondRef = useRef(-1);
   // In-memory cache of saved positions per track id. Lets the track-change
@@ -792,6 +800,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // ─── Progress save + completion detection during playback ───
   useEffect(() => {
     if (phase !== 'ready' || !track || !status) return;
+
+    // The native players report the end as playing: false + didJustFinish:
+    // true in the same status, so completion is checked before the
+    // playing-only progress save below.
+    if (!hasCompletedRef.current
+      && (status.didJustFinish
+        || (status.playing && status.duration > 0 && status.currentTime >= status.duration))) {
+      hasCompletedRef.current = true;
+      void saveProgress(status.duration * 1000);
+      advancingFromCompletionRef.current = true;
+      try {
+        if (onTrackCompleteRef.current) {
+          onTrackCompleteRef.current();
+        } else {
+          const list = trackListRef.current;
+          const nextIndex = currentTrackIndexRef.current + 1;
+          if (nextIndex < list.length) playTrackRef.current?.(list[nextIndex], list, nextIndex);
+        }
+      } finally {
+        advancingFromCompletionRef.current = false;
+      }
+      return;
+    }
+
     if (!status.playing) return;
 
     const currentSeconds = Math.floor(status.currentTime ?? 0);
@@ -801,14 +833,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       && currentSeconds !== lastSavedSecondRef.current) {
       lastSavedSecondRef.current = currentSeconds;
       void saveProgress(currentSeconds * 1000);
-    }
-
-    if (!hasCompletedRef.current
-      && (status.didJustFinish
-        || (status.duration > 0 && status.currentTime >= status.duration))) {
-      hasCompletedRef.current = true;
-      void saveProgress(status.duration * 1000);
-      onTrackCompleteRef.current?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, phase, track]);
@@ -919,7 +943,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       // (resume-from-idle), otherwise it follows whatever the player was
       // doing: playing → keep playing, paused → stay paused. Read by the
       // track-change effect once `track` has actually changed.
-      autoPlayOnLoadRef.current = options?.autoPlay ?? isPlayingRef.current;
+      // A track started by the end of the previous one always plays.
+      autoPlayOnLoadRef.current = options?.autoPlay
+        ?? (advancingFromCompletionRef.current || isPlayingRef.current);
       // Save the outgoing track's position before swapping. The 10-second
       // cadence effect would otherwise drop the last <10s of progress.
       //
@@ -975,6 +1001,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
     void saveLastPlayedTrack(newTrack, meta);
   }, [track, phase, status?.currentTime, saveProgress, saveLastPlayedTrack]);
+  playTrackRef.current = playTrack;
+  trackListRef.current = trackListState;
+  currentTrackIndexRef.current = currentTrackIndex;
 
   const resumeLastPlayed = useCallback(() => {
     if (!idleTrack) return;
