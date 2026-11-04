@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, AppState, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 const BURGUNDY = '#9b1b1b';
 
@@ -33,6 +33,11 @@ interface PlayingIndicatorProps {
  * Heights are animated on the JS driver (layout property). That is fine for
  * five tiny bars, and it keeps the bar caps fully round, which a scaleY
  * transform on the native driver would squash.
+ *
+ * The loops only run while the app is active. With the screen locked, audio
+ * keeps the app alive and the JS-driven frames ran unthrottled: the JS thread
+ * sat at 99% CPU and iOS killed the app after a couple of minutes
+ * (cpu_resource_fatal in build 19).
  */
 export function PlayingIndicator({
   isPlaying,
@@ -45,9 +50,11 @@ export function PlayingIndicator({
   const minHeight = barWidth;
 
   const values = useRef(BARS.map(() => new Animated.Value(0))).current;
+  const appActive = useAppActive();
+  const animate = isPlaying && appActive;
 
   useEffect(() => {
-    if (!isPlaying) {
+    if (!animate) {
       const settle = Animated.parallel(
         values.map((v) =>
           Animated.timing(v, { toValue: 0, duration: 250, easing: Easing.out(Easing.quad), useNativeDriver: false }),
@@ -65,7 +72,7 @@ export function PlayingIndicator({
     });
     loops.forEach((loop) => loop.start());
     return () => loops.forEach((loop) => loop.stop());
-  }, [isPlaying, values]);
+  }, [animate, values]);
 
   return (
     <View
@@ -91,6 +98,20 @@ export function PlayingIndicator({
       ))}
     </View>
   );
+}
+
+const isAway = (state: string | null | undefined) => state === 'background' || state === 'inactive';
+
+/** Whether the app is in the foreground, following AppState changes. */
+function useAppActive(): boolean {
+  // 'unknown' (cold start on iOS) counts as active: only an explicit
+  // background or inactive state pauses the bars.
+  const [active, setActive] = useState(!isAway(AppState.currentState));
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => setActive(!isAway(next)));
+    return () => sub?.remove?.();
+  }, []);
+  return active;
 }
 
 const styles = StyleSheet.create({
