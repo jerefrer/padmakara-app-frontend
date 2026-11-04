@@ -205,7 +205,7 @@ class MagicLinkService {
    */
   async requestMagicLink(email: string, language: string = 'en'): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string }> {
     try {
-      console.log('Requesting magic link for email:', email, 'in language:', language);
+      console.log('Requesting magic link in language:', language);
       
       const deviceInfo = await this.getDeviceInfo();
       
@@ -339,7 +339,7 @@ class MagicLinkService {
     language?: string;
   }): Promise<{ success: boolean; data?: ApprovalResponse; error?: string }> {
     try {
-      console.log('Requesting approval for:', data.email, 'in language:', data.language || 'en');
+      console.log('Requesting approval in language:', data.language || 'en');
       
       const deviceInfo = await this.getDeviceInfo();
       
@@ -385,7 +385,6 @@ class MagicLinkService {
         hasToken: !!token,
         isActivated,
         rawActivated: activated,
-        tokenPrefix: token ? token.substring(0, 20) + '...' : 'none'
       });
       
       return isActivated;

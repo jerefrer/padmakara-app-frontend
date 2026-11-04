@@ -50,7 +50,6 @@ class AuthService {
       console.log('📱 Auth state retrieved:', { 
         hasToken: !!token, 
         hasUserData: !!userData,
-        tokenPrefix: token ? token.substring(0, 10) + '...' : 'none'
       });
       
       if (token && userData) {

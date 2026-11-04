@@ -26,7 +26,7 @@ export default function RootIndex() {
     const autoActivateToken = params.auto_activate as string;
     
     if (autoActivateToken && !isAutoActivating && !isAuthenticated) {
-      console.log('🔄 Auto-activation token detected:', autoActivateToken.substring(0, 20) + '...');
+      console.log('🔄 Auto-activation token detected');
       setIsAutoActivating(true);
       
       // Set timeout fallback to prevent infinite spinner

@@ -203,9 +203,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isAuthenticated: authState.isAuthenticated, 
             hasUser: !!authState.user, 
             hasToken: !!authState.token,
-            tokenPrefix: authState.token?.substring(0, 10) + '...',
             platform: Platform.OS,
-            userEmail: authState.user?.email || 'none'
           });
           
           if (authState.isAuthenticated && authState.user && authState.token) {
