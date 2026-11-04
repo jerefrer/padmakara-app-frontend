@@ -1170,6 +1170,55 @@ describe('AudioPlayerContext — playback continuity (matrix I)', () => {
   });
 });
 
+describe('AudioPlayerContext — load safety timer', () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  const settle = async () => {
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+  };
+
+  it('should unstick a track that never loads, even when the previous one was ready', async () => {
+    const tA = makeTrack({ id: 'sA', duration: 100 });
+    const tB = makeTrack({ id: 'sB', duration: 100 });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(100); result.current.playTrack(tA, [tA, tB], 0); });
+    await settle();
+    expect(result.current.isLoading).toBe(false);
+
+    act(() => { __setIsLoaded(false); result.current.playTrack(tB, [tA, tB], 1); });
+    await settle();
+    expect(result.current.isLoading).toBe(true);
+
+    act(() => { jest.advanceTimersByTime(15000); });
+    expect(result.current.isLoading).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[SAFETY]'));
+    warn.mockRestore();
+  });
+
+  it('should stay silent when the track has loaded before the timer fires', async () => {
+    const tA = makeTrack({ id: 'qA', duration: 100 });
+    const tB = makeTrack({ id: 'qB', duration: 100 });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderPlayer();
+
+    // Switch while A is still loading: the case that warned for nothing.
+    act(() => { __setIsLoaded(false); result.current.playTrack(tA, [tA, tB], 0); });
+    await settle();
+    act(() => { result.current.playTrack(tB, [tA, tB], 1); });
+    await settle();
+    act(() => { __setDuration(100); });
+    await settle();
+    expect(result.current.isLoading).toBe(false);
+
+    act(() => { jest.advanceTimersByTime(15000); });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('[SAFETY]'));
+    warn.mockRestore();
+  });
+});
+
 describe('AudioPlayerContext — web keeps one player per source', () => {
   // The web player's replace() reports nothing until the browser fires
   // loadeddata, which it may defer while paused, so the web still gets a fresh

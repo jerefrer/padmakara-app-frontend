@@ -267,6 +267,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // pauses, so the captured `status` object would still report
   // playing: true long after the user hit pause.
   const isPlayingRef = useRef(false);
+  // Mirrors `phase` for the load safety timer, which runs 15 s after the render
+  // that started it: reading `phase` there always saw 'loading' and warned
+  // after every track change.
+  const phaseRef = useRef<AudioPlayerState>('idle');
   // "Start playing as soon as the incoming track is ready." Written by
   // playTrack at the moment of a track switch, read by the track-change
   // effect below, which owns pendingPlay for the new track.
@@ -296,6 +300,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // completion effect drives end-of-track auto-advance), and an effect-based
   // mirror would still hold the previous render's value at that point.
   isPlayingRef.current = isPlaying;
+  phaseRef.current = phase;
 
   // Detect a stale status snapshot from a previous player. expo-audio's
   // `useEvent` hook (from `expo`) uses `useState(initialValue)` — useState
@@ -710,7 +715,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // unresolved after 15s, transition to ready anyway and surface the
     // problem in the logs so the user isn't stuck staring at a spinner.
     const safetyTimer = setTimeout(() => {
-      if (trackIdRef.current === currentId && phase === 'loading') {
+      if (trackIdRef.current === currentId && phaseRef.current === 'loading') {
         console.warn(`[SAFETY] Track load exceeded ${SAFETY_LOAD_TIMEOUT_MS}ms: ${track.title}`);
         setPhase('ready');
       }
