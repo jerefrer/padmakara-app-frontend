@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
+import { pickPhotoTeacher } from "@/utils/heroVariant";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
@@ -108,8 +109,10 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
       ? event.name_translations.pt
       : event.name || event.name_translations?.en || "";
 
-  const teacherNames =
-    event.teachers?.[0]?.name || event.teachers?.[0]?.nameEn || "";
+  // The name shown is the name of the teacher whose photo is shown (first teacher with a photo,
+  // else the first teacher).
+  const focusTeacher = pickPhotoTeacher(event.teachers, event.photoTeacherId) ?? event.teachers?.[0];
+  const teacherNames = focusTeacher?.name || (focusTeacher as any)?.nameEn || "";
 
   const eventTypeName = event.eventType
     ? (language === "pt" && event.eventType.namePt
@@ -151,10 +154,9 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     .filter(Boolean)
     .join(" | ");
 
-  const teacherImage = event.teachers?.[0]?.heroUrl || event.teachers?.[0]?.avatarUrl || event.teachers?.[0]?.photoUrl || null;
+  const teacherImage = focusTeacher?.heroUrl || focusTeacher?.avatarUrl || focusTeacher?.photoUrl || null;
   // Framed on the focal point set in the admin, as on the event page; a picture without a hero
   // keeps its top edge so the teacher's head is not cut.
-  const focusTeacher = event.teachers?.[0];
   const focal = focusTeacher?.heroUrl
     ? { x: focusTeacher.heroFocalX ?? 50, y: focusTeacher.heroFocalY ?? 50 }
     : { x: 50, y: 0 };
@@ -180,7 +182,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
       >
         {teacherImage ? (
           <Image
-            source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(event.teachers?.[0]) }}
+            source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(focusTeacher) }}
             cachePolicy="memory-disk"
             transition={0}
             style={[styles.featuredImage, focalCover.zoomStyle]}

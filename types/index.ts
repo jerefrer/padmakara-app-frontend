@@ -103,6 +103,8 @@ export interface Gathering {
   startDate: string;
   endDate: string;
   sessions?: Session[];
+  /** Teacher whose photo stands for the event (chosen by the API); see pickPhotoTeacher. */
+  photoTeacherId?: number | null;
   teachers?: GatheringTeacher[];
   places?: GatheringPlace[];
   retreatGroups?: GatheringGroup[];

@@ -118,6 +118,7 @@ export function mapEvent(backend: any): Gathering {
     startDate,
     endDate,
     sessions: backend.sessions?.map(mapSession) || undefined,
+    photoTeacherId: backend.photoTeacherId ?? null,
     teachers: backend.eventTeachers?.map((et: any) => ({
       id: et.teacher?.id,
       name: et.teacher?.name || '',

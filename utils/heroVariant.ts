@@ -70,16 +70,44 @@ export interface EventHeroPick extends HeroSelection {
   record: EventHeroRecord | null;
 }
 
+interface PhotoTeacher extends WithHero {
+  id?: number;
+  avatarUrl?: string | null;
+  photoUrl?: string | null;
+}
+
+/**
+ * The teacher whose photo stands for an event: the API's `photoTeacherId` when it sent one,
+ * else (cached payloads from before the field) the same choice made locally: the first
+ * teacher with a hero, else the first with an avatar or photo. Used by the home highlight
+ * and the event page so both show, and name, the same teacher.
+ */
+export function pickPhotoTeacher<T extends PhotoTeacher>(
+  teachers: T[] | null | undefined,
+  photoTeacherId?: number | null,
+): T | null {
+  const list = teachers ?? [];
+  if (photoTeacherId != null) {
+    const byId = list.find((t) => t.id === photoTeacherId);
+    if (byId) return byId;
+  }
+  return (
+    list.find((t) => t.heroUrl || t.heroMobileUrl) ??
+    list.find((t) => t.avatarUrl || t.photoUrl) ??
+    null
+  );
+}
+
 /**
  * Hero for the event page. While listening people want to see the teacher, so
- * the first teacher's hero wins; the retreat group's hero is the fallback (the
+ * the hero of the first teacher who has a photo wins; the retreat group's hero is the fallback (the
  * group page already shows the group image).
  */
 export function pickEventHero(
-  event: { teachers?: EventHeroRecord[] | null; retreat_group?: EventHeroRecord | null } | null | undefined,
+  event: { teachers?: Array<EventHeroRecord & PhotoTeacher> | null; photoTeacherId?: number | null; retreat_group?: EventHeroRecord | null } | null | undefined,
   isMobile: boolean,
 ): EventHeroPick {
-  const teacher = event?.teachers?.[0] ?? null;
+  const teacher = pickPhotoTeacher(event?.teachers, event?.photoTeacherId);
   const teacherPick = selectHero(teacher, isMobile);
   if (teacherPick.url) return { ...teacherPick, owner: 'teacher', record: teacher };
   const group = event?.retreat_group ?? null;

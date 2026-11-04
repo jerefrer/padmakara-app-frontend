@@ -145,6 +145,8 @@ interface RetreatDetails {
   originalLanguage?: string;
   /** Video recordings attached to this event, ordered by `position`. */
   videos?: EventVideo[];
+  /** Teacher whose photo stands for the event (API choice); see pickPhotoTeacher. */
+  photoTeacherId?: number | null;
   teachers?: Array<{
     id?: number;
     name: string;
@@ -1452,8 +1454,8 @@ export default function RetreatDetailScreen() {
     // entity: eventHero.record.
     const heroSource = eventHero.url;
     const heroScale = eventHero.record?.heroScale ?? 100;
-    const heroCacheKey = eventHero.owner === 'teacher' && retreat?.teachers?.[0]
-      ? teacherHeroCacheKey(retreat.teachers[0], eventHero.variant)
+    const heroCacheKey = eventHero.owner === 'teacher' && eventHero.record
+      ? teacherHeroCacheKey(eventHero.record as any, eventHero.variant)
       : eventHero.owner === 'group' && retreat?.retreat_group
         ? groupHeroCacheKey(retreat.retreat_group as any, eventHero.variant)
         : undefined;
