@@ -1007,7 +1007,7 @@ describe('AudioPlayerContext — UX (matrix H)', () => {
     expect(JSON.parse((await AsyncStorage.getItem('progress_42'))!).position).toBe(77);
   });
 
-  it('H6 — round-trip A → B → A: the NEW A-player gets seeked to A\'s saved position', async () => {
+  it('H6 — round-trip A → B → A: A\'s saved position is applied after A\'s source is loaded', async () => {
     // This is the test that H5 *should* have been. H5 only asserted on
     // user-visible side effects (slider's `position` value, AsyncStorage
     // not being overwritten with 0) — both of which can be SATISFIED even
@@ -1050,38 +1050,28 @@ describe('AudioPlayerContext — UX (matrix H)', () => {
 
     // Open A. After the async resolve completes, audioSource should be
     // set, a new player created, and the seek effect should seek it to 77.
+    // One player serves every track (each source goes in with replace()).
+    // What must hold: after A → B → A, the last seek is A's saved position
+    // and it comes after A's source was loaded, not against B's.
+    const player = __getCurrentPlayer()!;
+    const seekSpy = jest.spyOn(player, 'seekTo');
+
     act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const aPlayer1 = __getCurrentPlayer();
-    expect(aPlayer1).not.toBeNull();
-    expect(aPlayer1!.lastSeekTo).toBe(77);
+    expect(player.lastSeekTo).toBe(77);
 
-    // Switch to B (no saved progress → seeks to 0).
     act(() => { __setDuration(200); result.current.playTrack(tB, [tA, tB], 1); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const bPlayer = __getCurrentPlayer();
-    expect(bPlayer).not.toBe(aPlayer1);
-    expect(bPlayer!.lastSeekTo).toBe(0);
 
-    // Switch back to A. This is where the bug used to fire: the seek
-    // effect would run in the first render with stale audioSource (=B's URL)
-    // and stale player (=B-player), seek THAT player to 77, then
-    // setPhase('ready'). The new A-player created when audioSource updates
-    // to a fresh A URL would never get seeked.
     act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const aPlayer2 = __getCurrentPlayer();
 
-    // The new A-player must be a different object from both the previous
-    // A-player and the B-player.
-    expect(aPlayer2).not.toBe(aPlayer1);
-    expect(aPlayer2).not.toBe(bPlayer);
-
-    // Critical assertion: the NEW A-player must have been seeked to A's
-    // saved position. This is what was failing before — the old
-    // `seekedPlayerRef === player` gate didn't catch the stale-render
-    // race, and the seek went to the wrong player object.
-    expect(aPlayer2!.lastSeekTo).toBe(77);
+    expect(__getCurrentPlayer()).toBe(player);
+    expect(player.replace).toHaveBeenCalledTimes(3);
+    expect(seekSpy).toHaveBeenLastCalledWith(77);
+    const lastReplace = Math.max(...player.replace.mock.invocationCallOrder);
+    const lastSeek = Math.max(...seekSpy.mock.invocationCallOrder);
+    expect(lastSeek).toBeGreaterThan(lastReplace);
   });
 });
 

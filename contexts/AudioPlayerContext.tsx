@@ -193,8 +193,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // the actual player.play() as soon as phase becomes 'ready'.
   const [pendingPlay, setPendingPlay] = useState(false);
 
-  const player = useAudioPlayer(audioSource);
+  // One player for the whole session; each track is loaded into it with
+  // replace(). Recreating the player per track restarted Android's media
+  // service, which Android 12+ refuses while the app is in the background:
+  // after an automatic advance with the screen locked, the lock-screen
+  // controls disappeared (ForegroundServiceStartNotAllowedException).
+  const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
+  // The status object current when the latest source was handed to the
+  // player. Until a newer status arrives, what we see still describes the
+  // previous track (loaded, its duration and position).
+  const statusAtReplaceRef = useRef<unknown>(null);
+  // Whether the lock-screen controls are on. They are turned on once and then
+  // only get their metadata updated: re-activating them also restarts the
+  // Android media service (same background restriction as above).
+  const lockScreenActiveRef = useRef(false);
 
   // ─── Refs (don't trigger renders) ───
   // The id of the track we're currently working on. Captured by async
@@ -610,18 +623,27 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       // name ("assets_images_icon"), and the native player rejects the whole call over it.
       const artwork = track.speakerArtworkUrl ?? artworkUri;
       if (artwork && /^(https?|file):\/\//i.test(artwork)) metadata.artworkUrl = artwork;
+      const apply = (meta: Record<string, string>) => {
+        if (lockScreenActiveRef.current && typeof player.updateLockScreenMetadata === 'function') {
+          player.updateLockScreenMetadata(meta);
+        } else {
+          player.setActiveForLockScreen(true, meta, options);
+          lockScreenActiveRef.current = true;
+        }
+      };
       try {
-        player.setActiveForLockScreen(true, metadata, options);
+        apply(metadata);
       } catch (error) {
-        console.warn('setActiveForLockScreen failed:', error);
+        console.warn('Lock-screen controls failed:', error);
         // The controls matter more than the picture: retry without artwork.
         if (metadata.artworkUrl) {
           delete metadata.artworkUrl;
-          try { player.setActiveForLockScreen(true, metadata, options); } catch {}
+          try { apply(metadata); } catch {}
         }
       }
     } else {
       try { player.setActiveForLockScreen(false); } catch {}
+      lockScreenActiveRef.current = false;
     }
   }, [track, player, metaRetreatName, artworkUri]);
 
@@ -730,6 +752,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track]);
 
+  // ─── New source → load it into the single player ───
+  // Declared before the seek effect so that, in the commit where the source
+  // changes, the seek effect already sees the marker and waits for a status
+  // that describes the new track.
+  useEffect(() => {
+    if (!audioSource || !player) return;
+    statusAtReplaceRef.current = status;
+    try {
+      player.replace(audioSource);
+    } catch (error) {
+      console.error('Loading the audio source failed:', error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioSource, player]);
+
   // ─── Audio loaded → seek to target → ready ───
   // Single transition. No artificial delays. Runs at most once per track
   // load, gated by seekToTargetDoneRef. The audioSource check prevents the
@@ -748,6 +785,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // never seeked. See the audioSourceTrackIdRef declaration for the
     // full story.
     if (audioSourceTrackIdRef.current !== track.id) return;
+    // Still the status from before replace(): it describes the previous track.
+    if (status === statusAtReplaceRef.current) return;
     // Prevent re-running for the same track (e.g. when targetPosition
     // changes after the initial seek due to the async readSavedPosition
     // correction — we don't want to overwrite the already-applied seek).
@@ -776,7 +815,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (trackIdRef.current !== currentId) return;
       setPhase('ready');
     })();
-  }, [phase, track, audioSource, status?.isLoaded, player, targetPosition, playbackSpeed]);
+  }, [phase, track, audioSource, status, player, targetPosition, playbackSpeed]);
 
   // ─── Fire any queued play when audio becomes ready ───
   // Optimistic play: if the user tapped play during loading (or while idle),

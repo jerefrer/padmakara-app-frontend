@@ -71,9 +71,19 @@ async function loadTrack(playing: Track = track) {
   return utils;
 }
 
+/** The metadata the lock screen shows now: the latest of an activation or a metadata update. */
 function lastMetadata(): Record<string, string> | undefined {
-  const calls = __getCurrentPlayer()!.setActiveForLockScreen.mock.calls;
-  return calls.filter((c: unknown[]) => c[0] === true).pop()?.[1];
+  const player = __getCurrentPlayer()!;
+  const activations = player.setActiveForLockScreen.mock;
+  const updates = player.updateLockScreenMetadata.mock;
+  const sent: { order: number; meta: Record<string, string> }[] = [];
+  activations.calls.forEach((c: unknown[], i: number) => {
+    if (c[0] === true) sent.push({ order: activations.invocationCallOrder[i], meta: c[1] as Record<string, string> });
+  });
+  updates.calls.forEach((c: unknown[], i: number) => {
+    sent.push({ order: updates.invocationCallOrder[i], meta: c[0] as Record<string, string> });
+  });
+  return sent.sort((a, b) => a.order - b.order).pop()?.meta;
 }
 
 describe('AudioPlayerContext lock screen artwork', () => {
@@ -150,5 +160,27 @@ describe('AudioPlayerContext lock screen artwork', () => {
     const url = 'https://api.padmakara.pt/api/teachers/4/artwork.jpg?v=1';
     await loadTrack({ ...track, speakerArtworkUrl: url });
     expect(lastMetadata()?.artworkUrl).toBe(url);
+  });
+
+  // Re-activating the controls on every track restarted Android's media
+  // service, which Android 12+ refuses in the background: after an automatic
+  // advance with the screen locked, the lock-screen player disappeared.
+  it('should activate the controls once and only update the metadata on the next track', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const second: Track = { ...track, id: 't2', title: 'Track 2' };
+    const utils = await loadTrack();
+    act(() => {
+      utils.result.current.playTrack(second, [track, second], 1, {
+        retreatId: 'r1',
+        retreatName: 'Spring retreat',
+        groupName: 'Group',
+      });
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    const player = __getCurrentPlayer()!;
+    const activations = player.setActiveForLockScreen.mock.calls.filter((c: unknown[]) => c[0] === true);
+    expect(activations).toHaveLength(1);
+    expect(lastMetadata()).toMatchObject({ title: 'Track 2' });
   });
 });

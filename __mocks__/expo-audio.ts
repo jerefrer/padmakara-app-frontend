@@ -29,6 +29,11 @@ interface MockPlayer {
   // `typeof player.setActiveForLockScreen !== 'function'` to detect them,
   // but providing them keeps the mock surface complete.
   setActiveForLockScreen: jest.Mock;
+  updateLockScreenMetadata: jest.Mock;
+  // Loads a new source into the same player: emits a fresh status (position
+  // 0, not finished, paused). The duration a test preset with __setDuration
+  // is kept, as if the new source loaded at once; tests that need a slow
+  // load call __setIsLoaded(false) after the switch.
   replace: jest.Mock;
   addListener: (event: string, listener: (data: unknown) => void) => { remove: () => void };
   listeners: Map<string, Set<(data: unknown) => void>>;
@@ -136,7 +141,10 @@ const makePlayer = (): MockPlayer => {
     release: () => store.reset(),
     lastSeekTo: null,
     setActiveForLockScreen: jest.fn(),
-    replace: jest.fn(),
+    updateLockScreenMetadata: jest.fn(),
+    replace: jest.fn(() => {
+      store.setMany({ currentTime: 0, didJustFinish: false, playing: false });
+    }),
     addListener: (event: string, listener: (data: unknown) => void) => {
       const set = p.listeners.get(event) ?? new Set();
       set.add(listener);
