@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -1166,6 +1167,43 @@ describe('AudioPlayerContext — playback continuity (matrix I)', () => {
 
     expect(result.current.currentTrack?.id).toBe('tB');
     expect(result.current.isPlaying).toBe(true);
+  });
+});
+
+describe('AudioPlayerContext — web keeps one player per source', () => {
+  // The web player's replace() reports nothing until the browser fires
+  // loadeddata, which it may defer while paused, so the web still gets a fresh
+  // player per source (which reports itself loaded at once).
+  const originalOS = Platform.OS;
+  beforeEach(() => { (Platform as { OS: string }).OS = 'web'; });
+  afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
+
+  it('should seek the new player to the saved position after a round trip A → B → A', async () => {
+    const tA = makeTrack({ id: '52', duration: 200 });
+    const tB = makeTrack({ id: '53', duration: 200 });
+    await AsyncStorage.setItem('progress_52', JSON.stringify({
+      trackId: '52', position: 77, completed: false,
+      lastPlayed: '2026-05-10T00:00:00Z', bookmarks: [],
+    }));
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const aPlayer1 = __getCurrentPlayer();
+
+    act(() => { __setDuration(200); result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const bPlayer = __getCurrentPlayer();
+
+    act(() => { __setDuration(200); result.current.playTrack(tA, [tA, tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const aPlayer2 = __getCurrentPlayer();
+
+    expect(bPlayer).not.toBe(aPlayer1);
+    expect(aPlayer2).not.toBe(bPlayer);
+    expect(aPlayer2!.lastSeekTo).toBe(77);
+    expect(aPlayer2!.replace).not.toHaveBeenCalled();
   });
 });
 

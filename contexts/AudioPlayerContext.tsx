@@ -193,12 +193,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // the actual player.play() as soon as phase becomes 'ready'.
   const [pendingPlay, setPendingPlay] = useState(false);
 
-  // One player for the whole session; each track is loaded into it with
-  // replace(). Recreating the player per track restarted Android's media
+  // Native: one player for the whole session; each track is loaded into it
+  // with replace(). Recreating the player per track restarted Android's media
   // service, which Android 12+ refuses while the app is in the background:
   // after an automatic advance with the screen locked, the lock-screen
   // controls disappeared (ForegroundServiceStartNotAllowedException).
-  const player = useAudioPlayer(null);
+  // Web keeps one player per source: its replace() reports nothing until the
+  // browser fires loadeddata, which it may defer until playback starts, so a
+  // paused track never reached the seek. A fresh web player reports itself
+  // loaded at once, and the web has no lock screen to keep.
+  const singlePlayer = Platform.OS !== 'web';
+  const player = useAudioPlayer(singlePlayer ? null : audioSource);
   const status = useAudioPlayerStatus(player);
   // The status object current when the latest source was handed to the
   // player. Until a newer status arrives, what we see still describes the
@@ -757,7 +762,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // changes, the seek effect already sees the marker and waits for a status
   // that describes the new track.
   useEffect(() => {
-    if (!audioSource || !player) return;
+    if (!singlePlayer || !audioSource || !player) return;
     statusAtReplaceRef.current = status;
     try {
       player.replace(audioSource);
@@ -765,7 +770,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       console.error('Loading the audio source failed:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioSource, player]);
+  }, [audioSource, player, singlePlayer]);
 
   // ─── Audio loaded → seek to target → ready ───
   // Single transition. No artificial delays. Runs at most once per track
@@ -786,7 +791,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // full story.
     if (audioSourceTrackIdRef.current !== track.id) return;
     // Still the status from before replace(): it describes the previous track.
-    if (status === statusAtReplaceRef.current) return;
+    if (singlePlayer && status === statusAtReplaceRef.current) return;
     // Prevent re-running for the same track (e.g. when targetPosition
     // changes after the initial seek due to the async readSavedPosition
     // correction — we don't want to overwrite the already-applied seek).
