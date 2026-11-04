@@ -26,6 +26,8 @@ export interface Teaching {
   saleMode: "free" | "paid";
   priceCents: number | null;
   includedInMembership: boolean;
+  /** Sold to benefactor members only (checkout answers 403 MEMBERS_ONLY to anyone else). */
+  membersOnly?: boolean;
 }
 
 export interface TeachingCheckoutInput {

@@ -69,6 +69,7 @@ function GetTeachingPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [declined, setDeclined] = useState(false);
+  const [membersOnlyDenied, setMembersOnlyDenied] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -145,6 +146,7 @@ function GetTeachingPage() {
     setBusy(true);
     setError(null);
     setDeclined(false);
+    setMembersOnlyDenied(false);
     try {
       const res = await teachingService.checkout(String(teaching.id), {
         email: email.trim(),
@@ -166,6 +168,8 @@ function GetTeachingPage() {
         }
       } else if (res.code === 'ALREADY_HAS_ACCESS') {
         setPhase({ name: 'already' });
+      } else if (res.code === 'MEMBERS_ONLY') {
+        setMembersOnlyDenied(true);
       } else if (res.code === 'PAYMENTS_UNAVAILABLE') {
         setError(tt(t, 'errUnavailable', 'Payments are temporarily unavailable. Please try again later.'));
       } else {
@@ -205,6 +209,9 @@ function GetTeachingPage() {
       </View>
       {teaching.includedInMembership && (
         <Text style={styles.note}>{tt(t, 'included', 'Included for benefactor members.')}</Text>
+      )}
+      {teaching.membersOnly && (
+        <Text style={styles.note}>{tt(t, 'membersOnly', 'For benefactor members only.')}</Text>
       )}
     </View>
   );
@@ -347,6 +354,24 @@ function GetTeachingPage() {
                 {error}
               </Text>
             )}
+            {membersOnlyDenied && (
+              <View>
+                <Text style={styles.error} accessibilityRole="alert">
+                  {tt(
+                    t,
+                    'membersOnlyDenied',
+                    'This teaching is for benefactor members. Sign in with the email of your membership, or become a member first.',
+                  )}
+                </Text>
+                <Text
+                  style={styles.link}
+                  accessibilityRole="link"
+                  onPress={() => router.push('/membership' as any)}
+                >
+                  {tt(t, 'becomeMember', 'Become a benefactor member')}
+                </Text>
+              </View>
+            )}
             <ActionButton
               label={free ? tt(t, 'getFree', 'Get the recordings') : tt(t, 'pay', 'Continue to payment')}
               onPress={submit}
@@ -426,6 +451,7 @@ const styles = StyleSheet.create({
   tick: { color: 'white', fontSize: 14, fontWeight: '700' },
   consentText: { flex: 1, fontSize: 15, lineHeight: 22, color: c.gray[700] },
   error: { fontSize: 14, color: c.red[700], marginTop: 12 },
+  link: { fontSize: 15, color: c.burgundy[500], textDecorationLine: 'underline', marginTop: 8 },
   button: { ...pageStyles.button, marginTop: 24, minWidth: 200, alignItems: 'center' },
   busy: { opacity: 0.7 },
 });

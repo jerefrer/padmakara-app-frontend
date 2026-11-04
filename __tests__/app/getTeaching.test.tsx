@@ -158,6 +158,34 @@ describe('get teaching page', () => {
     ).toBeTruthy();
   });
 
+  it('should show the benefactor-members-only line under the price when membersOnly is set', async () => {
+    mockGet.mockResolvedValue({ success: true, data: { ...teaching, membersOnly: true } });
+    const { findByText } = render(<GetScreen />);
+    expect(await findByText('For benefactor members only.')).toBeTruthy();
+  });
+
+  it('should not show the members-only line for an ordinary teaching', async () => {
+    const { findByText, queryByText } = render(<GetScreen />);
+    await findByText('Heart Sutra');
+    expect(queryByText('For benefactor members only.')).toBeNull();
+  });
+
+  it('should explain and link to the membership page when checkout answers MEMBERS_ONLY', async () => {
+    mockGet.mockResolvedValue({ success: true, data: { ...teaching, membersOnly: true } });
+    mockCheckout.mockResolvedValue({ success: false, status: 403, code: 'MEMBERS_ONLY' });
+    const utils = render(<GetScreen />);
+    await fill(utils);
+    fireEvent.press(utils.getByText('Continue to payment'));
+    expect(
+      await utils.findByText(
+        'This teaching is for benefactor members. Sign in with the email of your membership, or become a member first.',
+      ),
+    ).toBeTruthy();
+    fireEvent.press(utils.getByText('Become a benefactor member'));
+    expect(mockPush).toHaveBeenCalledWith('/membership');
+    expect(utils.queryByText('Something went wrong. Please try again.')).toBeNull();
+  });
+
   it('should show the done state after a free grant', async () => {
     mockGet.mockResolvedValue({ success: true, data: { ...teaching, saleMode: 'free', priceCents: null } });
     mockCheckout.mockResolvedValue({ success: true, data: { status: 'granted' } });
