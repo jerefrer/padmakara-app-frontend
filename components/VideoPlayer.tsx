@@ -185,6 +185,9 @@ export function VideoPlayer({
   // event/render code keeps working without churn.
   const [hlsUrl, setHlsUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // The URL arrives before the player has anything to show: the loader stays
+  // until the first frames are ready, so the screen is never just black.
+  const [playerBuffering, setPlayerBuffering] = useState(true);
   const [resumePosition, setResumePosition] = useState<number>(0);
   // The deep-link position is read when a load finishes, and used for one video only.
   const initialPositionRef = useRef(initialPositionSeconds);
@@ -427,6 +430,7 @@ export function VideoPlayer({
     if (isWeb) return;
     if (!hlsUrl || !player) return;
     try {
+      setPlayerBuffering(true);
       player.replace({ uri: hlsUrl });
       // expo-video applies seek after the source loads — currentTime is settable.
       if (resumePosition > 0) {
@@ -444,7 +448,8 @@ export function VideoPlayer({
   // onComplete once when playback crosses the completion threshold.
   const recordProgress = (currentTime: number, duration: number) => {
     if (!video) return;
-    if (!duration || currentTime <= 0) return;
+    // ExoPlayer reports a huge negative duration until the source has loaded.
+    if (!(duration > 0) || currentTime <= 0) return;
 
     const now = Date.now();
     if (now - lastSavedAtRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
@@ -458,6 +463,10 @@ export function VideoPlayer({
       onComplete?.();
     }
   };
+
+  useEventListener(player, 'statusChange', ({ status }) => {
+    if (status !== 'loading' && status !== 'idle') setPlayerBuffering(false);
+  });
 
   // Subscribe to time updates to save progress (no rerender — side-effect only).
   // No-op on web, where WebHlsVideo owns the media element.
@@ -939,6 +948,12 @@ export function VideoPlayer({
               <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
             </View>
           )}
+          {!isWeb && hlsUrl && !errorMsg && playerBuffering && (
+            <View style={styles.bufferingOverlay} pointerEvents="none" testID="video-buffering">
+              <ActivityIndicator size="large" color={colors.white} />
+              <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -956,6 +971,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 12,
     backgroundColor: colors.black,
+  },
+  bufferingOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconButton: {
     width: 44,
