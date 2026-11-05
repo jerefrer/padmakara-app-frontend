@@ -36,7 +36,7 @@ jest.mock('@/services/publicationService', () => ({
 }));
 
 const WEB_COPY_EN = 'Become a member to access the full library';
-const WEB_COPY_PT = 'Torne-se membro para aceder a toda a biblioteca';
+const WEB_COPY_PT = 'Torna-te membro para aceder a toda a biblioteca';
 const NATIVE_COPY_EN = 'Activate your account to access the full library';
 
 const original = Platform.OS;

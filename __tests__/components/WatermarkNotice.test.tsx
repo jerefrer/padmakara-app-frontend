@@ -25,7 +25,7 @@ describe('WatermarkNotice', () => {
     mockLocale = pt;
     const { getByText, getByTestId } = render(<WatermarkNotice floating />);
     expect(
-      getByText('A sua cópia pessoal está a ser gerada, com uma marca de água com o seu nome e email.'),
+      getByText('A tua cópia pessoal está a ser gerada, com uma marca de água com o teu nome e email.'),
     ).toBeTruthy();
     expect(getByTestId('watermark-notice')).toBeTruthy();
   });
