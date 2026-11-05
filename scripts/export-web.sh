@@ -12,7 +12,14 @@ cd "$(dirname "$0")/.."
 
 export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-https://api.padmakara.pt/api}"
 
-npx expo export -p web --source-maps
+# --clear: Metro's cache keeps values inlined by an earlier export, so a past run
+# without EXPO_PUBLIC_API_URL can ship a bundle that calls localhost.
+npx expo export -p web --source-maps --clear
+
+if ! grep -qF "$EXPO_PUBLIC_API_URL" dist/_expo/static/js/web/entry-*.js; then
+  echo "ERROR: the bundle does not contain $EXPO_PUBLIC_API_URL. Do not serve this dist/." >&2
+  exit 1
+fi
 
 if npx sentry-expo-upload-sourcemaps dist; then
   echo "Source maps uploaded to Sentry."
