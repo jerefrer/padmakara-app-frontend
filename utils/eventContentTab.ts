@@ -2,12 +2,13 @@
  * Which content tab the event page shows, and whether the inline audio
  * player belongs on it. Kept pure so the visibility rule is testable.
  */
-export type EventContentTab = 'video' | 'tracks' | 'documents';
+export type EventContentTab = 'video' | 'tracks' | 'documents' | 'topics';
 
 export interface EventContentAvailability {
   hasVideo: boolean;
   hasAudio: boolean;
   hasDocuments: boolean;
+  hasTopics?: boolean;
 }
 
 /**
@@ -17,18 +18,21 @@ export interface EventContentAvailability {
  */
 export function resolveContentTab(
   requested: EventContentTab,
-  { hasVideo, hasAudio, hasDocuments }: EventContentAvailability,
+  { hasVideo, hasAudio, hasDocuments, hasTopics }: EventContentAvailability,
 ): EventContentTab {
   if (requested === 'video' && hasVideo) return 'video';
   if (requested === 'tracks' && hasAudio) return 'tracks';
   if (requested === 'documents' && hasDocuments) return 'documents';
-  return hasVideo ? 'video' : hasAudio ? 'tracks' : 'documents';
+  if (requested === 'topics' && hasTopics) return 'topics';
+  if (hasVideo) return 'video';
+  if (hasAudio) return 'tracks';
+  return !hasDocuments && hasTopics ? 'topics' : 'documents';
 }
 
 /**
  * The inline audio player (with its cached / paused track) only appears while
  * the Audio tab is showing and the loaded track belongs to this event. On the
- * Videos and Documents tabs it would cover the list below it.
+ * Videos, Documents and Topics tabs it would cover the list below it.
  */
 export function shouldShowInlinePlayer(opts: {
   ownsCurrentTrack: boolean;

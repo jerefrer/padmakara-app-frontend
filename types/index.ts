@@ -98,6 +98,7 @@ export interface Gathering {
   name: string;
   name_translations?: Record<string, string>;
   main_topics_translations?: Record<string, string>;
+  session_topics_translations?: Record<string, string>;
   season: 'spring' | 'fall';
   year: number;
   startDate: string;

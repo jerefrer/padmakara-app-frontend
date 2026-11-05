@@ -113,6 +113,10 @@ export function mapEvent(backend: any): Gathering {
       ...(backend.mainThemesEn ? { en: backend.mainThemesEn } : {}),
       ...(backend.mainThemesPt ? { pt: backend.mainThemesPt } : {}),
     },
+    session_topics_translations: {
+      ...(backend.sessionThemesEn ? { en: backend.sessionThemesEn } : {}),
+      ...(backend.sessionThemesPt ? { pt: backend.sessionThemesPt } : {}),
+    },
     season: deriveSeason(startDate),
     year: startDate ? new Date(startDate).getFullYear() : 0,
     startDate,

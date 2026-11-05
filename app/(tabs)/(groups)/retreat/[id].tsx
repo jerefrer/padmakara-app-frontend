@@ -79,6 +79,8 @@ import { eventBackTarget } from '@/utils/eventBack';
 import { BackButton } from '@/components/ui/BackButton';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { resolveContentTab, shouldShowInlinePlayer, type EventContentTab } from '@/utils/eventContentTab';
+import { findTrackIndexByNumber, getEventTopics } from '@/utils/eventTopics';
+import { EventTopics } from '@/components/EventTopics';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
@@ -132,6 +134,8 @@ interface TranscriptInfo {
 }
 
 interface RetreatDetails {
+  main_topics_translations?: Record<string, string>;
+  session_topics_translations?: Record<string, string>;
   id: string;
   name: string;
   name_translations?: Record<string, string>;
@@ -330,7 +334,7 @@ export default function RetreatDetailScreen() {
   // 'tracks' (audio session list), or 'documents' (transcript + event files
   // list). We default to 'video' on mount and then sync to whatever the
   // event actually has once it loads.
-  const [activeContentTab, setActiveContentTab] = useState<'video' | 'tracks' | 'documents'>('video');
+  const [activeContentTab, setActiveContentTab] = useState<EventContentTab>('video');
   const [menuVisible, setMenuVisible] = useState(false);
 
   // Documents tab viewer state — which modal (if any) is currently showing,
@@ -1392,6 +1396,7 @@ export default function RetreatDetailScreen() {
         hasAudio: !!retreat.sessions?.some((s) => (s.tracks?.length ?? 0) > 0),
         hasDocuments:
           buildEventDocuments(retreat).length > 0 || (retreat.relatedPublications?.length ?? 0) > 0,
+        hasTopics: getEventTopics(retreat, language).hasContent,
       }),
     });
   const { setInlinePlayerVisible } = audioContext;
@@ -1489,6 +1494,8 @@ export default function RetreatDetailScreen() {
     // keep it visible for events whose only texts are publications.
     const relatedPublications = retreat?.relatedPublications ?? [];
     const hasDocuments = documents.length > 0 || relatedPublications.length > 0;
+    const topics = getEventTopics(retreat ?? {}, language);
+    const hasTopics = topics.hasContent;
 
     // Videos are event-level — used directly by the Video tab grid. Sort
     // defensively by position, even though the backend already orders them.
@@ -1501,7 +1508,7 @@ export default function RetreatDetailScreen() {
     // platform — tapping the featured transcript inside it still navigates
     // to the full-page transcript route (see handleDocumentPress).
     const contentTypeCount =
-      (hasVideo ? 1 : 0) + (hasAudio ? 1 : 0) + (hasDocuments ? 1 : 0);
+      (hasVideo ? 1 : 0) + (hasAudio ? 1 : 0) + (hasDocuments ? 1 : 0) + (hasTopics ? 1 : 0);
     const showContentTabs = contentTypeCount >= 2;
     // Fall back to whichever content type actually exists so an event with
     // only one type never lands on an empty tab body.
@@ -1509,7 +1516,16 @@ export default function RetreatDetailScreen() {
       hasVideo,
       hasAudio,
       hasDocuments,
+      hasTopics,
     });
+
+    const openTrackFromTopics = (trackNumber: number) => {
+      const index = findTrackIndexByNumber(filteredTracks, trackNumber);
+      if (index < 0) return;
+      setActiveContentTab('tracks');
+      pendingScrollTrackIdRef.current = String(filteredTracks[index].id);
+      selectTrack(filteredTracks[index], index);
+    };
 
     const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
 
@@ -1610,7 +1626,7 @@ export default function RetreatDetailScreen() {
         {/* Tab bar — shown whenever 2+ content types are available (video,
             audio, documents). Sits between the title and the content. */}
         {showContentTabs && (
-          <TabSwitcher<'video' | 'tracks' | 'documents'>
+          <TabSwitcher<EventContentTab>
             style={!isDesktop && styles.lineBleed}
             activeKey={effectiveTab}
             onChange={setActiveContentTab}
@@ -1618,7 +1634,17 @@ export default function RetreatDetailScreen() {
               ...(hasVideo ? [{ key: 'video' as const, label: t('eventTabs.videos') || 'Videos', testID: 'event-tab-video' }] : []),
               ...(hasAudio ? [{ key: 'tracks' as const, label: t('eventTabs.tracks') || 'Audio', testID: 'event-tab-tracks' }] : []),
               ...(hasDocuments ? [{ key: 'documents' as const, label: t('documents.tab') || 'Texts', testID: 'event-tab-documents' }] : []),
+              ...(hasTopics ? [{ key: 'topics' as const, label: t('eventTabs.topics') || 'Topics', testID: 'event-tab-topics' }] : []),
             ]}
+          />
+        )}
+
+        {effectiveTab === 'topics' && (
+          <EventTopics
+            main={topics.main}
+            sessions={topics.sessions}
+            hasTrack={(trackNumber) => findTrackIndexByNumber(filteredTracks, trackNumber) >= 0}
+            onOpenTrack={openTrackFromTopics}
           />
         )}
 
