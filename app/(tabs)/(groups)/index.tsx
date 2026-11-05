@@ -440,10 +440,10 @@ export default function HomeScreen() {
                 onPress={handleTeachingsPress}
               />
               <CategoryRow
-                title={t("home.retreats") || "Retreats"}
+                title={t("home.retreats") || "Personal Library"}
                 subtitle={
                   t("home.retreatsSubtitle") ||
-                  "Audio, videos and transcriptions (registration required)"
+                  "Your audio, videos and transcriptions (registration required)"
                 }
                 onPress={handleRetreatsPress}
               />

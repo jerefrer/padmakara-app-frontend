@@ -324,7 +324,7 @@ export default function RetreatsListScreen() {
               <BackButton variant="inline" />
             )}
             <Text style={styles.pageTitle}>
-              {t("home.retreats") || "Retreats"}
+              {t("home.retreats") || "Personal Library"}
             </Text>
           </View>
 

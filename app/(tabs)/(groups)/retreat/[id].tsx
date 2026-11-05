@@ -909,7 +909,7 @@ export default function RetreatDetailScreen() {
         : (group ? getTranslatedName(group, language) : ''),
       headerSubtitle: showTeacherView
         ? (t('events.teachings') || 'Teachings & Talks')
-        : (group ? (t('events.retreats') || 'Retreats') : undefined),
+        : (group ? (t('events.retreats') || 'Personal Library') : undefined),
     });
     // We deliberately do NOT clear meta on unmount — leaving the last
     // value in place avoids a frame where the sidebar disappears while

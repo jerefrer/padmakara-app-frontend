@@ -237,7 +237,7 @@
   "navigation": {
     "back": "Voltar",
     "home": "Início",
-    "retreats": "Retiros",
+    "retreats": "Mediateca Pessoal",
     "downloads": "Conteúdo Salvo",
     "profile": "Perfil",
     "settings": "Configurações",
@@ -274,7 +274,7 @@
   },
   "events": {
     "empty": "Sem eventos disponíveis",
-    "retreats": "Retiros",
+    "retreats": "Mediateca Pessoal",
     "eventName": "Evento",
     "sessions": "Sessões",
     "sessionLabel": "sessão",
@@ -306,8 +306,8 @@
     "whatsNewSubtitle": "Em destaque e adições recentes",
     "teachingsAndTalks": "Ensinamentos & Palestras",
     "teachingsSubtitle": "Áudio, vídeos e transcrições",
-    "retreats": "Retiros",
-    "retreatsSubtitle": "Áudio, vídeos e transcrições (requer inscrição)",
+    "retreats": "Mediateca Pessoal",
+    "retreatsSubtitle": "Os teus áudios, vídeos e transcrições (requer inscrição)",
     "publications": "Publicações",
     "publicationsSubtitle": "Edições digitais Padmakara",
     "monthlyHighlight": "O nosso destaque mensal",

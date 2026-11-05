@@ -51,11 +51,11 @@ export function Sidebar() {
     },
     {
       key: 'home',
-      title: t('home.retreats') || 'Retreats',
-      subtitle: t('home.retreatsSubtitle') || 'Organized by Kangyur Rinpoche Foundation',
+      title: t('home.retreats') || 'Personal Library',
+      subtitle: t('home.retreatsSubtitle') || 'Your audio, videos and transcriptions (registration required)',
       route: '/(tabs)/(groups)/retreats',
       icon: 'people-outline' as const,
-      shortTitle: t('navigation.retreats') || 'Retreats',
+      shortTitle: t('navigation.retreats') || 'Personal Library',
     },
     {
       key: 'publications',

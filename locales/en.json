@@ -237,7 +237,7 @@
   "navigation": {
     "back": "Back",
     "home": "Home",
-    "retreats": "Retreats",
+    "retreats": "Personal Library",
     "downloads": "Saved Content",
     "profile": "Profile",
     "settings": "Settings",
@@ -274,7 +274,7 @@
   },
   "events": {
     "empty": "No events available",
-    "retreats": "Retreats",
+    "retreats": "Personal Library",
     "eventName": "Event",
     "sessions": "Sessions",
     "sessionLabel": "session",
@@ -306,8 +306,8 @@
     "whatsNewSubtitle": "Featured content and recent additions",
     "teachingsAndTalks": "Teachings & Talks",
     "teachingsSubtitle": "Audio, videos and transcriptions",
-    "retreats": "Retreats",
-    "retreatsSubtitle": "Audio, videos and transcriptions (registration required)",
+    "retreats": "Personal Library",
+    "retreatsSubtitle": "Your audio, videos and transcriptions (registration required)",
     "publications": "Publications",
     "publicationsSubtitle": "Padmakara Digital Editions",
     "monthlyHighlight": "Our monthly highlight",
