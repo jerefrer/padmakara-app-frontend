@@ -86,6 +86,26 @@ function lastMetadata(): Record<string, string> | undefined {
   return sent.sort((a, b) => a.order - b.order).pop()?.meta;
 }
 
+describe('AudioPlayerContext lock screen skip buttons', () => {
+  const originalOS = Platform.OS;
+  beforeEach(() => { (Platform as { OS: string }).OS = 'ios'; });
+  afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
+
+  it('should ask the native player for 15 second skip buttons', async () => {
+    mockArtwork.mockResolvedValue(null);
+    await loadTrack();
+    const activation = __getCurrentPlayer()!.setActiveForLockScreen.mock.calls.find(
+      (c: unknown[]) => c[0] === true,
+    );
+    expect(activation?.[2]).toMatchObject({
+      showSeekForward: true,
+      showSeekBackward: true,
+      seekForwardIntervalSeconds: 15,
+      seekBackwardIntervalSeconds: 15,
+    });
+  });
+});
+
 describe('AudioPlayerContext lock screen artwork', () => {
   const originalOS = Platform.OS;
   beforeEach(() => { (Platform as { OS: string }).OS = 'ios'; });

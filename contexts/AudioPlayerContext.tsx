@@ -627,7 +627,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const metadata: Record<string, string> = { title: track.title };
       if (track.speakerName) metadata.artist = track.speakerName;
       if (metaRetreatName) metadata.albumTitle = metaRetreatName;
-      const options = { showSeekForward: true, showSeekBackward: true };
+      const options = {
+        showSeekForward: true,
+        showSeekBackward: true,
+        // expo-audio's native skip buttons default to 10 s; match the in-app buttons.
+        seekForwardIntervalSeconds: SKIP_INTERVAL_S,
+        seekBackwardIntervalSeconds: SKIP_INTERVAL_S,
+      };
       // The speaker's square photo when the API sent one, else the bundled logo. Only
       // real URLs: in an Android release build the bundled logo resolves to a drawable
       // name ("assets_images_icon"), and the native player rejects the whole call over it.
