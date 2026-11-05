@@ -138,7 +138,7 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const paraLayoutsRef = useRef<Map<number, number>>(new Map());
   const lastScrolledParaRef = useRef<number>(-1);
   const userScrollingRef = useRef(false);

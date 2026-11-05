@@ -607,7 +607,7 @@ export default function PublicationsScreen() {
                 <Text style={styles.sectionHeaderText}>{title}</Text>
               </View>
             )}
-            ListHeaderComponent={bannerAtTop ? membersBanner : null}
+            ListHeaderComponent={bannerAtTop ? (membersBanner ?? undefined) : undefined}
             contentContainerStyle={isDesktop ? styles.listContentDesktop : styles.listContent}
             stickySectionHeadersEnabled={false}
             refreshControl={
@@ -619,7 +619,7 @@ export default function PublicationsScreen() {
             data={filteredPublications}
             keyExtractor={(item) => item.id}
             renderItem={renderPublicationItem}
-            ListHeaderComponent={bannerAtTop ? membersBanner : null}
+            ListHeaderComponent={bannerAtTop ? (membersBanner ?? undefined) : undefined}
             contentContainerStyle={isDesktop ? styles.listContentDesktop : styles.listContent}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

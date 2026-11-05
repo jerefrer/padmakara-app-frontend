@@ -199,7 +199,12 @@ const config: PadmakaraConfig = {
       { microphonePermission: false, recordAudioAndroid: false },
     ],
     "./plugins/withMediaNotificationIcon",
-    "expo-router",
+    [
+      "expo-router",
+      // SDK 58 turns async (lazy) routes on for web. The static export stays eager until the
+      // sign-in page has been checked with them.
+      { asyncRoutes: { web: false } },
+    ],
     [
       "expo-splash-screen",
       {

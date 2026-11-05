@@ -44,7 +44,6 @@ export default function TabLayout() {
 
   const tabsElement = (
     <Tabs
-      initialRouteName="(groups)"
       screenOptions={{
         tabBarActiveTintColor: '#9b1b1b',
         tabBarInactiveTintColor: '#6b7280',
@@ -76,28 +75,28 @@ export default function TabLayout() {
         name="(groups)"
         options={{
           title: t('navigation.home') || 'Home',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="home-outline" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="home-outline" color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
           title: t('navigation.search') || 'Search',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="search" color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="bookmarks"
         options={{
           title: t('navigation.bookmarks') || 'Bookmarks',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="bookmark-outline" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="bookmark-outline" color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: t('navigation.account') || 'Account',
-          tabBarIcon: ({ color }) => <Ionicons size={24} name="person-circle-outline" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="person-circle-outline" color={color as string} />,
         }}
       />
       {/* Hidden tabs - accessible via navigation but not shown in tab bar */}

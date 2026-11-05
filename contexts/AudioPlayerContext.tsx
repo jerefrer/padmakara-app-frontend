@@ -593,7 +593,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!userId) return;
     const appStateRef = { current: AppState.currentState };
     const handler = (next: AppStateStatus) => {
-      const wasBackgrounded = /inactive|background/.test(appStateRef.current);
+      const wasBackgrounded = /inactive|background/.test(appStateRef.current ?? '');
       appStateRef.current = next;
       if (!wasBackgrounded || next !== 'active') return;
       const sinceLastPull = Date.now() - lastBulkPullAt.current;

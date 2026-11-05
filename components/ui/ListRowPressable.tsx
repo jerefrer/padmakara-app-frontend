@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable, type PressableProps, type View } from 'react-native';
+import { Platform, Pressable, type PressableProps, View } from 'react-native';
 
 /**
  * Delay before a list row shows its pressed state on iOS/Android. A scroll
@@ -22,7 +22,7 @@ export function getRowPressDelayProps(): { delayPressIn?: number } {
  * by ROW_PRESS_DELAY_MS, web is unchanged. Use plain Pressable for standalone
  * buttons.
  */
-export const ListRowPressable = React.forwardRef<View, PressableProps>(
+export const ListRowPressable = React.forwardRef<React.ComponentRef<typeof View>, PressableProps>(
   function ListRowPressable(props, ref) {
     const delayProps = Platform.OS === 'web' ? {} : { unstable_pressDelay: ROW_PRESS_DELAY_MS };
     return <Pressable ref={ref} {...delayProps} {...props} />;
