@@ -302,7 +302,6 @@ export default function RetreatsListScreen() {
     }
   }
   const teachersList = Array.from(allTeachers).slice(0, 3).join(", ");
-  const orgInfo = "Org. Kangyur Rinpoche Foundation, Portugal";
 
   return (
     <>
@@ -333,7 +332,6 @@ export default function RetreatsListScreen() {
           {teachersList ? (
             <Text style={[styles.pageSubtitle, !isDesktop && styles.indented]}>{teachersList}</Text>
           ) : null}
-          <Text style={[styles.pageOrg, !isDesktop && styles.indented]}>{orgInfo}</Text>
 
           {/* Red rule opens the list; thin dark lines separate the rows. */}
           {!isDesktop && <SectionRule />}
@@ -467,11 +465,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.gray[700],
     marginBottom: 2,
-  },
-  pageOrg: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginBottom: 24,
   },
 
   // Groups list

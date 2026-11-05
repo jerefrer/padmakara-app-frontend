@@ -140,6 +140,15 @@ describe('Retreats screen teachings section', () => {
   });
 });
 
+describe('Retreats screen header', () => {
+  it('should not name an organizer, since it can hold events organized by others', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    const screen = render(<RetreatsListScreen />);
+    await waitFor(() => expect(screen.getByTestId(`group-card-${group.id}`)).toBeTruthy());
+    expect(screen.queryByText(/Kangyur Rinpoche Foundation/)).toBeNull();
+  });
+});
+
 describe('Retreats screen empty state', () => {
   it('should not show the empty state before the teachings request settles', async () => {
     let resolveMine: (v: any) => void = () => {};
