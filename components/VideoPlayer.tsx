@@ -720,7 +720,14 @@ export function VideoPlayer({
       supportedOrientations={['portrait', 'landscape']}
       statusBarTranslucent
     >
-      <View style={styles.root}>
+      <View
+        testID="video-player-root"
+        style={[
+          styles.root,
+          // Android draws edge to edge: without this the navigation bar covers the player's own controls.
+          Platform.OS === 'android' && { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+        ]}
+      >
         <View style={[styles.header, { paddingTop: (isLandscape ? 0 : insets.top) + 8 }]}>
           <TouchableOpacity onPress={handleClose} style={styles.iconButton} testID="video-close" accessibilityLabel={t('common.close') || 'Close'}>
             <Ionicons name="chevron-down" size={28} color={colors.white} />
