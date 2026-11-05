@@ -942,7 +942,7 @@ export default function RetreatDetailScreen() {
 
   // Track selection — tracks are always audio. Videos are session-scoped and
   // opened via the "Watch video" button in the session header below.
-  const selectTrack = (track: TrackWithSession, trackIndex: number) => {
+  const selectTrack = (track: TrackWithSession, trackIndex: number, options?: { autoPlay?: boolean }) => {
     setShowLanguageDropdown(false);
     setCurrentTrack(track);
     setCurrentTrackIndex(trackIndex);
@@ -952,7 +952,7 @@ export default function RetreatDetailScreen() {
       retreatId: retreat!.id,
       retreatName: getTranslatedName(retreat!, language) || retreat!.name,
       groupName: retreat!.retreat_group ? (getTranslatedName(retreat!.retreat_group, language) || retreat!.retreat_group.name) : '',
-    });
+    }, options);
 
     // Persist the last-played track for this event so the next visit can
     // resume the player at the right place.
@@ -1524,7 +1524,7 @@ export default function RetreatDetailScreen() {
       if (index < 0) return;
       setActiveContentTab('tracks');
       pendingScrollTrackIdRef.current = String(filteredTracks[index].id);
-      selectTrack(filteredTracks[index], index);
+      selectTrack(filteredTracks[index], index, { autoPlay: true });
     };
 
     const formatDurationForGrid = (seconds: number) => formatDuration(seconds) || '';
