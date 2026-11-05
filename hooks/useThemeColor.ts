@@ -10,7 +10,8 @@ export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
-  const theme = useColorScheme() ?? 'light';
+  // React Native 0.83 can also report 'unspecified'; treat it like light.
+  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {

@@ -5,6 +5,8 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('expo-audio'); // resolves to __mocks__/expo-audio.ts
+// Worklets 0.7 throws on import when its native module is missing; reanimated's mock needs this.
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 // The Sentry SDK ships untranspiled ESM and reports nothing in tests anyway.
 jest.mock('@sentry/react-native', () => ({ setUser: jest.fn(), captureException: jest.fn(() => 'test-event-id') }));
 

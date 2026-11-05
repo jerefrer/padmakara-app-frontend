@@ -920,7 +920,7 @@ export function VideoPlayer({
               <VideoView
                 style={styles.video}
                 player={player}
-                allowsFullscreen
+                fullscreenOptions={{ enable: true }}
                 allowsPictureInPicture={Platform.OS !== 'web'}
                 contentFit="contain"
                 nativeControls

@@ -125,7 +125,6 @@ const config: PadmakaraConfig = {
   // The window behind the app (expo-system-ui). Unset, iOS paints it black in dark mode, and
   // it showed for a few frames between the splash and the home.
   backgroundColor: "#ffffff",
-  newArchEnabled: true,
   owner: variant.owner ?? undefined,
   linking: {
     prefixes: variant.linkingPrefixes,
@@ -167,7 +166,6 @@ const config: PadmakaraConfig = {
       monochromeImage: "./assets/images/adaptive-icon-foreground.png",
       backgroundColor: "#C4423E",
     },
-    edgeToEdgeEnabled: true,
     // Android 13+ blocks all notifications, including the lock-screen media
     // player expo-audio posts, unless the app declares this. Requested at runtime
     // on first play (services/notificationPermission.ts).
