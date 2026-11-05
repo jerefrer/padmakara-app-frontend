@@ -1543,7 +1543,7 @@ export default function RetreatDetailScreen() {
                 cachePolicy="memory-disk"
                 transition={0}
                 style={[
-                  StyleSheet.absoluteFillObject,
+                  StyleSheet.absoluteFill,
                   // The legacy scale yields to a per-frame framing, which already carries its own zoom.
                   !heroFocalCover.hasOverride && heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },
                   heroFocalCover.zoomStyle,
@@ -2629,7 +2629,7 @@ const styles = StyleSheet.create({
   // Inner wrapper that clips the image. Kept separate from heroContainer
   // so we can still let the action circles overflow the bottom edge.
   heroImageWrapper: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   heroActionRow: {

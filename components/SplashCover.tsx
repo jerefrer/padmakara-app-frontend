@@ -69,7 +69,7 @@ function AndroidSplashCover() {
 
 const styles = StyleSheet.create({
   cover: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#9b1b1b',
     alignItems: 'center',
     justifyContent: 'center',

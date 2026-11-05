@@ -162,7 +162,7 @@ export default function RootLayout() {
             <Stack.Screen name="account-deletion" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
-            <StatusBar style="dark" backgroundColor="#e8e6e3" />
+            <StatusBar style="dark" />
             <NotificationExplainer />
             </SignInProvider>
             </AppLockProvider>

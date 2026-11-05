@@ -172,11 +172,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   thumbnailFallback: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.gray[200],
   },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.18)',
   },
   scrimHover: {

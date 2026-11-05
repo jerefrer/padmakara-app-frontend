@@ -465,7 +465,7 @@ export default function GroupDetailScreen() {
               <Image
                 source={{ uri: groupHeroSrc!, cacheKey: groupHeroCacheKey(groupData as any, groupHeroVariant) }}
                 style={[
-                  StyleSheet.absoluteFillObject,
+                  StyleSheet.absoluteFill,
                   // The legacy scale yields to a per-frame framing, which already carries its own zoom.
                   !heroFocalCover.hasOverride && (groupData.heroScale ?? 100) !== 100 && {
                     transform: [{ scale: (groupData.heroScale ?? 100) / 100 }],

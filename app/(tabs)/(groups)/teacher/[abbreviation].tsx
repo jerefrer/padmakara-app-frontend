@@ -198,7 +198,7 @@ export default function TeacherDetailScreen() {
               source={{ uri: heroSrc!, cacheKey: teacherHeroCacheKey(teacher, heroVariant) }}
               cachePolicy="memory-disk"
               transition={0}
-              style={[StyleSheet.absoluteFillObject, heroFocalCover.zoomStyle]}
+              style={[StyleSheet.absoluteFill, heroFocalCover.zoomStyle]}
               contentFit="cover"
               contentPosition={heroFocalCover.contentPosition}
               onLayout={heroFocalCover.onLayout}

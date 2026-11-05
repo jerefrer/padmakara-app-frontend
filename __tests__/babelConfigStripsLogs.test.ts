@@ -3,7 +3,7 @@ import path from 'path';
 
 const SOURCE = "console.log('a'); console.info('b'); console.debug('c'); console.warn('d'); console.error('e');";
 
-function compile(nodeEnv: string): string {
+function compile(nodeEnv: 'development' | 'production' | 'test'): string {
   const previous = process.env.NODE_ENV;
   process.env.NODE_ENV = nodeEnv;
   try {
