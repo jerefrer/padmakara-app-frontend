@@ -45,6 +45,21 @@ describe("retreatService.getUserRetreats — SWR pattern", () => {
     jest.clearAllMocks();
   });
 
+  it("should leave out a group with no event the user can see", async () => {
+    // The groups list is cached on its own: it keeps a group after its last
+    // event goes back to draft, which showed as "0 retreats".
+    (entityCacheService.getList as jest.Mock).mockImplementation(async (ns: string) => {
+      if (ns === "groups") return [{ id: 1, name: "Mandala" }, { id: 2, name: "Guru Yoga" }];
+      if (ns === "events") return [{ id: 10, titleEn: "Event A", eventRetreatGroups: [{ retreatGroupId: 1 }] }];
+      return [];
+    });
+
+    const result = await retreatService.getUserRetreats();
+
+    expect(result.data?.retreat_groups.map((g) => g.id)).toEqual(["1"]);
+    expect(result.data?.total_stats.total_groups).toBe(1);
+  });
+
   it("returns cached groups + events synchronously when cache is populated", async () => {
     (entityCacheService.getList as jest.Mock).mockImplementation(async (ns: string) => {
       if (ns === "groups") return [{ id: 1, name: "Mandala", updatedAt: "x" }];
@@ -854,6 +869,11 @@ describe("retreatService — offline with a cache whose image URLs expired", () 
   });
 
   it("should show the user's cached groups instead of an error", async () => {
+    (entityCacheService.getList as jest.Mock).mockImplementation(async (ns: string) =>
+      ns === "events"
+        ? [{ ...cachedEvents[0], eventRetreatGroups: [{ retreatGroupId: 1 }] }]
+        : ns === "groups" ? cachedGroups : null,
+    );
     const result = await retreatService.getUserRetreats();
     expect(result.success).toBe(true);
     expect(result.data?.retreat_groups).toHaveLength(1);

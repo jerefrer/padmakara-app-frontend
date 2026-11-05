@@ -412,7 +412,7 @@ class RetreatService {
         )
         .map(mapEvent);
       return mapGroup(bg, groupEvents);
-    });
+    }).filter((group) => (group.gatherings?.length ?? 0) > 0);
 
     const recentGatherings = [...mappedEvents]
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
