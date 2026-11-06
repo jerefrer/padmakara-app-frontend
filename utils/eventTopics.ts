@@ -19,7 +19,7 @@ export interface EventTopicsContent {
   hasContent: boolean;
 }
 
-const TRACK_MARKER = /\[\s*(?:audio\s+tracks?|faixas?\s+de\s+[aá]udio)\s+(\d+)(?:\s*[-–]\s*(\d+))?\s*\]\s*/i;
+const TRACK_MARKER = /\[\s*(?:audio[\s-]+tracks?|faixas?\s+de\s+[aá]udio)\s+(\d+)(?:\s*[-–]\s*(\d+))?\s*\]\s*/i;
 
 /** Blocks are separated by a blank line, as in the admin's text. */
 export function parseSessionTopics(text: string | null | undefined): SessionTopicsBlock[] {

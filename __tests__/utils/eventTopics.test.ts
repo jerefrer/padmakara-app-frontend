@@ -31,6 +31,13 @@ describe('parseSessionTopics', () => {
     });
   });
 
+  it('should read a hyphenated marker', () => {
+    expect(parseSessionTopics('[Audio-tracks 001-005] Main topics: Practice')[0]).toEqual({
+      text: 'Main topics: Practice',
+      trackRange: { start: 1, end: 5 },
+    });
+  });
+
   it('should read a capitalised marker and a single track', () => {
     expect(parseSessionTopics('[Audio Tracks 008-009] Posture')[0]?.trackRange).toEqual({ start: 8, end: 9 });
     expect(parseSessionTopics('[Audio track 5] Posture')[0]?.trackRange).toEqual({ start: 5, end: 5 });
