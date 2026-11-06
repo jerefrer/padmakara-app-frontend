@@ -233,10 +233,10 @@ export default function RetreatsListScreen() {
   };
 
   const handleAttendedPress = () => {
-    const subject = t("retreats.attendedMailSubject") || "Access to retreat recordings";
+    const subject = t("retreats.attendedMailSubject") || "Access to my Personal Library";
     const body =
       t("retreats.attendedMailBody", { email: user?.email || "" }) ||
-      `Hello,\n\nI attended a retreat and would like access to its recordings.\n\nMy account email: ${user?.email || ""}\n`;
+      `Hello,\n\nI would like access to the following:\n\n\nMy account email: ${user?.email || ""}\n`;
     Linking.openURL(
       `mailto:${INFO_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
     ).catch((err) => console.error("Could not open mail app:", err));
@@ -384,7 +384,7 @@ export default function RetreatsListScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
                 {t("retreats.emptyExplanation") ||
-                  "Retreat recordings are for the participants of our retreat groups."}
+                  "This is where you'll find the recordings and texts reserved for you."}
               </Text>
               <TouchableOpacity {...getRowPressDelayProps()}
                 style={styles.attendedCard}
@@ -393,10 +393,10 @@ export default function RetreatsListScreen() {
                 accessibilityRole="link"
               >
                 <Text style={styles.attendedTitle}>
-                  {t("retreats.attendedTitle") || "Did you attend a retreat?"}
+                  {t("retreats.attendedTitle") || "Is something missing?"}
                 </Text>
                 <Text style={styles.attendedAction}>
-                  {t("retreats.attendedAction") || "Write to us and we'll add you"}
+                  {t("retreats.attendedAction") || "Write to us and we'll add it"}
                 </Text>
               </TouchableOpacity>
             </View>
