@@ -20,15 +20,13 @@ name: Local video bookmark is uploaded after sign-in
     id: video-card-990001
 - extendedWaitUntil:
     visible:
-      id: video-bookmarks
+      id: video-bookmark-add
     timeout: 30000
 - runScript:
     file: ../scripts/assert-video-seconds.js
     env:
       EXPECT_MIN: "4"
       EXPECT_MAX: "250"
-- tapOn:
-    id: video-bookmarks
 - tapOn:
     id: video-bookmark-add
 - extendedWaitUntil:
@@ -74,7 +72,7 @@ name: Local video bookmark is uploaded after sign-in
     id: video-card-990001
 - extendedWaitUntil:
     visible:
-      id: video-bookmarks
+      id: video-bookmark-add
     timeout: 30000
 - runScript:
     file: ../scripts/assert-video-bookmarks.js

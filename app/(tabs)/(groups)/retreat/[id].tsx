@@ -2100,6 +2100,8 @@ export default function RetreatDetailScreen() {
         video={activeVideo}
         eventTitle={retreat ? (getTranslatedName(retreat as any, language) || retreat.name) : undefined}
         totalVideos={retreat?.videos?.length}
+        videos={retreat?.videos}
+        onSelectVideo={watchVideo}
         cellularAcceptedRef={cellularAcceptedRef}
         initialPositionSeconds={initialVideoPosition}
         onClose={() => {

@@ -23,9 +23,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -34,6 +34,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const PHONE_MAX_SHORT_SIDE = 600;
+const PAGE_MAX_WIDTH = 960;
+const MAX_PLAYER_HEIGHT_RATIO = 0.7;
 
 const colors = {
   burgundy: { 500: '#9b1b1b' },
@@ -52,6 +56,10 @@ interface VideoPlayerProps {
    *  to decide whether to append a "Part N" suffix when the video has no
    *  title of its own. */
   totalVideos?: number;
+  /** All the videos of the event, for the "other videos" list on the page. */
+  videos?: EventVideo[];
+  /** Called when another video of the event is chosen from the page. */
+  onSelectVideo?: (video: EventVideo) => void;
   onClose: () => void;
   /** Optional callback when playback reaches the end. */
   onComplete?: () => void;
@@ -139,6 +147,8 @@ export function VideoPlayer({
   video,
   eventTitle,
   totalVideos,
+  videos,
+  onSelectVideo,
   onClose,
   onComplete,
   cellularAcceptedRef,
@@ -148,6 +158,11 @@ export function VideoPlayer({
   const { isAuthenticated } = useAuth();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
+  // A rotated phone is for watching: the page gives way to full screen. Tablets
+  // and the web have room for both, so they keep the page.
+  const isImmersive =
+    Platform.OS !== 'web' && isLandscape && Math.min(windowWidth, windowHeight) < PHONE_MAX_SHORT_SIDE;
+  const videoViewRef = useRef<VideoView>(null);
   const { t, language } = useLanguage();
   // Audio and video never play together: report video playback to the audio
   // context (which pauses the audio) and pause the video when audio starts.
@@ -206,7 +221,6 @@ export function VideoPlayer({
   const [bookmarkModalVisible, setBookmarkModalVisible] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState('');
   const [bookmarkSavedAt, setBookmarkSavedAt] = useState<number | null>(null);
-  const [bookmarkListVisible, setBookmarkListVisible] = useState(false);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const lastSavedAtRef = useRef<number>(0);
   const completedRef = useRef<boolean>(false);
@@ -564,17 +578,6 @@ export function VideoPlayer({
     };
   }, [video]);
 
-  const openBookmarkList = async () => {
-    if (!video) return;
-    await loadBookmarks(video.id);
-    try {
-      player?.pause();
-    } catch {
-      // ignore
-    }
-    setBookmarkListVisible(true);
-  };
-
   const seekToBookmark = (bookmark: Bookmark) => {
     if (!player) return;
     try {
@@ -583,7 +586,6 @@ export function VideoPlayer({
     } catch {
       // ignore
     }
-    setBookmarkListVisible(false);
   };
 
   const deleteBookmark = async (bookmarkId: string) => {
@@ -695,31 +697,52 @@ export function VideoPlayer({
   };
 
   // Save progress one last time when closing (so quick taps don't lose state).
-  const handleClose = () => {
-    if (video) {
-      const currentTime = isWeb
-        ? (webPlayerRef.current?.getCurrentTime() ?? 0)
-        : (player.currentTime ?? 0);
-      const duration = isWeb
-        ? (webPlayerRef.current?.getDuration() || video.durationSeconds || 0)
-        : (player.duration ?? video.durationSeconds ?? 0);
-      if (currentTime > 0 && duration > 0) {
-        saveVideoProgress(
-          video.id,
-          currentTime,
-          duration,
-          currentTime >= duration * COMPLETE_THRESHOLD_RATIO,
-        );
-      }
-      try {
-        if (isWeb) webPlayerRef.current?.pause();
-        else player.pause();
-      } catch {
-        // Ignore — player may already be torn down.
-      }
+  const saveProgressAndPause = () => {
+    if (!video) return;
+    const currentTime = isWeb
+      ? (webPlayerRef.current?.getCurrentTime() ?? 0)
+      : (player.currentTime ?? 0);
+    const duration = isWeb
+      ? (webPlayerRef.current?.getDuration() || video.durationSeconds || 0)
+      : (player.duration ?? video.durationSeconds ?? 0);
+    if (currentTime > 0 && duration > 0) {
+      saveVideoProgress(
+        video.id,
+        currentTime,
+        duration,
+        currentTime >= duration * COMPLETE_THRESHOLD_RATIO,
+      );
     }
+    try {
+      if (isWeb) webPlayerRef.current?.pause();
+      else player.pause();
+    } catch {
+      // Ignore — player may already be torn down.
+    }
+  };
+
+  const handleClose = () => {
+    saveProgressAndPause();
     onClose();
   };
+
+  const handleSelectVideo = (next: EventVideo) => {
+    saveProgressAndPause();
+    onSelectVideo?.(next);
+  };
+
+  // Rotating a phone to landscape enters full screen. Only on the rotation
+  // itself: leaving full screen while still in landscape must not re-enter it.
+  useEffect(() => {
+    if (!video || !isImmersive) return;
+    videoViewRef.current?.enterFullscreen?.()?.catch?.(() => undefined);
+  }, [isImmersive]);
+
+  const otherVideos = (videos ?? []).filter((v) => v.id !== video?.id);
+  const playerHeight = Math.min(
+    (Math.min(windowWidth, PAGE_MAX_WIDTH) * 9) / 16,
+    windowHeight * MAX_PLAYER_HEIGHT_RATIO,
+  );
 
   return (
     <Modal
@@ -729,140 +752,7 @@ export function VideoPlayer({
       supportedOrientations={['portrait', 'landscape']}
       statusBarTranslucent
     >
-      <View
-        testID="video-player-root"
-        style={[
-          styles.root,
-          // Android draws edge to edge: without this the navigation bar covers the player's own controls.
-          Platform.OS === 'android' && { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
-        ]}
-      >
-        <View style={[styles.header, { paddingTop: (isLandscape ? 0 : insets.top) + 8 }]}>
-          <TouchableOpacity onPress={handleClose} style={styles.iconButton} testID="video-close" accessibilityLabel={t('common.close') || 'Close'}>
-            <Ionicons name="chevron-down" size={28} color={colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={1}>
-            {headerTitle}
-          </Text>
-          {Platform.OS !== 'web' && (
-            <TouchableOpacity
-              onPress={openBookmarkList}
-              style={styles.iconButton}
-              testID="video-bookmarks"
-              accessibilityLabel={t('video.bookmarks') || 'Bookmarks'}
-              disabled={!video || !hlsUrl}
-            >
-              <Ionicons
-                name={bookmarks.length > 0 ? 'bookmarks' : 'bookmarks-outline'}
-                size={22}
-                color={colors.white}
-              />
-              {bookmarks.length > 0 && (
-                <Text style={styles.bookmarkBadge}>{bookmarks.length}</Text>
-              )}
-            </TouchableOpacity>
-          )}
-          {Platform.OS === 'web' ? (
-            <View style={styles.iconButton} />
-          ) : isLocal ? (
-            <TouchableOpacity
-              onPress={handleDeleteLocal}
-              style={styles.iconButton}
-              accessibilityLabel={t('video.removeOffline') || 'Remove offline copy'}
-            >
-              <Ionicons name="checkmark-circle" size={26} color={colors.white} />
-            </TouchableOpacity>
-          ) : downloadStatus.state === 'downloading' ? (
-            <View style={styles.iconButton}>
-              <Text style={styles.downloadProgressText}>
-                {Math.round(downloadStatus.progress * 100)}%
-              </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handleDownload}
-              style={styles.iconButton}
-              accessibilityLabel={t('video.saveOffline') || 'Save for offline'}
-              disabled={!video}
-            >
-              <Ionicons name="cloud-download-outline" size={26} color={colors.white} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Bookmarks list modal */}
-        <Modal
-          visible={bookmarkListVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setBookmarkListVisible(false)}
-          supportedOrientations={['portrait', 'landscape']}
-        >
-          <View style={styles.bookmarkListOverlay}>
-            <View style={styles.bookmarkListSheet}>
-              <View style={styles.bookmarkListHeader}>
-                <Text style={styles.bookmarkListTitle}>
-                  {t('video.bookmarks') || 'Bookmarks'}
-                </Text>
-                <TouchableOpacity onPress={() => setBookmarkListVisible(false)} style={styles.iconButton}>
-                  <Ionicons name="close" size={24} color={colors.gray[800]} />
-                </TouchableOpacity>
-              </View>
-              {bookmarks.length === 0 ? (
-                <View style={styles.bookmarkEmpty}>
-                  <Ionicons name="bookmarks-outline" size={48} color={colors.gray[400]} />
-                  <Text style={styles.bookmarkEmptyText}>
-                    {t('video.bookmarksEmpty') || 'No bookmarks yet'}
-                  </Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={bookmarks}
-                  keyExtractor={(item) => item.id}
-                  contentContainerStyle={{ paddingBottom: 16 }}
-                  renderItem={({ item }) => (
-                    <View style={styles.bookmarkListRow}>
-                      <TouchableOpacity
-                        testID={`video-bookmark-row-${item.id}`}
-                        style={styles.bookmarkListPlay}
-                        onPress={() => seekToBookmark(item)}
-                      >
-                        <Ionicons name="play-circle-outline" size={28} color={colors.burgundy[500]} />
-                        <View style={styles.bookmarkListText}>
-                          <Text style={styles.bookmarkListTime}>{formatTime(item.position)}</Text>
-                          <Text style={styles.bookmarkListNote} numberOfLines={2}>
-                            {item.note}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => deleteBookmark(item.id)}
-                        style={styles.iconButton}
-                        accessibilityLabel={t('common.remove') || 'Remove'}
-                      >
-                        <Ionicons name="trash-outline" size={20} color={colors.gray[600]} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                />
-              )}
-              <TouchableOpacity
-                testID="video-bookmark-add"
-                style={styles.bookmarkListAdd}
-                onPress={() => {
-                  setBookmarkListVisible(false);
-                  openBookmarkModal();
-                }}
-              >
-                <Ionicons name="add-circle-outline" size={20} color={colors.white} />
-                <Text style={styles.bookmarkListAddText}>
-                  {t('video.addBookmarkAtCurrent') || 'Add bookmark at current time'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
+      <View testID="video-player-root" style={[styles.root, isImmersive && styles.rootImmersive]}>
         {/* Add-bookmark modal — paused video stays visible behind it */}
         <Modal
           visible={bookmarkModalVisible}
@@ -908,7 +798,8 @@ export function VideoPlayer({
           </View>
         </Modal>
 
-        <View style={styles.videoContainer}>
+        <View style={[styles.playerBand, { paddingTop: isImmersive ? 0 : insets.top }, isImmersive && styles.rootImmersive]}>
+        <View style={[styles.videoContainer, isImmersive ? styles.rootImmersive : { height: playerHeight }]}>
           {errorMsg ? (
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle-outline" size={48} color={colors.gray[400]} />
@@ -934,9 +825,10 @@ export function VideoPlayer({
               )
             ) : (
               <VideoView
+                ref={videoViewRef}
                 style={styles.video}
                 player={player}
-                fullscreenOptions={{ enable: true }}
+                fullscreenOptions={{ enable: true, orientation: 'landscape', autoExitOnRotate: true }}
                 allowsPictureInPicture={Platform.OS !== 'web'}
                 contentFit="contain"
                 nativeControls
@@ -954,7 +846,117 @@ export function VideoPlayer({
               <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
             </View>
           )}
+          <TouchableOpacity
+            onPress={handleClose}
+            style={styles.closeButton}
+            testID="video-close"
+            accessibilityLabel={t('common.close') || 'Close'}
+          >
+            <Ionicons name="chevron-down" size={28} color={colors.white} />
+          </TouchableOpacity>
         </View>
+        </View>
+
+        {!isImmersive && (
+          <ScrollView
+            testID="video-page"
+            style={styles.page}
+            contentContainerStyle={[styles.pageContent, { paddingBottom: insets.bottom + 24 }]}
+          >
+            <Text style={styles.title}>{headerTitle}</Text>
+            {video?.durationSeconds ? (
+              <Text style={styles.meta}>{formatTime(video.durationSeconds)}</Text>
+            ) : null}
+
+            {!isWeb && (
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  testID="video-bookmark-add"
+                  style={styles.action}
+                  onPress={openBookmarkModal}
+                  disabled={!video || !hlsUrl}
+                >
+                  <Ionicons name="bookmark-outline" size={20} color={colors.gray[800]} />
+                  <Text style={styles.actionText}>{t('video.bookmarkMoment') || 'Bookmark this moment'}</Text>
+                </TouchableOpacity>
+                {isLocal ? (
+                  <TouchableOpacity testID="video-remove-offline" style={styles.action} onPress={handleDeleteLocal}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.burgundy[500]} />
+                    <Text style={styles.actionText}>{t('video.removeOffline') || 'Remove offline copy'}</Text>
+                  </TouchableOpacity>
+                ) : downloadStatus.state === 'downloading' ? (
+                  <View style={styles.action}>
+                    <Text style={styles.actionText}>{Math.round(downloadStatus.progress * 100)}%</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    testID="video-save-offline"
+                    style={styles.action}
+                    onPress={handleDownload}
+                    disabled={!video}
+                  >
+                    <Ionicons name="cloud-download-outline" size={20} color={colors.gray[800]} />
+                    <Text style={styles.actionText}>{t('video.saveOffline') || 'Save for offline'}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {!isWeb && bookmarks.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>{t('video.yourBookmarks') || 'Your bookmarks'}</Text>
+                {bookmarks.map((item) => (
+                  <View key={item.id} style={styles.bookmarkListRow}>
+                    <TouchableOpacity
+                      testID={`video-bookmark-row-${item.id}`}
+                      style={styles.bookmarkListPlay}
+                      onPress={() => seekToBookmark(item)}
+                    >
+                      <Ionicons name="play-circle-outline" size={28} color={colors.burgundy[500]} />
+                      <View style={styles.bookmarkListText}>
+                        <Text style={styles.bookmarkListTime}>{formatTime(item.position)}</Text>
+                        {item.note ? (
+                          <Text style={styles.bookmarkListNote} numberOfLines={2}>
+                            {item.note}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => deleteBookmark(item.id)}
+                      style={styles.iconButton}
+                      accessibilityLabel={t('common.remove') || 'Remove'}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={colors.gray[600]} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {otherVideos.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>{t('video.otherVideos') || 'Other videos of this event'}</Text>
+                {otherVideos.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    testID={`video-other-${item.id}`}
+                    style={styles.otherRow}
+                    onPress={() => handleSelectVideo(item)}
+                  >
+                    <Ionicons name="play-circle-outline" size={28} color={colors.burgundy[500]} />
+                    <Text style={styles.otherTitle} numberOfLines={2}>
+                      {getVideoTitle(item, { language, t, totalVideos })}
+                    </Text>
+                    {item.durationSeconds ? (
+                      <Text style={styles.meta}>{formatTime(item.durationSeconds)}</Text>
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </ScrollView>
+        )}
       </View>
     </Modal>
   );
@@ -963,14 +965,82 @@ export function VideoPlayer({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: colors.white,
+  },
+  rootImmersive: {
+    flex: 1,
     backgroundColor: colors.black,
   },
-  header: {
+  playerBand: {
+    backgroundColor: colors.black,
+    alignItems: 'stretch',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  page: {
+    flex: 1,
+  },
+  pageContent: {
+    width: '100%',
+    maxWidth: PAGE_MAX_WIDTH,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  meta: {
+    fontSize: 13,
+    color: colors.gray[600],
+    marginTop: 4,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 24,
+    marginTop: 10,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.burgundy[500],
+  },
+  action: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingBottom: 12,
-    backgroundColor: colors.black,
+    gap: 8,
+    minHeight: 44,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.gray[800],
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.gray[600],
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  otherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 52,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray[400],
+  },
+  otherTitle: {
+    flex: 1,
+    fontFamily: 'EBGaramond_400Regular',
+    fontSize: 16,
+    color: colors.gray[800],
   },
   bufferingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -983,20 +1053,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  downloadProgressText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   title: {
-    flex: 1,
-    color: colors.white,
-    fontSize: 16,
-    textAlign: 'center',
-    paddingHorizontal: 8,
+    fontFamily: 'EBGaramond_600SemiBold',
+    fontSize: 22,
+    lineHeight: 27,
+    color: colors.burgundy[500],
   },
   videoContainer: {
-    flex: 1,
     backgroundColor: colors.black,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1086,57 +1149,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
   },
-  bookmarkBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.burgundy[500],
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
-    paddingHorizontal: 4,
-    overflow: 'hidden',
-  },
-  bookmarkListOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  bookmarkListSheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    maxHeight: '70%',
-    paddingBottom: 16,
-  },
-  bookmarkListHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  bookmarkListTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.gray[800],
-  },
-  bookmarkEmpty: {
-    paddingVertical: 40,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    gap: 8,
-  },
-  bookmarkEmptyText: {
-    fontSize: 14,
-    color: colors.gray[400],
-  },
   bookmarkListRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1163,21 +1175,6 @@ const styles = StyleSheet.create({
   bookmarkListNote: {
     fontSize: 14,
     color: colors.gray[800],
-  },
-  bookmarkListAdd: {
-    margin: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.burgundy[500],
-    borderRadius: 10,
-  },
-  bookmarkListAddText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '600',
   },
 });
 

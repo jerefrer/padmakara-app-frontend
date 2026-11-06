@@ -45,15 +45,13 @@ name: Bookmarks round trip
     id: video-card-990001
 - extendedWaitUntil:
     visible:
-      id: video-bookmarks
+      id: video-bookmark-add
     timeout: 30000
 - runScript:
     file: ../scripts/assert-video-seconds.js
     env:
       EXPECT_MIN: "5"
       EXPECT_MAX: "250"
-- tapOn:
-    id: video-bookmarks
 - tapOn:
     id: video-bookmark-add
 - extendedWaitUntil:
@@ -87,7 +85,7 @@ name: Bookmarks round trip
     id: video-card-990001
 - extendedWaitUntil:
     visible:
-      id: video-bookmarks
+      id: video-bookmark-add
     timeout: 30000
 - runScript:
     file: ../scripts/assert-video-seconds.js
@@ -120,7 +118,7 @@ name: Bookmarks round trip
     id: "video-bookmark-.*"
 - extendedWaitUntil:
     visible:
-      id: video-bookmarks
+      id: video-bookmark-add
     timeout: 30000
 - runScript:
     file: ../scripts/parse-position.js
