@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml:2:13-83
+INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml:2:13-83
+	package
+		INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml
+	xmlns:android
+		ADDED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml:2:23-81
+uses-sdk
+INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml reason: use-sdk injection requested
+INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml
+INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml
+	android:targetSdkVersion
+		INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml
+	android:minSdkVersion
+		INJECTED from /Users/jeremy/Documents/Programming/padmakara-backend-frontend/padmakara-app-wt-sdk58/modules/device-rotation/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10082816377227497864.xml

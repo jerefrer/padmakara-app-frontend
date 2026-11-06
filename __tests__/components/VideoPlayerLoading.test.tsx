@@ -19,6 +19,7 @@ jest.mock('expo-video', () => ({
   useVideoPlayer: () => mockPlayer,
   VideoView: () => null,
 }));
+jest.mock('@/modules/device-rotation', () => ({ subscribeToDeviceRotation: () => () => undefined }));
 jest.mock('expo', () => ({ useEventListener: jest.fn() }));
 jest.mock('expo-network', () => ({
   getNetworkStateAsync: jest.fn(() => Promise.resolve({ type: 'WIFI' })),

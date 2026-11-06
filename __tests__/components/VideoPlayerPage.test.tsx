@@ -15,6 +15,14 @@ const mockPlayer: Record<string, any> = {
 const mockSetVideoPlaying = jest.fn();
 let mockAudioPlaying = false;
 
+let mockOnRotation: ((rotation: string) => void) | null = null;
+const mockUnsubscribe = jest.fn();
+jest.mock('@/modules/device-rotation', () => ({
+  subscribeToDeviceRotation: (listener: (rotation: string) => void) => {
+    mockOnRotation = listener;
+    return mockUnsubscribe;
+  },
+}));
 const mockEnterFullscreen = jest.fn();
 jest.mock('expo-video', () => {
   const { forwardRef, useImperativeHandle } = require('react');
@@ -81,7 +89,10 @@ const video = { id: 7, titleEn: 'Part one', durationSeconds: 600 } as any;
 const other = { id: 8, titleEn: 'Part two', durationSeconds: 300 } as any;
 
 describe('VideoPlayer — the video page', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    rotate(390, 844);
+  });
   afterEach(() => jest.restoreAllMocks());
 
   const open = async (extra: Record<string, unknown> = {}) => {
@@ -126,6 +137,65 @@ describe('VideoPlayer — the video page', () => {
     rotate(844, 390);
     await waitFor(() => expect(mockEnterFullscreen).toHaveBeenCalledTimes(1));
     expect(screen.queryByTestId('video-page')).toBeNull();
+  });
+
+  it('should go full screen once the video is ready when rotated while it loads', async () => {
+    rotate(844, 390);
+    render(<VideoPlayer video={video} onClose={() => {}} />);
+    await waitFor(() => expect(mockEnterFullscreen).toHaveBeenCalledTimes(1));
+  });
+
+  describe('on an Android phone', () => {
+    const originalOS = ReactNative.Platform.OS;
+    const ScreenOrientation = require('expo-screen-orientation');
+    beforeEach(() => {
+      ReactNative.Platform.OS = 'android';
+      mockOnRotation = null;
+    });
+    afterEach(() => {
+      ReactNative.Platform.OS = originalOS;
+    });
+
+    it('should keep the screen in portrait and open full screen from the way the phone is held', async () => {
+      const screen = await open();
+      expect(ScreenOrientation.unlockAsync).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockOnRotation).not.toBeNull());
+      act(() => mockOnRotation!('landscape'));
+      expect(mockEnterFullscreen).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('video-page')).toBeTruthy();
+    });
+
+    it('should wait for the phone to return to portrait before opening full screen again', async () => {
+      await open();
+      await waitFor(() => expect(mockOnRotation).not.toBeNull());
+      act(() => mockOnRotation!('landscape'));
+      act(() => mockOnRotation!('landscape'));
+      expect(mockEnterFullscreen).toHaveBeenCalledTimes(1);
+      act(() => mockOnRotation!('portrait'));
+      act(() => mockOnRotation!('landscape'));
+      expect(mockEnterFullscreen).toHaveBeenCalledTimes(2);
+    });
+
+    it('should stop listening when the player closes', async () => {
+      const screen = await open();
+      await waitFor(() => expect(mockOnRotation).not.toBeNull());
+      screen.rerender(<VideoPlayer video={null} onClose={() => {}} />);
+      expect(mockUnsubscribe).toHaveBeenCalled();
+    });
+  });
+
+  describe('on an Android tablet', () => {
+    it('should rotate freely and keep the page', async () => {
+      const originalOS = ReactNative.Platform.OS;
+      ReactNative.Platform.OS = 'android';
+      rotate(800, 1200);
+      mockOnRotation = null;
+      const ScreenOrientation = require('expo-screen-orientation');
+      await open();
+      await waitFor(() => expect(ScreenOrientation.unlockAsync).toHaveBeenCalled());
+      expect(mockOnRotation).toBeNull();
+      ReactNative.Platform.OS = originalOS;
+    });
   });
 
   it('should keep the page on a rotated tablet', async () => {

@@ -19,6 +19,7 @@ import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { subscribeToDeviceRotation } from '@/modules/device-rotation';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -38,6 +39,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const PHONE_MAX_SHORT_SIDE = 600;
 const PAGE_MAX_WIDTH = 960;
 const MAX_PLAYER_HEIGHT_RATIO = 0.7;
+const FULLSCREEN_AFTER_ROTATION_MS = 300;
 
 const colors = {
   burgundy: { 500: '#9b1b1b' },
@@ -160,8 +162,11 @@ export function VideoPlayer({
   const isLandscape = windowWidth > windowHeight;
   // A rotated phone is for watching: the page gives way to full screen. Tablets
   // and the web have room for both, so they keep the page.
-  const isImmersive =
-    Platform.OS !== 'web' && isLandscape && Math.min(windowWidth, windowHeight) < PHONE_MAX_SHORT_SIDE;
+  const isPhone = Platform.OS !== 'web' && Math.min(windowWidth, windowHeight) < PHONE_MAX_SHORT_SIDE;
+  const isImmersive = isPhone && isLandscape;
+  // Android phones stay in portrait and read how the phone is held instead:
+  // rotating the screen first would show the navigation bar on its side.
+  const followsPhysicalRotation = isPhone && Platform.OS === 'android';
   const videoViewRef = useRef<VideoView>(null);
   const { t, language } = useLanguage();
   // Audio and video never play together: report video playback to the audio
@@ -569,14 +574,14 @@ export function VideoPlayer({
   // locked to portrait globally (app.json), so we unlock here and restore
   // portrait on close. Skipped on web where ScreenOrientation is a no-op.
   useEffect(() => {
-    if (!video || Platform.OS === 'web') return;
+    if (!video || Platform.OS === 'web' || followsPhysicalRotation) return;
     ScreenOrientation.unlockAsync().catch(() => undefined);
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(
         () => undefined,
       );
     };
-  }, [video]);
+  }, [video, followsPhysicalRotation]);
 
   const seekToBookmark = (bookmark: Bookmark) => {
     if (!player) return;
@@ -731,12 +736,38 @@ export function VideoPlayer({
     onSelectVideo?.(next);
   };
 
-  // Rotating a phone to landscape enters full screen. Only on the rotation
-  // itself: leaving full screen while still in landscape must not re-enter it.
+  // Rotating a phone to landscape enters full screen, once per rotation: leaving
+  // full screen while still in landscape must not re-enter it. The short wait lets
+  // the rotation finish, because Android can drop an activity started during it.
+  const enteredFullscreenRef = useRef(false);
+  const hasPlayableVideo = !!video && !!hlsUrl;
   useEffect(() => {
-    if (!video || !isImmersive) return;
-    videoViewRef.current?.enterFullscreen?.()?.catch?.(() => undefined);
-  }, [isImmersive]);
+    if (!isImmersive) {
+      enteredFullscreenRef.current = false;
+      return;
+    }
+    if (!hasPlayableVideo || enteredFullscreenRef.current) return;
+    const timer = setTimeout(() => {
+      enteredFullscreenRef.current = true;
+      videoViewRef.current?.enterFullscreen?.()?.catch?.(() => undefined);
+    }, FULLSCREEN_AFTER_ROTATION_MS);
+    return () => clearTimeout(timer);
+  }, [isImmersive, hasPlayableVideo]);
+
+  useEffect(() => {
+    if (!followsPhysicalRotation || !hasPlayableVideo) return;
+    // Once per turn: leaving full screen while still holding the phone sideways
+    // must not reopen it. It re-arms when the phone is back upright.
+    let armed = true;
+    return subscribeToDeviceRotation((rotation) => {
+      if (rotation === 'portrait') {
+        armed = true;
+      } else if (armed) {
+        armed = false;
+        videoViewRef.current?.enterFullscreen?.()?.catch?.(() => undefined);
+      }
+    });
+  }, [followsPhysicalRotation, hasPlayableVideo]);
 
   const otherVideos = (videos ?? []).filter((v) => v.id !== video?.id);
   const playerHeight = Math.min(
@@ -752,7 +783,13 @@ export function VideoPlayer({
       supportedOrientations={['portrait', 'landscape']}
       statusBarTranslucent
     >
-      <View testID="video-player-root" style={[styles.root, isImmersive && styles.rootImmersive]}>
+      <View
+        testID="video-player-root"
+        style={[
+          styles.root,
+          isImmersive && styles.rootImmersive,
+        ]}
+      >
         {/* Add-bookmark modal — paused video stays visible behind it */}
         <Modal
           visible={bookmarkModalVisible}
