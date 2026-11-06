@@ -36,6 +36,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/components/ui/BackButton', () => ({ BackButton: () => null }));
+jest.mock('@/components/NowPlayingBadge', () => ({ NowPlayingBadge: () => null }));
 jest.mock('@/services/retreatService', () => ({
   __esModule: true,
   default: {
@@ -59,6 +60,8 @@ const teaching = {
   name: 'Heart Sutra',
   name_translations: { en: 'Heart Sutra', pt: 'Sutra do Coração' },
   startDate: '2026-04-12',
+  teachers: [{ name: 'Jigme Khyentse Rinpoche' }],
+  sessions: [{ id: '1', tracks: [] }, { id: '2', tracks: [] }],
 };
 const data = (groups: any[]) => ({
   success: true,
@@ -89,6 +92,16 @@ describe('Retreats screen teachings section', () => {
     expect(await screen.findByText('Teachings')).toBeTruthy();
     expect(screen.getByText('Heart Sutra')).toBeTruthy();
     expect(screen.getByText('Mandala')).toBeTruthy();
+  });
+
+  it('should show a teaching with its teacher, date and session count, like the other lists', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    mockMine.mockResolvedValue({ success: true, data: [teaching] });
+
+    const screen = render(<RetreatsListScreen />);
+
+    expect(await screen.findByText('Jigme Khyentse Rinpoche')).toBeTruthy();
+    expect(screen.getByText('April 12, 2026 · 2 sessions')).toBeTruthy();
   });
 
   it('should open the event when a teaching is tapped', async () => {
@@ -141,6 +154,31 @@ describe('Retreats screen teachings section', () => {
 });
 
 describe('Retreats screen header', () => {
+  it('should head the groups with a Retreats title', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    const screen = render(<RetreatsListScreen />);
+
+    expect(await screen.findByText(en.retreats.retreatsSection)).toBeTruthy();
+  });
+
+  it('should leave the Retreats title out when the user has no groups', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([]));
+    mockMine.mockResolvedValue({ success: true, data: [teaching] });
+    const screen = render(<RetreatsListScreen />);
+
+    await screen.findByText('Heart Sutra');
+    expect(screen.queryByText(en.retreats.retreatsSection)).toBeNull();
+  });
+
+  it('should not list teacher names under the page title', async () => {
+    const withTeacher = { ...group, gatherings: [{ id: '5', teachers: [{ name: 'Jigme Khyentse Rinpoche' }] }] };
+    mockGetUserRetreats.mockResolvedValue(data([withTeacher]));
+    const screen = render(<RetreatsListScreen />);
+
+    await screen.findByText('Mandala');
+    expect(screen.queryByText('Jigme Khyentse Rinpoche')).toBeNull();
+  });
+
   it('should not name an organizer, since it can hold events organized by others', async () => {
     mockGetUserRetreats.mockResolvedValue(data([group]));
     const screen = render(<RetreatsListScreen />);

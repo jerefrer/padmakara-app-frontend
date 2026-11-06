@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
+import { EventRow } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -130,6 +131,25 @@ function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
       </View>
     </TouchableOpacity>
   );
+}
+
+// ── Teaching Row ─────────────────────────────────────────────────────────────
+
+/** Same line as the Latest list of Teachings & Talks: date, then session count. */
+function teachingMeta(teaching: Gathering, language: string, t: GroupRowProps["t"]): string {
+  const date = teaching.startDate
+    ? new Date(teaching.startDate).toLocaleDateString(language === "pt" ? "pt-PT" : "en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+  const sessionCount = teaching.sessions?.length || 0;
+  const sessionLabel =
+    sessionCount === 1
+      ? t("events.sessionLabel") || "session"
+      : t("events.sessionsLabel") || "sessions";
+  return date + (sessionCount > 0 ? ` · ${sessionCount} ${sessionLabel}` : "");
 }
 
 // ── Main Screen ─────────────────────────────────────────────────────────────
@@ -291,18 +311,6 @@ export default function RetreatsListScreen() {
 
   const groups = retreatData?.retreat_groups || [];
 
-  // Get teachers from all gatherings for the subtitle
-  const allTeachers = new Set<string>();
-  for (const group of groups) {
-    for (const gathering of group.gatherings || []) {
-      for (const teacher of gathering.teachers || []) {
-        const name = teacher.name || (teacher as any).nameEn || "";
-        if (name) allTeachers.add(name);
-      }
-    }
-  }
-  const teachersList = Array.from(allTeachers).slice(0, 3).join(", ");
-
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -328,27 +336,27 @@ export default function RetreatsListScreen() {
             </Text>
           </View>
 
-          {/* Subtitle info */}
-          {teachersList ? (
-            <Text style={[styles.pageSubtitle, !isDesktop && styles.indented]}>{teachersList}</Text>
-          ) : null}
-
-          {/* Red rule opens the list; thin dark lines separate the rows. */}
-          {!isDesktop && <SectionRule />}
-
-          {/* Groups list */}
-          <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
-            {groups.map((group) => (
-              <GroupRow
-                key={group.id}
-                group={group}
-                onPress={() => handleGroupPress(group)}
-                language={language}
-                t={t}
-                isDesktop={isDesktop}
-              />
-            ))}
-          </View>
+          {/* Red rule opens each list; thin dark lines separate the rows. */}
+          {groups.length > 0 && (
+            <View style={styles.retreatsSection}>
+              <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
+                {t("retreats.retreatsSection") || "Retreats"}
+              </Text>
+              {!isDesktop && <SectionRule />}
+              <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
+                {groups.map((group) => (
+                  <GroupRow
+                    key={group.id}
+                    group={group}
+                    onPress={() => handleGroupPress(group)}
+                    language={language}
+                    t={t}
+                    isDesktop={isDesktop}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
 
           {teachings.length > 0 && (
             <View style={styles.teachingsSection}>
@@ -356,20 +364,17 @@ export default function RetreatsListScreen() {
                 {t("retreats.teachings") || "Teachings"}
               </Text>
               {!isDesktop && <SectionRule />}
-              <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
+              <View style={isDesktop && styles.groupsListDesktop}>
                 {teachings.map((teaching) => (
-                  <TouchableOpacity {...getRowPressDelayProps()}
+                  <EventRow
                     key={teaching.id}
+                    event={teaching}
+                    title={getTranslatedName(teaching, language as "en" | "pt")}
+                    meta={teachingMeta(teaching, language, t)}
                     onPress={() => handleTeachingPress(teaching)}
-                    style={[styles.groupRow, !isDesktop && styles.groupRowIndented]}
+                    isDesktop={isDesktop}
                     testID={`teaching-card-${teaching.id}`}
-                  >
-                    <View style={styles.groupInfo}>
-                      <Text style={styles.groupName} numberOfLines={2}>
-                        {getTranslatedName(teaching, language as "en" | "pt")}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                  />
                 ))}
               </View>
             </View>
@@ -461,11 +466,6 @@ const styles = StyleSheet.create({
     fontVariant: ["small-caps"],
     letterSpacing: 0.5,
   },
-  pageSubtitle: {
-    fontSize: 15,
-    color: colors.gray[700],
-    marginBottom: 2,
-  },
 
   // Groups list
   groupsListDesktop: {
@@ -506,7 +506,10 @@ const styles = StyleSheet.create({
     color: colors.gray[500],
   },
 
-  // Teachings section
+  // Sections
+  retreatsSection: {
+    marginTop: 16,
+  },
   teachingsSection: {
     marginTop: 32,
   },
