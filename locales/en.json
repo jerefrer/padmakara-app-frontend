@@ -338,8 +338,8 @@
   "retreats": {
     "myRetreats": "My Retreats",
     "connectionErrorMessage": "Please check your connection and try again.",
-    "retreatsSection": "Retreats",
-    "teachings": "Teachings",
+    "retreatsSection": "Your Retreats",
+    "teachings": "Your Teachings and Talks",
     "emptyExplanation": "Retreat recordings are for the participants of our retreat groups.",
     "attendedTitle": "Did you attend a retreat?",
     "attendedAction": "Write to us and we'll add you",

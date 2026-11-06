@@ -340,7 +340,7 @@ export default function RetreatsListScreen() {
           {groups.length > 0 && (
             <View style={styles.retreatsSection}>
               <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
-                {t("retreats.retreatsSection") || "Retreats"}
+                {t("retreats.retreatsSection") || "Your Retreats"}
               </Text>
               {!isDesktop && <SectionRule />}
               <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
@@ -361,7 +361,7 @@ export default function RetreatsListScreen() {
           {teachings.length > 0 && (
             <View style={styles.teachingsSection}>
               <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
-                {t("retreats.teachings") || "Teachings"}
+                {t("retreats.teachings") || "Your Teachings and Talks"}
               </Text>
               {!isDesktop && <SectionRule />}
               <View style={isDesktop && styles.groupsListDesktop}>

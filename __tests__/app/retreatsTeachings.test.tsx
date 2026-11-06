@@ -89,7 +89,7 @@ describe('Retreats screen teachings section', () => {
 
     const screen = render(<RetreatsListScreen />);
 
-    expect(await screen.findByText('Teachings')).toBeTruthy();
+    expect(await screen.findByText(en.retreats.teachings)).toBeTruthy();
     expect(screen.getByText('Heart Sutra')).toBeTruthy();
     expect(screen.getByText('Mandala')).toBeTruthy();
   });
@@ -120,7 +120,7 @@ describe('Retreats screen teachings section', () => {
     const screen = render(<RetreatsListScreen />);
     await screen.findByText('Mandala');
 
-    expect(screen.queryByText('Teachings')).toBeNull();
+    expect(screen.queryByText(en.retreats.teachings)).toBeNull();
   });
 
   it('should still show the groups when loading teachings fails', async () => {
@@ -130,7 +130,7 @@ describe('Retreats screen teachings section', () => {
     const screen = render(<RetreatsListScreen />);
 
     expect(await screen.findByText('Mandala')).toBeTruthy();
-    expect(screen.queryByText('Teachings')).toBeNull();
+    expect(screen.queryByText(en.retreats.teachings)).toBeNull();
   });
 
   it('should still show the groups when the teachings call reports a failure', async () => {
