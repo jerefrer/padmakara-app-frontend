@@ -76,6 +76,8 @@ interface EventRowProps {
   /** Desktop columns have their own padding: no gutter, no right inset. */
   isDesktop?: boolean;
   testID?: string;
+  /** Title size override, for screens whose neighbouring rows use another size. */
+  titleFontSize?: number;
 }
 
 /**
@@ -84,7 +86,7 @@ interface EventRowProps {
  * dark separator starts at the left edge and stops at the right inset (see
  * constants/layout.ts).
  */
-export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID }: EventRowProps) {
+export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID, titleFontSize }: EventRowProps) {
   const teacherNames =
     event.teachers?.map((t: any) => t.name || t.nameEn || "").filter(Boolean).join(", ") || "";
   const teacher = event.teachers?.[0];
@@ -107,7 +109,7 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
       />
       <View style={styles.info}>
         <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={2}>
+          <Text style={[styles.title, titleFontSize !== undefined && { fontSize: titleFontSize }]} numberOfLines={2}>
             {title}
           </Text>
           {event.status === "draft" && <DraftBadge />}

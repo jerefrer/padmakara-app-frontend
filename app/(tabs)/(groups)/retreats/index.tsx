@@ -28,6 +28,11 @@ import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER
 import { SectionRule } from '@/components/ui/SectionRule';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
+// Same width as the square teaching thumbnails (EventThumb), so both lists align.
+const AVATAR_SIZE = 80;
+// Teaching titles use the retreat-group name size on this screen.
+const GROUP_NAME_FONT_SIZE = 17;
+
 const INFO_EMAIL = "info@padmakara.pt";
 
 const colors = {
@@ -109,10 +114,11 @@ function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
             source={groupImage}
             style={styles.avatar}
             contentFit="cover"
+            testID={`group-avatar-${group.id}`}
           />
         ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Ionicons name="leaf-outline" size={20} color={colors.gray[400]} />
+          <View style={[styles.avatar, styles.avatarPlaceholder]} testID={`group-avatar-${group.id}`}>
+            <Ionicons name="leaf-outline" size={28} color={colors.gray[400]} />
           </View>
         )}
       </View>
@@ -373,6 +379,7 @@ export default function RetreatsListScreen() {
                     meta={teachingMeta(teaching, language, t)}
                     onPress={() => handleTeachingPress(teaching)}
                     isDesktop={isDesktop}
+                    titleFontSize={GROUP_NAME_FONT_SIZE}
                     testID={`teaching-card-${teaching.id}`}
                   />
                 ))}
@@ -483,9 +490,9 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarPlaceholder: {
     backgroundColor: "#f0f0f0",
@@ -496,7 +503,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupName: {
-    fontSize: 17,
+    fontSize: GROUP_NAME_FONT_SIZE,
     fontFamily: "EBGaramond_500Medium",
     color: colors.gray[800],
     marginBottom: 2,

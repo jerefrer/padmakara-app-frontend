@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Platform, Text } from 'react-native';
+import { Linking, Platform, StyleSheet, Text } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import RetreatsListScreen from '@/app/(tabs)/(groups)/retreats/index';
@@ -34,7 +34,9 @@ jest.mock('@/hooks/useDesktopLayout', () => ({ useDesktopLayout: () => ({ isDesk
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
-jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('expo-image', () => ({
+  Image: ({ style, testID }: any) => require('react').createElement(require('react-native').View, { style, testID }),
+}));
 jest.mock('@/components/ui/BackButton', () => ({ BackButton: () => null }));
 jest.mock('@/components/NowPlayingBadge', () => ({ NowPlayingBadge: () => null }));
 jest.mock('@/services/retreatService', () => ({
@@ -102,6 +104,30 @@ describe('Retreats screen teachings section', () => {
 
     expect(await screen.findByText('Jigme Khyentse Rinpoche')).toBeTruthy();
     expect(screen.getByText('April 12, 2026 · 2 sessions')).toBeTruthy();
+  });
+
+  it('should draw the group avatar as wide as the teaching thumbnail, as a circle', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    mockMine.mockResolvedValue({ success: true, data: [teaching] });
+
+    const screen = render(<RetreatsListScreen />);
+    const avatar = StyleSheet.flatten((await screen.findByTestId('group-avatar-1')).props.style);
+
+    expect(avatar.width).toBe(80);
+    expect(avatar.height).toBe(80);
+    expect(avatar.borderRadius).toBe(40);
+  });
+
+  it('should set a teaching title in the same size as a retreat group name', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    mockMine.mockResolvedValue({ success: true, data: [teaching] });
+
+    const screen = render(<RetreatsListScreen />);
+    const groupName = StyleSheet.flatten((await screen.findByText('Mandala')).props.style);
+    const title = StyleSheet.flatten(screen.getByText('Heart Sutra').props.style);
+
+    expect(title.fontSize).toBe(groupName.fontSize);
+    expect(title.fontFamily).toBe(groupName.fontFamily);
   });
 
   it('should open the event when a teaching is tapped', async () => {
