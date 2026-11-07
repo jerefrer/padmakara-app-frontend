@@ -130,6 +130,38 @@ describe('VideoPlayer — the video page', () => {
     expect(onSelectVideo).toHaveBeenCalledWith(other);
   });
 
+  it('should put the close button on a white bar above the video, not over it', async () => {
+    const onClose = jest.fn();
+    const screen = await open({ onClose });
+    const bar = screen.getByTestId('video-close-bar');
+    expect(ReactNative.StyleSheet.flatten(bar.props.style).backgroundColor).toBe('#ffffff');
+    expect(ReactNative.StyleSheet.flatten(bar.props.style).height).toBeGreaterThanOrEqual(44);
+    const button = screen.getByTestId('video-close');
+    expect(button.props.accessibilityLabel).toBe('common.close');
+    expect(ReactNative.StyleSheet.flatten(button.props.style).position).not.toBe('absolute');
+    fireEvent.press(button);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('should drop the white bar when a phone is rotated to full screen', async () => {
+    const screen = await open();
+    rotate(844, 390);
+    await waitFor(() => expect(screen.queryByTestId('video-close-bar')).toBeNull());
+    expect(screen.getByTestId('video-close')).toBeTruthy();
+  });
+
+  it('should keep the close button over the video on the web', async () => {
+    const originalOS = ReactNative.Platform.OS;
+    ReactNative.Platform.OS = 'web';
+    try {
+      const screen = render(<VideoPlayer video={video} onClose={() => {}} />);
+      await waitFor(() => expect(screen.getByTestId('video-close')).toBeTruthy());
+      expect(screen.queryByTestId('video-close-bar')).toBeNull();
+    } finally {
+      ReactNative.Platform.OS = originalOS;
+    }
+  });
+
   it('should go full screen when a phone is rotated', async () => {
     rotate(390, 844);
     const screen = await open();

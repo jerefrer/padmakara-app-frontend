@@ -168,6 +168,9 @@ export function VideoPlayer({
   const isImmersive = isPhone && isLandscape;
   // Android phones stay in portrait and read how the phone is held instead:
   // rotating the screen first would show the navigation bar on its side.
+  // On native the close button gets its own white bar above the video; web and
+  // the immersive landscape view keep it overlaid on the video.
+  const showCloseBar = Platform.OS !== 'web' && !isImmersive;
   const followsPhysicalRotation = isPhone && Platform.OS === 'android';
   const videoViewRef = useRef<VideoView>(null);
   const { t, language } = useLanguage();
@@ -843,7 +846,28 @@ export function VideoPlayer({
           </View>
         </Modal>
 
-        <View style={[styles.playerBand, { paddingTop: isImmersive ? 0 : insets.top }, isImmersive && styles.rootImmersive]}>
+        <View
+          style={[
+            styles.playerBand,
+            { paddingTop: isImmersive ? 0 : insets.top },
+            isImmersive && styles.rootImmersive,
+            showCloseBar && styles.playerBandWithBar,
+          ]}
+        >
+        {showCloseBar && (
+          // Native page: the close button sits on a white bar above the video,
+          // so the system player controls never draw over it.
+          <View style={styles.closeBar} testID="video-close-bar">
+            <TouchableOpacity
+              onPress={handleClose}
+              style={styles.closeBarButton}
+              testID="video-close"
+              accessibilityLabel={t('common.close') || 'Close'}
+            >
+              <Ionicons name="chevron-down" size={28} color={colors.burgundy[500]} />
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={[styles.videoContainer, isImmersive ? styles.rootImmersive : { height: playerHeight }]}>
           {errorMsg ? (
             <View style={styles.errorBox}>
@@ -891,14 +915,16 @@ export function VideoPlayer({
               <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
             </View>
           )}
-          <TouchableOpacity
-            onPress={handleClose}
-            style={styles.closeButton}
-            testID="video-close"
-            accessibilityLabel={t('common.close') || 'Close'}
-          >
-            <Ionicons name="chevron-down" size={28} color={colors.white} />
-          </TouchableOpacity>
+          {!showCloseBar && (
+            <TouchableOpacity
+              onPress={handleClose}
+              style={styles.closeButton}
+              testID="video-close"
+              accessibilityLabel={t('common.close') || 'Close'}
+            >
+              <Ionicons name="chevron-down" size={28} color={colors.white} />
+            </TouchableOpacity>
+          )}
         </View>
         </View>
 
@@ -1019,6 +1045,22 @@ const styles = StyleSheet.create({
   playerBand: {
     backgroundColor: colors.black,
     alignItems: 'stretch',
+  },
+  playerBandWithBar: {
+    backgroundColor: colors.white,
+  },
+  closeBar: {
+    height: 44,
+    backgroundColor: colors.white,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingLeft: 4,
+  },
+  closeBarButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeButton: {
     position: 'absolute',
