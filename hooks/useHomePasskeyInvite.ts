@@ -3,7 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { armInvite } from '@/hooks/passkeyInviteState';
-import { markHandled, PASSKEY_INVITE_PATH, shouldInvite } from '@/hooks/usePasskeyInvite';
+import { markInviteShown, PASSKEY_INVITE_PATH, shouldInviteOnHome } from '@/hooks/usePasskeyInvite';
 import { tryListPasskeys } from '@/services/passkeyService';
 
 // A calm moment on home: let the screen settle before anything covers it.
@@ -43,7 +43,7 @@ export function useHomePasskeyInvite() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        if (!(await shouldInvite(userId, 'email'))) {
+        if (!(await shouldInviteOnHome(userId))) {
           asked.current = userId;
           return;
         }
@@ -51,13 +51,14 @@ export function useHomePasskeyInvite() {
         if (cancelled) return;
         if (!existing) return;
         if (existing.length > 0) {
-          // Already has a key: never ask again, not on every focus and not after removing them all.
+          // Already has a key somewhere: not on home again, not on every focus. An email sign-in on
+          // this device still invites once, since that key is evidently not here.
           asked.current = userId;
-          await markHandled(userId);
+          await markInviteShown(userId);
           return;
         }
         asked.current = userId;
-        await markHandled(userId);
+        await markInviteShown(userId);
         if (cancelled) return;
         armInvite();
         router.push({ pathname: PASSKEY_INVITE_PATH } as any);

@@ -67,14 +67,18 @@ describe('PasskeyInvite', () => {
 
     expect(onContinue).toHaveBeenCalledTimes(1);
     expect(register).not.toHaveBeenCalled();
-    expect(await AsyncStorage.getItem('passkeyInvite:42')).not.toBeNull();
   });
 
-  it('should remember the invitation as soon as it is shown', async () => {
+  it('should never invite again on this device once the key is saved', async () => {
+    register.mockResolvedValue({ ok: true });
     render(<PasskeyInvite userId="42" onContinue={jest.fn()} />);
-    await act(async () => {});
 
-    expect(await AsyncStorage.getItem('passkeyInvite:42')).not.toBeNull();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('passkey-invite-accept'));
+    });
+
+    const { shouldInvite } = jest.requireActual('@/hooks/usePasskeyInvite');
+    expect(await shouldInvite('42', 'email')).toBe(false);
   });
 
   it('should show the confirmation then continue after success', async () => {

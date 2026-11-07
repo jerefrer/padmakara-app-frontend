@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
-import { markHandled } from '@/hooks/usePasskeyInvite';
+import { markPasskeyCreated } from '@/hooks/usePasskeyInvite';
 import { usePasskeyChallenge } from '@/hooks/usePasskeyChallenge';
 import { fetchRegistrationChallenge, registerPasskey } from '@/services/passkeyService';
 import { currentPasskeyWording } from '@/utils/passkeyWording';
@@ -85,13 +85,12 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
 
   useEffect(() => {
     mounted.current = true;
-    // Shown is shown: whatever the person does next, it does not come back on this device.
-    markHandled(userId);
+    // The trigger that opened the invitation already counted this showing.
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [userId]);
+  }, []);
 
   const later = () => finish();
 
@@ -107,6 +106,7 @@ export function PasskeyInvite({ userId, onContinue }: Props) {
       ok = false;
     }
     challenge.reload();
+    if (ok) await markPasskeyCreated(userId);
     if (!mounted.current) return;
     setStage(ok ? 'success' : 'quiet');
     timer.current = setTimeout(finish, ok ? SUCCESS_MS : QUIET_MS);

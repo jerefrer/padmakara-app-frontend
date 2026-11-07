@@ -2,7 +2,7 @@ import React from 'react';
 import { act, renderHook } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { markHandled, shouldInvite } from '@/hooks/usePasskeyInvite';
+import { markInviteShown, markPasskeyCreated, shouldInvite } from '@/hooks/usePasskeyInvite';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 import { isPasskeySupported, tryListPasskeys } from '@/services/passkeyService';
 
@@ -43,12 +43,32 @@ describe('shouldInvite', () => {
     expect(await shouldInvite('42', 'email')).toBe(true);
   });
 
-  it('should not invite twice for the same user on this device', async () => {
-    await markHandled('42');
+  it('should invite again after the next email sign-in when the first invitation was declined', async () => {
+    await markInviteShown('42');
+
+    expect(await shouldInvite('42', 'email')).toBe(true);
+  });
+
+  it('should stop inviting after two declined invitations', async () => {
+    await markInviteShown('42');
+    await markInviteShown('42');
 
     expect(await shouldInvite('42', 'email')).toBe(false);
     expect(await shouldInvite('43', 'email')).toBe(true);
-    expect(await AsyncStorage.getItem('passkeyInvite:42')).not.toBeNull();
+  });
+
+  it('should never invite again once a key was saved on this device', async () => {
+    await markPasskeyCreated('42');
+
+    expect(await shouldInvite('42', 'email')).toBe(false);
+  });
+
+  it('should count an invitation remembered by an older version as one declined invitation', async () => {
+    await AsyncStorage.setItem('passkeyInvite:42', String(Date.now()));
+
+    expect(await shouldInvite('42', 'email')).toBe(true);
+    await markInviteShown('42');
+    expect(await shouldInvite('42', 'email')).toBe(false);
   });
 
   it('should not invite after a passkey sign-in', async () => {
@@ -120,7 +140,7 @@ describe('useHomePasskeyInvite', () => {
   });
 
   it('should not invite when the invitation was already shown on this device', async () => {
-    await markHandled('42');
+    await markInviteShown('42');
 
     renderHook(() => useHomePasskeyInvite());
     await settle();
