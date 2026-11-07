@@ -34,9 +34,9 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-async function submit(result: any, email = 'ana@example.pt', opts = {}) {
+async function submit(result: any, email = 'ana@example.pt') {
   request.mockResolvedValueOnce(result);
-  const hook = renderHook(() => useMagicLinkSignIn(opts));
+  const hook = renderHook(() => useMagicLinkSignIn());
   act(() => hook.result.current.setEmail(email));
   await act(async () => {
     await hook.result.current.submit();
@@ -86,15 +86,6 @@ describe('useMagicLinkSignIn', () => {
     const { result } = await submit({ success: true, data: { status: 'already_activated' } });
     expect(mockRefreshAuth).toHaveBeenCalledTimes(1);
     expect(result.current.phase).toBe('done');
-  });
-
-  it('should hand an unknown address over to the access request', async () => {
-    const onApprovalRequired = jest.fn();
-    const { result } = await submit({ success: true, data: { status: 'approval_required' } }, 'new@example.pt', {
-      onApprovalRequired,
-    });
-    expect(onApprovalRequired).toHaveBeenCalledWith('new@example.pt');
-    expect(result.current.phase).toBe('email');
   });
 
   it('should say when the connection failed and let the person try again', async () => {

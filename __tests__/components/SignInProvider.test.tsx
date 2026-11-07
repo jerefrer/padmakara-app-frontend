@@ -117,25 +117,6 @@ describe('SignInProvider', () => {
     expect(getByText('ana@example.pt')).toBeTruthy();
   });
 
-  it('should send an unknown address to the access request page', async () => {
-    request.mockResolvedValueOnce({ success: true, data: { status: 'approval_required' } });
-    const { getByTestId, queryByTestId } = render(
-      <SignInProvider>
-        <Opener />
-      </SignInProvider>,
-    );
-    fireEvent.press(getByTestId('open'));
-    fireEvent.changeText(getByTestId('sign-in-email'), 'new@example.pt');
-    await act(async () => {
-      fireEvent.press(getByTestId('sign-in-submit'));
-    });
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/(auth)/magic-link',
-      params: { email: 'new@example.pt', approval: '1' },
-    });
-    expect(queryByTestId('sign-in-dialog')).toBeNull();
-  });
-
   describe('review code', () => {
     async function openAtCodeStep() {
       request.mockResolvedValueOnce({ success: true, data: { status: 'code_required' } });

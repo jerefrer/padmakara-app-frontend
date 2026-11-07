@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { REVIEW_CODE_MAX_LENGTH, useMagicLinkSignIn, type SignInError } from '@/hooks/useMagicLinkSignIn';
 import { EmailCodeField } from '@/components/auth/EmailCodeField';
@@ -15,8 +14,6 @@ interface Props {
   variant?: 'panel' | 'card';
   /** Replaces the default line under the title. */
   intro?: string;
-  /** Leaving the form for the full-page access request (unknown address). */
-  onLeave?: () => void;
   autoFocus?: boolean;
 }
 
@@ -24,15 +21,9 @@ interface Props {
  * Email → "check your email" → signed in, in place. The person never leaves the screen they
  * were on; opening the link on any device signs this one in.
  */
-export function SignInForm({ variant = 'panel', intro, onLeave, autoFocus = false }: Props) {
+export function SignInForm({ variant = 'panel', intro, autoFocus = false }: Props) {
   const { t } = useLanguage();
-  const s = useMagicLinkSignIn({
-    // An unknown address needs the access-request form, which keeps its full page.
-    onApprovalRequired: (email) => {
-      onLeave?.();
-      router.push({ pathname: '/(auth)/magic-link', params: { email, approval: '1' } } as any);
-    },
-  });
+  const s = useMagicLinkSignIn();
   const [passkeyDone, setPasskeyDone] = useState(false);
   const onPasskeySignedIn = React.useCallback(() => setPasskeyDone(true), []);
   // Only the email step offers saved passkeys; leaving it (or unmounting) drops the pending request.

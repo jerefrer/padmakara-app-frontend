@@ -10,7 +10,6 @@ import {
   Animated,
   Keyboard,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -53,24 +52,19 @@ const colors = {
 export default function MagicLinkScreen() {
   const { isAuthenticated, isDeviceActivated, refreshAuth } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  // email + approval: sent by the sign-in sheet when the address is unknown and access must be requested.
-  const { returnTo, email: emailParam, approval } = useLocalSearchParams<{ returnTo?: string; email?: string; approval?: string }>();
+  const { returnTo, email: emailParam } = useLocalSearchParams<{ returnTo?: string; email?: string }>();
   const navigation = useNavigation();
   const canGoBack = navigation.canGoBack();
   const redirectTarget = safeInternalPath(returnTo) as any;
   const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '');
   const [isLoading, setIsLoading] = useState(false);
-  const [showApprovalForm, setShowApprovalForm] = useState(approval === '1');
   // Store-review account: the server asks for a code instead of emailing a link.
   const [showCodeForm, setShowCodeForm] = useState(false);
   const [reviewCode, setReviewCode] = useState('');
   const [codeError, setCodeError] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [message, setMessage] = useState('');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   // The redirect effect below takes over once refreshAuth has run; only the email step offers autofill.
-  const { abort: abortAutofill } = usePasskeyAutofill(() => {}, !showCodeForm && !showApprovalForm);
+  const { abort: abortAutofill } = usePasskeyAutofill(() => {}, !showCodeForm);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -164,11 +158,6 @@ export default function MagicLinkScreen() {
           setShowCodeForm(true);
           break;
 
-        case 'approval_required':
-          // Show approval form
-          setShowApprovalForm(true);
-          break;
-
         default:
           Alert.alert(t('auth.magicLink.errorTitle'), responseMessage || 'Unexpected response from server.');
       }
@@ -201,44 +190,6 @@ export default function MagicLinkScreen() {
         Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to process your request. Please try again.');
       }
     } catch (error) {
-      Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleApprovalSubmit = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert(t('auth.magicLink.approval.requiredFields'), t('auth.magicLink.approval.requiredFieldsMessage'));
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const result = await magicLinkService.requestApproval({
-        email: email.trim(),
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        message: message.trim(),
-        language: language,
-      });
-
-      if (!result.success) {
-        Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to submit your request. Please try again.');
-        return;
-      }
-
-      // Show success and redirect to pending screen
-      router.push({
-        pathname: '/(auth)/approval-pending',
-        params: { 
-          email: email.trim(),
-          name: `${firstName.trim()} ${lastName.trim()}`
-        }
-      });
-    } catch (error) {
-      console.error('Approval request error:', error);
       Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));
     } finally {
       setIsLoading(false);
@@ -416,93 +367,16 @@ export default function MagicLinkScreen() {
           )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowCodeForm(false)} disabled={isLoading}>
-          <Text style={styles.secondaryButtonText}>{t('auth.magicLink.approval.backButton')}</Text>
+          <Text style={styles.secondaryButtonText}>{t('navigation.back') || 'Back'}</Text>
         </TouchableOpacity>
       </View>
-    </Animated.View>
-  );
-
-  const renderApprovalForm = () => (
-    <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-      {renderLanguageSwitcher()}
-      
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>{t('auth.magicLink.approval.title')}</Text>
-        <Text style={styles.subtitle}>
-          {t('auth.magicLink.approval.subtitle')}
-        </Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>{t('auth.magicLink.approval.firstName')} *</Text>
-          <TextInput
-            style={styles.textInput}
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder={t('auth.magicLink.approval.firstNamePlaceholder')}
-            placeholderTextColor={colors.gray[400]}
-            autoCapitalize="words"
-            editable={!isLoading}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>{t('auth.magicLink.approval.lastName')} *</Text>
-          <TextInput
-            style={styles.textInput}
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder={t('auth.magicLink.approval.lastNamePlaceholder')}
-            placeholderTextColor={colors.gray[400]}
-            autoCapitalize="words"
-            editable={!isLoading}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>{t('auth.magicLink.approval.message')}</Text>
-          <TextInput
-            style={[styles.textInput, styles.textArea]}
-            value={message}
-            onChangeText={setMessage}
-            placeholder={t('auth.magicLink.approval.messagePlaceholder')}
-            placeholderTextColor={colors.gray[400]}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            editable={!isLoading}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.approvalButton, isLoading && styles.buttonDisabled]}
-          onPress={handleApprovalSubmit}
-          disabled={isLoading}
-          activeOpacity={0.8}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Text style={styles.primaryButtonText}>{t('auth.magicLink.approval.requestAccessButton')}</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => setShowApprovalForm(false)}
-          disabled={isLoading}
-        >
-          <Text style={styles.secondaryButtonText}>{t('auth.magicLink.approval.backButton')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
     </Animated.View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.background}>
-        {showCodeForm ? renderCodeForm() : showApprovalForm ? renderApprovalForm() : renderEmailForm()}
+        {showCodeForm ? renderCodeForm() : renderEmailForm()}
       </View>
     </SafeAreaView>
   );
@@ -561,12 +435,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 20,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray[700],
-    marginBottom: 6,
-  },
   textInput: {
     backgroundColor: colors.white,
     borderRadius: 4,
@@ -578,24 +446,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gray[200],
   },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-    textAlign: 'left',
-  },
   primaryButton: {
     backgroundColor: colors.burgundy[500],
-    borderRadius: 2,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-    marginTop: 12,
-    marginBottom: 24,
-  },
-  approvalButton: {
-    backgroundColor: colors.saffron[500],
     borderRadius: 2,
     paddingVertical: 16,
     paddingHorizontal: 32,

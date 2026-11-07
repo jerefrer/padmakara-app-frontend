@@ -31,18 +31,13 @@ interface DeviceInfo {
 }
 
 interface MagicLinkResponse {
-  status: 'magic_link_sent' | 'already_activated' | 'approval_required' | 'code_required';
+  status: 'magic_link_sent' | 'already_activated' | 'code_required';
   message: string;
   access_token?: string;
   refresh_token?: string;
   user?: any;
   expires_in?: number;
   email?: string;
-}
-
-interface ApprovalResponse {
-  status: 'approval_requested' | 'already_pending';
-  message: string;
 }
 
 
@@ -327,44 +322,6 @@ class MagicLinkService {
       return { success: false, error: 'Network error. Please try again.', network: true };
     }
   }
-
-  /**
-   * Step 2b: Request admin approval for new users
-   */
-  async requestApproval(data: {
-    email: string;
-    first_name: string;
-    last_name: string;
-    message?: string;
-    language?: string;
-  }): Promise<{ success: boolean; data?: ApprovalResponse; error?: string }> {
-    try {
-      console.log('Requesting approval in language:', data.language || 'en');
-      
-      const deviceInfo = await this.getDeviceInfo();
-      
-      const response = await apiService.post<ApprovalResponse>(API_ENDPOINTS.REQUEST_USER_APPROVAL, {
-        ...data,
-        device_fingerprint: deviceInfo.fingerprint,
-        device_name: deviceInfo.name,
-        device_type: deviceInfo.type,
-        language: data.language || 'en'
-      });
-
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to request approval' 
-        };
-      }
-
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Error requesting approval:', error);
-      return { success: false, error: 'Network error. Please try again.' };
-    }
-  }
-
 
   /**
    * Check if current device is activated with enhanced error handling

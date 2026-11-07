@@ -11,7 +11,6 @@ export default function AuthLayout() {
     >
       <Stack.Screen name="magic-link" />
       <Stack.Screen name="check-email" />
-      <Stack.Screen name="approval-pending" />
       <Stack.Screen name="device-activated" />
       <Stack.Screen
         name="passkey-invite"

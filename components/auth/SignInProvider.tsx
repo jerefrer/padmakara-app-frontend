@@ -78,7 +78,7 @@ function SignInModal({ onClose }: { onClose: () => void }) {
           <ScrollView contentContainerStyle={styles.nativeSheet} keyboardShouldPersistTaps="handled">
             <View style={styles.grabber} />
             {closeButton}
-            <SignInForm onLeave={onClose} />
+            <SignInForm />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -101,7 +101,7 @@ function SignInModal({ onClose }: { onClose: () => void }) {
           style={[styles.dialog, isMobile && styles.sheet]}
         >
           {closeButton}
-          <SignInForm onLeave={onClose} autoFocus={!isMobile} />
+          <SignInForm autoFocus={!isMobile} />
           <Text style={styles.footnote}>{t('auth.signInPanel.stayHere') || 'You stay on this page.'}</Text>
         </View>
       </View>

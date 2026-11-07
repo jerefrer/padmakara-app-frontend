@@ -19,11 +19,6 @@ const CHECK_EVERY_MS = 4000;
 const MAX_CHECKS = 150;
 const RESEND_COOLDOWN_S = 60;
 
-interface Options {
-  /** The address is unknown: the person has to ask for access first. */
-  onApprovalRequired?: (email: string) => void;
-}
-
 /**
  * The magic-link sign-in, without a screen: ask for the link, then poll until this device is
  * activated (the link may be opened on any device) and refresh the session. Shared by the
@@ -31,7 +26,7 @@ interface Options {
  */
 export const REVIEW_CODE_MAX_LENGTH = CODE_MAX;
 
-export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
+export function useMagicLinkSignIn() {
   const { refreshAuth } = useAuth();
   const { language } = useLanguage();
   const [email, setEmail] = useState('');
@@ -73,9 +68,6 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
         sentTo.current = address;
         setCode('');
         setPhase('code');
-      } else if (status === 'approval_required') {
-        setPhase('email');
-        onApprovalRequired?.(address);
       } else {
         setPhase('email');
         setError('generic');
@@ -84,7 +76,7 @@ export function useMagicLinkSignIn({ onApprovalRequired }: Options = {}) {
       setPhase('email');
       setError('network');
     }
-  }, [email, language, refreshAuth, onApprovalRequired, resetEmailCode]);
+  }, [email, language, refreshAuth, resetEmailCode]);
 
   const submitCode = useCallback(async () => {
     const value = code.trim();

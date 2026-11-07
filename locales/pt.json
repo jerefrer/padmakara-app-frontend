@@ -158,18 +158,6 @@
         "quote": "«Como uma lamparina que dissipa a escuridão, que estes ensinamentos iluminem o teu caminho.»",
         "quoteAuthor": "— Bênção budista"
       },
-      "approvalPending": {
-        "title": "Pedido enviado",
-        "subtitle": "Obrigado, {{name}}. O teu pedido foi enviado aos administradores da nossa comunidade para análise.",
-        "nextTitle": "O que acontece a seguir?",
-        "step1": "A nossa equipa irá analisar o teu pedido dentro de 24 a 48 horas",
-        "step2": "Receberás um e-mail assim que o teu acesso for aprovado",
-        "step3": "Regressa a esta aplicação e introduz o teu e-mail para ativar o dispositivo",
-        "contactText": "Agradecemos o teu interesse em juntares-te à nossa comunidade de dharma. Se tiveres alguma questão, não hesites em contactar-nos.",
-        "emailLabel": "E-mail do teu pedido:",
-        "backToLogin": "Voltar ao início de sessão",
-        "peacefulMessage": "🙏 Que encontres paz enquanto aguardas"
-      },
       "title": "Iniciar Sessão",
       "subtitle": "Digita o teu endereço de e-mail para aceder às tuas gravações de retiro",
       "emailPlaceholder": "teu.email@exemplo.com",
@@ -183,21 +171,7 @@
       "invalidEmailMessage": "Por favor, digita um endereço de e-mail válido.",
       "errorTitle": "Erro",
       "networkErrorTitle": "Erro de Rede",
-      "networkErrorMessage": "Verifica a tua conexão com a internet e tenta novamente.",
-      "approval": {
-        "title": "Bem-vindo, Novo Amigo",
-        "subtitle": "Gostaríamos muito de ter-te na nossa comunidade. Por favor, fornece alguns detalhes para que a nossa equipa possa aprovar o teu acesso.",
-        "firstName": "Nome",
-        "firstNamePlaceholder": "Digita o teu nome",
-        "lastName": "Sobrenome",
-        "lastNamePlaceholder": "Digita o teu sobrenome",
-        "message": "Mensagem (Opcional)",
-        "messagePlaceholder": "Conta-nos como soubeste de nós ou qualquer mensagem para a nossa equipa...",
-        "requestAccessButton": "Solicitar Acesso",
-        "backButton": "Voltar",
-        "requiredFields": "Campos obrigatórios",
-        "requiredFieldsMessage": "Por favor, digita o teu nome e sobrenome."
-      }
+      "networkErrorMessage": "Verifica a tua conexão com a internet e tenta novamente."
     },
     "passkey": {
       "signInIos": "Entrar com Face ID",
@@ -624,7 +598,7 @@
     "deleteBookmarks": "Todos os marcadores, destaques e notas",
     "deleteDevices": "Todos os dispositivos registados",
     "deleteGroupAccess": "Acesso a todo o conteúdo dos grupos de retiro",
-    "warningNote": "Após a eliminação, precisarás de solicitar uma nova conta se desejares usar a app novamente.",
+    "warningNote": "Após a eliminação, podes voltar a entrar com o teu email, mas começarás com uma conta nova e vazia.",
     "paymentsNote": "Os registos de pagamentos anteriores são conservados, sem os teus dados de contacto, durante o prazo exigido pela lei contabilística. Qualquer pagamento recorrente é interrompido.",
     "accountLabel": "Conta a ser eliminada:",
     "confirmLabel": "Escreve \"eliminar permanentemente\" para confirmar:",
