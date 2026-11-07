@@ -210,6 +210,8 @@ export function VideoPlayer({
   // event/render code keeps working without churn.
   const [hlsUrl, setHlsUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // A video whose file isn't ready yet is not an error: it gets a calm "coming soon" instead.
+  const [notReady, setNotReady] = useState(false);
   // The URL arrives before the player has anything to show: the loader stays
   // until the first frames are ready, so the screen is never just black.
   const [playerBuffering, setPlayerBuffering] = useState(true);
@@ -305,6 +307,7 @@ export function VideoPlayer({
     completedRef.current = false;
     didAutoSelectSubtitleRef.current = false;
     setErrorMsg(null);
+    setNotReady(false);
     setHlsUrl(null);
     setResumePosition(0);
     setCellularGate('allowed');
@@ -395,7 +398,8 @@ export function VideoPlayer({
 
       const sourceUrl = urlResult.proxyHls ?? urlResult.hls;
       if (!urlResult.success || !sourceUrl) {
-        setErrorMsg(urlResult.error ?? t('video.loadError') ?? 'Failed to load video');
+        if (urlResult.notReady) setNotReady(true);
+        else setErrorMsg(urlResult.error ?? t('video.loadError') ?? 'Failed to load video');
         return;
       }
 
@@ -869,7 +873,12 @@ export function VideoPlayer({
           </View>
         )}
         <View style={[styles.videoContainer, isImmersive ? styles.rootImmersive : { height: playerHeight }]}>
-          {errorMsg ? (
+          {notReady ? (
+            <View style={styles.errorBox} testID="video-not-ready">
+              <Ionicons name="time-outline" size={48} color={colors.gray[400]} />
+              <Text style={styles.errorText}>{t('video.notReady') || 'This video will be available soon.'}</Text>
+            </View>
+          ) : errorMsg ? (
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle-outline" size={48} color={colors.gray[400]} />
               <Text style={styles.errorText}>{errorMsg}</Text>

@@ -115,4 +115,16 @@ describe('VideoPlayer — while the source loads', () => {
     act(() => handlerFor('statusChange')({ status: 'readyToPlay' }));
     expect(screen.queryByTestId('video-buffering')).toBeNull();
   });
+
+  it('should say a video not uploaded yet will come soon, without an error', async () => {
+    const retreatService = jest.requireMock('@/services/retreatService').default;
+    retreatService.fetchVideo.mockResolvedValueOnce({ success: false, notReady: true, error: 'Video is still being processed' });
+
+    const screen = render(<VideoPlayer video={video} onClose={() => {}} />);
+
+    await waitFor(() => expect(screen.queryByTestId('video-not-ready')).toBeTruthy());
+    expect(screen.queryByText('video.notReady')).toBeTruthy();
+    expect(screen.queryByText('Video is still being processed')).toBeNull();
+  });
 });
+

@@ -43,6 +43,7 @@
   "video": {
     "loading": "Loading video…",
     "loadError": "Failed to load video",
+    "notReady": "This video will be available soon.",
     "cellularWarningTitle": "Mobile data",
     "cellularWarningMessage": "You are not on Wi-Fi. Long videos can use a substantial amount of data. Continue?",
     "cellularWarningContinue": "Continue",

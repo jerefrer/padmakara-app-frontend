@@ -1101,6 +1101,8 @@ class RetreatService {
     durationSeconds?: number | null;
     expiresAt?: number;
     error?: string;
+    /** The video exists but has no playable file yet (upload or processing not finished). */
+    notReady?: boolean;
   }> {
     try {
       const response = await apiService.get<{
@@ -1123,7 +1125,12 @@ class RetreatService {
           expiresAt: response.data.expiresAt,
         };
       }
-      return { success: false, error: response.error || 'Failed to get video URL' };
+      return {
+        success: false,
+        error: response.error || 'Failed to get video URL',
+        // 409: the API knows the video but has nothing to play yet.
+        notReady: response.status === 409,
+      };
     } catch (error) {
       console.error('Get event video URL error:', error);
       return { success: false, error: 'Failed to get video URL' };

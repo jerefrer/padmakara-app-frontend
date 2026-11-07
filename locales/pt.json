@@ -43,6 +43,7 @@
   "video": {
     "loading": "A carregar vídeo…",
     "loadError": "Falha ao carregar o vídeo",
+    "notReady": "Este vídeo estará disponível em breve.",
     "cellularWarningTitle": "Dados móveis",
     "cellularWarningMessage": "Não estás ligado ao Wi-Fi. Vídeos longos podem consumir uma quantidade considerável de dados. Continuar?",
     "cellularWarningContinue": "Continuar",
