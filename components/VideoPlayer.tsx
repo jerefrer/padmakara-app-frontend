@@ -116,15 +116,16 @@ function fromServerBookmark(bm: VideoBookmark): Bookmark {
 /**
  * Save UserProgress for an event video, preserving any existing bookmarks.
  *
- * Always persists locally (offline-first); also fires a fire-and-forget
- * POST to the backend so the position survives reinstalls and syncs to
- * other devices the same user is signed in on.
+ * Always persists locally (offline-first). When signed in, also fires a
+ * fire-and-forget POST to the backend so the position survives reinstalls
+ * and syncs to other devices; signed out, the server could only refuse it.
  */
 async function saveVideoProgress(
   videoId: number,
   position: number,
   duration: number,
   completed: boolean,
+  signedIn: boolean,
 ): Promise<void> {
   try {
     const key = videoProgressKey(videoId);
@@ -139,6 +140,7 @@ async function saveVideoProgress(
   } catch {
     // Best-effort — progress saving must never crash playback.
   }
+  if (!signedIn) return;
   // Push to backend in parallel; never block playback on network.
   progressService
     .saveVideoProgressRemote(videoId, position, duration, completed)
@@ -228,6 +230,8 @@ export function VideoPlayer({
   const [bookmarkSavedAt, setBookmarkSavedAt] = useState<number | null>(null);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const lastSavedAtRef = useRef<number>(0);
+  // Android keeps emitting timeUpdate while paused; an unchanged position is not saved again.
+  const lastSavedPositionRef = useRef<{ videoId: number; position: number } | null>(null);
   const completedRef = useRef<boolean>(false);
   // Auto-enable subtitles once per video. Set-once semantics so we never fight
   // a user who turns them back off mid-playback.
@@ -472,10 +476,13 @@ export function VideoPlayer({
 
     const now = Date.now();
     if (now - lastSavedAtRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
+    const last = lastSavedPositionRef.current;
+    if (last && last.videoId === video.id && Math.abs(currentTime - last.position) < 1) return;
     lastSavedAtRef.current = now;
+    lastSavedPositionRef.current = { videoId: video.id, position: currentTime };
 
     const completed = currentTime >= duration * COMPLETE_THRESHOLD_RATIO;
-    saveVideoProgress(video.id, currentTime, duration, completed);
+    saveVideoProgress(video.id, currentTime, duration, completed, isAuthenticated);
 
     if (completed && !completedRef.current) {
       completedRef.current = true;
@@ -716,6 +723,7 @@ export function VideoPlayer({
         currentTime,
         duration,
         currentTime >= duration * COMPLETE_THRESHOLD_RATIO,
+        isAuthenticated,
       );
     }
     try {
