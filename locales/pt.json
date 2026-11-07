@@ -178,6 +178,7 @@
       "signInAndroid": "Entrar com a tua impressão digital",
       "signInWeb": "Entrar com uma chave de acesso",
       "failed": "Não funcionou. Podes usar o teu email.",
+      "noKey": "O Face ID ainda não está ativado para o Padmakara neste {{device}}. Entra uma vez com o teu email e ativa-o quando a app propuser, ou mais tarde nas Configurações.",
       "signInMac": "Entrar com Touch ID"
     },
     "passkeyInvite": {

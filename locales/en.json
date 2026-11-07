@@ -178,6 +178,7 @@
       "signInAndroid": "Sign in with your fingerprint",
       "signInWeb": "Sign in with a passkey",
       "failed": "That didn't work. You can use your email instead.",
+      "noKey": "Face ID isn't turned on for Padmakara on this {{device}} yet. Sign in once with your email, then turn it on when the app offers, or later in Settings.",
       "signInMac": "Sign in with Touch ID"
     },
     "passkeyInvite": {

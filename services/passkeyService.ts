@@ -11,8 +11,11 @@ export interface PasskeySummary {
   lastUsedAt: string | null;
 }
 
-/** `cancelled` is true when the person dismissed the system sheet (or the request was aborted): not an error. */
-export type PasskeyResult = { ok: true } | { ok: false; cancelled: boolean };
+/**
+ * `cancelled` is true when the person dismissed the system sheet (or the request was aborted): not an
+ * error. `noCredential` is true when this device holds no key for Padmakara yet (native only).
+ */
+export type PasskeyResult = { ok: true } | { ok: false; cancelled: boolean; noCredential?: boolean };
 
 /** A single-use server challenge with the WebAuthn options built from it (valid for five minutes). */
 export interface PasskeyChallenge {
@@ -32,6 +35,7 @@ interface LoginVerifyResponse {
 
 const FAILED: PasskeyResult = { ok: false, cancelled: false };
 const CANCELLED: PasskeyResult = { ok: false, cancelled: true };
+const NO_CREDENTIAL: PasskeyResult = { ok: false, cancelled: false, noCredential: true };
 
 export async function isPasskeySupported(): Promise<boolean> {
   try {
@@ -123,6 +127,7 @@ export async function signInWithPasskey(
       });
     } catch (error) {
       if (passkeyClient.isCancelled(error)) return CANCELLED;
+      if (passkeyClient.isNoCredential(error)) return NO_CREDENTIAL;
       console.error('Passkey assertion failed:', error);
       return FAILED;
     }

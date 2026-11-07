@@ -39,7 +39,9 @@ const passkeyClient: PasskeyClient = {
   },
 
   async get(options) {
-    const result = await Passkey.get(options as unknown as PasskeyGetRequest);
+    // Only a key already on this device: with none, iOS would open its "use another device" QR
+    // code sheet, which people take for a broken Face ID. NoCredentials comes back instead.
+    const result = await Passkey.getImmediate(options as unknown as PasskeyGetRequest);
     return {
       id: result.id,
       rawId: result.rawId,
@@ -52,6 +54,10 @@ const passkeyClient: PasskeyClient = {
 
   isCancelled(error) {
     return errorCode(error) === 'UserCancelled';
+  },
+
+  isNoCredential(error) {
+    return errorCode(error) === 'NoCredentials';
   },
 
   defaultName() {

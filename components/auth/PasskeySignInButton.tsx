@@ -17,15 +17,16 @@ interface Props {
 
 /**
  * "Sign in with Face ID / your fingerprint / a passkey", under the email form. Hidden when the
- * device cannot use passkeys. Cancelling the system sheet shows nothing; any other failure
- * leaves a quiet line, and the email form stays the way back.
+ * device cannot use passkeys. Cancelling the system sheet shows nothing; a device with no key yet
+ * gets a line on how to turn it on; any other failure leaves a quiet line, and the email form
+ * stays the way back.
  */
 export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
   const { t } = useLanguage();
   const { refreshAuth } = useAuth();
   const [supported, setSupported] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [problem, setProblem] = useState<'failed' | 'noKey' | null>(null);
   const mounted = useRef(true);
   // Web only: Safari needs the browser call inside the tap, so the options are fetched beforehand.
   const challenge = usePasskeyChallenge(fetchLoginChallenge, supported && Platform.OS === 'web');
@@ -40,9 +41,10 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
     };
   }, []);
 
-  const tx = (key: string, fallback: string) => {
-    const v = t(`auth.passkey.${key}`);
-    return v && v !== `auth.passkey.${key}` ? v : fallback;
+  const tx = (key: string, fallback: string, vars?: Record<string, string>) => {
+    const v = t(`auth.passkey.${key}`, vars);
+    const text = v && v !== `auth.passkey.${key}` ? v : fallback;
+    return vars ? text.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '') : text;
   };
 
   if (!supported) return null;
@@ -64,7 +66,7 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
     const prefetched = challenge.take();
     onStart?.();
     setBusy(true);
-    setFailed(false);
+    setProblem(null);
     const result = await signInWithPasskey({ challenge: prefetched });
     challenge.reload();
     if (!mounted.current) return;
@@ -75,7 +77,8 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
       return;
     }
     setBusy(false);
-    if (!result.cancelled) setFailed(true);
+    if (result.noCredential) setProblem('noKey');
+    else if (!result.cancelled) setProblem('failed');
   };
 
   return (
@@ -97,7 +100,16 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
           </>
         )}
       </Pressable>
-      {failed ? (
+      {problem === 'noKey' ? (
+        <Text testID="passkey-no-key" style={styles.quiet} accessibilityLiveRegion="polite">
+          {/* Only iOS reports a missing key, and its button always says Face ID. */}
+          {tx(
+            'noKey',
+            "Face ID isn't turned on for Padmakara on this {{device}} yet. Sign in once with your email, then turn it on when the app offers, or later in Settings.",
+            { device: Platform.OS === 'ios' && Platform.isPad ? 'iPad' : 'iPhone' },
+          )}
+        </Text>
+      ) : problem === 'failed' ? (
         <Text testID="passkey-error" style={styles.quiet} accessibilityLiveRegion="polite">
           {tx('failed', "That didn't work. You can use your email instead.")}
         </Text>

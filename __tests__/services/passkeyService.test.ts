@@ -36,6 +36,7 @@ jest.mock('@/services/passkeyClient', () => ({
     create: jest.fn(),
     get: jest.fn(),
     isCancelled: jest.fn(),
+    isNoCredential: jest.fn(),
     defaultName: jest.fn(),
   },
 }));
@@ -96,6 +97,17 @@ describe('signInWithPasskey', () => {
     expect(res).toEqual({ ok: false, cancelled: true });
     expect(api.post).toHaveBeenCalledTimes(1);
     expect(ts.setAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('should report that this device has no key when the client finds none', async () => {
+    api.post.mockResolvedValueOnce(loginOptions);
+    client.get.mockRejectedValue({ error: 'NoCredentials' });
+    client.isNoCredential.mockReturnValue(true);
+
+    const res = await signInWithPasskey();
+
+    expect(res).toEqual({ ok: false, cancelled: false, noCredential: true });
+    expect(api.post).toHaveBeenCalledTimes(1);
   });
 
   it('should report not cancelled when the server refuses', async () => {

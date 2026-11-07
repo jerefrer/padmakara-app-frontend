@@ -25,6 +25,8 @@ export interface PasskeyClient {
   get(options: PasskeyOptionsJSON, opts?: PasskeyGetOptions): Promise<PasskeyCredentialJSON>;
   /** True when the error means the person dismissed the system sheet, or the request was aborted. */
   isCancelled(error: unknown): boolean;
+  /** True when the error means this device holds no passkey for Padmakara (native only). */
+  isNoCredential(error: unknown): boolean;
   /** Human label for the key being created, e.g. "iPhone" or "Chrome on Windows". */
   defaultName(): string;
 }

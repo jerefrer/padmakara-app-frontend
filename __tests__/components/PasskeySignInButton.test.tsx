@@ -78,6 +78,17 @@ describe('PasskeySignInButton', () => {
     expect(onSignedIn).not.toHaveBeenCalled();
   });
 
+  it('should explain how to turn the key on when this device has none', async () => {
+    signIn.mockResolvedValue({ ok: false, cancelled: false, noCredential: true });
+    const { getByTestId, queryByText } = render(<PasskeySignInButton />);
+    await flush();
+    await act(async () => {
+      fireEvent.press(getByTestId('passkey-sign-in'));
+    });
+    expect(getByTestId('passkey-no-key')).toBeTruthy();
+    expect(queryByText("That didn't work. You can use your email instead.")).toBeNull();
+  });
+
   it('should show a quiet line and keep the button when sign-in fails', async () => {
     signIn.mockResolvedValue({ ok: false, cancelled: false });
     const { getByTestId, getByText } = render(<PasskeySignInButton />);

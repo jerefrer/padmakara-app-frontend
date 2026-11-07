@@ -75,6 +75,11 @@ const passkeyClient: PasskeyClient = {
     return name === 'NotAllowedError' || name === 'AbortError';
   },
 
+  isNoCredential() {
+    // Browsers do not say whether a key exists; their own sheet handles that case.
+    return false;
+  },
+
   defaultName() {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
     const system = systemName(ua);
