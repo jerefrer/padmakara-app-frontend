@@ -7,6 +7,7 @@ import { publicationService } from '@/services/publicationService';
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
+  useLocalSearchParams: () => ({}),
   router: { push: jest.fn(), back: jest.fn() },
 }));
 jest.mock('@/contexts/AuthContext', () => ({

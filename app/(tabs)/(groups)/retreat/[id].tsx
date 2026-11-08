@@ -1838,7 +1838,9 @@ export default function RetreatDetailScreen() {
               <TouchableOpacity {...getRowPressDelayProps()}
                 key={pub.id}
                 style={styles.relatedPublicationItem}
-                onPress={() => router.push('/(tabs)/(groups)/publications' as any)}
+                onPress={() =>
+                  router.push({ pathname: '/(tabs)/(groups)/publications', params: { open: String(pub.id) } } as any)
+                }
               >
                 {pub.coverImageUrl ? (
                   <ExpoImage source={{ uri: pub.coverImageUrl, cacheKey: publicationCoverCacheKey(pub) }} cachePolicy="memory-disk" style={styles.relatedPubCover} />

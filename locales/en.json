@@ -506,6 +506,8 @@
     "textSize": "Text size"
   },
   "publications": {
+    "share": "Share or save this publication",
+    "shareError": "Could not share this publication",
     "title": "Publications",
     "tabs": {
       "latest": "latest",

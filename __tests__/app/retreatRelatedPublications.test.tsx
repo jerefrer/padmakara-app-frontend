@@ -5,11 +5,12 @@ import RetreatDetailScreen from '@/app/(tabs)/(groups)/retreat/[id]';
 import retreatService from '@/services/retreatService';
 
 let mockAuth: { isAuthenticated: boolean };
+const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '7' }),
   useFocusEffect: jest.fn(),
-  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+  router: { push: (...a: any[]) => mockPush(...a), replace: jest.fn(), back: jest.fn() },
 }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => mockAuth }));
 jest.mock('@/contexts/LanguageContext', () => ({
@@ -118,5 +119,15 @@ describe('retreat screen related publications', () => {
     expect(await screen.findByTestId('event-related-publications')).toBeTruthy();
     expect(screen.getByText('The Excellent Path of Liberation')).toBeTruthy();
     expect(screen.queryByText('No documents available')).toBeNull();
+  });
+
+  it('should push the publications route with the publication id when a related publication is tapped', async () => {
+    const screen = render(<RetreatDetailScreen />);
+    fireEvent.press(await screen.findByTestId('event-tab-documents'));
+    fireEvent.press(await screen.findByText('The Excellent Path of Liberation'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(tabs)/(groups)/publications',
+      params: { open: '5' },
+    });
   });
 });

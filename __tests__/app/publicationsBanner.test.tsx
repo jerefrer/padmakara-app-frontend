@@ -13,6 +13,7 @@ let mockLocale: any = en;
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
+  useLocalSearchParams: () => ({}),
   router: { push: (...a: any[]) => mockPush(...a), back: jest.fn() },
 }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => mockAuth }));

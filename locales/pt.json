@@ -506,6 +506,8 @@
     "textSize": "Tamanho do texto"
   },
   "publications": {
+    "share": "Partilhar ou guardar esta publicação",
+    "shareError": "Não foi possível partilhar esta publicação",
     "title": "Publicações",
     "tabs": {
       "latest": "mais recentes",

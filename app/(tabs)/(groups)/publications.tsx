@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Alert,
   Platform,
   RefreshControl,
   SectionList,
@@ -12,7 +13,8 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { publicationCoverCacheKey } from '@/utils/cacheKeys';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -35,6 +37,7 @@ export default function PublicationsScreen() {
   const { t } = useLanguage();
   const { isAuthenticated, hasActiveSubscription } = useAuth();
   const { openSignIn } = useSignIn();
+  const { open } = useLocalSearchParams<{ open?: string }>();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
 
@@ -224,6 +227,49 @@ export default function PublicationsScreen() {
     []
   );
 
+  // Deep link from an event page: open the requested publication once the list
+  // is available. If it is not in the list (hidden), just show the list.
+  const handledOpenParam = useRef<string | null>(null);
+  const openedFromParam = useRef(false);
+  useEffect(() => {
+    if (!open || handledOpenParam.current === open || loading) return;
+    const target = publications.find((p) => String(p.id) === String(open));
+    if (!target && publications.length === 0) return;
+    handledOpenParam.current = open;
+    router.setParams({ open: undefined } as any);
+    if (target) {
+      openedFromParam.current = true;
+      handleOpenPublication(target);
+    }
+  }, [open, loading, publications, handleOpenPublication]);
+
+  const handleCloseViewer = useCallback(() => {
+    setViewingPdf(null);
+    if (openedFromParam.current) {
+      openedFromParam.current = false;
+      router.back();
+    }
+  }, []);
+
+  const handleSharePdf = useCallback(async () => {
+    if (!viewingPdf) return;
+    try {
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(viewingPdf.uri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        throw new Error('Sharing unavailable');
+      }
+    } catch (err) {
+      console.error('Publication share error:', err);
+      Alert.alert(
+        t('publications.shareError') || 'Could not share this publication'
+      );
+    }
+  }, [viewingPdf, t]);
+
   // Replace cached PDF with the latest server version (user-triggered).
   const handleUpdateVersion = useCallback(async () => {
     if (!viewingPdf) return;
@@ -346,10 +392,22 @@ export default function PublicationsScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
           {/* PDF header */}
           <View style={styles.pdfHeader}>
-            <BackButton variant="inline" onPress={() => setViewingPdf(null)} />
+            <BackButton variant="inline" onPress={handleCloseViewer} />
             <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
               {getTitle(viewingPdf.publication)}
             </Text>
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                testID="publication-share-button"
+                onPress={handleSharePdf}
+                hitSlop={8}
+                style={styles.pdfShareButton}
+                accessibilityRole="button"
+                accessibilityLabel={t('publications.share') || 'Share or save this publication'}
+              >
+                <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* New-version banner */}
@@ -890,6 +948,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
+  },
+
+  pdfShareButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 
   // New-version banner inside PDF viewer
