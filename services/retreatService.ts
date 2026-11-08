@@ -156,6 +156,10 @@ export function mapEvent(backend: any): Gathering {
     // event screen then infers it from the tracks (resolveEventOriginalLanguage)
     // rather than assuming English and hiding a Tibetan teaching's Tibetan tracks.
     originalLanguage: backend.originalLanguage || backend.original_language || undefined,
+    libraryAccess:
+      backend.libraryAccess === 'granted' || backend.libraryAccess === 'membership'
+        ? backend.libraryAccess
+        : undefined,
     status: mapEventStatus(backend.status || 'published', startDate, endDate),
     created_at: backend.createdAt || '',
     updated_at: backend.updatedAt || '',

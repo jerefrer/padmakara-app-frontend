@@ -123,6 +123,9 @@ export interface Gathering {
   /** The language the event was taught in ('tib', 'en', 'pt', ...). Always
    *  included in the languages shown on a first visit. */
   originalLanguage?: string;
+  /** Personal Library only (GET /teachings/mine): 'granted' when given or bought,
+   *  'membership' when open only through the audience. Absent from an older API. */
+  libraryAccess?: 'granted' | 'membership';
   status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;

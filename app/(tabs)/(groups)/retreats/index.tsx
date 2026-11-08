@@ -177,6 +177,9 @@ export default function RetreatsListScreen() {
   const [error, setError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [teachings, setTeachings] = useState<Gathering[]>([]);
+  // Rows from an older API carry no libraryAccess and stay under the personal heading.
+  const grantedTeachings = teachings.filter((g) => g.libraryAccess !== "membership");
+  const membershipTeachings = teachings.filter((g) => g.libraryAccess === "membership");
   // The empty state waits for /mine to settle, so it never flashes before teachings arrive.
   const [teachingsSettled, setTeachingsSettled] = useState(!isAuthenticated);
 
@@ -364,27 +367,35 @@ export default function RetreatsListScreen() {
             </View>
           )}
 
-          {teachings.length > 0 && (
-            <View style={styles.teachingsSection}>
-              <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
-                {t("retreats.teachings") || "Your Teachings and Talks"}
-              </Text>
-              {!isDesktop && <SectionRule />}
-              <View style={isDesktop && styles.groupsListDesktop}>
-                {teachings.map((teaching) => (
-                  <EventRow
-                    key={teaching.id}
-                    event={teaching}
-                    title={getTranslatedName(teaching, language as "en" | "pt")}
-                    meta={teachingMeta(teaching, language, t)}
-                    onPress={() => handleTeachingPress(teaching)}
-                    isDesktop={isDesktop}
-                    titleFontSize={GROUP_NAME_FONT_SIZE}
-                    testID={`teaching-card-${teaching.id}`}
-                  />
-                ))}
-              </View>
-            </View>
+          {[
+            { key: "granted", title: t("retreats.teachings") || "Your Teachings and Talks", items: grantedTeachings },
+            {
+              key: "membership",
+              title: t("retreats.includedInMembership") || "Included in your membership",
+              items: membershipTeachings,
+            },
+          ].map(
+            (section) =>
+              section.items.length > 0 && (
+                <View key={section.key} style={styles.teachingsSection}>
+                  <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>{section.title}</Text>
+                  {!isDesktop && <SectionRule />}
+                  <View style={isDesktop && styles.groupsListDesktop}>
+                    {section.items.map((teaching) => (
+                      <EventRow
+                        key={teaching.id}
+                        event={teaching}
+                        title={getTranslatedName(teaching, language as "en" | "pt")}
+                        meta={teachingMeta(teaching, language, t)}
+                        onPress={() => handleTeachingPress(teaching)}
+                        isDesktop={isDesktop}
+                        titleFontSize={GROUP_NAME_FONT_SIZE}
+                        testID={`teaching-card-${teaching.id}`}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ),
           )}
 
           {teachingsSettled && groups.length === 0 && teachings.length === 0 && (

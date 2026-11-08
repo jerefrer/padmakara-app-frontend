@@ -22,6 +22,16 @@ describe('teachingService.mine', () => {
     expect(res.data[0].name).toBe('Heart Sutra');
   });
 
+  it('should keep libraryAccess on mapped events, live and from the cache', async () => {
+    get.mockResolvedValueOnce({ success: true, data: [{ id: 5, titleEn: 'A', libraryAccess: 'membership' }, { id: 6, titleEn: 'B' }] });
+    const live = await teachingService.mine('u1');
+    get.mockResolvedValueOnce({ success: false, error: 'offline' });
+    const cached = await teachingService.mine('u1');
+
+    expect(live.data.map((g) => g.libraryAccess)).toEqual(['membership', undefined]);
+    expect(cached.data.map((g) => g.libraryAccess)).toEqual(['membership', undefined]);
+  });
+
   it('should fall back to the last good list when the network fails', async () => {
     get.mockResolvedValueOnce({ success: true, data: [{ id: 5, titleEn: 'Heart Sutra' }] });
     await teachingService.mine('u1');

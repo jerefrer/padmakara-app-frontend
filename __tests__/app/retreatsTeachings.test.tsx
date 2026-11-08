@@ -149,6 +149,51 @@ describe('Retreats screen teachings section', () => {
     expect(screen.queryByText(en.retreats.teachings)).toBeNull();
   });
 
+  it('should list membership teachings under their own heading below Your Teachings and Talks', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    mockMine.mockResolvedValue({
+      success: true,
+      data: [
+        { ...teaching, libraryAccess: 'granted' },
+        { ...teaching, id: '78', name: 'Lamrim', name_translations: { en: 'Lamrim' }, libraryAccess: 'membership' },
+      ],
+    });
+
+    const screen = render(<RetreatsListScreen />);
+    await screen.findByText('Lamrim');
+
+    const text = allText(screen);
+    expect(text.indexOf(en.retreats.teachings)).toBeLessThan(text.indexOf('Heart Sutra'));
+    expect(text.indexOf('Heart Sutra')).toBeLessThan(text.indexOf(en.retreats.includedInMembership));
+    expect(text.indexOf(en.retreats.includedInMembership)).toBeLessThan(text.indexOf('Lamrim'));
+  });
+
+  it('should keep granted teachings and those without the field under Your Teachings and Talks', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    mockMine.mockResolvedValue({
+      success: true,
+      data: [{ ...teaching, libraryAccess: 'granted' }, { ...teaching, id: '79', name: 'Old API', name_translations: { en: 'Old API' } }],
+    });
+
+    const screen = render(<RetreatsListScreen />);
+    await screen.findByText('Old API');
+
+    const text = allText(screen);
+    expect(text.indexOf(en.retreats.teachings)).toBeLessThan(text.indexOf('Heart Sutra'));
+    expect(text.indexOf(en.retreats.teachings)).toBeLessThan(text.indexOf('Old API'));
+    expect(screen.queryByText(en.retreats.includedInMembership)).toBeNull();
+  });
+
+  it('should show only the membership heading when every teaching comes with the membership', async () => {
+    mockGetUserRetreats.mockResolvedValue(data([group]));
+    mockMine.mockResolvedValue({ success: true, data: [{ ...teaching, libraryAccess: 'membership' }] });
+
+    const screen = render(<RetreatsListScreen />);
+
+    expect(await screen.findByText(en.retreats.includedInMembership)).toBeTruthy();
+    expect(screen.queryByText(en.retreats.teachings)).toBeNull();
+  });
+
   it('should still show the groups when loading teachings fails', async () => {
     mockGetUserRetreats.mockResolvedValue(data([group]));
     mockMine.mockRejectedValue(new Error('boom'));
