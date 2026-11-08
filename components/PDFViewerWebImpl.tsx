@@ -14,7 +14,20 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // Configure PDF.js worker via CDN pinned to the installed version.
 // Using a CDN keeps the Metro/Vite bundle slim and avoids worker setup in each
 // target. jsdelivr serves the ES module build that react-pdf 10 expects.
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+const PDFJS_CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}`;
+pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/build/pdf.worker.min.mjs`;
+
+// The decoders and font data pdf.js loads on demand, from the same pinned CDN.
+// Without `wasmUrl` it silently drops JBIG2 images, which is how some of our
+// publications store their Tibetan script (O Tesouro de Bênçãos showed only
+// the vowel marks on the web).
+export const PDF_DOCUMENT_OPTIONS = {
+  wasmUrl: `${PDFJS_CDN}/wasm/`,
+  cMapUrl: `${PDFJS_CDN}/cmaps/`,
+  cMapPacked: true,
+  standardFontDataUrl: `${PDFJS_CDN}/standard_fonts/`,
+  iccUrl: `${PDFJS_CDN}/iccs/`,
+};
 
 interface PDFViewerProps {
   source: string;
@@ -326,6 +339,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
         ) : (
           <Document
             file={file}
+            options={PDF_DOCUMENT_OPTIONS}
             onLoadSuccess={onDocumentLoad}
             onLoadError={() => setError(true)}
             loading={
