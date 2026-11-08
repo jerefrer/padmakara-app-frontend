@@ -1,10 +1,24 @@
 [
   {
-    "relation": ["delegate_permission/common.get_login_creds"],
+    "relation": [
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "org.padmakara.pt",
       "sha256_cert_fingerprints": []
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "org.padmakara.pt",
+      "sha256_cert_fingerprints": [
+        "7E:79:0A:92:3D:C7:CB:76:4B:6C:21:68:14:C3:A4:15:07:FC:A0:1C:DB:F7:3C:7F:BF:20:56:82:F0:11:59:8F"
+      ]
     }
   }
 ]

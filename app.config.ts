@@ -29,6 +29,8 @@ type VariantConfig = {
   linkingPrefixes: string[];
   /** iOS associated domains, only for variants whose bundle id is listed in the AASA file. */
   associatedDomains: string[] | null;
+  /** Whether app.padmakara.pt links open this variant's Android app (assetlinks.json lists it). */
+  androidAppLinks: boolean;
   /** Sentry upload target, or null to disable source map upload. */
   sentry: { organization: string; project: string } | null;
   /** Sentry DSN read at runtime via Constants.expoConfig.extra.sentryDsn. */
@@ -48,8 +50,10 @@ const VARIANTS: Record<string, VariantConfig> = {
       "https://padmakara.app",
       "https://app.padmakara.pt",
     ],
-    // The AASA file on app.padmakara.pt lists org.padmakara.pt only.
-    associatedDomains: ["webcredentials:app.padmakara.pt"],
+    // The AASA file on app.padmakara.pt lists org.padmakara.pt only: passkeys
+    // (webcredentials) and links that open the app (applinks, see APP_LINK_PATHS).
+    associatedDomains: ["webcredentials:app.padmakara.pt", "applinks:app.padmakara.pt"],
+    androidAppLinks: true,
     sentry: { organization: "padmakarapt", project: "react-native" },
     sentryDsn:
       "https://a0c5633e88bc9febe3d131bd356303e6@o4510993302618112.ingest.de.sentry.io/4510993304256592",
@@ -71,6 +75,7 @@ const VARIANTS: Record<string, VariantConfig> = {
     easProjectId: null,
     linkingPrefixes: ["padmakarafr://"],
     associatedDomains: null,
+    androidAppLinks: false,
     sentry: null,
     sentryDsn: null,
   },
@@ -102,6 +107,33 @@ function resolveVariant(): VariantConfig {
 }
 
 const variant = resolveVariant();
+
+/**
+ * Paths of app.padmakara.pt that open the installed app (iOS universal links,
+ * Android app links) instead of the browser: "/" exactly, every other entry as
+ * itself and anything under it. Sign-in pages (/magic-link, /check-email,
+ * /device-activated…) and purchase pages (/get, /membership) are left out on
+ * purpose: a sign-in link must finish where it was asked for, and payment
+ * never happens inside the app. public/.well-known/apple-app-site-association
+ * lists the same paths (checked by __tests__/appLinks.test.ts).
+ */
+export const APP_LINK_PATHS = [
+  "/",
+  "/events",
+  "/publications",
+  "/retreat",
+  "/retreats",
+  "/teacher",
+  "/transcript",
+  "/account",
+  "/bookmarks",
+  "/search",
+  "/settings",
+] as const;
+
+const APP_LINK_HOST = "app.padmakara.pt";
+
+type AppLinkData = { scheme: string; host: string; path?: string; pathPrefix?: string };
 
 // `linking` is not part of Expo's published config schema and nothing in the
 // app currently reads it — expo-router derives deep links from `scheme`. It is
@@ -170,6 +202,28 @@ const config: PadmakaraConfig = {
     // player expo-audio posts, unless the app declares this. Requested at runtime
     // on first play (services/notificationPermission.ts).
     permissions: ["android.permission.POST_NOTIFICATIONS"],
+    // Links to app.padmakara.pt open the app, verified by public/.well-known/assetlinks.json.
+    ...(variant.androidAppLinks
+      ? {
+          intentFilters: [
+            {
+              action: "VIEW",
+              autoVerify: true,
+              category: ["BROWSABLE", "DEFAULT"],
+              // Each path itself and anything under it, like the AASA components:
+              // a bare prefix would also catch /account-deletion.
+              data: APP_LINK_PATHS.flatMap((path): AppLinkData[] =>
+                path === "/"
+                  ? [{ scheme: "https", host: APP_LINK_HOST, path }]
+                  : [
+                      { scheme: "https", host: APP_LINK_HOST, path },
+                      { scheme: "https", host: APP_LINK_HOST, pathPrefix: `${path}/` },
+                    ],
+              ),
+            },
+          ],
+        }
+      : {}),
     // The UI is light-only. Forcing the light theme on Android makes the system
     // navigation bar buttons dark (they follow the theme under edge-to-edge),
     // so they stay readable on the white tab bar when the phone is in dark mode.
