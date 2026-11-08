@@ -47,6 +47,13 @@ const DEFAULT_CACHE_LIMIT = 2 * 1024 * 1024 * 1024;
 // Cache directory path
 const getCacheDir = () => `${FileSystem.cacheDirectory}audio/`;
 
+// Never trust a stored absolute path: on iOS the app container UUID can change
+// when the app is updated, so the file is always resolved from the current cache dir.
+const trackFilePath = (trackId: string) => `${getCacheDir()}${trackId}.mp3`;
+
+// Untracked files modified more recently than this may be in-flight downloads
+const IN_FLIGHT_WINDOW_MS = 10 * 60 * 1000;
+
 class CacheService {
   private static instance: CacheService;
   private metadata: Map<string, CacheMetadata> = new Map();
@@ -107,6 +114,13 @@ class CacheService {
         await this._validateCachedFiles();
       }
 
+      // Pick up files on disk that metadata lost track of, then enforce the limit once
+      const adopted = await this._adoptOrphanFiles();
+      const evicted = await this._evictIfNeeded(0);
+      if (adopted > 0 || evicted > 0) {
+        await this._saveMetadata();
+      }
+
       this.initialized = true;
       console.log(`📦 Cache service initialized: ${this.metadata.size} tracks cached`);
     } catch (error) {
@@ -123,7 +137,7 @@ class CacheService {
 
     for (const [trackId, meta] of this.metadata) {
       try {
-        const fileInfo = await FileSystem.getInfoAsync(meta.filePath);
+        const fileInfo = await FileSystem.getInfoAsync(trackFilePath(trackId));
         if (!fileInfo.exists) {
           toRemove.push(trackId);
         }
@@ -139,6 +153,57 @@ class CacheService {
       await this._saveMetadata();
       console.log(`🧹 Cleaned up ${toRemove.length} orphaned cache entries`);
     }
+  }
+
+  /**
+   * Adopt untracked files found in the audio cache folder (e.g. left behind when
+   * metadata was dropped after a container path change). Old non-mp3 leftovers are deleted.
+   * Files modified in the last 10 minutes are left alone: they may be in-flight downloads.
+   * Returns the number of adopted files.
+   */
+  private async _adoptOrphanFiles(): Promise<number> {
+    let adopted = 0;
+    try {
+      const cacheDir = getCacheDir();
+      const names = await FileSystem.readDirectoryAsync(cacheDir);
+      const now = Date.now();
+
+      for (const name of names) {
+        const match = /^(.+)\.mp3$/.exec(name);
+        if (match && this.metadata.has(match[1])) continue;
+
+        const info = await FileSystem.getInfoAsync(`${cacheDir}${name}`);
+        if (!info.exists || info.isDirectory) continue;
+
+        const modifiedMs = 'modificationTime' in info && info.modificationTime
+          ? info.modificationTime * 1000
+          : 0;
+        if (now - modifiedMs < IN_FLIGHT_WINDOW_MS) continue;
+
+        if (!match) {
+          await FileSystem.deleteAsync(`${cacheDir}${name}`, { idempotent: true });
+          continue;
+        }
+
+        const trackId = match[1];
+        const iso = new Date(modifiedMs).toISOString();
+        this.metadata.set(trackId, {
+          trackId,
+          retreatId: 'unknown',
+          filePath: trackFilePath(trackId),
+          fileSize: 'size' in info ? info.size || 0 : 0,
+          cachedAt: iso,
+          lastAccessedAt: iso,
+        });
+        adopted++;
+      }
+      if (adopted > 0) {
+        console.log(`📦 Adopted ${adopted} untracked cache files`);
+      }
+    } catch (error) {
+      console.warn('Failed to adopt untracked cache files:', error);
+    }
+    return adopted;
   }
 
   /**
@@ -168,7 +233,8 @@ class CacheService {
 
     // Verify file still exists
     try {
-      const fileInfo = await FileSystem.getInfoAsync(meta.filePath);
+      const filePath = trackFilePath(trackId);
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
       if (!fileInfo.exists) {
         this.metadata.delete(trackId);
         await this._saveMetadata();
@@ -179,7 +245,7 @@ class CacheService {
       meta.lastAccessedAt = new Date().toISOString();
       await this._saveMetadata();
 
-      return meta.filePath;
+      return filePath;
     } catch {
       return null;
     }
@@ -196,7 +262,7 @@ class CacheService {
     if (!meta) return false;
 
     try {
-      const fileInfo = await FileSystem.getInfoAsync(meta.filePath);
+      const fileInfo = await FileSystem.getInfoAsync(trackFilePath(trackId));
       return fileInfo.exists;
     } catch {
       return false;
@@ -222,8 +288,7 @@ class CacheService {
       return existingPath;
     }
 
-    const cacheDir = getCacheDir();
-    const filePath = `${cacheDir}${trackId}.mp3`;
+    const filePath = trackFilePath(trackId);
 
     console.log(`📥 Caching track ${trackId} to ${filePath}`);
 
@@ -272,7 +337,7 @@ class CacheService {
     const metadata: CacheMetadata = {
       trackId,
       retreatId,
-      filePath: result.uri,
+      filePath: trackFilePath(trackId),
       fileSize,
       cachedAt: now,
       lastAccessedAt: now,
@@ -299,24 +364,30 @@ class CacheService {
   }
 
   /**
-   * Evict cached files if adding newFileSize would exceed the limit
-   * Protected retreat's tracks are never evicted
+   * Evict cached files if adding newFileSize would exceed the limit.
+   * Other retreats are evicted first (LRU). The protected retreat's tracks are
+   * evicted (LRU) only when that is not enough, so the cache cannot grow past
+   * the limit while listening through one long retreat.
+   * Returns the number of bytes freed.
    */
-  private async _evictIfNeeded(newFileSize: number, protectedRetreatId?: string): Promise<void> {
+  private async _evictIfNeeded(newFileSize: number, protectedRetreatId?: string): Promise<number> {
     // No limit set
-    if (this.settings.maxSizeBytes === 0) return;
+    if (this.settings.maxSizeBytes === 0) return 0;
 
     const currentSize = this._calculateTotalSize();
     const targetSize = this.settings.maxSizeBytes;
 
     if (currentSize + newFileSize <= targetSize) {
-      return; // No eviction needed
+      return 0; // No eviction needed
     }
 
-    // Get all cached files sorted by lastAccessedAt (oldest first)
-    const entries = Array.from(this.metadata.values())
-      .filter(m => m.retreatId !== protectedRetreatId) // Protect current retreat
-      .sort((a, b) => new Date(a.lastAccessedAt).getTime() - new Date(b.lastAccessedAt).getTime());
+    // Unprotected entries first, then protected ones; each group oldest access first
+    const isProtected = (m: CacheMetadata) => protectedRetreatId !== undefined && m.retreatId === protectedRetreatId;
+    const entries = Array.from(this.metadata.values()).sort((a, b) => {
+      const byGroup = Number(isProtected(a)) - Number(isProtected(b));
+      if (byGroup !== 0) return byGroup;
+      return new Date(a.lastAccessedAt).getTime() - new Date(b.lastAccessedAt).getTime();
+    });
 
     const spaceNeeded = (currentSize + newFileSize) - targetSize;
     let spaceFreed = 0;
@@ -325,7 +396,7 @@ class CacheService {
       if (spaceFreed >= spaceNeeded) break;
 
       try {
-        await FileSystem.deleteAsync(entry.filePath, { idempotent: true });
+        await FileSystem.deleteAsync(trackFilePath(entry.trackId), { idempotent: true });
         this.metadata.delete(entry.trackId);
         spaceFreed += entry.fileSize;
         console.log(`🗑️ Evicted cached track ${entry.trackId} (${Math.round(entry.fileSize / 1024 / 1024 * 100) / 100}MB)`);
@@ -338,6 +409,7 @@ class CacheService {
       await this._saveMetadata();
       console.log(`📦 Evicted ${Math.round(spaceFreed / 1024 / 1024 * 100) / 100}MB to make room for new cache`);
     }
+    return spaceFreed;
   }
 
   /**
@@ -394,9 +466,9 @@ class CacheService {
     // Delete all cached files
     for (const meta of this.metadata.values()) {
       try {
-        await FileSystem.deleteAsync(meta.filePath, { idempotent: true });
+        await FileSystem.deleteAsync(trackFilePath(meta.trackId), { idempotent: true });
       } catch (error) {
-        console.warn(`Failed to delete cached file ${meta.filePath}:`, error);
+        console.warn(`Failed to delete cached file for track ${meta.trackId}:`, error);
       }
     }
 
@@ -458,7 +530,7 @@ class CacheService {
     if (!meta) return false;
 
     try {
-      await FileSystem.deleteAsync(meta.filePath, { idempotent: true });
+      await FileSystem.deleteAsync(trackFilePath(trackId), { idempotent: true });
       this.metadata.delete(trackId);
       await this._saveMetadata();
       console.log(`🗑️ Removed track ${trackId} from cache`);

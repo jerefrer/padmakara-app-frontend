@@ -23,6 +23,20 @@ interface TranscriptCacheEntry {
 // Web-only in-memory cache
 const webCache = new Map<string, { blobUrl: string; updatedAt: string }>();
 
+// Loaded lazily (native only). A plain require instead of `await import()` keeps the
+// call compilable to CommonJS under Jest, which has no dynamic-import support.
+const loadFileSystem = async () =>
+  require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
+
+/**
+ * Resolve an entry's file from the current cache dir. The stored absolute path is
+ * not trusted: the iOS app container path can change when the app is updated.
+ */
+function resolveEntryPath(cacheDirectory: string | null, entry: { filePath: string }): string {
+  const basename = entry.filePath.split('/').pop() || entry.filePath;
+  return `${cacheDirectory}transcripts/${basename}`;
+}
+
 class TranscriptCacheService {
   private isWeb = Platform.OS === 'web';
 
@@ -46,14 +60,14 @@ class TranscriptCacheService {
 
     // Native
     try {
-      const FileSystem = await import('expo-file-system/legacy');
+      const FileSystem = await loadFileSystem();
       const metadata = await this.getMetadata();
       const entry = metadata[transcriptId];
 
       if (!entry || entry.updatedAt !== updatedAt) {
         // Stale or missing — clean up old file if exists
         if (entry) {
-          await FileSystem.deleteAsync(entry.filePath, { idempotent: true }).catch(() => {});
+          await FileSystem.deleteAsync(resolveEntryPath(FileSystem.cacheDirectory, entry), { idempotent: true }).catch(() => {});
           delete metadata[transcriptId];
           await this.saveMetadata(metadata);
         }
@@ -62,21 +76,22 @@ class TranscriptCacheService {
 
       // Invalidate if cached with wrong filename (e.g. "396.pdf" instead of original)
       if (expectedFilename && !entry.filePath.endsWith(expectedFilename)) {
-        await FileSystem.deleteAsync(entry.filePath, { idempotent: true }).catch(() => {});
+        await FileSystem.deleteAsync(resolveEntryPath(FileSystem.cacheDirectory, entry), { idempotent: true }).catch(() => {});
         delete metadata[transcriptId];
         await this.saveMetadata(metadata);
         return null;
       }
 
       // Verify file still exists
-      const info = await FileSystem.getInfoAsync(entry.filePath);
+      const filePath = resolveEntryPath(FileSystem.cacheDirectory, entry);
+      const info = await FileSystem.getInfoAsync(filePath);
       if (!info.exists) {
         delete metadata[transcriptId];
         await this.saveMetadata(metadata);
         return null;
       }
 
-      return entry.filePath;
+      return filePath;
     } catch (err) {
       console.error('Transcript cache read error:', err);
       return null;
@@ -100,7 +115,7 @@ class TranscriptCacheService {
 
     // Native
     try {
-      const FileSystem = await import('expo-file-system/legacy');
+      const FileSystem = await loadFileSystem();
       const cacheDir = `${FileSystem.cacheDirectory}transcripts/`;
 
       // Ensure directory exists
@@ -149,9 +164,10 @@ class TranscriptCacheService {
       const entry = metadata[transcriptId];
       if (!entry) return null;
 
-      const FileSystem = await import('expo-file-system/legacy');
-      const info = await FileSystem.getInfoAsync(entry.filePath);
-      return info.exists ? entry.filePath : null;
+      const FileSystem = await loadFileSystem();
+      const filePath = resolveEntryPath(FileSystem.cacheDirectory, entry);
+      const info = await FileSystem.getInfoAsync(filePath);
+      return info.exists ? filePath : null;
     } catch {
       return null;
     }
@@ -170,7 +186,7 @@ class TranscriptCacheService {
     }
 
     try {
-      const FileSystem = await import('expo-file-system/legacy');
+      const FileSystem = await loadFileSystem();
       const cacheDir = `${FileSystem.cacheDirectory}transcripts/`;
       await FileSystem.deleteAsync(cacheDir, { idempotent: true }).catch(() => {});
       await AsyncStorage.removeItem(STORAGE_KEY);

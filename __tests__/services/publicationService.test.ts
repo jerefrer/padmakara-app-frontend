@@ -1,3 +1,7 @@
+jest.mock("expo-file-system/legacy", () =>
+  require("../../__mocks__/fakeFileSystem").createFakeFileSystem(),
+);
+
 import { publicationService } from "../../services/publicationService";
 import entityCacheService from "../../services/entityCacheService";
 
@@ -196,5 +200,31 @@ describe("publicationService — expired cover URLs in the cache", () => {
     ]);
 
     expect(publicationService.getPublicationsSync()).toBeNull();
+  });
+});
+
+// ─── Container path change ───────────────────────────────────────────
+
+describe("publicationService.getCachedPdf — container path change", () => {
+  it("should return the file when the container path changed since it was cached", async () => {
+    const fs = jest.requireMock("expo-file-system/legacy");
+    const asyncStorageModule = require("@react-native-async-storage/async-storage");
+  const AsyncStorage = asyncStorageModule.default ?? asyncStorageModule;
+    fs.addFile("file:///doc/publications/p1.pdf", 100, 1_000);
+    await AsyncStorage.setItem(
+      "@publication_cache:metadata",
+      JSON.stringify({
+        p1: {
+          publicationId: "p1",
+          updatedAt: "2026-01-01",
+          version: null,
+          filePath: "file:///old-container/Documents/publications/p1.pdf",
+          fileSize: 100,
+          cachedAt: "2026-01-01",
+        },
+      }),
+    );
+
+    expect(await publicationService.getCachedPdf("p1")).toBe("file:///doc/publications/p1.pdf");
   });
 });

@@ -32,6 +32,20 @@ const webCache = new Map<
   { blobUrl: string; updatedAt: string; version: string | null }
 >();
 
+// Loaded lazily (native only). A plain require instead of `await import()` keeps the
+// call compilable to CommonJS under Jest, which has no dynamic-import support.
+const loadFileSystem = async () =>
+  require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
+
+/**
+ * Resolve an entry's file from the current documents dir. The stored absolute path
+ * is not trusted: the iOS app container path can change when the app is updated.
+ */
+function resolveEntryPath(documentDirectory: string | null, entry: { filePath: string }): string {
+  const basename = entry.filePath.split('/').pop() || entry.filePath;
+  return `${documentDirectory}publications/${basename}`;
+}
+
 class PublicationService {
   private isWeb = Platform.OS === 'web';
 
@@ -164,21 +178,22 @@ class PublicationService {
 
     // Native
     try {
-      const FileSystem = await import('expo-file-system/legacy');
+      const FileSystem = await loadFileSystem();
       const metadata = await this.getCacheMetadata();
       const entry = metadata[publicationId];
 
       if (!entry) return null;
 
       // Verify file still exists
-      const info = await FileSystem.getInfoAsync(entry.filePath);
+      const filePath = resolveEntryPath(FileSystem.documentDirectory, entry);
+      const info = await FileSystem.getInfoAsync(filePath);
       if (!info.exists) {
         delete metadata[publicationId];
         await this.saveCacheMetadata(metadata);
         return null;
       }
 
-      return entry.filePath;
+      return filePath;
     } catch (err) {
       console.error('Publication cache read error:', err);
       return null;
@@ -233,7 +248,7 @@ class PublicationService {
 
     // Native — use expo-file-system downloadAsync with resume support
     try {
-      const FileSystem = await import('expo-file-system/legacy');
+      const FileSystem = await loadFileSystem();
       const cacheDir = `${FileSystem.documentDirectory}publications/`;
 
       // Ensure directory exists
@@ -320,7 +335,7 @@ class PublicationService {
     }
 
     try {
-      const FileSystem = await import('expo-file-system/legacy');
+      const FileSystem = await loadFileSystem();
       const cacheDir = `${FileSystem.documentDirectory}publications/`;
       await FileSystem.deleteAsync(cacheDir, { idempotent: true }).catch(() => {});
       await AsyncStorage.removeItem(CACHE_METADATA_KEY);
