@@ -234,6 +234,7 @@ function mapTrack(backend: any): Track {
     duration: backend.durationSeconds || backend.duration_seconds || 0,
     file_size: backend.fileSizeBytes || backend.file_size_bytes || undefined,
     order: backend.trackNumber || backend.track_number || 0,
+    position: backend.position ?? null,
     session_id: String(backend.sessionId || backend.session_id || ''),
     language: backend.originalLanguage || backend.original_language || backend.language || undefined,
     languages: backend.languages || (backend.originalLanguage ? [backend.originalLanguage] : undefined),

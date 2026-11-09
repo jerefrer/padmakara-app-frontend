@@ -24,6 +24,15 @@ const baseTrack = (overrides: Partial<Track>): Track => ({
 });
 
 describe('sortTracksForSession', () => {
+  it('should put tracks with a hand-set position first, in that order', () => {
+    const tracks = [
+      baseTrack({ id: 'first-by-number', order: 1, position: null }),
+      baseTrack({ id: 'second', order: 9, position: 2 }),
+      baseTrack({ id: 'first', order: 5, position: 1 }),
+    ];
+    expect(sortTracksForSession(tracks).map((t) => t.id)).toEqual(['first', 'second', 'first-by-number']);
+  });
+
   it('B1 — sorts by `order` ascending', () => {
     const tracks = [baseTrack({ id: 'a', order: 1 }), baseTrack({ id: 'b', order: 0 })];
     expect(sortTracksForSession(tracks).map((t) => t.id)).toEqual(['b', 'a']);

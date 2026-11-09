@@ -205,6 +205,8 @@ export interface Track {
   audio_file?: string;
   transcript_file?: string;
   order: number;
+  /** Hand-set place in its session (admin ↑/↓); tracks without one follow, by `order`. */
+  position?: number | null;
   session_id: string;
   language?: string; // deprecated — use originalLanguage
   languages?: string[]; // All languages in the track (e.g., ['en', 'pt'] for combo)

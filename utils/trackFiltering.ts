@@ -15,8 +15,9 @@ export function trackLanguages(track: Track): string[] {
 }
 
 /**
- * Per-session sort: by `order` ascending, then `isOriginal` first,
- * then by language order (tib < en < pt < es < fr; unknown sorts last).
+ * Per-session sort: a hand-set `position` first (tracks without one
+ * follow), then by `order` ascending, then `isOriginal` first, then by
+ * language order (tib < en < pt < es < fr; unknown sorts last).
  *
  * Behavior must match the inline logic that previously lived in
  * `app/(tabs)/(groups)/retreat/[id].tsx`. Do not change semantics
@@ -24,6 +25,9 @@ export function trackLanguages(track: Track): string[] {
  */
 export function sortTracksForSession(tracks: Track[]): Track[] {
   return [...tracks].sort((a, b) => {
+    const aPos = a.position ?? Number.POSITIVE_INFINITY;
+    const bPos = b.position ?? Number.POSITIVE_INFINITY;
+    if (aPos !== bPos) return aPos - bPos;
     if (a.order !== b.order) return a.order - b.order;
     const aOrig = a.isOriginal ? 0 : 1;
     const bOrig = b.isOriginal ? 0 : 1;
