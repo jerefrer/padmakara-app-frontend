@@ -278,7 +278,13 @@ export function VideoPlayer({
   });
 
   // Video start/stop on native. (Web reports through WebHlsVideo.)
-  useEventListener(player, 'playingChange', ({ isPlaying }) => reportVideoPlaying(isPlaying));
+  // A playing video is loaded: this also hides the loader when reopening a
+  // video the player already had, whose status stays readyToPlay and so never
+  // sends the statusChange that would.
+  useEventListener(player, 'playingChange', ({ isPlaying }) => {
+    reportVideoPlaying(isPlaying);
+    if (isPlaying) setPlayerBuffering(false);
+  });
 
   // Audio started while a video is playing: the audio wins, the video pauses.
   // Keyed on the audio state alone, so the video starting while audio is still

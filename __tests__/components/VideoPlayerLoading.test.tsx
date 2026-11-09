@@ -116,6 +116,15 @@ describe('VideoPlayer — while the source loads', () => {
     expect(screen.queryByTestId('video-buffering')).toBeNull();
   });
 
+  // Reopening a video the player has already loaded (and played to the end)
+  // can leave its status at readyToPlay: no statusChange arrives, and the
+  // loader stayed over a video that was playing.
+  it('should hide the loader once the video plays, even without a status change', async () => {
+    const { screen } = await open();
+    act(() => handlerFor('playingChange')({ isPlaying: true }));
+    expect(screen.queryByTestId('video-buffering')).toBeNull();
+  });
+
   it('should say a video not uploaded yet will come soon, without an error', async () => {
     const retreatService = jest.requireMock('@/services/retreatService').default;
     retreatService.fetchVideo.mockResolvedValueOnce({ success: false, notReady: true, error: 'Video is still being processed' });
