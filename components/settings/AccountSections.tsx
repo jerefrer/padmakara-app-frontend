@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -7,6 +7,8 @@ import retreatService from '@/services/retreatService';
 import { getTranslatedName } from '@/utils/i18n';
 import { tr } from '@/components/membership/tr';
 import { membershipColors as c } from '@/components/membership/theme';
+import { hasUserName, splitUserName } from '@/utils/userName';
+import { NameForm } from '@/components/auth/NameForm';
 import type { RetreatGroup } from '@/types';
 import { ContentLanguageRows } from './DeviceSections';
 import { GroupLabel, Rows, Segmented, SettingsRow } from './ui';
@@ -14,12 +16,39 @@ import { GroupLabel, Rows, Segmented, SettingsRow } from './ui';
 /** Who the person is, and the way out of the account. */
 export function ProfileSection() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const [editing, setEditing] = useState(false);
   if (!user) return null;
+  const current = splitUserName(user);
+  const saveName = async ({ firstName, lastName }: { firstName: string; lastName: string }) => {
+    const result = await updateUser({ first_name: firstName, last_name: lastName });
+    if (result.success) setEditing(false);
+    return result;
+  };
   return (
     <>
       <Rows>
-        <SettingsRow testID="settings-profile-name" icon="person-outline" title={t('settings.name') || 'Name'} value={user.name || '—'} />
+        {editing ? (
+          <View testID="settings-profile-name-edit" style={styles.edit}>
+            <NameForm
+              autoFocus
+              initialFirstName={current.firstName}
+              initialLastName={current.lastName}
+              submitLabel={t('settings.save') || 'Save'}
+              errorText={t('settings.nameSaveError') || 'Your name could not be saved. Please try again.'}
+              onSubmit={saveName}
+              onCancel={() => setEditing(false)}
+            />
+          </View>
+        ) : (
+          <SettingsRow
+            testID="settings-profile-name"
+            icon="person-outline"
+            title={t('settings.name') || 'Name'}
+            value={hasUserName(user) ? user.name : '—'}
+            onPress={() => setEditing(true)}
+          />
+        )}
         {user.dharma_name ? (
           <SettingsRow icon="flower-outline" title={t('settings.dharmaName') || 'Dharma name'} value={user.dharma_name} />
         ) : null}
@@ -140,5 +169,6 @@ export function RetreatsSection() {
 }
 
 const styles = StyleSheet.create({
+  edit: { paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: c.gray[200] },
   empty: { fontSize: 15, color: c.gray[600], lineHeight: 22 },
 });

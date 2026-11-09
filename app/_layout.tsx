@@ -20,6 +20,7 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SignInProvider } from '@/components/auth/SignInProvider';
+import { NameGate } from '@/components/auth/NameGate';
 import { AppLockProvider } from '@/contexts/AppLockContext';
 import { NotificationExplainer } from '@/components/NotificationExplainer';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
@@ -164,6 +165,7 @@ export default function RootLayout() {
           </Stack>
             <StatusBar style="dark" />
             <NotificationExplainer />
+            <NameGate />
             </SignInProvider>
             </AppLockProvider>
           </AudioPlayerProvider>

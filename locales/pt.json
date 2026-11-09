@@ -78,6 +78,14 @@
     "listenToTracks": "Ouvir as faixas {{tracks}}"
   },
   "auth": {
+    "nameStep": {
+      "title": "Como te chamas?",
+      "intro": "Gostaríamos de saber quem nos ouve. Podes alterá-lo mais tarde nas Definições.",
+      "firstName": "Nome próprio",
+      "lastName": "Apelido",
+      "continue": "Continuar",
+      "error": "Não foi possível guardar o teu nome. Tenta novamente."
+    },
     "signInPanel": {
       "title": "Entrar",
       "intro": "Enviamos-te um link por email. Sem palavra-passe para memorizar.",
@@ -849,6 +857,10 @@
     "dharmaName": "Nome de Dharma",
     "email": "Email",
     "emailHint": "Entra com um link enviado para este endereço.",
+    "firstName": "Nome próprio",
+    "lastName": "Apelido",
+    "save": "Guardar",
+    "nameSaveError": "Não foi possível guardar o teu nome. Tenta novamente.",
     "leaving": "Encerrar a conta",
     "deleteAccountHint": "Apaga a tua conta, o progresso e os marcadores.",
     "languageHint": "Menus, botões e emails.",

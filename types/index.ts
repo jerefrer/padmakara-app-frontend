@@ -2,6 +2,9 @@ import type { HeroFrameOverrides } from '@/utils/heroFrames';
 export interface User {
   id: string;
   name: string;
+  /** Sent to PATCH /auth/user only: the API answers with `name`, never with these two. */
+  first_name?: string;
+  last_name?: string;
   email: string;
   avatar?: string | null;
   dharma_name?: string;

@@ -78,6 +78,14 @@
     "listenToTracks": "Listen to tracks {{tracks}}"
   },
   "auth": {
+    "nameStep": {
+      "title": "What's your name?",
+      "intro": "We'd like to know who is listening. You can change it later in Settings.",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "continue": "Continue",
+      "error": "Your name could not be saved. Please try again."
+    },
     "signInPanel": {
       "title": "Sign in",
       "intro": "We'll email you a link. No password to remember.",
@@ -849,6 +857,10 @@
     "dharmaName": "Dharma name",
     "email": "Email",
     "emailHint": "You sign in with a link sent to this address.",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "save": "Save",
+    "nameSaveError": "Your name could not be saved. Please try again.",
     "leaving": "Close your account",
     "deleteAccountHint": "Removes your account, progress and bookmarks.",
     "languageHint": "Menus, buttons and emails.",
