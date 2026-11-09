@@ -374,13 +374,15 @@ describe('AudioPlayerContext — completion + auto-advance hook (matrix E)', () 
 
     act(() => { __setDuration(100); result.current.playTrack(tA, [tA, tB], 0); });
     await act(async () => { await Promise.resolve(); });
-    act(() => { __setPlaying(true); __finishTrack(); });
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
     await act(async () => { await Promise.resolve(); });
     expect(cb).toHaveBeenCalledTimes(1);
 
     act(() => { __resetAudio(); __setDuration(100); result.current.playTrack(tB, [tA, tB], 1); });
     await act(async () => { await Promise.resolve(); });
-    act(() => { __setPlaying(true); __finishTrack(); });
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
     await act(async () => { await Promise.resolve(); });
 
     expect(cb).toHaveBeenCalledTimes(2);
@@ -511,7 +513,8 @@ const walkAdvance = async (
   visited.push(filtered[index].id);
 
   for (let i = 0; i < filtered.length + 2; i++) {
-    act(() => { __setPlaying(true); __finishTrack(); });
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
     await act(async () => { await Promise.resolve(); });
     if (visited[visited.length - 1] === filtered[filtered.length - 1].id) break;
     visited.push(filtered[index].id);
@@ -1162,7 +1165,8 @@ describe('AudioPlayerContext — playback continuity (matrix I)', () => {
       result.current.setOnTrackComplete(() => { result.current.nextTrack(); });
     });
 
-    act(() => { __setPlaying(true); __finishTrack(); });
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
     expect(result.current.currentTrack?.id).toBe('tB');
@@ -1266,11 +1270,39 @@ describe('AudioPlayerContext — auto-advance without the event screen', () => {
 
     act(() => { __setDuration(60); result.current.playTrack(tA, [tA, tB], 0); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    act(() => { __setPlaying(true); __finishTrack(); });
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
     expect(result.current.currentTrack?.id).toBe('tB');
     expect(result.current.isPlaying).toBe(true);
+  });
+
+  // Seen on iOS: 12 tracks marked listened within 2 s, all saved at the first
+  // track's length. Right after replace() the native player can still report
+  // the finished track (its position and duration), and a seek before the new
+  // item has loaded does nothing; play() then made that stale status look
+  // like the end of the new track, and so on down the list.
+  it('should not count the next track as finished from the previous track status', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 60 });
+    const tB = makeTrack({ id: 'tB', duration: 60 });
+    const tC = makeTrack({ id: 'tC', duration: 60 });
+    const { result } = renderPlayer();
+
+    act(() => { __setDuration(60); result.current.playTrack(tA, [tA, tB, tC], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // A fresh status object that still describes tA's end, and a seek that
+    // does not take until the new item has loaded.
+    const player = __getCurrentPlayer()!;
+    player.replace.mockImplementation(() => { __setIsLoaded(true); });
+    player.seekTo = async () => undefined;
+
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tB');
   });
 
   it('should stay on the last track when it ends and no screen handles completion', async () => {
@@ -1279,7 +1311,8 @@ describe('AudioPlayerContext — auto-advance without the event screen', () => {
 
     act(() => { __setDuration(60); result.current.playTrack(tA, [tA], 0); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    act(() => { __setPlaying(true); __finishTrack(); });
+    act(() => { __setPlaying(true); });
+    act(() => { __finishTrack(); });
     await act(async () => { await Promise.resolve(); });
 
     expect(result.current.currentTrack?.id).toBe('tA');

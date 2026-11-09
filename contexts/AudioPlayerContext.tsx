@@ -246,6 +246,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const audioSourceTrackIdRef = useRef<string | null>(null);
   // Guards against the completion callback firing more than once per track.
   const hasCompletedRef = useRef(false);
+  // Whether the current track has been seen playing short of its end. Right
+  // after replace() iOS can still report the finished previous track, and
+  // that status must not count as the end of the new one (it skipped through
+  // a whole session, marking every track listened).
+  const hasPlayedBeforeEndRef = useRef(false);
   // Set while onTrackComplete runs: the track it starts must play, since the
   // player has just stopped at the end of the previous one.
   const advancingFromCompletionRef = useRef(false);
@@ -677,6 +682,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setUserScrubValue(null);
       lastSavedSecondRef.current = -1;
       hasCompletedRef.current = false;
+      hasPlayedBeforeEndRef.current = false;
       return;
     }
 
@@ -692,6 +698,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setUserScrubValue(null);
     lastSavedSecondRef.current = -1;
     hasCompletedRef.current = false;
+    hasPlayedBeforeEndRef.current = false;
     // Carry the play intent captured by playTrack across the switch. When
     // the user hits next/previous mid-playback (or a track auto-advances
     // on completion), the incoming track must keep playing — the
@@ -856,10 +863,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (phase !== 'ready' || !track || !status) return;
 
+    if (status.playing && status.duration > 0 && status.currentTime < status.duration - 0.5) {
+      hasPlayedBeforeEndRef.current = true;
+    }
+
     // The native players report the end as playing: false + didJustFinish:
     // true in the same status, so completion is checked before the
     // playing-only progress save below.
     if (!hasCompletedRef.current
+      && hasPlayedBeforeEndRef.current
       && (status.didJustFinish
         || (status.playing && status.duration > 0 && status.currentTime >= status.duration))) {
       hasCompletedRef.current = true;
