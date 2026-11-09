@@ -2100,7 +2100,10 @@ export default function RetreatDetailScreen() {
         </>
       )}
 
-      {/* Full-screen video player (opens when a recording's card is tapped) */}
+      {/* Full-screen video player (opens when a recording's card is tapped).
+          It stays open when the video counts as watched: that happens at 97%,
+          and closing then cut the last minutes and, in iOS full screen, left
+          a blank white screen behind the native player. */}
       <VideoPlayer
         video={activeVideo}
         eventTitle={retreat ? (getTranslatedName(retreat as any, language) || retreat.name) : undefined}
@@ -2111,11 +2114,6 @@ export default function RetreatDetailScreen() {
         initialPositionSeconds={initialVideoPosition}
         onClose={() => {
           setInitialVideoPosition(undefined);
-          setActiveVideo(null);
-        }}
-        onComplete={() => {
-          // Video reached the end. Close the modal — there's no "next video"
-          // auto-advance within the event yet.
           setActiveVideo(null);
         }}
       />
