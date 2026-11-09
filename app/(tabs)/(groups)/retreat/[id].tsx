@@ -43,6 +43,7 @@ import { LockedRetreat } from '@/components/membership/LockedRetreat';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useVideoBookmarks } from '@/hooks/useVideoBookmarks';
+import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
 import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
@@ -328,6 +329,8 @@ export default function RetreatDetailScreen() {
   const [readAlongModalVisible, setReadAlongModalVisible] = useState(false);
   const [readAlongData, setReadAlongData] = useState<any>(null);
   const [readAlongLoading, setReadAlongLoading] = useState(false);
+  // The app is portrait-locked; reading wider is easier with the phone turned.
+  useUnlockedOrientation(readAlongModalVisible);
 
   // Overflow menu state
   // Which tab is showing: 'video' (thumbnail grid of session recordings),
@@ -2186,6 +2189,7 @@ export default function RetreatDetailScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={handleCloseReadAlong}
+        supportedOrientations={['portrait', 'landscape']}
       >
         <SafeAreaView style={styles.readAlongModal}>
           <View style={styles.readAlongContent}>
