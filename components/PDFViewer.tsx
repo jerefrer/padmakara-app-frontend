@@ -13,10 +13,11 @@ interface PDFViewerProps {
 }
 
 /**
- * Native (iOS/Android): Use WebView to render PDF.
+ * iOS: Use WebView to render PDF.
  * Works in Expo Go — no native module required.
- * iOS WebView has built-in PDF rendering with pinch-to-zoom.
- * For Android, uses Google Docs viewer as fallback.
+ * iOS WKWebView has built-in PDF rendering with pinch-to-zoom.
+ * Android WebView has no PDF renderer, so Android uses PDFViewer.android.tsx
+ * (react-native-pdf) instead.
  */
 export function PDFViewer({ source }: PDFViewerProps) {
   const { t } = useLanguage();
