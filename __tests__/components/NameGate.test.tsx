@@ -107,4 +107,14 @@ describe('userName helpers', () => {
   it('should split a name into first word and the rest', () => {
     expect(splitUserName({ name: 'Ana Maria Silva', email: 'a@b.pt' })).toEqual({ firstName: 'Ana', lastName: 'Maria Silva' });
   });
+
+  it('should use the first and last name the API sends instead of splitting', () => {
+    expect(
+      splitUserName({ name: 'Maria João Silva', email: 'a@b.pt', first_name: 'Maria João', last_name: 'Silva' }),
+    ).toEqual({ firstName: 'Maria João', lastName: 'Silva' });
+  });
+
+  it('should see no name when the API sends empty first and last names', () => {
+    expect(hasUserName({ name: 'a@b.pt', email: 'a@b.pt', first_name: '', last_name: '' })).toBe(false);
+  });
 });
