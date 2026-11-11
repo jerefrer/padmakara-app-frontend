@@ -38,6 +38,9 @@ const SAFETY_LOAD_TIMEOUT_MS = 15000;
 const PROGRESS_SAVE_INTERVAL_S = 10;
 export const SKIP_INTERVAL_S = 15;
 const PLAYBACK_SPEED_CYCLE = [1.0, 1.25, 1.5, 2.0, 0.75] as const;
+// A saved position this close to the end restarts the track: resuming there
+// would leave the user at the end, with play running for a split second.
+const RESUME_END_MARGIN_S = 5;
 
 export interface IdleTrackInfo {
   track: Track;
@@ -122,6 +125,11 @@ export function useAudioPlayerContext(): AudioPlayerContextType {
 }
 
 // ─── Helpers (pure / side-effect-free where possible) ──────────────────
+
+/** Whether a saved position is at the end of the track, so it should restart from 0. */
+function isAtEnd(positionSeconds: number, durationSeconds: number): boolean {
+  return durationSeconds > 0 && positionSeconds >= durationSeconds - RESUME_END_MARGIN_S;
+}
 
 async function readSavedPosition(trackId: string): Promise<number> {
   try {
@@ -558,7 +566,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       // negligible cost.
       for (const p of pullsToWrite) {
         await progressService.saveProgress(p);
-        savedPositionsRef.current.set(p.trackId, p.position);
+        savedPositionsRef.current.set(p.trackId, p.completed ? 0 : p.position);
       }
 
       // Apply pushes with concurrency 3 to be polite to the network.
@@ -825,9 +833,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         // currentTime across source changes; without an explicit seek
         // the slider would show the previous track's position until the
         // user triggered playback.
-        const needSeek = Math.abs((status.currentTime ?? 0) - targetPosition) > 0.5;
+        // Progress synced from another device is not always flagged
+        // completed (tracks often carry no duration), so the end is
+        // detected here, where the real duration is finally known.
+        const start = isAtEnd(targetPosition, status.duration ?? 0) ? 0 : targetPosition;
+        if (start !== targetPosition) setTargetPosition(start);
+        const needSeek = Math.abs((status.currentTime ?? 0) - start) > 0.5;
         if (needSeek) {
-          await player.seekTo(targetPosition);
+          await player.seekTo(start);
         }
         // Restore the previous playback rate (expo-audio resets it on
         // source change).
@@ -952,8 +965,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         bookmarks: [],
       };
       // Keep the in-memory cache fresh so the next track switch can use it
-      // synchronously.
-      savedPositionsRef.current.set(track.id, positionSeconds);
+      // synchronously. A completed track restarts from 0, as readSavedPosition does.
+      savedPositionsRef.current.set(track.id, progress.completed ? 0 : positionSeconds);
       await AsyncStorage.setItem(`progress_${track.id}`, JSON.stringify(progress));
       onProgressUpdateRef.current?.(progress);
       // Cross-device sync: fire-and-forget. progressService catches all errors,

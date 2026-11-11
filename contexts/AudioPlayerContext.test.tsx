@@ -159,6 +159,55 @@ describe('AudioPlayerContext — resume + position (matrix D)', () => {
     expect(__getLastSeekTo() === 0 || __getLastSeekTo() === null).toBe(true);
   });
 
+  it('should start from 0 when the saved position is at the end but not flagged completed', async () => {
+    // Synced from another device: tracks carry no duration, so the server
+    // never flags them completed even when the position is the very end.
+    const track = makeTrack({ id: 'tEnd', duration: 0 });
+    await AsyncStorage.setItem(
+      'progress_tEnd',
+      JSON.stringify({ trackId: 'tEnd', position: 287, completed: false, lastPlayed: '', bookmarks: [] }),
+    );
+
+    const { result } = renderPlayer();
+
+    act(() => {
+      __setDuration(287.4);
+      result.current.playTrack(track, [track], 0);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(__getLastSeekTo() === 0 || __getLastSeekTo() === null).toBe(true);
+    expect(result.current.position).toBe(0);
+  });
+
+  it('should start from 0 when reopening a track finished earlier in the session', async () => {
+    const tA = makeTrack({ id: 'tA', duration: 200 });
+    const tB = makeTrack({ id: 'tB', duration: 300 });
+
+    const { result } = renderPlayer();
+
+    act(() => {
+      __setDuration(200);
+      result.current.playTrack(tA, [tA, tB], 0);
+    });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); __advanceTime(30); });
+    act(() => { __finishTrack(); });
+    await act(async () => { await Promise.resolve(); });
+
+    act(() => { result.current.playTrack(tB, [tA, tB], 1); });
+    await act(async () => { await Promise.resolve(); });
+
+    act(() => {
+      __setDuration(200);
+      result.current.playTrack(tA, [tA, tB], 0);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(__getLastSeekTo() === 0 || __getLastSeekTo() === null).toBe(true);
+    expect(result.current.position).toBe(0);
+  });
+
   it('D5a — switch tracks mid-play: outgoing position saved, incoming restored', async () => {
     const tA = makeTrack({ id: 'tA', duration: 200 });
     const tB = makeTrack({ id: 'tB', duration: 300 });
