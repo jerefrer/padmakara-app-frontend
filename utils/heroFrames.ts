@@ -27,10 +27,12 @@ export function pickFrameOverride(
   return { focalX: clamp(focalX, 0, 100), focalY: clamp(focalY, 0, 100), zoom: clamp(zoom, 1, 3) };
 }
 
-/** Home highlight card: the small-phone branch (window height < 750) and web desktop have their own frames. */
-export function homeFrameKey(layout: { isDesktop: boolean; shortScreen: boolean }): HeroFrameKey {
-  if (layout.isDesktop) return 'desk-home';
-  return layout.shortScreen ? 'home-short' : 'home';
+/**
+ * Home highlight card: web desktop has its own frame; every phone and tablet uses 'home'. The
+ * 'home-short' key is no longer read (the card's shape no longer depends on the window height).
+ */
+export function homeFrameKey(layout: { isDesktop: boolean }): HeroFrameKey {
+  return layout.isDesktop ? 'desk-home' : 'home';
 }
 
 /** Event page: web desktop has its own, wider frame; phones and tablets share the 'page' frame. */

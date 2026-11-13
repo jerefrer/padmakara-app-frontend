@@ -20,7 +20,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
@@ -51,9 +50,6 @@ const colors = {
   },
   white: "#ffffff",
 };
-
-/** Below this window height (pt) the highlight photo is made less tall. */
-const SHORT_SCREEN_HEIGHT = 750;
 
 // ── Category Row ─────────────────────────────────────────────────────────────
 
@@ -100,11 +96,11 @@ interface FeaturedEventProps {
 }
 
 function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel, testID }: FeaturedEventProps) {
-  const { height: windowHeight } = useWindowDimensions();
   // iPad tablet: the photo stays inside the text margins instead of bleeding to the screen edge.
   const { compactSidebar } = useDesktopLayout();
-  // On short phones (SE, mini) a 4:3 photo fills the first screen and hides who is teaching.
-  const shortScreen = !isDesktop && windowHeight < SHORT_SCREEN_HEIGHT;
+  // The photo's shape depends on the layout (phone, tablet, desktop) only, never on the window
+  // height: Display Zoom and text size change it, which made the same photo crop differently on
+  // two phones of the same model.
   const title =
     language === "pt" && event.name_translations?.pt
       ? event.name_translations.pt
@@ -163,7 +159,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     : { x: 50, y: 0 };
   // This layout's own framing from the admin, when the picture is the teacher's hero.
   const frameOverride = focusTeacher?.heroUrl
-    ? pickFrameOverride(focusTeacher.heroFrameOverrides, homeFrameKey({ isDesktop: !!isDesktop, shortScreen }))
+    ? pickFrameOverride(focusTeacher.heroFrameOverrides, homeFrameKey({ isDesktop: !!isDesktop }))
     : null;
   const focalCover = useFocalCover({ focalX: focal.x, focalY: focal.y, override: frameOverride });
 
@@ -176,7 +172,6 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
       <View
         style={[
           styles.featuredImageContainer,
-          shortScreen && styles.featuredImageContainerShort,
           isDesktop && styles.featuredImageContainerDesktop,
           compactSidebar && styles.featuredImageContainerTablet,
         ]}
@@ -651,9 +646,6 @@ const styles = StyleSheet.create({
     marginRight: RULE_RIGHT_INSET,
     aspectRatio: 2,
     borderRadius: 4,
-  },
-  featuredImageContainerShort: {
-    aspectRatio: 2,
   },
   featuredImageContainerDesktop: {
     borderRadius: 4,

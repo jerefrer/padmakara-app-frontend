@@ -24,9 +24,8 @@ describe('pickFrameOverride', () => {
 
 describe('frame keys', () => {
   it.each([
-    [{ isDesktop: false, shortScreen: false }, 'home'],
-    [{ isDesktop: false, shortScreen: true }, 'home-short'],
-    [{ isDesktop: true, shortScreen: false }, 'desk-home'],
+    [{ isDesktop: false }, 'home'],
+    [{ isDesktop: true }, 'desk-home'],
   ])('should pick the home frame for %j', (layout, key) => {
     expect(homeFrameKey(layout)).toBe(key);
   });
