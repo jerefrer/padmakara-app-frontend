@@ -14,7 +14,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 describe('privacy policy page', () => {
   it('should show the update date and the processors it relies on', () => {
     const { getByText } = render(<PrivacyPolicyScreen />);
-    expect(getByText(/27 October 2026/)).toBeTruthy();
+    expect(getByText(/13 November 2026/)).toBeTruthy();
     for (const heading of [
       'File storage — Cloudflare R2',
       'Video hosting — Bunny Stream',
@@ -24,6 +24,13 @@ describe('privacy policy page', () => {
     ]) {
       expect(getByText(heading)).toBeTruthy();
     }
+  });
+
+  it('should describe the server-side usage statistics and their retention', () => {
+    const { getByText } = render(<PrivacyPolicyScreen />);
+    expect(getByText('Usage Statistics')).toBeTruthy();
+    expect(getByText(/our server counts, per day and per teaching/)).toBeTruthy();
+    expect(getByText(/daily activity is deleted after 13 months/)).toBeTruthy();
   });
 
   it('should keep payments without contact details after deletion', () => {

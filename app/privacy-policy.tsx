@@ -10,7 +10,7 @@ export default function PrivacyPolicyScreen() {
   const { t, language } = useLanguage();
   const p = (key: string, fallback: string) => t(`privacy.${key}`) || fallback;
 
-  const lastUpdated = p('lastUpdatedDate', language === 'pt' ? '27 de outubro de 2026' : '27 October 2026');
+  const lastUpdated = p('lastUpdatedDate', language === 'pt' ? '13 de novembro de 2026' : '13 November 2026');
   const deletionUrl = p('rightsDeleteLink', 'https://app.padmakara.pt/account-deletion');
 
   return (
@@ -33,6 +33,8 @@ export default function PrivacyPolicyScreen() {
         <LegalBody>{p('deviceData', 'We store a device identifier to manage device activation. If you enable biometric authentication (Face ID, fingerprint), this is handled entirely by your device — we never receive or store biometric data.')}</LegalBody>
         <LegalSubheading>{p('searchDataTitle', 'Search Data')}</LegalSubheading>
         <LegalBody>{p('searchData', 'Searches you make in the app are recorded anonymously, without any link to you or your device, so we can see which teachings people look for. They are kept for 24 months.')}</LegalBody>
+        <LegalSubheading>{p('usageStatsTitle', 'Usage Statistics')}</LegalSubheading>
+        <LegalBody>{p('usageStats', 'Usage statistics. To understand how the app is used, our server counts, per day and per teaching, how often recordings, transcripts and documents are opened, and which days each account was active. These records are only used as totals, are never shared, and daily activity is deleted after 13 months. Nothing is tracked inside the app and no advertising or third-party analytics are used.')}</LegalBody>
         <LegalSubheading>{p('localDataTitle', 'Locally Stored Data')}</LegalSubheading>
         <LegalBody>{p('localData', 'The App caches audio files and PDF transcripts on your device for offline access. Your language preferences and cache settings are also stored locally. This data never leaves your device.')}</LegalBody>
       </LegalSection>
