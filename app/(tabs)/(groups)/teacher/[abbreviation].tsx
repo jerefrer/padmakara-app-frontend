@@ -32,6 +32,10 @@ import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
 
+// The floating back button sits 8pt below the safe-area top and is 36pt tall;
+// without a hero, content starts 8pt below it.
+const BACK_BUTTON_CLEARANCE = 8 + 36 + 8;
+
 /** Compute total track duration (seconds) across an event's sessions. */
 function eventDurationSeconds(event: Gathering): number {
   let total = 0;
@@ -210,7 +214,12 @@ export default function TeacherDetailScreen() {
 
         {/* Teacher name (back button moved to a floating button over the
             hero — see below) */}
-        <View style={styles.headerRow}>
+        <View
+          style={[
+            styles.headerRow,
+            !hasHero && { paddingTop: insets.top + BACK_BUTTON_CLEARANCE },
+          ]}
+        >
           <Text style={styles.teacherName}>{teacher.name}</Text>
         </View>
         <View style={styles.infoSection}>
