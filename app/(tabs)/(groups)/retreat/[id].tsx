@@ -63,6 +63,7 @@ import {
   filterTracksByLanguage,
   resolveEventOriginalLanguage,
   getEventLanguages,
+  languagePickerFiltersTracks,
   sortTracksForSession,
   type TrackWithSession,
 } from '@/utils/trackFiltering';
@@ -438,10 +439,11 @@ export default function RetreatDetailScreen() {
   }, [retreat]);
 
   // Languages actually present in this event, derived from the tracks. The
-  // picker is built from this list, so a trilingual KPS event offers
-  // Tibetan / English / Portuguese while a monolingual event shows no picker.
+  // picker is built from this list, but only shown when unticking a language
+  // can hide a track: a monolingual event, or one whose tracks are each a
+  // single multi-language file (TIB ING POR), has nothing to choose.
   const eventLanguages = useMemo(() => getEventLanguages(allTracks), [allTracks]);
-  const showLanguagePicker = eventLanguages.length > 1;
+  const showLanguagePicker = useMemo(() => languagePickerFiltersTracks(allTracks), [allTracks]);
 
   /**
    * The languages actually shown, derived rather than stored. An explicit

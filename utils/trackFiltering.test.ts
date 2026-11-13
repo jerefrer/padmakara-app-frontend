@@ -1,4 +1,4 @@
-import { sortTracksForSession } from './trackFiltering';
+import { languagePickerFiltersTracks, sortTracksForSession } from './trackFiltering';
 import { defaultForEvent } from './contentLanguage';
 import {
   filterTracksByLanguage,
@@ -356,5 +356,36 @@ describe('resolveEventOriginalLanguage', () => {
     const en = (id: string) => baseTrack({ id, originalLanguage: 'en', isOriginal: true });
     expect(resolveEventOriginalLanguage(undefined, [fr('a'), fr('b'), en('c')])).toBe('fr');
     expect(resolveEventOriginalLanguage(undefined, [fr('a'), en('c')])).toBe('en');
+  });
+});
+
+const L = (languages: string[]): Track => baseTrack({ languages });
+
+describe('languagePickerFiltersTracks', () => {
+  it('should return false when there are no tracks', () => {
+    expect(languagePickerFiltersTracks([])).toBe(false);
+  });
+
+  it('should return false when every track is tagged with the same single language', () => {
+    expect(languagePickerFiltersTracks([L(['en']), L(['en'])])).toBe(false);
+  });
+
+  it('should return false when every track carries all the event languages', () => {
+    expect(
+      languagePickerFiltersTracks([L(['tib', 'en', 'pt']), L(['tib', 'en', 'pt'])]),
+    ).toBe(false);
+  });
+
+  it('should return true when separate tracks exist per language', () => {
+    expect(languagePickerFiltersTracks([L(['tib']), L(['en']), L(['pt'])])).toBe(true);
+  });
+
+  it('should return true when only some tracks are multi-language', () => {
+    expect(languagePickerFiltersTracks([L(['tib', 'en', 'pt']), L(['en'])])).toBe(true);
+  });
+
+  it('should treat the legacy single language field like a one-element list', () => {
+    const legacy = baseTrack({ language: 'pt' });
+    expect(languagePickerFiltersTracks([L(['en']), legacy])).toBe(true);
   });
 });

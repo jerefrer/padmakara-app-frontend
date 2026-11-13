@@ -116,3 +116,22 @@ export function filterTracksByLanguage(
   );
   return filtered.length === 0 ? tracks : filtered;
 }
+
+/**
+ * Whether the per-event language picker would change anything.
+ *
+ * A track is kept when any of its languages is selected, and the picker can
+ * leave any non-empty selection. So a selection hides a track exactly when it
+ * shares no language with it; the picker is useful only if some track does not
+ * carry every language of the event (leaving the others to be unticked away).
+ * When every track is one file tagged with all the event's languages (e.g.
+ * TIB ING POR), unticking never hides anything and the picker is pointless.
+ */
+export function languagePickerFiltersTracks(tracks: Track[]): boolean {
+  const eventLanguages = getEventLanguages(tracks);
+  if (eventLanguages.length < 2) return false;
+  return tracks.some((track) => {
+    const own = new Set(trackLanguages(track));
+    return eventLanguages.some((code) => !own.has(code));
+  });
+}
