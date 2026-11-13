@@ -17,6 +17,7 @@ import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
 import { formatSessionHeader } from '@/utils/sessionHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftBadge } from '@/components/DraftBadge';
+import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { PDFViewer } from '@/components/PDFViewer';
 import { DocumentShareButton } from '@/components/DocumentShareButton';
 import { DocumentImageViewer } from '@/components/DocumentImageViewer';
@@ -186,7 +187,7 @@ interface RetreatDetails {
   transcripts?: TranscriptInfo[];
   /** Non-transcript documents attached to this event (images, slides, etc.). */
   eventFiles?: EventFile[];
-  status?: 'draft' | 'upcoming' | 'ongoing' | 'completed';
+  status?: 'draft' | 'forthcoming' | 'upcoming' | 'ongoing' | 'completed';
   relatedPublications?: Array<{
     id: number;
     title: string;
@@ -1486,6 +1487,7 @@ export default function RetreatDetailScreen() {
     ].filter(Boolean);
 
     // Indicators for the floating circles on the hero.
+    const isForthcoming = retreat?.status === 'forthcoming';
     const hasAudio = !!retreat?.sessions?.some((s) => (s.tracks?.length ?? 0) > 0);
     const hasVideo = (retreat?.videos?.length ?? 0) > 0;
     const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
@@ -1616,6 +1618,7 @@ export default function RetreatDetailScreen() {
             <View style={styles.eventTitleRow}>
               <Text style={styles.eventTitleText}>{titleText}</Text>
               {retreat.status === 'draft' && <DraftBadge />}
+              {retreat.status === 'forthcoming' && <ForthcomingBadge />}
             </View>
             {speakersText ? (
               <Text style={styles.eventSpeakerText}>{speakersText}</Text>
@@ -1626,9 +1629,21 @@ export default function RetreatDetailScreen() {
           </View>
         )}
 
+        {/* A forthcoming event has no content yet: one calm notice replaces the
+            tabs, tracks and "no documents" text. */}
+        {isForthcoming && (
+          <View style={styles.forthcomingNotice} testID="event-forthcoming-notice">
+            <Ionicons name="time-outline" size={20} color={colors.gray[500]} />
+            <Text style={styles.forthcomingNoticeText}>
+              {t('events.forthcomingNotice') ||
+                'Forthcoming – this event is being edited and will be available soon.'}
+            </Text>
+          </View>
+        )}
+
         {/* Tab bar — shown whenever 2+ content types are available (video,
             audio, documents). Sits between the title and the content. */}
-        {showContentTabs && (
+        {!isForthcoming && showContentTabs && (
           <TabSwitcher<EventContentTab>
             style={!isDesktop && styles.lineBleed}
             activeKey={effectiveTab}
@@ -1642,7 +1657,7 @@ export default function RetreatDetailScreen() {
           />
         )}
 
-        {effectiveTab === 'topics' && (
+        {!isForthcoming && effectiveTab === 'topics' && (
           <EventTopics
             main={topics.main}
             sessions={topics.sessions}
@@ -1651,7 +1666,7 @@ export default function RetreatDetailScreen() {
           />
         )}
 
-        {effectiveTab === 'video' && hasVideo && (
+        {!isForthcoming && effectiveTab === 'video' && hasVideo && (
           <VideoGrid
             items={videoItems}
             onPlay={(video) => watchVideo(video)}
@@ -1661,7 +1676,7 @@ export default function RetreatDetailScreen() {
           />
         )}
 
-        {effectiveTab === 'tracks' && filteredTracks.map((track, trackIndex) => {
+        {!isForthcoming && effectiveTab === 'tracks' && filteredTracks.map((track, trackIndex) => {
           const isActive = currentTrack?.id === track.id;
           const isSelected = selectedTrack?.id === track.id;
           const showSessionHeader = track.sessionId !== trackSessionId;
@@ -1767,7 +1782,7 @@ export default function RetreatDetailScreen() {
             Covers both the "tab body" case (2+ content types) and the "only
             content type" case (event has documents but no audio/video), so
             the content area is never empty for those events. */}
-        {effectiveTab === 'documents' && (
+        {!isForthcoming && effectiveTab === 'documents' && (
           <View style={styles.documentsSection}>
             {documents.map((doc) => {
               const isTranscript = doc.kind === 'transcript';
@@ -1829,7 +1844,7 @@ export default function RetreatDetailScreen() {
           </View>
         )}
 
-        {effectiveTab === 'documents' && relatedPublications.length > 0 && (
+        {!isForthcoming && effectiveTab === 'documents' && relatedPublications.length > 0 && (
           <View
             style={[styles.relatedPublicationsSection, !isDesktop && styles.lineBleed]}
             testID="event-related-publications"
@@ -2021,6 +2036,7 @@ export default function RetreatDetailScreen() {
             aren't offered, so the overflow menu would hold a single action —
             pre-download. Skip the menu and trigger it directly. Web keeps the
             kebab menu (download + ZIP + transcript shortcut). */}
+        {retreat?.status !== 'forthcoming' && (
         <TouchableOpacity
           onPress={() =>
             Platform.OS === 'web' ? setMenuVisible(true) : handleDownloadForOffline()
@@ -2048,6 +2064,7 @@ export default function RetreatDetailScreen() {
             color={colors.white}
           />
         </TouchableOpacity>
+        )}
       </View>
 
       {/* Mobile keeps the full-width strip under the floating controls. On
@@ -2951,6 +2968,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.burgundy[500],
+  },
+  forthcomingNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  forthcomingNoticeText: {
+    flex: 1,
+    fontFamily: 'EBGaramond_400Regular',
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.gray[600],
   },
   documentsEmptyText: {
     fontFamily: 'EBGaramond_400Regular',

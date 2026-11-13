@@ -1,4 +1,5 @@
 import { DraftBadge } from "@/components/DraftBadge";
+import { ForthcomingBadge } from "@/components/ForthcomingBadge";
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -220,6 +221,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
             {title}
           </Text>
           {event.status === 'draft' && <DraftBadge />}
+          {event.status === 'forthcoming' && <ForthcomingBadge />}
         </View>
         <NowPlayingBadge eventId={event.id} />
         {metaLine ? (

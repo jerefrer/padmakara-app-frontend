@@ -38,7 +38,8 @@
     "close": "Close",
     "ok": "OK",
     "remove": "Remove",
-    "draft": "Draft"
+    "draft": "Draft",
+    "forthcoming": "Forthcoming"
   },
   "video": {
     "loading": "Loading video…",
@@ -265,6 +266,7 @@
     "setupAccount": "Visit app.padmakara.pt to set up your account"
   },
   "events": {
+    "forthcomingNotice": "Forthcoming – this event is being edited and will be available soon.",
     "empty": "No events available",
     "retreats": "Personal Library",
     "eventName": "Event",

@@ -129,7 +129,7 @@ export interface Gathering {
   /** Personal Library only (GET /teachings/mine): 'granted' when given or bought,
    *  'membership' when open only through the audience. Absent from an older API. */
   libraryAccess?: 'granted' | 'membership';
-  status: 'draft' | 'upcoming' | 'ongoing' | 'completed';
+  status: 'draft' | 'forthcoming' | 'upcoming' | 'ongoing' | 'completed';
   created_at: string;
   updated_at: string;
 }

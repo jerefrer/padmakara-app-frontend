@@ -82,8 +82,9 @@ function mapEventStatus(
   status: string,
   startDate: string,
   endDate: string,
-): 'draft' | 'upcoming' | 'ongoing' | 'completed' {
+): 'draft' | 'forthcoming' | 'upcoming' | 'ongoing' | 'completed' {
   if (status === 'draft') return 'draft';
+  if (status === 'forthcoming') return 'forthcoming';
   if (status === 'archived') return 'completed';
 
   const now = new Date();

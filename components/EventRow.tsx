@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { DraftBadge } from "@/components/DraftBadge";
+import { ForthcomingBadge } from "@/components/ForthcomingBadge";
 import { NowPlayingBadge } from "@/components/NowPlayingBadge";
 import { AVENIR_FAMILY } from "@/constants/avenirFont";
 import {
@@ -113,6 +114,7 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
             {title}
           </Text>
           {event.status === "draft" && <DraftBadge />}
+          {event.status === "forthcoming" && <ForthcomingBadge />}
           {badge}
         </View>
         <NowPlayingBadge eventId={event.id} />

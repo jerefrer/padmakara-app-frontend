@@ -38,7 +38,8 @@
     "close": "Fechar",
     "ok": "OK",
     "remove": "Remover",
-    "draft": "Rascunho"
+    "draft": "Rascunho",
+    "forthcoming": "Em breve"
   },
   "video": {
     "loading": "A carregar vídeo…",
@@ -265,6 +266,7 @@
     "setupAccount": "Visita app.padmakara.pt para configurar a tua conta"
   },
   "events": {
+    "forthcomingNotice": "Em breve – este evento está a ser editado e ficará disponível em breve.",
     "empty": "Sem eventos disponíveis",
     "retreats": "Mediateca Pessoal",
     "eventName": "Evento",

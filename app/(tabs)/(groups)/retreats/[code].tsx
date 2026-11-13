@@ -11,6 +11,7 @@ import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { DraftBadge } from '@/components/DraftBadge';
+import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -240,6 +241,7 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
       </View>
       <View style={styles.desktopRowBadges}>
         {retreat.status === 'draft' && <DraftBadge />}
+        {retreat.status === 'forthcoming' && <ForthcomingBadge />}
         {isDownloaded && <OfflineBadge />}
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />

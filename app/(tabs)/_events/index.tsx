@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
 import { DraftBadge } from '@/components/DraftBadge';
+import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { Stack, router, useGlobalSearchParams, useSegments } from 'expo-router';
 import { Image } from 'expo-image';
@@ -190,9 +191,10 @@ function DesktopEventRow({ event, onPress, language, testID }: { event: any; onP
           {event.teachers?.length > 0 && ` · ${event.teachers.map((t: any) => t.name).filter(Boolean).join(', ')}`}
         </Text>
       </View>
-      {event.status === 'draft' && (
+      {(event.status === 'draft' || event.status === 'forthcoming') && (
         <View style={styles.desktopRowBadges}>
-          <DraftBadge />
+          {event.status === 'draft' && <DraftBadge />}
+          {event.status === 'forthcoming' && <ForthcomingBadge />}
         </View>
       )}
     </ListRowPressable>

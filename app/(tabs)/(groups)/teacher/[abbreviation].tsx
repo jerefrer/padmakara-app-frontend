@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DraftBadge } from '@/components/DraftBadge';
+import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { eventLanguages } from '@/utils/eventLanguages';
 import retreatService from '@/services/retreatService';
@@ -264,6 +265,7 @@ export default function TeacherDetailScreen() {
                 <View style={styles.eventTitleRow}>
                   <Text style={[styles.eventTitle, styles.eventTitleFlex]}>{eventTitle}</Text>
                   {event.status === 'draft' && <DraftBadge />}
+                  {event.status === 'forthcoming' && <ForthcomingBadge />}
                 </View>
                 <NowPlayingBadge eventId={event.id} />
                 {statsParts.length > 0 && (
