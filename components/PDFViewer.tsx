@@ -91,9 +91,9 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
           enableDoubleTapZoom={false}
           minScale={1}
           maxScale={4}
-          onLoadComplete={(_pages, _path, _size, tableContents) => {
+          onLoadComplete={(pages, _path, _size, tableContents) => {
             setLoading(false);
-            onOutline?.(flattenPdfOutline(tableContents));
+            onOutline?.(flattenPdfOutline(tableContents, pages));
           }}
           onPageChanged={handlePageChanged}
           onPageSingleTap={handleSingleTap}

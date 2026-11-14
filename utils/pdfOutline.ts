@@ -12,9 +12,11 @@ export interface PdfOutlineItem {
  *
  * Both platforms send `{ title, pageIdx, children }` trees with a 0-based
  * `pageIdx`, a string on iOS and a number on Android. Entries without a title
- * or a usable page are dropped; their children are kept.
+ * or a usable page are dropped; their children are kept. With `pageCount`, a
+ * page outside the document also counts as unusable: iOS sends NSNotFound
+ * for an entry that points to a page the PDF no longer has.
  */
-export function flattenPdfOutline(tableContents: unknown): PdfOutlineItem[] {
+export function flattenPdfOutline(tableContents: unknown, pageCount = Infinity): PdfOutlineItem[] {
   const items: PdfOutlineItem[] = [];
   const walk = (nodes: unknown, depth: number) => {
     if (!Array.isArray(nodes)) return;
@@ -23,7 +25,7 @@ export function flattenPdfOutline(tableContents: unknown): PdfOutlineItem[] {
       const { title, pageIdx, children } = node as { title?: unknown; pageIdx?: unknown; children?: unknown };
       const label = typeof title === 'string' ? title.trim() : '';
       const index = typeof pageIdx === 'number' ? pageIdx : typeof pageIdx === 'string' && pageIdx.trim() !== '' ? Number(pageIdx) : NaN;
-      if (label && Number.isInteger(index) && index >= 0) {
+      if (label && Number.isSafeInteger(index) && index >= 0 && index < pageCount) {
         items.push({ title: label, page: index + 1, depth });
       }
       walk(children, depth + 1);

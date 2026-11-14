@@ -42,6 +42,17 @@ describe('flattenPdfOutline', () => {
     ]);
   });
 
+  it('should skip entries whose page is outside the document', () => {
+    // iOS sends NSNotFound when an entry points to a page the PDF no longer has.
+    const toc = [
+      { title: 'Lost page', pageIdx: '9223372036854775807', children: [] },
+      { title: 'Last page', pageIdx: '115', children: [] },
+      { title: 'Past the end', pageIdx: 116, children: [] },
+    ];
+
+    expect(flattenPdfOutline(toc, 116)).toEqual([{ title: 'Last page', page: 116, depth: 0 }]);
+  });
+
   it('should trim titles', () => {
     expect(flattenPdfOutline([{ title: ' Prologue \n', pageIdx: 0 }])).toEqual([
       { title: 'Prologue', page: 1, depth: 0 },
