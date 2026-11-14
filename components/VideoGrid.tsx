@@ -104,9 +104,9 @@ function VideoCard({ video, title, onPress, formatDuration, bookmarked, onToggle
         {/* Subtle scrim so the play icon stays legible over any photo. */}
         <View style={[styles.scrim, hover && styles.scrimHover]} pointerEvents="none" />
 
-        {/* Centered play badge */}
+        {/* Play badge bottom-left, mirroring the duration chip so it stays off the face */}
         <View style={styles.playBadge} pointerEvents="none">
-          <Ionicons name="play" size={20} color={colors.white} style={{ marginLeft: 2 }} />
+          <Ionicons name="play" size={16} color={colors.white} style={{ marginLeft: 1 }} />
         </View>
 
         {/* Duration chip bottom-right */}
@@ -184,13 +184,11 @@ const styles = StyleSheet.create({
   },
   playBadge: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: 48,
-    height: 48,
-    marginLeft: -24,
-    marginTop: -24,
-    borderRadius: 24,
+    left: 8,
+    bottom: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
     backgroundColor: 'rgba(155,27,27,0.92)', // burgundy[500] @ ~92%
     alignItems: 'center',
     justifyContent: 'center',
