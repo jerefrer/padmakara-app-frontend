@@ -117,7 +117,7 @@ const LANG_COLORS: Record<string, { bg: string; text: string }> = {
   en: { bg: 'transparent', text: '#6b7fad' },
   pt: { bg: 'transparent', text: '#5a8a6a' },
   fr: { bg: 'transparent', text: '#8a6aad' },
-  tib: { bg: 'transparent', text: '#9a7a4a' },
+  tib: { bg: 'transparent', text: colors.burgundy[500] },
 };
 const DEFAULT_LANG_COLOR = { bg: 'transparent', text: colors.gray[500] };
 
