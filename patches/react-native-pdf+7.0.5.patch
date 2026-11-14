@@ -9,7 +9,7 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
  import android.graphics.Canvas;
  import android.graphics.pdf.PdfRenderer;
  
-@@ -103,9 +104,22 @@
+@@ -103,9 +104,28 @@
      private int oldW = 0;
      private int oldH = 0;
  
@@ -18,13 +18,19 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
 +    // (no double-tap listener) reports the tap as soon as the finger lifts.
 +    private final GestureDetector immediateTapDetector;
 +
++    // A page that moved this recently is still gliding from a swipe: a tap
++    // landing on it only stops the scroll and is not reported.
++    private static final long SCROLL_STOP_TAP_MS = 100;
++    private long lastScrollAt = 0;
++    private boolean tapStopsScroll = false;
++
      public PdfView(Context context, AttributeSet set){
          super(context, set);
          ConfigKt.setPdfiumConfig(new Config(new DefaultLogger(), AlreadyClosedBehavior.IGNORE));
 +        immediateTapDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
 +            @Override
 +            public boolean onSingleTapUp(MotionEvent e) {
-+                if (!enableDoubleTapZoom) sendSingleTap(e);
++                if (!enableDoubleTapZoom && !tapStopsScroll) sendSingleTap(e);
 +                return false;
 +            }
 +        });
@@ -32,15 +38,19 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
      }
  
      @Override
-@@ -239,12 +253,27 @@
+@@ -239,12 +259,31 @@
          // maybe change by other instance, restore zoom setting
          Constants.Pinch.MINIMUM_ZOOM = this.minScale;
          Constants.Pinch.MAXIMUM_ZOOM = this.maxScale;
 +
++        this.lastScrollAt = android.os.SystemClock.uptimeMillis();
 +    }
  
 +    @Override
 +    public boolean dispatchTouchEvent(MotionEvent ev) {
++        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
++            tapStopsScroll = ev.getEventTime() - lastScrollAt < SCROLL_STOP_TAP_MS;
++        }
 +        immediateTapDetector.onTouchEvent(ev);
 +        return super.dispatchTouchEvent(ev);
      }
@@ -51,7 +61,7 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
 +        if (!this.enableDoubleTapZoom) {
 +            return true;
 +        }
-+        sendSingleTap(e);
++        if (!tapStopsScroll) sendSingleTap(e);
 +        return true;
 +    }
  
@@ -60,20 +70,30 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
          // maybe change by other instance, restore zoom setting
          //Constants.Pinch.MINIMUM_ZOOM = this.minScale;
          //Constants.Pinch.MAXIMUM_ZOOM = this.maxScale;
-@@ -268,9 +297,6 @@
+@@ -267,9 +306,6 @@
+ //            "topChange",
  //            event
  //         );
- 
+-
 -        // process as tap
 -         return true;
--
+ 
      }
  
-     @Override
 diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
 --- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
 +++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
-@@ -424,6 +424,12 @@
+@@ -75,6 +75,9 @@
+     UIPinchGestureRecognizer *_pinchRecognizer;
+     UILongPressGestureRecognizer *_longPressRecognizer;
+     UITapGestureRecognizer *_doubleTapEmptyRecognizer;
++    // Set when the touch that starts a tap lands on a page still gliding from
++    // a swipe: that tap only stops the scroll and is not reported.
++    BOOL _tapStopsScroll;
+ }
+ 
+ #ifdef RCT_NEW_ARCH_ENABLED
+@@ -424,6 +427,12 @@
                      }
                  }
              }
@@ -86,3 +106,50 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
          }
  
          if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableRTL"])) {
+@@ -834,6 +843,11 @@
+ - (void)handleSingleTap:(UITapGestureRecognizer *)sender
+ {
+     //_pdfView.scaleFactor = _pdfView.minScaleFactor;
++
++    if (_tapStopsScroll) {
++        _tapStopsScroll = NO;
++        return;
++    }
+ 
+     CGPoint point = [sender locationInView:self];
+     PDFPage *pdfPage = [_pdfView pageForPoint:point nearest:NO];
+@@ -933,8 +947,34 @@
+ - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+ {
+     return !_singlePage;
++}
++
++- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
++{
++    // Checked as the finger lands, before the scroll view stops gliding.
++    if (gestureRecognizer == _singleTapRecognizer) {
++        UIScrollView *scrollView = [self findScrollView:_pdfView depth:0];
++        _tapStopsScroll = scrollView != nil && scrollView.isDecelerating;
++    }
++    return YES;
+ }
+ 
++- (UIScrollView *)findScrollView:(UIView *)view depth:(int)depth {
++    if (view == nil || depth > 10) {
++        return nil;
++    }
++    if ([view isKindOfClass:[UIScrollView class]]) {
++        return (UIScrollView *)view;
++    }
++    for (UIView *subview in view.subviews) {
++        UIScrollView *found = [self findScrollView:subview depth:depth + 1];
++        if (found != nil) {
++            return found;
++        }
++    }
++    return nil;
++}
++
+ - (void)setScrollIndicators:(UIView *)view horizontal:(BOOL)horizontal vertical:(BOOL)vertical depth:(int)depth {
+     // max depth, prevent infinite loop
+     if (depth > 10) {
