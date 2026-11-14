@@ -85,27 +85,47 @@ describe('PDFViewer (iOS and Android)', () => {
     expect(onOutline).toHaveBeenCalledWith([{ title: 'Part one', page: 5, depth: 0 }]);
   });
 
-  it('should report a single tap after a short delay', () => {
+  it('should report a single tap at once', () => {
     const onSingleTap = jest.fn();
     render(<PDFViewer source="file:///x.pdf" onSingleTap={onSingleTap} />);
 
     act(() => pdfProps.onPageSingleTap(3, 10, 10));
-    expect(onSingleTap).not.toHaveBeenCalled();
 
-    act(() => jest.advanceTimersByTime(400));
     expect(onSingleTap).toHaveBeenCalledTimes(1);
   });
 
-  it('should not report a tap that followed an internal link to another page', () => {
+  it('should undo the tap when it followed an internal link to a distant page', () => {
     const onSingleTap = jest.fn();
     render(<PDFViewer source="file:///x.pdf" onSingleTap={onSingleTap} />);
     act(() => pdfProps.onPageChanged(3, 40));
 
     act(() => pdfProps.onPageSingleTap(3, 10, 10));
     act(() => pdfProps.onPageChanged(27, 40));
-    act(() => jest.advanceTimersByTime(400));
 
-    expect(onSingleTap).not.toHaveBeenCalled();
+    expect(onSingleTap).toHaveBeenCalledTimes(2);
+  });
+
+  it('should keep the tap when the reader scrolls on to the next page', () => {
+    const onSingleTap = jest.fn();
+    render(<PDFViewer source="file:///x.pdf" onSingleTap={onSingleTap} />);
+    act(() => pdfProps.onPageChanged(3, 40));
+
+    act(() => pdfProps.onPageSingleTap(3, 10, 10));
+    act(() => pdfProps.onPageChanged(4, 40));
+
+    expect(onSingleTap).toHaveBeenCalledTimes(1);
+  });
+
+  it('should keep a tap made long before a page jump', () => {
+    const onSingleTap = jest.fn();
+    render(<PDFViewer source="file:///x.pdf" onSingleTap={onSingleTap} />);
+    act(() => pdfProps.onPageChanged(3, 40));
+
+    act(() => pdfProps.onPageSingleTap(3, 10, 10));
+    jest.setSystemTime(Date.now() + 2000);
+    act(() => pdfProps.onPageChanged(27, 40));
+
+    expect(onSingleTap).toHaveBeenCalledTimes(1);
   });
 
   it('should jump to a page through its handle', () => {

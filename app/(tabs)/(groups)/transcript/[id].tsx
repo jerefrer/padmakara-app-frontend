@@ -185,7 +185,7 @@ export default function TranscriptViewerScreen() {
       testID="transcript-view"
       edges={barsHidden ? ['left', 'right'] : ['top', 'bottom', 'left', 'right']}
     >
-      <StatusBar hidden={barsHidden} />
+      <StatusBar hidden={barsHidden} animated />
       {/* Header */}
       {!barsHidden && (
         <View style={styles.header}>

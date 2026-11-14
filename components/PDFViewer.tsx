@@ -9,9 +9,9 @@ import type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
 
 export type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
 
-// A single tap waits this long before it counts: an internal link moves to
-// another page within it, and that tap must not also toggle the reader's bars.
-const TAP_DELAY_MS = 300;
+// A tap toggles the reader's bars at once. When it was on an internal link, the
+// jump to a distant page follows within this window and the toggle is undone.
+const LINK_JUMP_MS = 500;
 const PAGE_BADGE_MS = 1500;
 
 /**
@@ -31,7 +31,7 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
   const [pageBadge, setPageBadge] = useState<string | null>(null);
   const pdfRef = useRef<PdfRef>(null);
   const currentPage = useRef(1);
-  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTap = useRef<{ at: number; page: number } | null>(null);
   const badgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -40,7 +40,6 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
 
   useEffect(
     () => () => {
-      if (tapTimer.current) clearTimeout(tapTimer.current);
       if (badgeTimer.current) clearTimeout(badgeTimer.current);
     },
     []
@@ -48,23 +47,24 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
 
   const handlePageChanged = useCallback(
     (page: number, totalPages: number) => {
+      const tap = lastTap.current;
+      if (tap && Date.now() - tap.at < LINK_JUMP_MS && Math.abs(page - tap.page) > 1) {
+        lastTap.current = null;
+        onSingleTap?.();
+      }
       currentPage.current = page;
       onPageChange?.(page, totalPages);
       setPageBadge(`${page} / ${totalPages}`);
       if (badgeTimer.current) clearTimeout(badgeTimer.current);
       badgeTimer.current = setTimeout(() => setPageBadge(null), PAGE_BADGE_MS);
     },
-    [onPageChange]
+    [onPageChange, onSingleTap]
   );
 
   const handleSingleTap = useCallback(() => {
     if (!onSingleTap) return;
-    const pageAtTap = currentPage.current;
-    if (tapTimer.current) clearTimeout(tapTimer.current);
-    tapTimer.current = setTimeout(() => {
-      tapTimer.current = null;
-      if (currentPage.current === pageAtTap) onSingleTap();
-    }, TAP_DELAY_MS);
+    lastTap.current = { at: Date.now(), page: currentPage.current };
+    onSingleTap();
   }, [onSingleTap]);
 
   return (

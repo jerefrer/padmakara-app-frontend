@@ -1,7 +1,20 @@
 import { act, renderHook } from '@testing-library/react-native';
+import { useWindowDimensions } from 'react-native';
 
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useReaderImmersive } from '@/utils/readerImmersive';
+
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({ width: 390, height: 844, scale: 3, fontScale: 1 })),
+}));
+
+const PORTRAIT = { width: 390, height: 844, scale: 3, fontScale: 1 };
+const LANDSCAPE = { width: 844, height: 390, scale: 3, fontScale: 1 };
+const TABLET_LANDSCAPE = { width: 1180, height: 820, scale: 2, fontScale: 1 };
+const setWindow = (size: typeof PORTRAIT) => (useWindowDimensions as jest.Mock).mockReturnValue(size);
+
+beforeEach(() => setWindow(PORTRAIT));
 
 describe('useReaderBars', () => {
   it('should start with the bars shown', () => {
@@ -49,5 +62,47 @@ describe('useReaderBars', () => {
     const { result } = renderHook(() => useReaderBars(false));
     act(() => result.current.toggleBars());
     expect(result.current.barsHidden).toBe(false);
+  });
+
+  it('should hide the bars when a phone turns sideways and bring them back upright', () => {
+    const { result, rerender } = renderHook(() => ({ bars: useReaderBars(true), immersive: useReaderImmersive() }));
+
+    setWindow(LANDSCAPE);
+    rerender({});
+    expect(result.current.bars.barsHidden).toBe(true);
+    expect(result.current.immersive).toBe(true);
+
+    setWindow(PORTRAIT);
+    rerender({});
+    expect(result.current.bars.barsHidden).toBe(false);
+  });
+
+  it('should let a tap show the bars while sideways', () => {
+    setWindow(LANDSCAPE);
+    const { result } = renderHook(() => useReaderBars(true));
+    expect(result.current.barsHidden).toBe(true);
+
+    act(() => result.current.toggleBars());
+
+    expect(result.current.barsHidden).toBe(false);
+  });
+
+  it('should keep the bars on a tablet in landscape', () => {
+    setWindow(TABLET_LANDSCAPE);
+    const { result } = renderHook(() => useReaderBars(true));
+    expect(result.current.barsHidden).toBe(false);
+  });
+
+  it('should not clear the tab bar for another open reader when the phone turns', () => {
+    const { result, rerender } = renderHook(() => ({
+      open: useReaderBars(true),
+      closed: useReaderBars(false),
+      immersive: useReaderImmersive(),
+    }));
+
+    setWindow(LANDSCAPE);
+    rerender({});
+
+    expect(result.current.immersive).toBe(true);
   });
 });

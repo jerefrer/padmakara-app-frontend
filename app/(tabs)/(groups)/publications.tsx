@@ -404,7 +404,7 @@ export default function PublicationsScreen() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar hidden={barsHidden} />
+        <StatusBar hidden={barsHidden} animated />
         <View style={[styles.container, { paddingTop: barsHidden ? 0 : insets.top }]}>
           {/* PDF header */}
           {!barsHidden && (
