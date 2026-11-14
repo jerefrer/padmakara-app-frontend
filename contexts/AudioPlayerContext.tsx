@@ -41,6 +41,11 @@ const PLAYBACK_SPEED_CYCLE = [1.0, 1.25, 1.5, 2.0, 0.75] as const;
 // A saved position this close to the end restarts the track: resuming there
 // would leave the user at the end, with play running for a split second.
 const RESUME_END_MARGIN_S = 5;
+// Playback that sits this close to the end without moving for END_STALL_MS
+// counts as finished: a stream can stall there (seen on a locked iPhone) and
+// never report its end, which left the player stuck instead of going on.
+const END_STALL_WINDOW_S = 1;
+const END_STALL_MS = 3000;
 
 export interface IdleTrackInfo {
   track: Track;
@@ -872,6 +877,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (isEnginePlaying) void offerNotificationExplainer();
   }, [isEnginePlaying]);
 
+  // ─── End stall: playing near the end, but the position no longer moves ───
+  // The key names the exact position; any movement changes it, so a stall is
+  // only recorded once the position has held still for END_STALL_MS.
+  const endStallKey = phase === 'ready' && track && status?.playing && status.duration > 0
+    && status.duration - status.currentTime <= END_STALL_WINDOW_S
+    ? `${track.id}@${status.currentTime}`
+    : null;
+  const [stalledAtKey, setStalledAtKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!endStallKey) return;
+    const timer = setTimeout(() => setStalledAtKey(endStallKey), END_STALL_MS);
+    return () => clearTimeout(timer);
+  }, [endStallKey]);
+  const endStalled = endStallKey !== null && stalledAtKey === endStallKey;
+
   // ─── Progress save + completion detection during playback ───
   useEffect(() => {
     if (phase !== 'ready' || !track || !status) return;
@@ -886,7 +906,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!hasCompletedRef.current
       && hasPlayedBeforeEndRef.current
       && (status.didJustFinish
-        || (status.playing && status.duration > 0 && status.currentTime >= status.duration))) {
+        || (status.playing && status.duration > 0 && status.currentTime >= status.duration)
+        || endStalled)) {
       hasCompletedRef.current = true;
       void saveProgress(status.duration * 1000);
       advancingFromCompletionRef.current = true;
@@ -915,7 +936,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       void saveProgress(currentSeconds * 1000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, phase, track]);
+  }, [status, phase, track, endStalled]);
 
   // ─── Pre-cache upcoming tracks once we're 30s into playback ───
   const hasPreCachedForRef = useRef<string | null>(null);

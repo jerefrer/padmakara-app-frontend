@@ -1272,6 +1272,67 @@ describe('AudioPlayerContext — load safety timer', () => {
   });
 });
 
+describe('AudioPlayerContext — stuck at the end of a track', () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  const settle = async () => {
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+  };
+
+  const playToNearEnd = async (id: string, secondsLeft: number) => {
+    const t = makeTrack({ id, duration: 100 });
+    const { result } = renderPlayer();
+    const cb = jest.fn();
+    act(() => { result.current.setOnTrackComplete(cb); });
+    act(() => { __setDuration(100); result.current.playTrack(t, [t], 0); });
+    await settle();
+    act(() => { __setPlaying(true); });
+    act(() => { __advanceTime(100 - secondsLeft); });
+    await settle();
+    return cb;
+  };
+
+  it('should finish the track when playback stalls just before the end', async () => {
+    const cb = await playToNearEnd('stallEnd', 0.4);
+
+    act(() => { jest.advanceTimersByTime(3000); });
+    await settle();
+
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('should keep waiting while the position still moves near the end', async () => {
+    const cb = await playToNearEnd('movingEnd', 0.9);
+
+    act(() => { jest.advanceTimersByTime(2000); });
+    act(() => { __advanceTime(0.3); });
+    act(() => { jest.advanceTimersByTime(2000); });
+    await settle();
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('should not finish a track paused just before the end', async () => {
+    const cb = await playToNearEnd('pausedEnd', 0.4);
+
+    act(() => { __setPlaying(false); });
+    act(() => { jest.advanceTimersByTime(10000); });
+    await settle();
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('should not finish a track that stalls far from the end', async () => {
+    const cb = await playToNearEnd('stallMiddle', 50);
+
+    act(() => { jest.advanceTimersByTime(10000); });
+    await settle();
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+});
+
 describe('AudioPlayerContext — web keeps one player per source', () => {
   // The web player's replace() reports nothing until the browser fires
   // loadeddata, which it may defer while paused, so the web still gets a fresh
