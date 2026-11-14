@@ -5,6 +5,10 @@ import AccountDeletionScreen from '@/app/account-deletion';
 import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 let mockParams: Record<string, string | undefined> = {};
 const mockSetLanguage = jest.fn();
 const mockLogout = jest.fn().mockResolvedValue(undefined);

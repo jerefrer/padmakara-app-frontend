@@ -3,6 +3,10 @@ import { render, fireEvent } from '@testing-library/react-native';
 
 import PrivacyPolicyScreen from '@/app/privacy-policy';
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a), back: jest.fn(), canGoBack: () => false, replace: jest.fn() },
