@@ -5,6 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
+import { ReaderTopBar } from '@/components/ReaderTopBar';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
@@ -183,60 +184,61 @@ export default function TranscriptViewerScreen() {
     <SafeAreaView
       style={styles.container}
       testID="transcript-view"
-      edges={barsHidden ? ['left', 'right'] : ['top', 'bottom', 'left', 'right']}
+      // The page always fills the screen; the header is laid over it.
+      edges={['left', 'right']}
     >
       <StatusBar hidden={barsHidden} animated />
-      {/* Header */}
-      {!barsHidden && (
-        <View style={styles.header}>
-          <BackButton variant="inline" />
+      <View style={styles.reader}>
+        <ReaderTopBar hidden={barsHidden} style={styles.topBar}>
+          <View style={styles.header}>
+            <BackButton variant="inline" />
 
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {eventName}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {t('transcript.transcript') || 'Transcript'}
-              {pageInfo && ` — ${t('transcript.pageOf', { current: String(pageInfo.current), total: String(pageInfo.total) }) || `Page ${pageInfo.current} of ${pageInfo.total}`}`}
-            </Text>
-          </View>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {eventName}
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                {t('transcript.transcript') || 'Transcript'}
+                {pageInfo && ` — ${t('transcript.pageOf', { current: String(pageInfo.current), total: String(pageInfo.total) }) || `Page ${pageInfo.current} of ${pageInfo.total}`}`}
+              </Text>
+            </View>
 
-          {outline.length > 0 && (
-            <TouchableOpacity
-              testID="transcript-contents-button"
-              onPress={() => setOutlineVisible(true)}
-              style={styles.headerButton}
-              accessibilityRole="button"
-              accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
-            >
-              <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
-            </TouchableOpacity>
-          )}
-
-          {/* Download/Share button */}
-          <TouchableOpacity
-            onPress={handleDownloadPdf}
-            style={styles.headerButton}
-            disabled={isDownloading}
-          >
-            {isDownloading ? (
-              <ActivityIndicator size="small" color={colors.burgundy[500]} />
-            ) : (
-              <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+            {outline.length > 0 && (
+              <TouchableOpacity
+                testID="transcript-contents-button"
+                onPress={() => setOutlineVisible(true)}
+                style={styles.headerButton}
+                accessibilityRole="button"
+                accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
+              >
+                <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-        </View>
-      )}
 
-      {/* PDF Viewer */}
-      <PDFViewer
-        ref={viewerRef}
-        source={transcriptUrl}
-        title={eventName ? `${eventName} — Transcript` : undefined}
-        onPageChange={handlePageChange}
-        onSingleTap={toggleBars}
-        onOutline={setOutline}
-      />
+            {/* Download/Share button */}
+            <TouchableOpacity
+              onPress={handleDownloadPdf}
+              style={styles.headerButton}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <ActivityIndicator size="small" color={colors.burgundy[500]} />
+              ) : (
+                <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </ReaderTopBar>
+        {/* PDF Viewer */}
+        <PDFViewer
+          ref={viewerRef}
+          source={transcriptUrl}
+          title={eventName ? `${eventName} — Transcript` : undefined}
+          onPageChange={handlePageChange}
+          onSingleTap={toggleBars}
+          onOutline={setOutline}
+        />
+      </View>
 
       <PdfOutlineSheet
         visible={outlineVisible}
@@ -253,6 +255,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream[100],
+  },
+  reader: {
+    flex: 1,
+  },
+  topBar: {
+    backgroundColor: colors.white,
   },
   header: {
     flexDirection: 'row',

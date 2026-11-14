@@ -24,6 +24,7 @@ import { useSignIn } from '@/components/auth/SignInProvider';
 import { publicationService } from '@/services/publicationService';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
+import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
@@ -405,9 +406,10 @@ export default function PublicationsScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar hidden={barsHidden} animated />
-        <View style={[styles.container, { paddingTop: barsHidden ? 0 : insets.top }]}>
-          {/* PDF header */}
-          {!barsHidden && (
+        {/* The page always fills the screen; header and banner are laid over it. */}
+        <View style={styles.container}>
+          <ReaderTopBar hidden={barsHidden} style={styles.readerTopBar}>
+            {/* PDF header */}
             <View style={styles.pdfHeader}>
               <BackButton variant="inline" onPress={handleCloseViewer} />
               <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
@@ -438,70 +440,69 @@ export default function PublicationsScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          )}
 
-          {/* New-version banner */}
-          {showUpdateBanner && !barsHidden && (
-            <View style={styles.versionBanner}>
-              <Ionicons
-                name="cloud-download-outline"
-                size={18}
-                color={colors.burgundy[500]}
-              />
-              <View style={styles.versionBannerText}>
-                <Text style={styles.versionBannerTitle}>
-                  {t('publications.newVersion.available') ||
-                    'New version available'}
-                </Text>
-                {serverVersion ? (
-                  <Text style={styles.versionBannerSubtitle}>
-                    {(t('publications.newVersion.label') || 'Version {version}').replace(
-                      '{version}',
-                      serverVersion,
-                    )}
-                  </Text>
-                ) : null}
-              </View>
-              <TouchableOpacity
-                style={styles.versionUpdateButton}
-                onPress={handleUpdateVersion}
-                disabled={updatingVersion}
-              >
-                {updatingVersion ? (
-                  <View style={styles.versionUpdateContent}>
-                    <ActivityIndicator size="small" color={colors.white} />
-                    <Text style={styles.versionUpdateText}>
-                      {downloadProgress > 0
-                        ? `${Math.round(downloadProgress * 100)}%`
-                        : t('publications.newVersion.updating') || 'Updating...'}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.versionUpdateText}>
-                    {t('publications.newVersion.update') || 'Update'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.versionDismissButton}
-                onPress={() =>
-                  setVersionBannerDismissed((prev) => ({
-                    ...prev,
-                    [viewingPdf.publication.id]: true,
-                  }))
-                }
-                disabled={updatingVersion}
-                hitSlop={8}
-              >
+            {/* New-version banner */}
+            {showUpdateBanner && (
+              <View style={styles.versionBanner}>
                 <Ionicons
-                  name="close"
+                  name="cloud-download-outline"
                   size={18}
                   color={colors.burgundy[500]}
                 />
-              </TouchableOpacity>
-            </View>
-          )}
-
+                <View style={styles.versionBannerText}>
+                  <Text style={styles.versionBannerTitle}>
+                    {t('publications.newVersion.available') ||
+                      'New version available'}
+                  </Text>
+                  {serverVersion ? (
+                    <Text style={styles.versionBannerSubtitle}>
+                      {(t('publications.newVersion.label') || 'Version {version}').replace(
+                        '{version}',
+                        serverVersion,
+                      )}
+                    </Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity
+                  style={styles.versionUpdateButton}
+                  onPress={handleUpdateVersion}
+                  disabled={updatingVersion}
+                >
+                  {updatingVersion ? (
+                    <View style={styles.versionUpdateContent}>
+                      <ActivityIndicator size="small" color={colors.white} />
+                      <Text style={styles.versionUpdateText}>
+                        {downloadProgress > 0
+                          ? `${Math.round(downloadProgress * 100)}%`
+                          : t('publications.newVersion.updating') || 'Updating...'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.versionUpdateText}>
+                      {t('publications.newVersion.update') || 'Update'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.versionDismissButton}
+                  onPress={() =>
+                    setVersionBannerDismissed((prev) => ({
+                      ...prev,
+                      [viewingPdf.publication.id]: true,
+                    }))
+                  }
+                  disabled={updatingVersion}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name="close"
+                    size={18}
+                    color={colors.burgundy[500]}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </ReaderTopBar>
           {/* PDF content */}
           <PDFViewer
             ref={viewerRef}
@@ -733,6 +734,9 @@ export default function PublicationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  readerTopBar: {
+    backgroundColor: colors.white,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.white,

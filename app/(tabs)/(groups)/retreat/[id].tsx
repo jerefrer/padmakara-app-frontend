@@ -20,6 +20,7 @@ import { DraftBadge } from '@/components/DraftBadge';
 import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
+import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { DocumentShareButton } from '@/components/DocumentShareButton';
@@ -2339,57 +2340,60 @@ export default function RetreatDetailScreen() {
         supportedOrientations={['portrait', 'landscape']}
       >
         <SafeAreaView style={styles.documentViewerModal}>
-          {!documentBarsHidden && (
-            <View style={styles.documentViewerHeader}>
-              <Text style={styles.documentViewerTitle} numberOfLines={1}>
-                {documentPdfViewer?.title}
-              </Text>
-              {documentOutline.length > 0 && (
+          {/* The page keeps its size; the header is laid over it. */}
+          <View style={styles.documentViewerBody}>
+            <ReaderTopBar hidden={documentBarsHidden} clearStatusBar={false}>
+              <View style={styles.documentViewerHeader}>
+                <Text style={styles.documentViewerTitle} numberOfLines={1}>
+                  {documentPdfViewer?.title}
+                </Text>
+                {documentOutline.length > 0 && (
+                  <TouchableOpacity
+                    testID="document-contents-button"
+                    onPress={() => setDocumentOutlineVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
+                    style={styles.documentViewerShareButton}
+                  >
+                    <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
+                  </TouchableOpacity>
+                )}
+                {documentPdfViewer && (
+                  <DocumentShareButton
+                    filePath={documentPdfViewer.uri}
+                    filename={documentPdfViewer.filename}
+                    onError={() =>
+                      showModal(
+                        t('documents.shareError') || 'Could not share this text',
+                        '',
+                        [{ text: t('common.ok') || 'OK' }],
+                        'alert-circle-outline'
+                      )
+                    }
+                    style={styles.documentViewerShareButton}
+                  />
+                )}
                 <TouchableOpacity
-                  testID="document-contents-button"
-                  onPress={() => setDocumentOutlineVisible(true)}
+                  onPress={closeDocumentPdfViewer}
                   accessibilityRole="button"
-                  accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
-                  style={styles.documentViewerShareButton}
+                  accessibilityLabel={t('documents.close') || 'Close'}
+                  style={styles.documentViewerCloseButton}
                 >
-                  <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
+                  <Ionicons name="close" size={24} color={colors.gray[700]} />
                 </TouchableOpacity>
-              )}
-              {documentPdfViewer && (
-                <DocumentShareButton
-                  filePath={documentPdfViewer.uri}
-                  filename={documentPdfViewer.filename}
-                  onError={() =>
-                    showModal(
-                      t('documents.shareError') || 'Could not share this text',
-                      '',
-                      [{ text: t('common.ok') || 'OK' }],
-                      'alert-circle-outline'
-                    )
-                  }
-                  style={styles.documentViewerShareButton}
-                />
-              )}
-              <TouchableOpacity
-                onPress={closeDocumentPdfViewer}
-                accessibilityRole="button"
-                accessibilityLabel={t('documents.close') || 'Close'}
-                style={styles.documentViewerCloseButton}
-              >
-                <Ionicons name="close" size={24} color={colors.gray[700]} />
-              </TouchableOpacity>
-            </View>
-          )}
-          {documentPdfViewer && (
-            <PDFViewer
-              ref={documentViewerRef}
-              source={documentPdfViewer.uri}
-              title={documentPdfViewer.title}
-              onPageChange={(page) => setDocumentPage(page)}
-              onSingleTap={toggleDocumentBars}
-              onOutline={setDocumentOutline}
-            />
-          )}
+              </View>
+            </ReaderTopBar>
+            {documentPdfViewer && (
+              <PDFViewer
+                ref={documentViewerRef}
+                source={documentPdfViewer.uri}
+                title={documentPdfViewer.title}
+                onPageChange={(page) => setDocumentPage(page)}
+                onSingleTap={toggleDocumentBars}
+                onOutline={setDocumentOutline}
+              />
+            )}
+          </View>
           <PdfOutlineSheet
             visible={documentOutlineVisible}
             items={documentOutline}
@@ -3062,6 +3066,9 @@ const styles = StyleSheet.create({
   },
   // Document viewer modal (non-transcript PDF files) — small header bar
   // with title + close button, then the PDFViewer fills the rest.
+  documentViewerBody: {
+    flex: 1,
+  },
   documentViewerModal: {
     flex: 1,
     backgroundColor: colors.white,
@@ -3074,6 +3081,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
+    backgroundColor: colors.white,
   },
   documentViewerTitle: {
     flex: 1,

@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LayoutAnimation, Platform, useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import { setReaderImmersive } from '@/utils/readerImmersive';
 
 /** Below this short side a sideways window is a phone, where the bars eat the page. */
 const PHONE_SHORT_SIDE = 600;
-const BARS_ANIMATION = LayoutAnimation.create(220, 'easeInEaseOut', 'opacity');
 
 /**
  * Tap-to-hide bars for a document reader. While `active` (a document is open),
  * `toggleBars` hides the reader's own bars and, through `setReaderImmersive`,
  * the tab bar and mini player. A phone turned sideways hides them on its own
  * (a tap still brings them back) and turning it upright restores them.
- * Closing the document or leaving the screen brings everything back.
+ * Closing the document or leaving the screen brings everything back. The
+ * bars fade over the page (see ReaderTopBar) rather than resizing it.
  */
 export function useReaderBars(active: boolean): {
   barsHidden: boolean;
@@ -47,7 +47,6 @@ export function useReaderBars(active: boolean): {
 
   const toggleBars = useCallback(() => {
     if (!active) return;
-    LayoutAnimation.configureNext(BARS_ANIMATION);
     setBarsHidden((hidden) => !hidden);
   }, [active]);
 
