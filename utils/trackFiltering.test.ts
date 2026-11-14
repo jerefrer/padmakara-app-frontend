@@ -1,4 +1,4 @@
-import { languagePickerFiltersTracks, sortTracksForSession } from './trackFiltering';
+import { getFilterableLanguages, languagePickerFiltersTracks, sortTracksForSession } from './trackFiltering';
 import { defaultForEvent } from './contentLanguage';
 import {
   filterTracksByLanguage,
@@ -139,6 +139,14 @@ describe('filterTracksByLanguage', () => {
       tws({ id: 'es', languages: ['es'] }),
     ];
     expect(filterTracksByLanguage(tracks, ALL).map((t) => t.id)).toEqual(['en']);
+  });
+
+  it('should keep a track the picker cannot offer even when none of its languages is selected', () => {
+    const tracks = [
+      tws({ id: 'tib-en', languages: ['tib', 'en'] }),
+      tws({ id: 'tib-pt', languages: ['tib', 'pt'] }),
+    ];
+    expect(filterTracksByLanguage(tracks, ['en']).map((t) => t.id)).toEqual(['tib-en', 'tib-pt']);
   });
 
   it('A6 — `pt` mode but no PT tracks: fall back to all', () => {
@@ -380,12 +388,37 @@ describe('languagePickerFiltersTracks', () => {
     expect(languagePickerFiltersTracks([L(['tib']), L(['en']), L(['pt'])])).toBe(true);
   });
 
-  it('should return true when only some tracks are multi-language', () => {
-    expect(languagePickerFiltersTracks([L(['tib', 'en', 'pt']), L(['en'])])).toBe(true);
+  it('should return false when the only separate tracks share one language', () => {
+    expect(languagePickerFiltersTracks([L(['tib', 'en', 'pt']), L(['en'])])).toBe(false);
+  });
+
+  it('should return false when multi-language tracks differ but none is separate', () => {
+    expect(languagePickerFiltersTracks([L(['en', 'pt']), L(['tib', 'en', 'pt'])])).toBe(false);
+  });
+
+  it('should return true when separate tracks exist in two languages beside a multi-language one', () => {
+    expect(languagePickerFiltersTracks([L(['tib', 'en', 'pt']), L(['en']), L(['pt'])])).toBe(true);
   });
 
   it('should treat the legacy single language field like a one-element list', () => {
     const legacy = baseTrack({ language: 'pt' });
     expect(languagePickerFiltersTracks([L(['en']), legacy])).toBe(true);
+  });
+});
+
+describe('getFilterableLanguages', () => {
+  it('should list only the languages of single-language tracks, in display order', () => {
+    expect(getFilterableLanguages([L(['tib', 'en', 'pt']), L(['pt']), L(['en']), L(['pt'])])).toEqual([
+      'en',
+      'pt',
+    ]);
+  });
+
+  it('should offer both sides of a TIB+ENG file and its POR translation', () => {
+    expect(getFilterableLanguages([L(['tib', 'en']), L(['pt'])])).toEqual(['tib', 'en', 'pt']);
+  });
+
+  it('should return nothing when every track mixes languages', () => {
+    expect(getFilterableLanguages([L(['en', 'pt']), L(['tib', 'en', 'pt'])])).toEqual([]);
   });
 });

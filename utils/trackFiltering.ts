@@ -94,7 +94,8 @@ export function resolveEventOriginalLanguage(
  *
  * A track is kept when any of its languages is selected — matched against its
  * `languages` array, falling back to the single `originalLanguage`/`language`
- * field. There is no `isOriginal`-based fallback, so a Tibetan or
+ * field. A track none of whose languages the picker offers (see
+ * `getFilterableLanguages`) is always kept: no box could ever bring it back. There is no `isOriginal`-based fallback, so a Tibetan or
  * Portuguese-only original does not leak into an English-only selection.
  *
  * Two cases deliberately return everything rather than an empty screen: an
@@ -111,27 +112,52 @@ export function filterTracksByLanguage(
   if (selected.length === 0) return tracks;
 
   const wanted = new Set(selected);
-  const filtered = tracks.filter((t) =>
-    trackLanguages(t).some((code) => wanted.has(code)),
-  );
+  const filterable = new Set(getFilterableLanguages(tracks));
+  const filtered = tracks.filter((t) => {
+    const languages = trackLanguages(t);
+    return (
+      languages.some((code) => wanted.has(code)) ||
+      !languages.some((code) => filterable.has(code))
+    );
+  });
   return filtered.length === 0 ? tracks : filtered;
 }
 
 /**
- * Whether the per-event language picker would change anything.
+ * The languages the per-event picker offers.
  *
- * A track is kept when any of its languages is selected, and the picker can
- * leave any non-empty selection. So a selection hides a track exactly when it
- * shares no language with it; the picker is useful only if some track does not
- * carry every language of the event (leaving the others to be unticked away).
- * When every track is one file tagged with all the event's languages (e.g.
- * TIB ING POR), unticking never hides anything and the picker is pointless.
+ * A selection can only swap one track for another when the two share no
+ * language: a TIB+ENG file against its POR translation, an ENG track against a
+ * POR one. A track that shares a language with every other track (one file
+ * holding TIB ING POR, an ENG+POR introduction next to it) is never an
+ * alternative to anything, so its languages alone would be boxes that hide
+ * nothing when unticked. Only languages of tracks that have such a disjoint
+ * counterpart are offered.
+ */
+export function getFilterableLanguages(tracks: Track[]): string[] {
+  const sets = new Map<string, string[]>();
+  for (const t of tracks) {
+    const languages = trackLanguages(t);
+    if (languages.length > 0) sets.set([...languages].sort().join(','), languages);
+  }
+  const distinct = [...sets.values()];
+  const present = new Set<string>();
+  distinct.forEach((a, i) => {
+    distinct.slice(i + 1).forEach((b) => {
+      if (a.some((code) => b.includes(code))) return;
+      a.forEach((code) => present.add(code));
+      b.forEach((code) => present.add(code));
+    });
+  });
+  return sortLanguageCodes([...present]);
+}
+
+/**
+ * Whether the per-event language picker would change anything: it needs two
+ * tracks with no language in common. A monolingual event, or one whose tracks
+ * all overlap (TIB ING POR files, an ENG POR introduction…), has nothing to
+ * choose.
  */
 export function languagePickerFiltersTracks(tracks: Track[]): boolean {
-  const eventLanguages = getEventLanguages(tracks);
-  if (eventLanguages.length < 2) return false;
-  return tracks.some((track) => {
-    const own = new Set(trackLanguages(track));
-    return eventLanguages.some((code) => !own.has(code));
-  });
+  return getFilterableLanguages(tracks).length >= 2;
 }

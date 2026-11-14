@@ -65,7 +65,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   filterTracksByLanguage,
   resolveEventOriginalLanguage,
-  getEventLanguages,
+  getFilterableLanguages,
   languagePickerFiltersTracks,
   sortTracksForSession,
   type TrackWithSession,
@@ -454,11 +454,11 @@ export default function RetreatDetailScreen() {
     setAllTracks(tracks);
   }, [retreat]);
 
-  // Languages actually present in this event, derived from the tracks. The
-  // picker is built from this list, but only shown when unticking a language
-  // can hide a track: a monolingual event, or one whose tracks are each a
-  // single multi-language file (TIB ING POR), has nothing to choose.
-  const eventLanguages = useMemo(() => getEventLanguages(allTracks), [allTracks]);
+  // The languages the picker offers: those whose tracks have an alternative
+  // sharing no language with them (TIB+ENG vs POR). The picker is only shown
+  // when there are two: a monolingual event, or one whose tracks all overlap
+  // (TIB ING POR files), has nothing to choose.
+  const pickerLanguages = useMemo(() => getFilterableLanguages(allTracks), [allTracks]);
   const showLanguagePicker = useMemo(() => languagePickerFiltersTracks(allTracks), [allTracks]);
 
   /**
@@ -471,13 +471,13 @@ export default function RetreatDetailScreen() {
   const activeLanguages = useMemo(
     () =>
       eventLanguageChoice !== null
-        ? narrowToEvent(eventLanguageChoice, eventLanguages)
+        ? narrowToEvent(eventLanguageChoice, pickerLanguages)
         : defaultForEvent(
             resolveEventOriginalLanguage(retreat?.originalLanguage, allTracks),
             showPortuguese,
-            eventLanguages,
+            pickerLanguages,
           ),
-    [eventLanguageChoice, retreat?.originalLanguage, allTracks, showPortuguese, eventLanguages],
+    [eventLanguageChoice, retreat?.originalLanguage, allTracks, showPortuguese, pickerLanguages],
   );
 
   // Apply language filter to tracks
@@ -2010,7 +2010,7 @@ export default function RetreatDetailScreen() {
               hitSlop={8}
             >
               <Text style={styles.languageButtonFloatingText}>
-                {getLanguageSelectionLabel(activeLanguages, eventLanguages, t)}
+                {getLanguageSelectionLabel(activeLanguages, pickerLanguages, t)}
               </Text>
               <Ionicons
                 name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'}
@@ -2021,7 +2021,7 @@ export default function RetreatDetailScreen() {
             {showLanguageDropdown && (
               <View style={styles.languageDropdown}>
                 <LanguageCheckboxList
-                  options={eventLanguages}
+                  options={pickerLanguages}
                   selected={activeLanguages}
                   onChange={updateLanguagePreference}
                   t={t}
@@ -2123,7 +2123,7 @@ export default function RetreatDetailScreen() {
             <AudioPlayer
               languageLabel={
                 showLanguagePicker
-                  ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
+                  ? getLanguageSelectionLabel(activeLanguages, pickerLanguages, t)
                   : undefined
               }
               onLanguagePress={() => setShowLanguageDropdown(true)}
@@ -2256,7 +2256,7 @@ export default function RetreatDetailScreen() {
             bottom={insets.bottom}
             languageLabel={
               showLanguagePicker
-                ? getLanguageSelectionLabel(activeLanguages, eventLanguages, t)
+                ? getLanguageSelectionLabel(activeLanguages, pickerLanguages, t)
                 : undefined
             }
             onLanguagePress={showLanguagePicker ? () => setShowLanguageDropdown(true) : undefined}
@@ -2294,7 +2294,7 @@ export default function RetreatDetailScreen() {
               ]}
             >
               <LanguageCheckboxList
-                options={eventLanguages}
+                options={pickerLanguages}
                 selected={activeLanguages}
                 onChange={updateLanguagePreference}
                 t={t}
