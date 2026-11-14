@@ -573,7 +573,7 @@
     "searchDataTitle": "Dados de Pesquisa",
     "searchData": "As pesquisas feitas na aplicação são registadas de forma anónima, sem qualquer ligação a si ou ao seu dispositivo, para sabermos que ensinamentos as pessoas procuram. São guardadas durante 24 meses.",
     "usageStatsTitle": "Estatísticas de Utilização",
-    "usageStats": "Estatísticas de utilização. Para perceber como a aplicação é usada, o nosso servidor conta, por dia e por ensinamento, quantas vezes são abertas gravações, transcrições e documentos, e em que dias cada conta esteve ativa. Estes registos só são usados como totais, nunca são partilhados, e a atividade diária é apagada ao fim de 13 meses. Nada é seguido dentro da aplicação e não usamos publicidade nem análises de terceiros.",
+    "usageStats": "Estatísticas de utilização. Para perceber como a aplicação é usada, o nosso servidor conta, por dia e por ensinamento, quantas vezes são abertas gravações, transcrições (incluindo o Ler em Conjunto) e documentos, e em que dias cada conta esteve ativa. Estes registos só são usados como totais, nunca são partilhados, e a atividade diária é apagada ao fim de 13 meses. Nada é seguido dentro da aplicação e não usamos publicidade nem análises de terceiros.",
     "localDataTitle": "Dados Armazenados Localmente",
     "localData": "A App guarda em cache ficheiros de áudio e transcrições em PDF no seu dispositivo para acesso offline. As suas preferências de idioma e configurações de cache também são armazenadas localmente. Estes dados nunca saem do seu dispositivo.",
     "section2Title": "2. Como Utilizamos os Seus Dados",

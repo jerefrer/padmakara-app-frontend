@@ -573,7 +573,7 @@
     "searchDataTitle": "Search Data",
     "searchData": "Searches you make in the app are recorded anonymously, without any link to you or your device, so we can see which teachings people look for. They are kept for 24 months.",
     "usageStatsTitle": "Usage Statistics",
-    "usageStats": "Usage statistics. To understand how the app is used, our server counts, per day and per teaching, how often recordings, transcripts and documents are opened, and which days each account was active. These records are only used as totals, are never shared, and daily activity is deleted after 13 months. Nothing is tracked inside the app and no advertising or third-party analytics are used.",
+    "usageStats": "Usage statistics. To understand how the app is used, our server counts, per day and per teaching, how often recordings, transcripts (including the read-along) and documents are opened, and which days each account was active. These records are only used as totals, are never shared, and daily activity is deleted after 13 months. Nothing is tracked inside the app and no advertising or third-party analytics are used.",
     "localDataTitle": "Locally Stored Data",
     "localData": "The App caches audio files and PDF transcripts on your device for offline access. Your language preferences and cache settings are also stored locally. This data never leaves your device.",
     "section2Title": "2. How We Use Your Data",
