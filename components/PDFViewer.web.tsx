@@ -1,21 +1,23 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, forwardRef, lazy } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-interface PDFViewerProps {
-  source: string;
-  title?: string;
-  onPageChange?: (page: number, totalPages: number) => void;
-  compact?: boolean;
-}
+import type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
+
+export type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
 
 // react-pdf / pdfjs-dist require browser globals (DOMMatrix, window) that don't
 // exist during Expo Router's static render. Lazy-load so the import only
 // evaluates in the browser.
 const LazyImpl = lazy(() => import('./PDFViewerWebImpl'));
 
-export function PDFViewer(props: PDFViewerProps) {
+// The web viewer has its own toolbar (layouts, fit, fullscreen); the reader
+// extras of the native viewer (tap, outline, goToPage) are not wired here.
+export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PDFViewer(
+  { onSingleTap: _onSingleTap, onOutline: _onOutline, ...props },
+  _ref
+) {
   const { t } = useLanguage();
   if (typeof window === 'undefined') {
     return <View style={styles.placeholder} />;
@@ -32,7 +34,7 @@ export function PDFViewer(props: PDFViewerProps) {
       <LazyImpl {...props} />
     </Suspense>
   );
-}
+});
 
 const styles = StyleSheet.create({
   placeholder: {
