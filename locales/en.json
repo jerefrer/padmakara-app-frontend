@@ -369,7 +369,11 @@
     "fitWidth": "Fit width",
     "fitHeight": "Fit height",
     "enterFullscreen": "Enter fullscreen",
-    "exitFullscreen": "Exit fullscreen"
+    "exitFullscreen": "Exit fullscreen",
+    "contents": "Contents",
+    "openContents": "Table of contents",
+    "closeContents": "Close the table of contents",
+    "pageNumber": "p. {{page}}"
   },
   "transcript": {
     "transcriptNotFound": "Transcript not found",

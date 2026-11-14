@@ -16,6 +16,7 @@ import { DesktopShell } from '@/components/desktop/DesktopShell';
 import { Sidebar } from '@/components/desktop/Sidebar';
 import { RightSidebar } from '@/components/desktop/RightSidebar';
 import { SidebarNavigationProvider } from '@/contexts/SidebarNavigationContext';
+import { useReaderImmersive } from '@/utils/readerImmersive';
 
 export const unstable_settings = {
   initialRouteName: '(groups)',
@@ -30,6 +31,8 @@ export default function TabLayout() {
   const { isMobile } = useDesktopLayout();
   const segments = useSegments() as string[];
   const tabBarHeight = useTabBarHeight();
+  // A document reader with its bars hidden takes the whole screen.
+  const readerImmersive = useReaderImmersive();
   const bottomInset = useSafeAreaInsets().bottom;
   // elevation 0: drop react-navigation's default Android shadow, the boxShadow replaces it.
   const barTop: ViewStyle = { ...(usePlayerBarAboveTabBar() ? BAR_JOIN : BAR_TOP_SHADOW), elevation: 0 };
@@ -50,7 +53,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        tabBarStyle: isMobile
+        tabBarStyle: isMobile && !readerImmersive
           ? Platform.select({
               ios: {
                 position: 'absolute' as const,
@@ -145,7 +148,7 @@ export default function TabLayout() {
         >
           <View style={{ flex: 1 }}>
             {tabsElement}
-            {isMobile ? <MiniPlayer /> : null}
+            {isMobile && !readerImmersive ? <MiniPlayer /> : null}
           </View>
         </DesktopShell>
       </SidebarNavigationProvider>
@@ -156,7 +159,7 @@ export default function TabLayout() {
     return (
       <View style={{ flex: 1 }}>
         {tabsElement}
-        <MiniPlayer />
+        {readerImmersive ? null : <MiniPlayer />}
       </View>
     );
   }

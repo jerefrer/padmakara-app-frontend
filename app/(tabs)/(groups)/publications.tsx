@@ -15,13 +15,18 @@ import { Image } from 'expo-image';
 import { publicationCoverCacheKey } from '@/utils/cacheKeys';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSignIn } from '@/components/auth/SignInProvider';
 import { publicationService } from '@/services/publicationService';
-import { PDFViewer } from '@/components/PDFViewer';
+import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
+import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
+import type { PdfOutlineItem } from '@/utils/pdfOutline';
+import { useReaderBars } from '@/hooks/useReaderBars';
+import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { colors } from '@/constants/colors';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { Publication } from '@/types';
@@ -69,6 +74,14 @@ export default function PublicationsScreen() {
   const [versionBannerDismissed, setVersionBannerDismissed] = useState<
     Record<string, boolean>
   >({});
+  const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
+  const [outlineVisible, setOutlineVisible] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const viewerRef = useRef<PDFViewerHandle>(null);
+  // Reader mode while a publication is open: a tap on the page hides the
+  // header, banner, tab bar and mini player; the phone may turn sideways.
+  const { barsHidden, toggleBars } = useReaderBars(!!viewingPdf);
+  useUnlockedOrientation(!!viewingPdf);
 
   // Load publications — cache-first; spinner only on cold load (nothing yet displayed).
   useEffect(() => {
@@ -245,6 +258,8 @@ export default function PublicationsScreen() {
 
   const handleCloseViewer = useCallback(() => {
     setViewingPdf(null);
+    setOutline([]);
+    setCurrentPage(1);
     if (openedFromParam.current) {
       openedFromParam.current = false;
       router.back();
@@ -389,29 +404,44 @@ export default function PublicationsScreen() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar hidden={barsHidden} />
+        <View style={[styles.container, { paddingTop: barsHidden ? 0 : insets.top }]}>
           {/* PDF header */}
-          <View style={styles.pdfHeader}>
-            <BackButton variant="inline" onPress={handleCloseViewer} />
-            <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
-              {getTitle(viewingPdf.publication)}
-            </Text>
-            {Platform.OS !== 'web' && (
-              <TouchableOpacity
-                testID="publication-share-button"
-                onPress={handleSharePdf}
-                hitSlop={8}
-                style={styles.pdfShareButton}
-                accessibilityRole="button"
-                accessibilityLabel={t('publications.share') || 'Share or save this publication'}
-              >
-                <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
-              </TouchableOpacity>
-            )}
-          </View>
+          {!barsHidden && (
+            <View style={styles.pdfHeader}>
+              <BackButton variant="inline" onPress={handleCloseViewer} />
+              <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
+                {getTitle(viewingPdf.publication)}
+              </Text>
+              {outline.length > 0 && (
+                <TouchableOpacity
+                  testID="publication-contents-button"
+                  onPress={() => setOutlineVisible(true)}
+                  hitSlop={8}
+                  style={styles.pdfShareButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
+                >
+                  <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
+                </TouchableOpacity>
+              )}
+              {Platform.OS !== 'web' && (
+                <TouchableOpacity
+                  testID="publication-share-button"
+                  onPress={handleSharePdf}
+                  hitSlop={8}
+                  style={styles.pdfShareButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('publications.share') || 'Share or save this publication'}
+                >
+                  <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {/* New-version banner */}
-          {showUpdateBanner && (
+          {showUpdateBanner && !barsHidden && (
             <View style={styles.versionBanner}>
               <Ionicons
                 name="cloud-download-outline"
@@ -474,14 +504,25 @@ export default function PublicationsScreen() {
 
           {/* PDF content */}
           <PDFViewer
+            ref={viewerRef}
             source={viewingPdf.uri}
             title={getTitle(viewingPdf.publication)}
             onPageChange={(page) => {
+              setCurrentPage(page);
               publicationService.saveReadingPosition(
                 viewingPdf.publication.id,
                 page
               );
             }}
+            onSingleTap={toggleBars}
+            onOutline={setOutline}
+          />
+          <PdfOutlineSheet
+            visible={outlineVisible}
+            items={outline}
+            currentPage={currentPage}
+            onSelect={(page) => viewerRef.current?.goToPage(page)}
+            onClose={() => setOutlineVisible(false)}
           />
         </View>
       </>

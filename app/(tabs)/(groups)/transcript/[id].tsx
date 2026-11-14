@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { PDFViewer } from '@/components/PDFViewer';
+import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
+import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
+import type { PdfOutlineItem } from '@/utils/pdfOutline';
+import { useReaderBars } from '@/hooks/useReaderBars';
+import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
 import retreatService, { transcriptErrorKey } from '@/services/retreatService';
@@ -28,6 +33,13 @@ export default function TranscriptViewerScreen() {
   // True while a personal, watermarked copy is being fetched.
   const [showWatermarkNotice, setShowWatermarkNotice] = useState(false);
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
+  const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
+  const [outlineVisible, setOutlineVisible] = useState(false);
+  const viewerRef = useRef<PDFViewerHandle>(null);
+  // Reader mode: a tap on the page hides the header, tab bar and mini player;
+  // the phone may turn sideways while the transcript is open.
+  const { barsHidden, toggleBars } = useReaderBars(!!transcriptUrl);
+  useUnlockedOrientation(true);
 
   useEffect(() => {
     loadTranscript();
@@ -168,37 +180,71 @@ export default function TranscriptViewerScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} testID="transcript-view">
+    <SafeAreaView
+      style={styles.container}
+      testID="transcript-view"
+      edges={barsHidden ? ['left', 'right'] : ['top', 'bottom', 'left', 'right']}
+    >
+      <StatusBar hidden={barsHidden} />
       {/* Header */}
-      <View style={styles.header}>
-        <BackButton variant="inline" />
+      {!barsHidden && (
+        <View style={styles.header}>
+          <BackButton variant="inline" />
 
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {eventName}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {t('transcript.transcript') || 'Transcript'}
-            {pageInfo && ` — ${t('transcript.pageOf', { current: String(pageInfo.current), total: String(pageInfo.total) }) || `Page ${pageInfo.current} of ${pageInfo.total}`}`}
-          </Text>
-        </View>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {eventName}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {t('transcript.transcript') || 'Transcript'}
+              {pageInfo && ` — ${t('transcript.pageOf', { current: String(pageInfo.current), total: String(pageInfo.total) }) || `Page ${pageInfo.current} of ${pageInfo.total}`}`}
+            </Text>
+          </View>
 
-        {/* Download/Share button */}
-        <TouchableOpacity
-          onPress={handleDownloadPdf}
-          style={styles.headerButton}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <ActivityIndicator size="small" color={colors.burgundy[500]} />
-          ) : (
-            <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+          {outline.length > 0 && (
+            <TouchableOpacity
+              testID="transcript-contents-button"
+              onPress={() => setOutlineVisible(true)}
+              style={styles.headerButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
+            >
+              <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-      </View>
+
+          {/* Download/Share button */}
+          <TouchableOpacity
+            onPress={handleDownloadPdf}
+            style={styles.headerButton}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color={colors.burgundy[500]} />
+            ) : (
+              <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* PDF Viewer */}
-      <PDFViewer source={transcriptUrl} title={eventName ? `${eventName} — Transcript` : undefined} onPageChange={handlePageChange} />
+      <PDFViewer
+        ref={viewerRef}
+        source={transcriptUrl}
+        title={eventName ? `${eventName} — Transcript` : undefined}
+        onPageChange={handlePageChange}
+        onSingleTap={toggleBars}
+        onOutline={setOutline}
+      />
+
+      <PdfOutlineSheet
+        visible={outlineVisible}
+        items={outline}
+        currentPage={pageInfo?.current ?? 1}
+        onSelect={(page) => viewerRef.current?.goToPage(page)}
+        onClose={() => setOutlineVisible(false)}
+      />
     </SafeAreaView>
   );
 }

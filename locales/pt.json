@@ -369,7 +369,11 @@
     "fitWidth": "Ajustar à largura",
     "fitHeight": "Ajustar à altura",
     "enterFullscreen": "Entrar em ecrã inteiro",
-    "exitFullscreen": "Sair do ecrã inteiro"
+    "exitFullscreen": "Sair do ecrã inteiro",
+    "contents": "Índice",
+    "openContents": "Índice",
+    "closeContents": "Fechar o índice",
+    "pageNumber": "p. {{page}}"
   },
   "transcript": {
     "transcriptNotFound": "Transcrição não encontrada",
