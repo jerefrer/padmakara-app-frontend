@@ -515,6 +515,7 @@
   },
   "readAlong": {
     "title": "Ler em Conjunto",
+    "showControls": "Mostrar os controlos",
     "loading": "A carregar transcrição...",
     "unavailable": "Ler em Conjunto não disponível para esta faixa",
     "buttonLabel": "Ler em Conjunto",

@@ -7,6 +7,7 @@ import readAlongPreferencesService, {
   nextTextSizeIndex,
 } from '@/services/readAlongPreferencesService';
 import { ReadAlongData, ReadAlongWord } from '@/types';
+import { readingScrollTarget } from '@/utils/readAlongScroll';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -17,6 +18,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -57,14 +59,32 @@ interface ReadAlongViewerProps {
    * to 0 so the text scrolls flush to the bottom edge.
    */
   bottomInset?: number;
+  /**
+   * Hides the header (reading full screen, e.g. a phone held sideways) and
+   * shows a small button that calls `onShowChrome` to bring the bars back.
+   */
+  chromeHidden?: boolean;
+  onShowChrome?: () => void;
 }
+
+// After the reader lets go of the text, wait this long before following the
+// audio again.
+const USER_SCROLL_PAUSE_MS = 3000;
 
 /**
  * Displays transcript text with word-level highlighting synced to audio playback.
  * Words are tappable to seek to that position.
  */
-export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, onClose, bottomInset = 0 }: ReadAlongViewerProps) {
+export function ReadAlongViewer({
+  readAlongData: preloadedData,
+  readAlongUrl,
+  onClose,
+  bottomInset = 0,
+  chromeHidden = false,
+  onShowChrome,
+}: ReadAlongViewerProps) {
   const { t } = useLanguage();
+  const { width: windowWidth } = useWindowDimensions();
   const { position, isPlaying, seekTo, player } = useAudioPlayerContext();
 
   // Offset (seconds) to compensate for audio pipeline latency.
@@ -139,21 +159,72 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
   const [error, setError] = useState(false);
 
   const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const paraLayoutsRef = useRef<Map<number, number>>(new Map());
-  const lastScrolledParaRef = useRef<number>(-1);
+  // The words are measured against this wrapper, which starts at the scroll
+  // content's top padding.
+  const measureRootRef = useRef<React.ComponentRef<typeof View>>(null);
+  const scrollYRef = useRef(0);
   const userScrollingRef = useRef(false);
   const userScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Initial scroll-to-position bookkeeping. When the viewer opens partway
-  // through a track, we want to center the active paragraph in the viewport
-  // rather than starting at the top. Both the viewport height AND the active
-  // paragraph's layout must be known before we can scroll, so we track them
-  // and trigger the initial scroll once both are available.
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
-  // Bumps whenever a paragraph reports its layout, so the initial-scroll
-  // effect re-evaluates after each layout pass.
-  const [layoutTick, setLayoutTick] = useState(0);
-  const hasInitialScrolledRef = useRef(false);
+
+  // Where the word being read sits, and the layout it was measured in. A new
+  // layout (text size, rotation, bars shown or hidden, or the first
+  // measurement on open) recenters at once; otherwise the text follows the
+  // audio only when the word leaves the comfortable band.
+  const activeWordRef = useRef<{ y: number; height: number } | null>(null);
+  const measuredLayoutKeyRef = useRef<string | null>(null);
+  const layoutKey = `${sizeIndex}|${windowWidth}|${chromeHidden ? 1 : 0}`;
+  const visibleHeight = Math.max(scrollViewHeight - bottomInset, scrollViewHeight * 0.4);
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  const scrollToActiveWord = useCallback(
+    (force: boolean, animated: boolean) => {
+      const word = activeWordRef.current;
+      if (!word || !scrollViewRef.current) return;
+      const target = readingScrollTarget({
+        wordY: word.y,
+        wordHeight: word.height,
+        scrollY: scrollYRef.current,
+        viewportHeight: visibleHeight,
+        force,
+      });
+      if (target !== null) scrollViewRef.current.scrollTo({ y: target, animated });
+    },
+    [visibleHeight],
+  );
+
+  const handleActiveWordLayout = useCallback(
+    (y: number, height: number, key: string) => {
+      activeWordRef.current = { y: y + styles.scrollContent.paddingTop, height };
+      const newLayout = measuredLayoutKeyRef.current !== key;
+      measuredLayoutKeyRef.current = key;
+      if (newLayout) {
+        scrollToActiveWord(true, false);
+      } else if (isPlayingRef.current && !userScrollingRef.current) {
+        scrollToActiveWord(false, true);
+      }
+    },
+    [scrollToActiveWord],
+  );
+
+  // Pressing play again brings the text back to the word being read, even if
+  // the reader had scrolled away while paused.
+  useEffect(() => {
+    if (!isPlaying) return;
+    userScrollingRef.current = false;
+    if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
+    scrollToActiveWord(true, true);
+  }, [isPlaying, scrollToActiveWord]);
+
+  useEffect(
+    () => () => {
+      if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
+    },
+    [],
+  );
 
   // Load alignment data (from pre-loaded data or URL)
   useEffect(() => {
@@ -318,73 +389,26 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
     : activeSegmentIndex;
   const effectiveWordIndex = inGap ? -1 : activeWordIndex;
 
-  // Find which paragraph the active word is in (for auto-scroll). When
-  // there is no live active word we fall back to the last one we saw so
-  // the viewport doesn't lurch backward during gaps.
-  const activeParaIndex = useMemo(() => {
-    const segForScroll =
-      activeSegmentIndex >= 0 ? activeSegmentIndex : lastActiveRef.current.segIdx;
-    if (segForScroll < 0) return -1;
-    return paragraphs.findIndex((para) =>
-      para.some((pw) => pw.segIdx === segForScroll),
-    );
-  }, [paragraphs, activeSegmentIndex]);
-
-  // Initial scroll on open: center the active paragraph in the viewport so
-  // the user lands on the word that's currently playing instead of at the
-  // start of the track. Runs once, as soon as both the viewport height and
-  // the active paragraph's layout are available.
-  useEffect(() => {
-    if (hasInitialScrolledRef.current) return;
-    if (activeParaIndex < 0 || scrollViewHeight === 0) return;
-    const yOffset = paraLayoutsRef.current.get(activeParaIndex);
-    if (yOffset === undefined || !scrollViewRef.current) return;
-
-    const target = Math.max(0, yOffset - scrollViewHeight / 2);
-    scrollViewRef.current.scrollTo({ y: target, animated: false });
-    hasInitialScrolledRef.current = true;
-    lastScrolledParaRef.current = activeParaIndex;
-  }, [activeParaIndex, scrollViewHeight, layoutTick]);
-
-  // Continuous auto-scroll: keep the active paragraph centered as audio
-  // advances. Always on (no user toggle). Pauses for 5s after the user
-  // scrolls manually so we don't fight them.
-  useEffect(() => {
-    if (!isPlaying || activeParaIndex < 0) return;
-    if (activeParaIndex === lastScrolledParaRef.current) return;
-    if (userScrollingRef.current) return;
-    if (scrollViewHeight === 0) return;
-
-    const yOffset = paraLayoutsRef.current.get(activeParaIndex);
-    if (yOffset !== undefined && scrollViewRef.current) {
-      const target = Math.max(0, yOffset - scrollViewHeight / 2);
-      scrollViewRef.current.scrollTo({ y: target, animated: true });
-      lastScrolledParaRef.current = activeParaIndex;
-    }
-  }, [activeParaIndex, isPlaying, scrollViewHeight]);
-
-  // Detect manual user scrolling — temporarily pause auto-scroll
+  // While the reader drags or flings the text, leave it alone; once they let
+  // go, follow the audio again after a short pause.
   const handleScrollBeginDrag = useCallback(() => {
     userScrollingRef.current = true;
     if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
   }, []);
 
-  const handleScrollEndDrag = useCallback(() => {
-    // Resume auto-scroll after 5 seconds of no user scrolling
+  const handleScrollEnd = useCallback(() => {
+    if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
     userScrollTimerRef.current = setTimeout(() => {
       userScrollingRef.current = false;
-    }, 5000);
-  }, []);
+      if (isPlayingRef.current) scrollToActiveWord(true, true);
+    }, USER_SCROLL_PAUSE_MS);
+  }, [scrollToActiveWord]);
 
-  // Move to the next text size (wrapping after the largest). Paragraph heights change with it, so forget the
-  // measured layouts and re-center on the active paragraph once they are
-  // re-reported (the initial-scroll effect picks it up via layoutTick).
+  // Move to the next text size (wrapping after the largest). The new layout
+  // key makes the active word re-measure and recenter.
   const cycleSize = useCallback(() => {
     const next = nextTextSizeIndex(sizeIndex);
     setSizeIndex(next);
-    paraLayoutsRef.current = new Map();
-    hasInitialScrolledRef.current = false;
-    lastScrolledParaRef.current = -1;
     readAlongPreferencesService.setTextSizeIndex(next).catch(() => {});
   }, [sizeIndex]);
 
@@ -392,17 +416,6 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
   const handleWordPress = useCallback((word: ReadAlongWord) => {
     seekTo(word.start * 1000); // seekTo takes milliseconds
   }, [seekTo]);
-
-  // Record layout position of each paragraph for auto-scroll. Bump layoutTick
-  // so the initial-scroll effect re-evaluates once the active paragraph has
-  // reported its position.
-  const handleParaLayout = useCallback((index: number, y: number) => {
-    const prev = paraLayoutsRef.current.get(index);
-    paraLayoutsRef.current.set(index, y);
-    if (prev !== y) {
-      setLayoutTick((c) => c + 1);
-    }
-  }, []);
 
   if (loading) {
     return (
@@ -443,29 +456,31 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
   return (
     <View style={styles.container}>
       {/* Header with title, text size control and close button */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={cycleSize}
-            style={styles.sizeButton}
-            accessibilityRole="button"
-            accessibilityLabel={t('readAlong.textSize') || 'Text size'}
-            testID="read-along-size-toggle"
-          >
-            <Text style={[styles.aaLabel, { fontSize: 13 + 2 * sizeIndex }]}>Aa</Text>
-            <Text style={styles.sizeLabel}>{t('readAlong.textSize') || 'Text size'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.headerButton}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.close') || 'Close'}
-          >
-            <Ionicons name="close" size={24} color={colors.gray[600]} />
-          </TouchableOpacity>
+      {!chromeHidden && (
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{t('readAlong.title') || 'Read Along'}</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={cycleSize}
+              style={styles.sizeButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('readAlong.textSize') || 'Text size'}
+              testID="read-along-size-toggle"
+            >
+              <Text style={[styles.aaLabel, { fontSize: 13 + 2 * sizeIndex }]}>Aa</Text>
+              <Text style={styles.sizeLabel}>{t('readAlong.textSize') || 'Text size'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.headerButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close') || 'Close'}
+            >
+              <Ionicons name="close" size={24} color={colors.gray[600]} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Transcript text — bottomInset reserves room for the overlay player
           so the last lines can scroll up above the slider. */}
@@ -474,50 +489,76 @@ export function ReadAlongViewer({ readAlongData: preloadedData, readAlongUrl, on
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
         onLayout={(e) => setScrollViewHeight(e.nativeEvent.layout.height)}
+        onScroll={(e) => {
+          scrollYRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={32}
         onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={handleScrollEndDrag}
+        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
         showsVerticalScrollIndicator={false}
       >
-        {paragraphs.map((para, paraIdx) => (
-          <ParagraphRow
-            key={paraIdx}
-            words={para}
-            paraIndex={paraIdx}
-            activeSegmentIndex={effectiveSegmentIndex}
-            activeWordIndex={effectiveWordIndex}
-            onWordPress={handleWordPress}
-            onLayout={handleParaLayout}
-            fontSize={textMetrics.fontSize}
-            lineHeight={textMetrics.lineHeight}
-          />
-        ))}
+        <View ref={measureRootRef} collapsable={false}>
+          {paragraphs.map((para, paraIdx) => (
+            <ParagraphRow
+              key={paraIdx}
+              words={para}
+              activeSegmentIndex={effectiveSegmentIndex}
+              activeWordIndex={effectiveWordIndex}
+              onWordPress={handleWordPress}
+              fontSize={textMetrics.fontSize}
+              lineHeight={textMetrics.lineHeight}
+              measureRoot={measureRootRef}
+              layoutKey={layoutKey}
+              onActiveWordLayout={handleActiveWordLayout}
+            />
+          ))}
+        </View>
       </ScrollView>
+
+      {chromeHidden && onShowChrome && (
+        <TouchableOpacity
+          onPress={onShowChrome}
+          style={styles.showChromeButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('readAlong.showControls') || 'Show the controls'}
+          testID="read-along-show-controls"
+        >
+          <Ionicons name="ellipsis-horizontal" size={22} color={colors.white} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 // ─── Paragraph Row ──────────────────────────────────────────────────
 
-interface ParagraphRowProps {
+interface ActiveWordMeasure {
+  measureRoot: React.RefObject<React.ComponentRef<typeof View> | null>;
+  /** Changes whenever the text reflows, so the active word measures again. */
+  layoutKey: string;
+  onActiveWordLayout: (y: number, height: number, layoutKey: string) => void;
+}
+
+interface ParagraphRowProps extends ActiveWordMeasure {
   words: { word: ReadAlongWord; segIdx: number; wordIdx: number }[];
-  paraIndex: number;
   activeSegmentIndex: number;
   activeWordIndex: number;
   onWordPress: (word: ReadAlongWord) => void;
-  onLayout: (index: number, y: number) => void;
   fontSize: number;
   lineHeight: number;
 }
 
 const ParagraphRow = React.memo(function ParagraphRow({
   words,
-  paraIndex,
   activeSegmentIndex,
   activeWordIndex,
   onWordPress,
-  onLayout,
   fontSize,
   lineHeight,
+  measureRoot,
+  layoutKey,
+  onActiveWordLayout,
 }: ParagraphRowProps) {
   // Find the active word's position within this paragraph for graduated fade
   let activeIdxInPara = -1;
@@ -553,7 +594,6 @@ const ParagraphRow = React.memo(function ParagraphRow({
   return (
     <Pressable
       style={[styles.paragraph, isActiveParagraph && styles.paragraphActive]}
-      onLayout={(e) => onLayout(paraIndex, e.nativeEvent.layout.y)}
       onPress={handleParagraphPress}
     >
       <View style={styles.paragraphText}>
@@ -586,6 +626,9 @@ const ParagraphRow = React.memo(function ParagraphRow({
               onPress={onWordPress}
               fontSize={fontSize}
               lineHeight={lineHeight}
+              measure={
+                isActive ? { measureRoot, layoutKey, onActiveWordLayout } : undefined
+              }
             />
           );
         })}
@@ -603,6 +646,8 @@ interface WordSpanProps {
   onPress: (word: ReadAlongWord) => void;
   fontSize: number;
   lineHeight: number;
+  /** Only the word being read gets this: it reports where it sits. */
+  measure?: ActiveWordMeasure;
 }
 
 // Graduated fade colors: future → just passed → medium past → far past
@@ -613,7 +658,29 @@ const FADE_COLORS = [
   '#c9cdd3', // 3: far past (13+ words) — faded
 ] as const;
 
-const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPress, fontSize, lineHeight }: WordSpanProps) {
+const WordSpan = React.memo(function WordSpan({
+  word,
+  isActive,
+  fadeTier,
+  onPress,
+  fontSize,
+  lineHeight,
+  measure,
+}: WordSpanProps) {
+  const containerRef = useRef<React.ComponentRef<typeof View>>(null);
+  const measureRoot = measure?.measureRoot;
+  const layoutKey = measure?.layoutKey;
+  const onActiveWordLayout = measure?.onActiveWordLayout;
+  useEffect(() => {
+    const root = measureRoot?.current;
+    if (!root || !containerRef.current || !onActiveWordLayout || layoutKey === undefined) return;
+    containerRef.current.measureLayout(
+      root,
+      (_x, y, _width, height) => onActiveWordLayout(y, height, layoutKey),
+      () => {},
+    );
+  }, [measureRoot, layoutKey, onActiveWordLayout]);
+
   // Animated dot indicator: fades in + scale pulse when this word becomes active.
   const dotOpacity = useSharedValue(isActive ? 1 : 0);
   const dotScale = useSharedValue(isActive ? 1 : 0.6);
@@ -637,7 +704,7 @@ const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPres
   }));
 
   return (
-    <View style={styles.wordContainer}>
+    <View ref={containerRef} style={styles.wordContainer}>
       <Text
         onPress={() => onPress(word)}
         style={[
@@ -761,6 +828,17 @@ const styles = StyleSheet.create({
   },
   wordActive: {
     color: colors.burgundy[500],
+  },
+  showChromeButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(44,44,44,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
     position: 'absolute',

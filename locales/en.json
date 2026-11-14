@@ -515,6 +515,7 @@
   },
   "readAlong": {
     "title": "Read Along",
+    "showControls": "Show the controls",
     "loading": "Loading transcript...",
     "unavailable": "Read Along not available for this track",
     "buttonLabel": "Read Along",

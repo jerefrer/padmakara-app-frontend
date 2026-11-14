@@ -80,3 +80,23 @@ describe('ReadAlongViewer text size', () => {
     await waitFor(() => expect(wordStyle(utils)).toMatchObject(getReadAlongTextMetrics(0)));
   });
 });
+
+describe('ReadAlongViewer full screen', () => {
+  it('should hide the header and offer a button that brings the controls back', async () => {
+    const onShowChrome = jest.fn();
+    const utils = render(
+      <ReadAlongViewer readAlongData={data} onClose={jest.fn()} chromeHidden onShowChrome={onShowChrome} />,
+    );
+    await act(async () => {});
+
+    expect(utils.queryByTestId('read-along-size-toggle')).toBeNull();
+    fireEvent.press(utils.getByTestId('read-along-show-controls'));
+    expect(onShowChrome).toHaveBeenCalled();
+  });
+
+  it('should show the header and no extra button by default', async () => {
+    const utils = await renderViewer();
+    expect(utils.getByTestId('read-along-size-toggle')).toBeTruthy();
+    expect(utils.queryByTestId('read-along-show-controls')).toBeNull();
+  });
+});

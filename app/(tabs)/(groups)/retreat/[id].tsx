@@ -122,6 +122,7 @@ const LANG_COLORS: Record<string, { bg: string; text: string }> = {
   fr: { bg: 'transparent', text: '#8a6aad' },
   tib: { bg: 'transparent', text: '#9a7a4a' },
 };
+const READ_ALONG_BARS_AUTO_HIDE_MS = 5000;
 const DEFAULT_LANG_COLOR = { bg: 'transparent', text: colors.gray[500] };
 
 const langBadgeColor = (lang: string) => ({
@@ -336,6 +337,19 @@ export default function RetreatDetailScreen() {
   const [readAlongLoading, setReadAlongLoading] = useState(false);
   // The app is portrait-locked; reading wider is easier with the phone turned.
   useUnlockedOrientation(readAlongModalVisible);
+  // Sideways, the header and player give the text the whole screen; a button
+  // brings them back, and they hide again after a few seconds untouched.
+  const {
+    barsHidden: readAlongBarsHidden,
+    toggleBars: toggleReadAlongBars,
+    sideways: readAlongSideways,
+  } = useReaderBars(readAlongModalVisible);
+  const [readAlongTouchTick, setReadAlongTouchTick] = useState(0);
+  useEffect(() => {
+    if (!readAlongSideways || readAlongBarsHidden) return;
+    const timer = setTimeout(toggleReadAlongBars, READ_ALONG_BARS_AUTO_HIDE_MS);
+    return () => clearTimeout(timer);
+  }, [readAlongSideways, readAlongBarsHidden, readAlongTouchTick, toggleReadAlongBars]);
 
   // Overflow menu state
   // Which tab is showing: 'video' (thumbnail grid of session recordings),
@@ -2234,7 +2248,9 @@ export default function RetreatDetailScreen() {
               <ReadAlongViewer
                 readAlongData={readAlongData}
                 onClose={handleCloseReadAlong}
-                bottomInset={145 + insets.bottom + 16}
+                bottomInset={readAlongBarsHidden ? insets.bottom + 16 : 145 + insets.bottom + 16}
+                chromeHidden={readAlongBarsHidden}
+                onShowChrome={toggleReadAlongBars}
               />
             ) : (
               <View style={styles.readAlongModalLoading}>
@@ -2252,18 +2268,26 @@ export default function RetreatDetailScreen() {
           {/* Embedded player — bottom inset only, no tab bar inside the modal.
               The "read" button toggles the modal closed so the user can
               return to the regular track list. */}
-          <AudioPlayer
-            bottom={insets.bottom}
-            languageLabel={
-              showLanguagePicker
-                ? getLanguageSelectionLabel(activeLanguages, pickerLanguages, t)
-                : undefined
-            }
-            onLanguagePress={showLanguagePicker ? () => setShowLanguageDropdown(true) : undefined}
-            onReadPress={handleCloseReadAlong}
-            onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
-            isBookmarked={isCurrentTrackBookmarked}
-          />
+          {!readAlongBarsHidden && (
+            <View
+              style={StyleSheet.absoluteFill}
+              pointerEvents="box-none"
+              onTouchStart={() => setReadAlongTouchTick((tick) => tick + 1)}
+            >
+              <AudioPlayer
+                bottom={insets.bottom}
+                languageLabel={
+                  showLanguagePicker
+                    ? getLanguageSelectionLabel(activeLanguages, pickerLanguages, t)
+                    : undefined
+                }
+                onLanguagePress={showLanguagePicker ? () => setShowLanguageDropdown(true) : undefined}
+                onReadPress={handleCloseReadAlong}
+                onBookmarkPress={currentTrack && isAuthenticated ? toggleCurrentTrackBookmark : undefined}
+                isBookmarked={isCurrentTrackBookmarked}
+              />
+            </View>
+          )}
         </SafeAreaView>
       </Modal>
 
