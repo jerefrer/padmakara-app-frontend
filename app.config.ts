@@ -253,6 +253,9 @@ const config: PadmakaraConfig = {
       { microphonePermission: false, recordAudioAndroid: false },
     ],
     "./plugins/withMediaNotificationIcon",
+    // Portrait at launch and everywhere by default; see plugins/withPhoneLandscape.js.
+    ["expo-screen-orientation", { initialOrientation: "PORTRAIT_UP" }],
+    "./plugins/withPhoneLandscape",
     [
       "expo-router",
       // SDK 58 turns async (lazy) routes on for web. The static export stays eager until the
