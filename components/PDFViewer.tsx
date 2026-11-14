@@ -86,7 +86,9 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
           source={{ uri: source, cache: false }}
           style={styles.pdf}
           trustAllCerts={false}
-          enableDoubleTapZoom
+          // Pinch still zooms. With double tap off, the patched viewer reports
+          // a tap at once instead of waiting to rule out a second one.
+          enableDoubleTapZoom={false}
           minScale={1}
           maxScale={4}
           onLoadComplete={(_pages, _path, _size, tableContents) => {

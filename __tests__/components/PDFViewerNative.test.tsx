@@ -44,6 +44,12 @@ describe('PDFViewer (iOS and Android)', () => {
     expect(pdfProps.trustAllCerts).toBe(false);
   });
 
+  it('should turn off double-tap zoom so a tap toggles the bars at once', () => {
+    render(<PDFViewer source="https://example.com/doc.pdf" />);
+
+    expect(pdfProps.enableDoubleTapZoom).toBe(false);
+  });
+
   it('should hide the loader when the document has loaded', () => {
     const { queryByText } = render(<PDFViewer source="https://example.com/doc.pdf" />);
     expect(queryByText('Loading PDF...')).toBeTruthy();

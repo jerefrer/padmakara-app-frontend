@@ -1,0 +1,88 @@
+diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
+--- a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
++++ b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
+@@ -23,6 +23,7 @@
+ import android.net.Uri;
+ import android.util.AttributeSet;
+ import android.view.MotionEvent;
++import android.view.GestureDetector;
+ import android.graphics.Canvas;
+ import android.graphics.pdf.PdfRenderer;
+ 
+@@ -103,9 +104,22 @@
+     private int oldW = 0;
+     private int oldH = 0;
+ 
++    // The viewer only reports a tap once no second tap can follow, which keeps
++    // every tap waiting while double-tap zoom is on. With it off, this detector
++    // (no double-tap listener) reports the tap as soon as the finger lifts.
++    private final GestureDetector immediateTapDetector;
++
+     public PdfView(Context context, AttributeSet set){
+         super(context, set);
+         ConfigKt.setPdfiumConfig(new Config(new DefaultLogger(), AlreadyClosedBehavior.IGNORE));
++        immediateTapDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
++            @Override
++            public boolean onSingleTapUp(MotionEvent e) {
++                if (!enableDoubleTapZoom) sendSingleTap(e);
++                return false;
++            }
++        });
++        immediateTapDetector.setOnDoubleTapListener(null);
+     }
+ 
+     @Override
+@@ -239,12 +253,27 @@
+         // maybe change by other instance, restore zoom setting
+         Constants.Pinch.MINIMUM_ZOOM = this.minScale;
+         Constants.Pinch.MAXIMUM_ZOOM = this.maxScale;
++
++    }
+ 
++    @Override
++    public boolean dispatchTouchEvent(MotionEvent ev) {
++        immediateTapDetector.onTouchEvent(ev);
++        return super.dispatchTouchEvent(ev);
+     }
+ 
+     @Override
+     public boolean onTap(MotionEvent e){
++        // Without double-tap zoom the tap was already sent on finger up.
++        if (!this.enableDoubleTapZoom) {
++            return true;
++        }
++        sendSingleTap(e);
++        return true;
++    }
+ 
++    private void sendSingleTap(MotionEvent e){
++
+         // maybe change by other instance, restore zoom setting
+         //Constants.Pinch.MINIMUM_ZOOM = this.minScale;
+         //Constants.Pinch.MAXIMUM_ZOOM = this.maxScale;
+@@ -268,9 +297,6 @@
+ //            event
+ //         );
+ 
+-        // process as tap
+-         return true;
+-
+     }
+ 
+     @Override
+diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
+--- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
++++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
+@@ -424,6 +424,12 @@
+                     }
+                 }
+             }
++        }
++
++        if ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableDoubleTapZoom"]) {
++            // The single tap waits for the double tap to fail; a disabled double
++            // tap no longer holds it back, so the single tap fires at once.
++            _doubleTapRecognizer.enabled = _enableDoubleTapZoom;
+         }
+ 
+         if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableRTL"])) {
