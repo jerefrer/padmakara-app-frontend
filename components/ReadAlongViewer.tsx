@@ -8,6 +8,7 @@ import readAlongPreferencesService, {
 } from '@/services/readAlongPreferencesService';
 import { ReadAlongData, ReadAlongWord } from '@/types';
 import { readingScrollTarget } from '@/utils/readAlongScroll';
+import { paragraphProgress, wordOffsets, type ParaWords } from '@/utils/readAlongParagraphs';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -21,12 +22,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 
 const colors = {
   burgundy: {
@@ -159,21 +154,18 @@ export function ReadAlongViewer({
   const [error, setError] = useState(false);
 
   const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  // The words are measured against this wrapper, which starts at the scroll
-  // content's top padding.
-  const measureRootRef = useRef<React.ComponentRef<typeof View>>(null);
   const scrollYRef = useRef(0);
   const userScrollingRef = useRef(false);
   const userScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
 
-  // Where the word being read sits, and the layout it was measured in. A new
-  // layout (text size, rotation, bars shown or hidden, or the first
-  // measurement on open) recenters at once; otherwise the text follows the
-  // audio only when the word leaves the comfortable band.
+  // Where the line of the word being read sits, and the text layout it was
+  // measured in. A new layout (text size, rotation, or the first measurement
+  // on open) recenters at once; otherwise the text follows the audio only
+  // when the line leaves the comfortable band.
   const activeWordRef = useRef<{ y: number; height: number } | null>(null);
   const measuredLayoutKeyRef = useRef<string | null>(null);
-  const layoutKey = `${sizeIndex}|${windowWidth}|${chromeHidden ? 1 : 0}`;
+  const layoutKey = `${sizeIndex}|${windowWidth}`;
   const visibleHeight = Math.max(scrollViewHeight - bottomInset, scrollViewHeight * 0.4);
   const isPlayingRef = useRef(isPlaying);
   useEffect(() => {
@@ -209,6 +201,12 @@ export function ReadAlongViewer({
     },
     [scrollToActiveWord],
   );
+
+  // The view changed height (bars shown or hidden, rotation): put the line
+  // being read back on the reading line.
+  useEffect(() => {
+    scrollToActiveWord(true, false);
+  }, [visibleHeight, scrollToActiveWord]);
 
   // Pressing play again brings the text back to the word being read, even if
   // the reader had scrolled away while paused.
@@ -489,6 +487,8 @@ export function ReadAlongViewer({
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
         onLayout={(e) => setScrollViewHeight(e.nativeEvent.layout.height)}
+        // A taller or shorter view (bars shown or hidden) recenters through
+        // the effect on visibleHeight below.
         onScroll={(e) => {
           scrollYRef.current = e.nativeEvent.contentOffset.y;
         }}
@@ -498,21 +498,26 @@ export function ReadAlongViewer({
         onMomentumScrollEnd={handleScrollEnd}
         showsVerticalScrollIndicator={false}
       >
-        <View ref={measureRootRef} collapsable={false}>
-          {paragraphs.map((para, paraIdx) => (
-            <ParagraphRow
-              key={paraIdx}
-              words={para}
-              activeSegmentIndex={effectiveSegmentIndex}
-              activeWordIndex={effectiveWordIndex}
-              onWordPress={handleWordPress}
-              fontSize={textMetrics.fontSize}
-              lineHeight={textMetrics.lineHeight}
-              measureRoot={measureRootRef}
-              layoutKey={layoutKey}
-              onActiveWordLayout={handleActiveWordLayout}
-            />
-          ))}
+        <View>
+          {paragraphs.map((para, paraIdx) => {
+            const { activeIdx, isPast } = paragraphProgress(para, effectiveSegmentIndex, effectiveWordIndex);
+            const reading = activeIdx >= 0;
+            return (
+              <ParagraphRow
+                key={paraIdx}
+                words={para}
+                activeIdx={activeIdx}
+                isPast={isPast}
+                onWordPress={handleWordPress}
+                fontSize={textMetrics.fontSize}
+                lineHeight={textMetrics.lineHeight}
+                layoutKey={layoutKey}
+                // Only the paragraph being read reports where its word sits,
+                // so the others keep the same props and skip re-rendering.
+                onActiveWordLayout={reading ? handleActiveWordLayout : undefined}
+              />
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -533,106 +538,118 @@ export function ReadAlongViewer({
 
 // ─── Paragraph Row ──────────────────────────────────────────────────
 
-interface ActiveWordMeasure {
-  measureRoot: React.RefObject<React.ComponentRef<typeof View> | null>;
-  /** Changes whenever the text reflows, so the active word measures again. */
-  layoutKey: string;
-  onActiveWordLayout: (y: number, height: number, layoutKey: string) => void;
+interface TextLine {
+  text: string;
+  y: number;
+  height: number;
 }
 
-interface ParagraphRowProps extends ActiveWordMeasure {
-  words: { word: ReadAlongWord; segIdx: number; wordIdx: number }[];
-  activeSegmentIndex: number;
-  activeWordIndex: number;
+interface ParagraphRowProps {
+  words: ParaWords;
+  activeIdx: number;
+  isPast: boolean;
   onWordPress: (word: ReadAlongWord) => void;
   fontSize: number;
   lineHeight: number;
+  /** Changes when the text reflows (text size, width). */
+  layoutKey: string;
+  /** Set only on the paragraph being read: it reports where that word's line sits. */
+  onActiveWordLayout?: (y: number, height: number, layoutKey: string) => void;
 }
 
+/**
+ * One paragraph as a single text with a nested span per word. A view per word
+ * made thousands of native views per track, and iOS stalled for seconds
+ * re-laying them out after a rotation (the app was killed).
+ */
 const ParagraphRow = React.memo(function ParagraphRow({
   words,
-  activeSegmentIndex,
-  activeWordIndex,
+  activeIdx,
+  isPast,
   onWordPress,
   fontSize,
   lineHeight,
-  measureRoot,
   layoutKey,
   onActiveWordLayout,
 }: ParagraphRowProps) {
-  // Find the active word's position within this paragraph for graduated fade
-  let activeIdxInPara = -1;
-  if (activeSegmentIndex >= 0) {
-    activeIdxInPara = words.findIndex(
-      pw => pw.segIdx === activeSegmentIndex && pw.wordIdx === activeWordIndex,
-    );
-  }
+  const paragraphYRef = useRef<number | null>(null);
+  const linesRef = useRef<{ lines: TextLine[]; key: string } | null>(null);
+  const layoutKeyRef = useRef(layoutKey);
+  useEffect(() => {
+    layoutKeyRef.current = layoutKey;
+  }, [layoutKey]);
 
-  // Is this entire paragraph before the active word?
-  const isAllPast =
-    activeSegmentIndex >= 0 &&
-    activeIdxInPara === -1 &&
-    words.length > 0 &&
-    (words[words.length - 1].segIdx < activeSegmentIndex ||
-      (words[words.length - 1].segIdx === activeSegmentIndex &&
-        activeWordIndex >= 0 &&
-        words[words.length - 1].wordIdx < activeWordIndex));
+  // Character offset of each word in the paragraph's text, to find its line.
+  const wordStarts = useMemo(() => wordOffsets(words), [words]);
 
-  // Coarse "I'm here" anchor: when the active word is in this paragraph, give
-  // the whole paragraph a faint burgundy tint. This stays steady even when
-  // individual word timing is interpolated and slightly off, so the reader
-  // always knows which passage the audio is in.
-  const isActiveParagraph = activeIdxInPara >= 0;
+  const reportActiveWord = useCallback(() => {
+    const measured = linesRef.current;
+    const paragraphY = paragraphYRef.current;
+    if (activeIdx < 0 || !onActiveWordLayout || !measured || paragraphY === null) return;
+    // Report the key the lines were measured with, so lines from before a text
+    // size change cannot pass for the new layout.
+    const target = wordStarts[activeIdx];
+    let seen = 0;
+    const line =
+      measured.lines.find((l) => {
+        seen += l.text.length;
+        return seen > target;
+      }) ?? measured.lines[measured.lines.length - 1];
+    if (!line) return;
+    onActiveWordLayout(paragraphY + styles.paragraph.paddingVertical + line.y, line.height, measured.key);
+  }, [activeIdx, onActiveWordLayout, wordStarts]);
+
+  useEffect(() => {
+    reportActiveWord();
+  }, [reportActiveWord]);
 
   // Tapping any blank space in the paragraph (between words, in the margin)
-  // seeks to its first word. Word taps still work — RN gives child Text
-  // onPress priority over the surrounding Pressable.
+  // seeks to its first word. Word taps still work: the nested span's onPress
+  // takes priority over the surrounding Pressable.
   const handleParagraphPress = () => {
     if (words.length > 0) onWordPress(words[0].word);
   };
 
   return (
     <Pressable
-      style={[styles.paragraph, isActiveParagraph && styles.paragraphActive]}
+      style={styles.paragraph}
       onPress={handleParagraphPress}
+      onLayout={(e) => {
+        paragraphYRef.current = e.nativeEvent.layout.y;
+        reportActiveWord();
+      }}
     >
-      <View style={styles.paragraphText}>
+      <Text
+        style={[styles.word, { fontSize, lineHeight, color: FADE_COLORS[isPast ? 3 : 0] }]}
+        onTextLayout={(e) => {
+          linesRef.current = { lines: e.nativeEvent.lines, key: layoutKeyRef.current };
+          reportActiveWord();
+        }}
+      >
         {words.map((pw, idx) => {
-          const isActive = pw.segIdx === activeSegmentIndex && pw.wordIdx === activeWordIndex;
-
-          // Graduated fade: tier determines how faded a past word appears.
-          // 0=future (dark), 1=just passed, 2=medium past, 3=far past (faded)
-          let fadeTier: 0 | 1 | 2 | 3;
-          if (isActive) {
-            fadeTier = 0;
-          } else if (activeIdxInPara >= 0) {
-            const dist = activeIdxInPara - idx; // positive = past
-            if (dist <= 0) fadeTier = 0;
-            else if (dist <= 3) fadeTier = 1;
-            else if (dist <= 12) fadeTier = 2;
-            else fadeTier = 3;
-          } else if (isAllPast) {
-            fadeTier = 3;
-          } else {
-            fadeTier = 0;
+          const isActive = idx === activeIdx;
+          // Graduated fade: 0 = future or current, 1 = just passed,
+          // 2 = medium past, 3 = far past.
+          let fadeTier: 0 | 1 | 2 | 3 = isPast ? 3 : 0;
+          if (activeIdx >= 0) {
+            const dist = activeIdx - idx; // positive = past
+            fadeTier = dist <= 0 ? 0 : dist <= 3 ? 1 : dist <= 12 ? 2 : 3;
           }
-
           return (
-            <WordSpan
-              key={idx}
-              word={pw.word}
-              isActive={isActive}
-              fadeTier={fadeTier}
-              onPress={onWordPress}
-              fontSize={fontSize}
-              lineHeight={lineHeight}
-              measure={
-                isActive ? { measureRoot, layoutKey, onActiveWordLayout } : undefined
-              }
-            />
+            <React.Fragment key={idx}>
+              {idx > 0 ? ' ' : null}
+              <WordSpan
+                word={pw.word}
+                isActive={isActive}
+                fadeTier={fadeTier}
+                onPress={onWordPress}
+                fontSize={fontSize}
+                lineHeight={lineHeight}
+              />
+            </React.Fragment>
           );
         })}
-      </View>
+      </Text>
     </Pressable>
   );
 });
@@ -646,8 +663,6 @@ interface WordSpanProps {
   onPress: (word: ReadAlongWord) => void;
   fontSize: number;
   lineHeight: number;
-  /** Only the word being read gets this: it reports where it sits. */
-  measure?: ActiveWordMeasure;
 }
 
 // Graduated fade colors: future → just passed → medium past → far past
@@ -658,65 +673,18 @@ const FADE_COLORS = [
   '#c9cdd3', // 3: far past (13+ words) — faded
 ] as const;
 
-const WordSpan = React.memo(function WordSpan({
-  word,
-  isActive,
-  fadeTier,
-  onPress,
-  fontSize,
-  lineHeight,
-  measure,
-}: WordSpanProps) {
-  const containerRef = useRef<React.ComponentRef<typeof View>>(null);
-  const measureRoot = measure?.measureRoot;
-  const layoutKey = measure?.layoutKey;
-  const onActiveWordLayout = measure?.onActiveWordLayout;
-  useEffect(() => {
-    const root = measureRoot?.current;
-    if (!root || !containerRef.current || !onActiveWordLayout || layoutKey === undefined) return;
-    containerRef.current.measureLayout(
-      root,
-      (_x, y, _width, height) => onActiveWordLayout(y, height, layoutKey),
-      () => {},
-    );
-  }, [measureRoot, layoutKey, onActiveWordLayout]);
-
-  // Animated dot indicator: fades in + scale pulse when this word becomes active.
-  const dotOpacity = useSharedValue(isActive ? 1 : 0);
-  const dotScale = useSharedValue(isActive ? 1 : 0.6);
-
-  useEffect(() => {
-    if (isActive) {
-      dotOpacity.value = withTiming(1, { duration: 140 });
-      dotScale.value = withSequence(
-        withTiming(1.25, { duration: 140 }),
-        withTiming(1, { duration: 110 }),
-      );
-    } else {
-      dotOpacity.value = withTiming(0, { duration: 180 });
-      dotScale.value = withTiming(0.6, { duration: 180 });
-    }
-  }, [isActive, dotOpacity, dotScale]);
-
-  const dotAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: dotOpacity.value,
-    transform: [{ scale: dotScale.value }],
-  }));
-
+const WordSpan = React.memo(function WordSpan({ word, isActive, fadeTier, onPress, fontSize, lineHeight }: WordSpanProps) {
   return (
-    <View ref={containerRef} style={styles.wordContainer}>
-      <Text
-        onPress={() => onPress(word)}
-        style={[
-          styles.word,
-          { color: FADE_COLORS[fadeTier], fontSize, lineHeight },
-          isActive && styles.wordActive,
-        ]}
-      >
-        {word.word}
-      </Text>
-      <Animated.View style={[styles.dot, dotAnimatedStyle]} pointerEvents="none" />
-    </View>
+    <Text
+      onPress={() => onPress(word)}
+      style={[
+        styles.word,
+        { color: FADE_COLORS[fadeTier], fontSize, lineHeight },
+        isActive && styles.wordActive,
+      ]}
+    >
+      {word.word.trim()}
+    </Text>
   );
 });
 
@@ -807,21 +775,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
     borderRadius: 6,
   },
-  // No background highlight on the active paragraph — the per-word styling
-  // (color shift on the current word) is enough to track position without
-  // boxing the whole paragraph in a pink tint.
-  paragraphActive: {},
-  paragraphText: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
-  },
-  wordContainer: {
-    alignItems: 'center',
-    paddingBottom: 6,
-    marginRight: 5,
-    position: 'relative',
-  },
   word: {
     fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[800],
@@ -839,13 +792,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(44,44,44,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  dot: {
-    position: 'absolute',
-    bottom: 0,
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.burgundy[500],
   },
 });
