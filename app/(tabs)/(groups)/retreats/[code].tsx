@@ -28,6 +28,7 @@ import { getTranslatedName } from '@/utils/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
+import { useBottomBarsSpace } from '@/components/MiniPlayer';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TEXT_GUTTER } from '@/constants/layout';
 import { ListRowPressable } from '@/components/ui/ListRowPressable';
@@ -257,6 +258,7 @@ export default function GroupDetailScreen() {
   const { user } = useAuth();
   const { isDesktop } = useDesktopLayout();
   const insets = useSafeAreaInsets();
+  const bottomBarsSpace = useBottomBarsSpace();
   const scrollY = useSharedValue(0);
   const [groupData, setGroupData] = useState<RetreatGroup | null>(() =>
     retreatService.getRetreatGroupDetailsSync(code)
@@ -442,7 +444,8 @@ export default function GroupDetailScreen() {
       <View style={[styles.container, !hasHero && { paddingTop: insets.top }]}>
         <Animated.ScrollView
           style={styles.scrollView}
-          contentContainerStyle={isDesktop ? styles.desktopScrollContent : undefined}
+          // The tab bar and the mini player float over the list on phones.
+          contentContainerStyle={isDesktop ? styles.desktopScrollContent : { paddingBottom: bottomBarsSpace }}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={

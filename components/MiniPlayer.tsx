@@ -41,6 +41,19 @@ export function usePlayerBarAboveTabBar(): boolean {
   return inlinePlayerVisible || isMiniPlayerShown(pathname, !!currentTrack, isPlaying, retreatId, inlinePlayerVisible);
 }
 
+/** Gap kept between the end of a list and the bars floating over it. */
+const BOTTOM_BARS_GAP = 16;
+
+/**
+ * Bottom padding a scrolling screen needs on a phone so its last item clears
+ * the tab bar and, when one shows, the player bar above it.
+ */
+export function useBottomBarsSpace(): number {
+  const tabBarHeight = useTabBarHeight();
+  const playerShown = usePlayerBarAboveTabBar();
+  return tabBarHeight + (playerShown ? BAR_HEIGHT : 0) + BOTTOM_BARS_GAP;
+}
+
 function isMiniPlayerShown(
   pathname: string,
   hasTrack: boolean,
