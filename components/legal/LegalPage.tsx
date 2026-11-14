@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { pageStyles } from '@/components/membership/pageStyles';
@@ -21,9 +22,11 @@ interface Props {
 
 export function LegalPage({ title, headerRight, backDisabled, children }: Props) {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scroll}>
-      <View style={styles.header}>
+      {/* The stack header is hidden, so the back row must clear the status bar itself. */}
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <BackButton variant="inline" label={t('navigation.back') || 'Back'} disabled={backDisabled} />
         {headerRight}
       </View>
