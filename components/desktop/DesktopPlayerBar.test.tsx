@@ -53,6 +53,14 @@ describe('DesktopPlayerBar', () => {
     expect(ids).toEqual(order);
   });
 
+  it('should not offer a transcript button, the transcript lives in the Texts tab', () => {
+    mockContextExtras = { canOpenTranscript: true, openTranscript: jest.fn() };
+
+    const { queryByLabelText } = render(<DesktopPlayerBar />);
+
+    expect(queryByLabelText('Open transcript')).toBeNull();
+  });
+
   it('should hide the language globe when the event offers no picker', () => {
     const { queryByTestId } = render(<DesktopPlayerBar />);
     expect(queryByTestId('audio-language')).toBeNull();

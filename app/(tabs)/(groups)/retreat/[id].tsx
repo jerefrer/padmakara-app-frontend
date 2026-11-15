@@ -1060,18 +1060,6 @@ export default function RetreatDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerInShell, showLanguagePicker, shellLanguageLabel, pickerLanguages, activeLanguages, retreat, id, setShellLanguageControl]);
 
-  useEffect(() => {
-    const hasAnyTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
-    audioContext.setOnOpenTranscript(
-      hasAnyTranscript && retreat
-        ? () => router.push(`/(tabs)/(groups)/transcript/${retreat.id}` as any)
-        : undefined,
-    );
-    return () => {
-      audioContext.setOnOpenTranscript(undefined);
-    };
-  }, [retreat?.id, retreat?.transcripts?.length]);
-
   // Update upcoming tracks for pre-caching when track or list changes
   useEffect(() => {
     if (currentTrack && filteredTracks.length > 0) {

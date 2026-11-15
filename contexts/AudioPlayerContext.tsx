@@ -89,7 +89,6 @@ export interface AudioPlayerContextType {
   // (e.g. session screen has a transcript / a read-along available). The
   // desktop player bar reads these to show or hide its right-zone buttons.
   canOpenReadAlong: boolean;
-  canOpenTranscript: boolean;
   // Event-screen controls the phone shows in its player toolbar (bookmark the
   // current track, pick the content languages). The desktop player bar renders
   // them from here; null while the mounted screen offers none.
@@ -119,7 +118,6 @@ export interface AudioPlayerContextType {
   nextTrack: () => void;
   previousTrack: () => void;
   openReadAlong: () => void;
-  openTranscript: () => void;
   changePlaybackSpeed: () => void;
   setUpcomingTracks: (tracks: Track[]) => void;
 
@@ -135,7 +133,6 @@ export interface AudioPlayerContextType {
   setOnNextTrack: (cb: (() => void) | undefined) => void;
   setOnPreviousTrack: (cb: (() => void) | undefined) => void;
   setOnOpenReadAlong: (cb: (() => void) | undefined) => void;
-  setOnOpenTranscript: (cb: (() => void) | undefined) => void;
   setTrackBookmark: (control: TrackBookmarkControl | null) => void;
   setLanguageControl: (control: LanguageControl | null) => void;
   setInlinePlayerVisible: (visible: boolean) => void;
@@ -322,11 +319,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const onNextTrackRef = useRef<(() => void) | undefined>(undefined);
   const onPreviousTrackRef = useRef<(() => void) | undefined>(undefined);
   const onOpenReadAlongRef = useRef<(() => void) | undefined>(undefined);
-  const onOpenTranscriptRef = useRef<(() => void) | undefined>(undefined);
   const [hasNextTrack, setHasNextTrack] = useState(false);
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
   const [canOpenReadAlong, setCanOpenReadAlong] = useState(false);
-  const [canOpenTranscript, setCanOpenTranscript] = useState(false);
   const [trackBookmark, setTrackBookmark] = useState<TrackBookmarkControl | null>(null);
   const [languageControl, setLanguageControl] = useState<LanguageControl | null>(null);
 
@@ -1285,9 +1280,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const openReadAlong = useCallback(() => {
     onOpenReadAlongRef.current?.();
   }, []);
-  const openTranscript = useCallback(() => {
-    onOpenTranscriptRef.current?.();
-  }, []);
 
   // ─── Callback registration ───
   const setOnProgressUpdate = useCallback((cb: ((progress: UserProgress) => void) | undefined) => {
@@ -1311,10 +1303,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     onOpenReadAlongRef.current = cb;
     setCanOpenReadAlong(!!cb);
   }, []);
-  const setOnOpenTranscript = useCallback((cb: (() => void) | undefined) => {
-    onOpenTranscriptRef.current = cb;
-    setCanOpenTranscript(!!cb);
-  }, []);
 
   const value = useMemo<AudioPlayerContextType>(() => ({
     currentTrack: track,
@@ -1333,7 +1321,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     hasNextTrack,
     hasPreviousTrack,
     canOpenReadAlong,
-    canOpenTranscript,
     trackBookmark,
     languageControl,
     idleTrack,
@@ -1352,7 +1339,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     nextTrack: nextTrackAction,
     previousTrack: previousTrackAction,
     openReadAlong,
-    openTranscript,
     changePlaybackSpeed,
     setUpcomingTracks,
 
@@ -1366,7 +1352,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setOnNextTrack,
     setOnPreviousTrack,
     setOnOpenReadAlong,
-    setOnOpenTranscript,
     setTrackBookmark,
     setLanguageControl,
     setInlinePlayerVisible,
@@ -1375,15 +1360,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
     trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
     isPlayButtonDisabled, hasNextTrack, hasPreviousTrack,
-    canOpenReadAlong, canOpenTranscript, trackBookmark, languageControl, idleTrack, player, inlinePlayerVisible, videoPlaying,
+    canOpenReadAlong, trackBookmark, languageControl, idleTrack, player, inlinePlayerVisible, videoPlaying,
     playTrack, resumeLastPlayed, clearTrack, togglePlayPause, pause, seekTo,
     skipForward, skipBackward, nextTrackAction, previousTrackAction,
-    openReadAlong, openTranscript,
+    openReadAlong,
     changePlaybackSpeed,
     onSlidingStart, onSlidingComplete, onSliderValueChange,
     setOnProgressUpdate, setOnTrackComplete, setOnPlayingStateChange,
     setOnNextTrack, setOnPreviousTrack,
-    setOnOpenReadAlong, setOnOpenTranscript, setTrackBookmark, setLanguageControl,
+    setOnOpenReadAlong, setTrackBookmark, setLanguageControl,
     setInlinePlayerVisible, setVideoPlaying,
   ]);
 

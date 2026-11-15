@@ -50,9 +50,7 @@ export function DesktopPlayerBar() {
     idleTrack,
     resumeLastPlayed,
     canOpenReadAlong,
-    canOpenTranscript,
     openReadAlong,
-    openTranscript,
     trackBookmark,
     languageControl,
   } = useAudioPlayerContext();
@@ -268,23 +266,10 @@ export function DesktopPlayerBar() {
           </View>
         </View>
 
-        {/* Right zone: transcript / read-along / speed — mobile-style mini
+        {/* Right zone: bookmark / speed / read-along / language — mobile-style mini
             buttons (icon stacked over a small label). Each button is
             conditional on a handler being registered by the current screen. */}
         <View style={styles.rightZone}>
-          {canOpenTranscript && (
-            <TouchableOpacity
-              onPress={openTranscript}
-              style={styles.toolbarButton}
-              accessibilityLabel={t('transcript.open') || 'Open transcript'}
-            >
-              <Ionicons name="document-text-outline" size={20} color={colors.gray[600]} />
-              <Text style={styles.toolbarLabel}>
-                {t('player.transcript') || 'Transcript'}
-              </Text>
-            </TouchableOpacity>
-          )}
-
           {/* Same order as the phone toolbar: bookmark, speed, read along, language. */}
           <TouchableOpacity
             onPress={trackBookmark?.onToggle}
