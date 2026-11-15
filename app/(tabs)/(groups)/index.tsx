@@ -32,6 +32,7 @@ import { EventRow, eventHasAudio } from '@/components/EventRow';
 import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
+import { useRetryWhileFailed } from '@/hooks/useRetryWhileFailed';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
@@ -315,12 +316,16 @@ export default function HomeScreen() {
       .filter((e) => e.id !== featuredId)
       .slice(0, 5);
   });
+  // The public list could not be fetched and nothing is cached: the screen
+  // says so and keeps trying instead of silently showing no teachings.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const loadHomeData = async (isRefresh = false) => {
     // Show spinner only when there is nothing to display yet (mirror was cold
     // at mount time — lazy initializer returned null/empty).
     const showSpinner = featuredEvent === null && recentEvents.length === 0;
     if (showSpinner) setFeaturedLoading(true);
+    setLoadFailed(false);
 
     try {
       const [featuredRes, publicRes] = await Promise.all([
@@ -341,9 +346,12 @@ export default function HomeScreen() {
           .filter((e) => e.id !== featuredId)
           .slice(0, 5);
         setRecentEvents(sorted);
+      } else if (recentEvents.length === 0) {
+        setLoadFailed(true);
       }
     } catch (err) {
       console.error("Error loading home data:", err);
+      if (recentEvents.length === 0) setLoadFailed(true);
     } finally {
       setFeaturedLoading(false);
     }
@@ -358,6 +366,8 @@ export default function HomeScreen() {
   useEffect(() => {
     loadHomeData();
   }, []);
+
+  useRetryWhileFailed(loadFailed, () => loadHomeData());
 
   useFocusEffect(
     useCallback(() => {
@@ -501,6 +511,18 @@ export default function HomeScreen() {
                   }
                 />
               ))}
+            </View>
+          )}
+
+          {loadFailed && (
+            <View style={styles.loadFailedSection} testID="home-load-failed">
+              <Text style={styles.signInText}>
+                {t("home.loadFailed") ||
+                  "Couldn't load the latest teachings. Check your connection."}
+              </Text>
+              <TouchableOpacity onPress={() => loadHomeData()} accessibilityRole="button">
+                <Text style={styles.retryText}>{t("common.retry") || "Try Again"}</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -727,6 +749,16 @@ const styles = StyleSheet.create({
   },
 
   // Sign in section — subtle, at the bottom
+  loadFailedSection: {
+    alignItems: "center",
+    paddingTop: 40,
+    paddingHorizontal: 20,
+  },
+  retryText: {
+    fontSize: 15,
+    color: colors.burgundy[500],
+    fontWeight: "600",
+  },
   signInSection: {
     alignItems: "center",
     paddingTop: 40,

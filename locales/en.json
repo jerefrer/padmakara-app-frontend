@@ -308,7 +308,8 @@
     "recentlyAdded": "Recently added",
     "recordings": "Recordings",
     "publicTalk": "Public talk",
-    "noHighlight": "No featured content available"
+    "noHighlight": "No featured content available",
+    "loadFailed": "Couldn't load the latest teachings. Check your connection."
   },
   "trackDetail": {
     "retreatOverview": "Retreat Overview",

@@ -308,7 +308,8 @@
     "recentlyAdded": "Adicionados recentemente",
     "recordings": "Gravações",
     "publicTalk": "Palestra pública",
-    "noHighlight": "Nenhum conteúdo em destaque disponível"
+    "noHighlight": "Nenhum conteúdo em destaque disponível",
+    "loadFailed": "Não foi possível carregar os ensinamentos mais recentes. Verifica a tua ligação."
   },
   "trackDetail": {
     "retreatOverview": "Resumo do Retiro",
