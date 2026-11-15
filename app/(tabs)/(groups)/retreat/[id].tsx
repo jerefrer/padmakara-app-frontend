@@ -9,7 +9,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
-import { groupHeroCacheKey, publicationCoverCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
+import { eventHeroCacheKey, groupHeroCacheKey, publicationCoverCacheKey, teacherHeroCacheKey } from '@/utils/cacheKeys';
 import { pickEventHero } from '@/utils/heroVariant';
 import { eventPageFrameKey, pickFrameOverride, type HeroFrameOverrides } from '@/utils/heroFrames';
 import { useFocalCover } from '@/hooks/useFocalCover';
@@ -43,7 +43,7 @@ import retreatService, { buildEventDocuments } from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { OfflineBadge } from '@/components/OfflineBadge';
-import { EventDocument, EventFile, EventPreview, EventVideo, Session, Track, UserProgress } from '@/types';
+import { EventDocument, EventFile, EventImage, EventPreview, EventVideo, Session, Track, UserProgress } from '@/types';
 import { LockedRetreat } from '@/components/membership/LockedRetreat';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
@@ -158,6 +158,8 @@ interface RetreatDetails {
   videos?: EventVideo[];
   /** Teacher whose photo stands for the event (API choice); see pickPhotoTeacher. */
   photoTeacherId?: number | null;
+  /** The event's own photo: wins over the teachers' and the group's hero. */
+  image?: EventImage | null;
   teachers?: Array<{
     id?: number;
     name: string;
@@ -1461,11 +1463,13 @@ export default function RetreatDetailScreen() {
     // entity: eventHero.record.
     const heroSource = eventHero.url;
     const heroScale = eventHero.record?.heroScale ?? 100;
-    const heroCacheKey = eventHero.owner === 'teacher' && eventHero.record
-      ? teacherHeroCacheKey(eventHero.record as any, eventHero.variant)
-      : eventHero.owner === 'group' && retreat?.retreat_group
-        ? groupHeroCacheKey(retreat.retreat_group as any, eventHero.variant)
-        : undefined;
+    const heroCacheKey = eventHero.owner === 'event' && retreat?.image
+      ? eventHeroCacheKey(retreat, retreat.image, eventHero.variant)
+      : eventHero.owner === 'teacher' && eventHero.record
+        ? teacherHeroCacheKey(eventHero.record as any, eventHero.variant)
+        : eventHero.owner === 'group' && retreat?.retreat_group
+          ? groupHeroCacheKey(retreat.retreat_group as any, eventHero.variant)
+          : undefined;
 
     // Computed bits for the title block under the hero.
     const titleText = retreat ? getTranslatedName(retreat as any, language) : '';

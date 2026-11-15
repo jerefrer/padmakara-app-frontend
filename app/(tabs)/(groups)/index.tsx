@@ -23,8 +23,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
-import { pickPhotoTeacher } from "@/utils/heroVariant";
-import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
+import { pickEventPhoto, pickPhotoTeacher } from "@/utils/heroVariant";
+import { eventHeroCacheKey, teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
@@ -110,7 +110,12 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
   // The name shown is the name of the teacher whose photo is shown (first teacher with a photo,
   // else the first teacher).
   const focusTeacher = pickPhotoTeacher(event.teachers, event.photoTeacherId) ?? event.teachers?.[0];
-  const teacherNames = focusTeacher?.name || (focusTeacher as any)?.nameEn || "";
+  // The event's own photo (e.g. several teachers together) replaces the teacher's; the card
+  // then names every teacher, since the picture is not of one of them alone.
+  const eventPhoto = pickEventPhoto(event);
+  const teacherNames = eventPhoto
+    ? (event.teachers ?? []).map((t) => t.name).filter(Boolean).join(", ")
+    : focusTeacher?.name || (focusTeacher as any)?.nameEn || "";
 
   const eventTypeName = event.eventType
     ? (language === "pt" && event.eventType.namePt
@@ -152,16 +157,26 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
     .filter(Boolean)
     .join(" | ");
 
-  const teacherImage = focusTeacher?.heroUrl || focusTeacher?.avatarUrl || focusTeacher?.photoUrl || null;
+  const eventHeroImage = eventPhoto?.heroUrl || null;
+  const teacherImage = eventPhoto
+    ? eventHeroImage || eventPhoto.avatarUrl || null
+    : focusTeacher?.heroUrl || focusTeacher?.avatarUrl || focusTeacher?.photoUrl || null;
+  // The record the picture comes from: its focal point and framing apply to that hero only.
+  const heroRecord = eventPhoto ? (eventHeroImage ? eventPhoto : null) : focusTeacher?.heroUrl ? focusTeacher : null;
   // Framed on the focal point set in the admin, as on the event page; a picture without a hero
   // keeps its top edge so the teacher's head is not cut.
-  const focal = focusTeacher?.heroUrl
-    ? { x: focusTeacher.heroFocalX ?? 50, y: focusTeacher.heroFocalY ?? 50 }
+  const focal = heroRecord
+    ? { x: heroRecord.heroFocalX ?? 50, y: heroRecord.heroFocalY ?? 50 }
     : { x: 50, y: 0 };
-  // This layout's own framing from the admin, when the picture is the teacher's hero.
-  const frameOverride = focusTeacher?.heroUrl
-    ? pickFrameOverride(focusTeacher.heroFrameOverrides, homeFrameKey({ isDesktop: !!isDesktop }))
+  // This layout's own framing from the admin, when the picture is a hero.
+  const frameOverride = heroRecord
+    ? pickFrameOverride(heroRecord.heroFrameOverrides, homeFrameKey({ isDesktop: !!isDesktop }))
     : null;
+  const teacherImageCacheKey = eventPhoto
+    ? eventHeroImage
+      ? eventHeroCacheKey(event, eventPhoto, 'desktop')
+      : undefined
+    : teacherFeedImageCacheKey(focusTeacher);
   const focalCover = useFocalCover({ focalX: focal.x, focalY: focal.y, override: frameOverride });
 
   return (
@@ -179,7 +194,7 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
       >
         {teacherImage ? (
           <Image
-            source={{ uri: teacherImage, cacheKey: teacherFeedImageCacheKey(focusTeacher) }}
+            source={{ uri: teacherImage, cacheKey: teacherImageCacheKey }}
             cachePolicy="memory-disk"
             transition={0}
             style={[styles.featuredImage, focalCover.zoomStyle]}

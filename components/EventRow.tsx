@@ -14,8 +14,8 @@ import {
   TEXT_GUTTER,
 } from "@/constants/layout";
 import type { Gathering } from "@/types";
-import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
-import { pickThumbTeacher } from "@/utils/heroVariant";
+import { eventAvatarCacheKey, teacherFeedImageCacheKey } from "@/utils/cacheKeys";
+import { pickEventPhoto, pickThumbTeacher } from "@/utils/heroVariant";
 
 /** Light black separator between desktop rows. */
 export const DESKTOP_ROW_RULE_COLOR = "rgba(0,0,0,0.12)";
@@ -95,7 +95,18 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
   const teacherNames =
     event.teachers?.map((t: any) => t.name || t.nameEn || "").filter(Boolean).join(", ") || "";
   const teacher = pickThumbTeacher(event.teachers, event.photoTeacherId);
-  const image = teacher?.avatarUrl || teacher?.photoUrl || null;
+  // The event's own photo replaces the teacher's face in the list.
+  const eventPhoto = pickEventPhoto(event);
+  const image = eventPhoto
+    ? eventPhoto.avatarUrl || eventPhoto.heroMobileUrl || eventPhoto.heroUrl || null
+    : teacher?.avatarUrl || teacher?.photoUrl || null;
+  const thumbCacheKey = eventPhoto
+    ? eventPhoto.avatarUrl
+      ? eventAvatarCacheKey(event, eventPhoto)
+      : undefined
+    : teacher
+      ? teacherFeedImageCacheKey(teacher)
+      : undefined;
 
   const hasTranscripts = (event.transcripts?.length ?? 0) > 0;
   const hasVideo = (event.videos?.length ?? 0) > 0;
@@ -109,7 +120,7 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
     >
       <EventThumb
         uri={image}
-        cacheKey={teacher ? teacherFeedImageCacheKey(teacher) : undefined}
+        cacheKey={thumbCacheKey}
         isDesktop={isDesktop}
       />
       <View style={styles.info}>

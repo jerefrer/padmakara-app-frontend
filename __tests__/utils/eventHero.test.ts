@@ -1,4 +1,4 @@
-import { pickEventHero, pickPhotoTeacher, pickThumbTeacher } from '@/utils/heroVariant';
+import { pickEventHero, pickEventPhoto, pickPhotoTeacher, pickThumbTeacher } from '@/utils/heroVariant';
 
 const teacher = { heroUrl: 'https://img/teacher.webp', heroFocalX: 10, heroFocalY: 20, heroScale: 120 };
 const group = { heroUrl: 'https://img/group.webp', heroFocalX: 70, heroFocalY: 80, heroScale: 100 };
@@ -97,5 +97,68 @@ describe('pickThumbTeacher', () => {
 
   it('should return the first teacher when nobody has a picture', () => {
     expect(pickThumbTeacher([{ id: 1 }, { id: 2 }], null)?.id).toBe(1);
+  });
+});
+
+describe('event photo', () => {
+  const photo = {
+    avatarUrl: 'https://img/event-avatar.webp',
+    heroUrl: 'https://img/event.webp',
+    heroMobileUrl: 'https://img/event-m.webp',
+    heroFocalX: 35,
+    heroFocalY: 65,
+    heroScale: 100,
+    heroFrameOverrides: { page: { focalX: 5, focalY: 6, zoom: 2 } },
+  };
+
+  it('should win over the teachers and the group when the event has a photo', () => {
+    const pick = pickEventHero({ image: photo, teachers: [teacher], retreat_group: group }, false);
+    expect(pick.owner).toBe('event');
+    expect(pick.url).toBe('https://img/event.webp');
+  });
+
+  it('should use the mobile variant of the event photo on phones', () => {
+    const pick = pickEventHero({ image: photo, teachers: [teacher] }, true);
+    expect(pick.url).toBe('https://img/event-m.webp');
+    expect(pick.variant).toBe('mobile');
+  });
+
+  it('should hand back the focal point and frame overrides of the event photo itself', () => {
+    const pick = pickEventHero({ image: photo, teachers: [teacher], retreat_group: group }, false);
+    expect(pick.record).toBe(photo);
+    expect(pick.record?.heroFocalX).toBe(35);
+    expect(pick.record?.heroFrameOverrides).toBe(photo.heroFrameOverrides);
+  });
+
+  it('should fall back to the teacher when the event has no photo', () => {
+    expect(pickEventHero({ image: null, teachers: [teacher], retreat_group: group }, false).owner).toBe('teacher');
+    expect(pickEventHero({ teachers: [teacher], retreat_group: group }, false).owner).toBe('teacher');
+  });
+
+  it('should fall back to the group when the event has no photo and the teacher has no hero', () => {
+    expect(pickEventHero({ image: null, teachers: [{ heroUrl: null }], retreat_group: group }, false).owner).toBe('group');
+  });
+
+  it('should fall back to the teacher when the photo has only an avatar', () => {
+    const avatarOnly = { avatarUrl: 'https://img/a.webp' };
+    expect(pickEventHero({ image: avatarOnly, teachers: [teacher] }, false).owner).toBe('teacher');
+  });
+
+  it('should fall back to the teacher when the photo has no usable picture', () => {
+    expect(pickEventHero({ image: { heroUrl: null, heroMobileUrl: null }, teachers: [teacher] }, false).owner).toBe('teacher');
+  });
+
+  describe('pickEventPhoto', () => {
+    it('should return the photo when it has any picture', () => {
+      expect(pickEventPhoto({ image: photo })).toBe(photo);
+      expect(pickEventPhoto({ image: { avatarUrl: 'a' } })).toEqual({ avatarUrl: 'a' });
+    });
+
+    it('should return null without a photo or picture', () => {
+      expect(pickEventPhoto({ image: null })).toBeNull();
+      expect(pickEventPhoto({})).toBeNull();
+      expect(pickEventPhoto(undefined)).toBeNull();
+      expect(pickEventPhoto({ image: { heroUrl: null } })).toBeNull();
+    });
   });
 });
