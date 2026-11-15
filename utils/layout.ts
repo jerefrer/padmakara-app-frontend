@@ -31,8 +31,6 @@ export interface Layout {
   showTabBar: boolean;
   /** Right brand/account rail. */
   showRightRail: boolean;
-  /** 320pt related-events column on event pages. */
-  showRelatedEvents: boolean;
   /** Icon-only left rail. */
   compactSidebar: boolean;
   /** The event page's own AudioPlayer (off whenever the shell's player bar is the player). */
@@ -71,7 +69,6 @@ export function computeLayout({ platform, isPad, width }: LayoutInput): Layout {
     playerBarHeight: PLAYER_BAR_HEIGHT,
     showTabBar: isMobile,
     showRightRail: isDesktop || (isWeb && isTablet),
-    showRelatedEvents: isDesktop || (isWeb && isTablet),
     compactSidebar,
     // Web keeps today's behaviour (inline player below 1025); on iPad the
     // shell's player bar is the only player whenever the shell is present.

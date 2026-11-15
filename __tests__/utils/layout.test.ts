@@ -14,7 +14,7 @@ describe('computeLayout — web (unchanged thresholds)', () => {
     const l = web(900);
     expect(l).toMatchObject({
       isMobile: false, isTablet: true, isDesktop: false, showSidebar: true,
-      showTabBar: false, showRightRail: true, showRelatedEvents: true,
+      showTabBar: false, showRightRail: true,
       compactSidebar: false, sidebarWidth: 280, showInlinePlayer: true,
     });
   });
@@ -35,7 +35,7 @@ describe('computeLayout — iPhone', () => {
     const l = iphone(w);
     expect(l).toMatchObject({
       isMobile: true, isTablet: false, isDesktop: false, showSidebar: false,
-      showTabBar: true, showRightRail: false, showRelatedEvents: false, showInlinePlayer: true,
+      showTabBar: true, showRightRail: false, showInlinePlayer: true,
       heroVariant: 'mobile',
     });
   });
@@ -52,7 +52,7 @@ describe('computeLayout — iPad', () => {
     expect(l).toMatchObject({
       isMobile: false, isTablet: true, isDesktop: false, showSidebar: true,
       showTabBar: false, compactSidebar: true, sidebarWidth: 72,
-      showRightRail: false, showRelatedEvents: false, showInlinePlayer: false,
+      showRightRail: false, showInlinePlayer: false,
       heroVariant: 'desktop',
     });
   });
@@ -62,7 +62,7 @@ describe('computeLayout — iPad', () => {
     expect(l).toMatchObject({
       isMobile: false, isDesktop: true, showSidebar: true, showTabBar: false,
       compactSidebar: false, sidebarWidth: 280, showRightRail: true,
-      showRelatedEvents: true, showInlinePlayer: false, heroVariant: 'desktop',
+      showInlinePlayer: false, heroVariant: 'desktop',
     });
   });
 });

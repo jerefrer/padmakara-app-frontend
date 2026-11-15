@@ -26,7 +26,6 @@ const mockAudio = new Proxy({} as Record<string, unknown>, {
         : undefined,
 });
 jest.mock('@/contexts/AudioPlayerContext', () => ({ useAudioPlayerContext: () => mockAudio }));
-jest.mock('@/contexts/RelatedEventsContext', () => ({ useRelatedEvents: () => ({ setMeta: jest.fn() }) }));
 jest.mock('@/hooks/useDesktopLayout', () => ({ useDesktopLayout: () => ({ isDesktop: false, isMobile: true }) }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: any) => children,

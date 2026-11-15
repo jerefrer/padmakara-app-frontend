@@ -36,12 +36,10 @@ export default function TabLayout() {
   const bottomInset = useSafeAreaInsets().bottom;
   // elevation 0: drop react-navigation's default Android shadow, the boxShadow replaces it.
   const barTop: ViewStyle = { ...(usePlayerBarAboveTabBar() ? BAR_JOIN : BAR_TOP_SHADOW), elevation: 0 };
-  // The right rail collapses to a 64px strip on focused content screens
-  // (event detail, transcript reader). Everywhere else it's the wide
-  // brand panel.
+  // The right rail collapses to a 64px strip on the transcript reader.
+  // Everywhere else (the event page included) it's the wide brand panel.
   const isOnFocusedContent =
-    segments.includes('(groups)') &&
-    (segments.includes('retreat') || segments.includes('transcript'));
+    segments.includes('(groups)') && segments.includes('transcript');
   const rightVariant = isOnFocusedContent ? 'narrow' : 'wide';
   const rightWidth = isOnFocusedContent ? 64 : 220;
 

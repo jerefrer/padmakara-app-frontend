@@ -50,7 +50,6 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useVideoBookmarks } from '@/hooks/useVideoBookmarks';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { TrackDetailPanel } from '@/components/desktop/TrackDetailPanel';
-import { useRelatedEvents } from '@/contexts/RelatedEventsContext';
 import { ReadAlongViewer } from '@/components/ReadAlongViewer';
 import { VideoGrid } from '@/components/VideoGrid';
 import { WatermarkNotice } from '@/components/WatermarkNotice';
@@ -228,7 +227,6 @@ export default function RetreatDetailScreen() {
   const tabBarOverlap = useTabBarOverlap();
   const audioContext = useAudioPlayerContext();
   const { isAuthenticated } = useAuth();
-  const { setMeta: setSidebarMeta } = useRelatedEvents();
   const [retreat, setRetreat] = useState<RetreatDetails | null>(() =>
     retreatService.getRetreatDetailsSync(id)
   );
@@ -924,39 +922,6 @@ export default function RetreatDetailScreen() {
     }
   }, [bookmarkedTrackIds, currentTrack, trackBookmarkBusy]);
 
-  // Push event metadata into the layout-level sidebar context. The
-  // sidebar lives in (groups)/_layout.tsx, so updating meta here only
-  // changes which item is highlighted — the sidebar itself does not
-  // remount as we navigate from one event to another.
-  //
-  // The sidebar context follows the navigation entry point:
-  //   - `from=events` (Teachings & Talks, Home featured/recent, teacher
-  //     page) → show the teacher's events.
-  //   - otherwise (Retreats → Group → Event) → show the group's events.
-  // Setting only one of teacherAbbreviation/groupId at a time disables
-  // RelatedEventsList's teacher-first preference so each path lands on
-  // its own list.
-  useEffect(() => {
-    if (!retreat) return;
-    const teacher = retreat.teachers?.[0];
-    const group = retreat.retreat_group;
-    const showTeacherView = from === 'events' && !!teacher;
-    setSidebarMeta({
-      eventId: String(retreat.id),
-      teacherAbbreviation: showTeacherView ? (teacher?.abbreviation ?? null) : null,
-      groupId: showTeacherView ? null : (group?.id ? String(group.id) : null),
-      headerTitle: showTeacherView
-        ? (teacher?.name || '')
-        : (group ? getTranslatedName(group, language) : ''),
-      headerSubtitle: showTeacherView
-        ? (t('events.teachings') || 'Teachings & Talks')
-        : (group ? (t('events.retreats') || 'Personal Library') : undefined),
-    });
-    // We deliberately do NOT clear meta on unmount — leaving the last
-    // value in place avoids a frame where the sidebar disappears while
-    // the next event screen is still mounting.
-  }, [retreat, language, setSidebarMeta, t, from]);
-
   const checkDownloadStatus = async () => {
     if (!retreat) return;
     const downloaded = await downloadService.isRetreatDownloaded(retreat.id);
@@ -1639,7 +1604,7 @@ export default function RetreatDetailScreen() {
             style={[
               styles.eventTitleSection,
               !isDesktop && styles.lineBleed,
-              compactSidebar && !heroSource && styles.eventTitleSectionBesideBack,
+              (isDesktop || compactSidebar) && !heroSource && styles.eventTitleSectionBesideBack,
               // Phone without a hero: the title starts below the floating back / bookmark /
               // download buttons instead of under them and the status bar.
               !isDesktop && !compactSidebar && !heroSource && { paddingTop: insets.top + FLOATING_BUTTONS_CLEARANCE },
@@ -1989,7 +1954,7 @@ export default function RetreatDetailScreen() {
     <View style={styles.container}>
       {/* No fixed top bar on either platform — the hero extends to the very
           top of the content area. Controls (language pill + overflow menu)
-          float over the hero. Mobile additionally shows a back button. */}
+          float over the hero. The round back button floats at the top-left on every layout. */}
       {!isDesktop && (
         <Animated.View
           pointerEvents="none"
@@ -2003,13 +1968,16 @@ export default function RetreatDetailScreen() {
           </Animated.Text>
         </Animated.View>
       )}
-      {!isDesktop && (
-        <BackButton
-          variant="overlay"
-          onPress={handleBack}
-          style={[styles.floatingTopButton, styles.floatingTopButtonLeft, { top: insets.top + 8 }]}
-        />
-      )}
+      <BackButton
+        variant="overlay"
+        testID="event-back-button"
+        onPress={handleBack}
+        style={[
+          styles.floatingTopButton,
+          styles.floatingTopButtonLeft,
+          { top: isDesktop && Platform.OS === 'web' ? 16 : insets.top + 8 },
+        ]}
+      />
 
       <View
         style={[
@@ -2783,7 +2751,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.burgundy[500],
     marginBottom: 8,
   },
-  // Tablet without a hero image: the round back button floats at the top-left, so the
+  // Desktop or tablet without a hero image: the round back button floats at the top-left, so the
   // title starts to its right instead of under it.
   eventTitleSectionBesideBack: {
     paddingLeft: 52,
