@@ -127,8 +127,8 @@ export function Sidebar() {
     }
   }, [isAuthenticated, isActive]);
 
-  // Bottom entries: search, bookmarks and account settings. Bookmarks used to
-  // be unreachable from the sidebar layout.
+  // Bottom entries: search and bookmarks. On the full sidebar the account is
+  // reached from the right panel (the user's name, or Login when signed out).
   const bottomItems = [
     {
       key: 'search',
@@ -146,19 +146,21 @@ export function Sidebar() {
       icon: 'bookmark-outline' as const,
       shortTitle: t('navigation.bookmarks') || 'Bookmarks',
     },
-    {
-      key: 'settings',
-      title: t('navigation.account') || 'Account',
-      subtitle: null,
-      route: '/(tabs)/settings',
-      icon: 'person-circle-outline' as const,
-      shortTitle: t('navigation.account') || 'Account',
-    },
   ];
+
+  // The iPad rail has no right panel, so it keeps its own Account entry.
+  const accountItem = {
+    key: 'settings',
+    title: t('navigation.account') || 'Account',
+    subtitle: null,
+    route: '/(tabs)/settings',
+    icon: 'person-circle-outline' as const,
+    shortTitle: t('navigation.account') || 'Account',
+  };
 
   if (compactSidebar) {
     // Touch rail: icon over a short label, every item a 56pt+ target.
-    const railItems = [...categories, ...bottomItems];
+    const railItems = [...categories, ...bottomItems, accountItem];
     return (
       <View style={styles.container}>
         <ScrollView
@@ -241,7 +243,7 @@ export function Sidebar() {
         </View>
       </ScrollView>
 
-      {/* Search, bookmarks, account — styled as categories for visual consistency */}
+      {/* Search and bookmarks — styled as categories for visual consistency */}
       <View style={styles.bottomSection}>
         {bottomItems.map((item, index) => {
           const active = isActive(item.key);

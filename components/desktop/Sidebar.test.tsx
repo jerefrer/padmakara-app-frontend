@@ -42,4 +42,10 @@ describe('Sidebar (desktop)', () => {
     expect(row.borderBottomWidth).toBe(SUBDIVISION_THICKNESS);
     expect(row.marginLeft).toBeUndefined();
   });
+
+  it('should not offer an Account item, the right panel being the way in', () => {
+    const { queryByLabelText, getByLabelText } = render(<Sidebar />);
+    expect(queryByLabelText('Account')).toBeNull();
+    expect(getByLabelText('Bookmarks')).toBeTruthy();
+  });
 });
