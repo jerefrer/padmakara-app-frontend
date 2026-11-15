@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { EventDocument, EventFile, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse, EventPreview } from '@/types';
+import { EventDocument, EventFile, EventImage, EventVideo, Gathering, RetreatGroup, Session, Track, SearchResponse, EventPreview } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_CONFIG, API_ENDPOINTS, PaginatedResponse } from './apiConfig';
@@ -96,6 +96,23 @@ function mapEventStatus(
   return 'completed';
 }
 
+/** Map the API's `image` object of an event; null when the event has no photo of its own. */
+export function mapEventImage(raw: any): EventImage | null {
+  if (!raw || (!raw.heroUrl && !raw.heroMobileUrl && !raw.avatarUrl)) return null;
+  return {
+    avatarUrl: raw.avatarUrl ?? null,
+    heroUrl: raw.heroUrl ?? null,
+    heroMobileUrl: raw.heroMobileUrl ?? null,
+    heroFocalX: raw.heroFocalX ?? 50,
+    heroFocalY: raw.heroFocalY ?? 50,
+    heroScale: raw.heroScale ?? 100,
+    heroFrameOverrides: raw.heroFrameOverrides ?? null,
+    avatarUpdatedAt: raw.avatarUpdatedAt ?? null,
+    heroUpdatedAt: raw.heroUpdatedAt ?? null,
+    artworkUrl: raw.artworkUrl ?? null,
+  };
+}
+
 /** Map backend event → frontend Gathering */
 export function mapEvent(backend: any): Gathering {
   const startDate = backend.startDate || backend.start_date || '';
@@ -124,6 +141,7 @@ export function mapEvent(backend: any): Gathering {
     endDate,
     sessions: backend.sessions?.map(mapSession) || undefined,
     photoTeacherId: backend.photoTeacherId ?? null,
+    image: mapEventImage(backend.image),
     teachers: backend.eventTeachers?.map((et: any) => ({
       id: et.teacher?.id,
       name: et.teacher?.name || '',

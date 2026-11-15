@@ -96,6 +96,23 @@ export interface GatheringGroup {
   abbreviation?: string | null;
 }
 
+/** The optional photo of an event (e.g. several teachers together). It replaces the teachers' photos. */
+export interface EventImage {
+  avatarUrl?: string | null;
+  /** Desktop hero (2400px wide). Falls back to heroMobileUrl on small screens. */
+  heroUrl?: string | null;
+  /** Mobile hero variant (1200px wide); preferred by phone-sized clients. */
+  heroMobileUrl?: string | null;
+  heroFocalX?: number;
+  heroFocalY?: number;
+  heroScale?: number;
+  heroFrameOverrides?: HeroFrameOverrides | null;
+  avatarUpdatedAt?: string | null;
+  heroUpdatedAt?: string | null;
+  /** Square artwork for the lock screen (the API already puts it on each track). */
+  artworkUrl?: string | null;
+}
+
 export interface Gathering {
   id: string;
   name: string;
@@ -109,6 +126,8 @@ export interface Gathering {
   sessions?: Session[];
   /** Teacher whose photo stands for the event (chosen by the API); see pickPhotoTeacher. */
   photoTeacherId?: number | null;
+  /** The event's own photo; when present it wins over the teachers' and the group's photos. */
+  image?: EventImage | null;
   teachers?: GatheringTeacher[];
   places?: GatheringPlace[];
   retreatGroups?: GatheringGroup[];

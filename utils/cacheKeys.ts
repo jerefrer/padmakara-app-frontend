@@ -77,6 +77,27 @@ export function groupHeroCacheKey(
   return `group-hero${variantSuffix(variant)}-${groupIdent(group)}-${group.heroUpdatedAt ?? 'v0'}`;
 }
 
+interface EventLike {
+  id?: number | string;
+}
+
+interface EventImageStamps {
+  avatarUpdatedAt?: string | null;
+  heroUpdatedAt?: string | null;
+}
+
+export function eventAvatarCacheKey(event: EventLike, image: EventImageStamps): string {
+  return `event-avatar-${event.id ?? 'unknown'}-${image.avatarUpdatedAt ?? 'v0'}`;
+}
+
+export function eventHeroCacheKey(
+  event: EventLike,
+  image: EventImageStamps,
+  variant: HeroVariant = 'desktop',
+): string {
+  return `event-hero${variantSuffix(variant)}-${event.id ?? 'unknown'}-${image.heroUpdatedAt ?? 'v0'}`;
+}
+
 /**
  * Publication covers are presigned URLs re-signed on every API call; keyed on
  * the publication instead, a cover downloaded once keeps showing offline and
