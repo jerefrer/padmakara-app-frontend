@@ -36,7 +36,7 @@ jest.mock('@/services/publicationService', () => ({
     getPublicationsSync: jest.fn(() => null),
     getPublications: jest.fn(),
     getCachedPdf: jest.fn(),
-    getCachedVersion: jest.fn(),
+    getCachedFile: jest.fn(),
     downloadAndCachePdf: jest.fn(),
     getReadingPosition: jest.fn(() => Promise.resolve(null)),
     saveReadingPosition: jest.fn(),
@@ -58,7 +58,7 @@ beforeEach(() => {
     hasHiddenPublications: false,
   });
   (publicationService.getCachedPdf as jest.Mock).mockResolvedValue('file:///cache/5.pdf');
-  (publicationService.getCachedVersion as jest.Mock).mockResolvedValue(null);
+  (publicationService.getCachedFile as jest.Mock).mockResolvedValue({ version: null, fingerprint: null, updatedAt: '2025-01-01' });
   (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(true);
 });
 afterAll(() => {
@@ -109,5 +109,66 @@ describe('publication viewer share button', () => {
     const screen = render(<PublicationsScreen />);
     await screen.findByTestId('pdf-viewer');
     expect(screen.queryByTestId('publication-share-button')).toBeNull();
+  });
+});
+
+describe('publication viewer new-file banner', () => {
+  const replaced = { ...pubs[0], version: 'v1.0', pdfFingerprint: 'new-file' };
+
+  beforeEach(() => {
+    (publicationService.getPublications as jest.Mock).mockResolvedValue({
+      publications: [replaced, pubs[1]],
+      hasHiddenPublications: false,
+    });
+    mockParams = { open: '5' };
+  });
+
+  it('should offer the replaced file without a version label when the version did not change', async () => {
+    (publicationService.getCachedFile as jest.Mock).mockResolvedValue({
+      version: 'v1.0',
+      fingerprint: 'old-file',
+      updatedAt: '2025-01-01',
+    });
+
+    const screen = render(<PublicationsScreen />);
+
+    expect(await screen.findByText('New version available')).toBeTruthy();
+    expect(screen.queryByText(/^Version /)).toBeNull();
+  });
+
+  it('should not show the banner when the cached file is the current one', async () => {
+    (publicationService.getCachedFile as jest.Mock).mockResolvedValue({
+      version: 'v1.0',
+      fingerprint: 'new-file',
+      updatedAt: '2025-01-01',
+    });
+
+    const screen = render(<PublicationsScreen />);
+
+    await screen.findByTestId('pdf-viewer');
+    expect(screen.queryByText('New version available')).toBeNull();
+  });
+
+  it('should download the new file and remember its fingerprint when Update is pressed', async () => {
+    (publicationService.getCachedFile as jest.Mock).mockResolvedValue({
+      version: 'v1.0',
+      fingerprint: 'old-file',
+      updatedAt: '2025-01-01',
+    });
+    (publicationService.downloadAndCachePdf as jest.Mock).mockResolvedValue('file:///cache/5-new.pdf');
+    const screen = render(<PublicationsScreen />);
+
+    fireEvent.press(await screen.findByText('Update'));
+
+    await waitFor(() => expect(publicationService.downloadAndCachePdf).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText('New version available')).toBeNull());
+    expect(publicationService.downloadAndCachePdf).toHaveBeenCalledWith(
+      '5',
+      '2025-01-01',
+      'v1.0',
+      'new-file',
+      expect.any(Function),
+    );
+    expect(screen.getByTestId('pdf-viewer').props.children).toBe('file:///cache/5-new.pdf');
   });
 });

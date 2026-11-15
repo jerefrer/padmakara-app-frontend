@@ -26,6 +26,7 @@ import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
+import { publicationUpdate, type CachedPublicationFile } from '@/utils/publicationUpdate';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { colors } from '@/constants/colors';
@@ -38,6 +39,15 @@ import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 type SortMode = 'title' | 'author' | 'latest';
+
+/** The cache entry a publication's current file gets once downloaded. */
+function currentFile(publication: Publication): CachedPublicationFile {
+  return {
+    version: publication.version,
+    fingerprint: publication.pdfFingerprint ?? null,
+    updatedAt: publication.updatedAt,
+  };
+}
 
 export default function PublicationsScreen() {
   const { t } = useLanguage();
@@ -67,7 +77,7 @@ export default function PublicationsScreen() {
   const [viewingPdf, setViewingPdf] = useState<{
     uri: string;
     publication: Publication;
-    cachedVersion: string | null;
+    cachedFile: CachedPublicationFile;
   } | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -205,24 +215,22 @@ export default function PublicationsScreen() {
         const cached = await publicationService.getCachedPdf(publication.id);
 
         let pdfUri: string;
-        let cachedVersion: string | null;
+        let cachedFile: CachedPublicationFile | null = null;
         if (cached) {
           pdfUri = cached;
-          cachedVersion = await publicationService.getCachedVersion(
-            publication.id
-          );
+          cachedFile = await publicationService.getCachedFile(publication.id);
         } else {
           pdfUri = await publicationService.downloadAndCachePdf(
             publication.id,
             publication.updatedAt,
             publication.version,
+            publication.pdfFingerprint ?? null,
             (progress) => setDownloadProgress(progress)
           );
-          cachedVersion = publication.version;
         }
 
         setDownloading(null);
-        setViewingPdf({ uri: pdfUri, publication, cachedVersion });
+        setViewingPdf({ uri: pdfUri, publication, cachedFile: cachedFile ?? currentFile(publication) });
 
         // Restore reading position
         const savedPage = await publicationService.getReadingPosition(
@@ -297,12 +305,13 @@ export default function PublicationsScreen() {
         publication.id,
         publication.updatedAt,
         publication.version,
+        publication.pdfFingerprint ?? null,
         (progress) => setDownloadProgress(progress)
       );
       setViewingPdf({
         uri: newUri,
         publication,
-        cachedVersion: publication.version,
+        cachedFile: currentFile(publication),
       });
     } catch (err) {
       console.error('Failed to update publication:', err);
@@ -395,12 +404,9 @@ export default function PublicationsScreen() {
 
   // If viewing a PDF, show full-screen viewer
   if (viewingPdf) {
-    const serverVersion = viewingPdf.publication.version;
-    const cachedVersion = viewingPdf.cachedVersion;
+    const update = publicationUpdate(viewingPdf.cachedFile, viewingPdf.publication);
     const showUpdateBanner =
-      !!serverVersion &&
-      serverVersion !== cachedVersion &&
-      !versionBannerDismissed[viewingPdf.publication.id];
+      update.available && !versionBannerDismissed[viewingPdf.publication.id];
 
     return (
       <>
@@ -454,11 +460,11 @@ export default function PublicationsScreen() {
                     {t('publications.newVersion.available') ||
                       'New version available'}
                   </Text>
-                  {serverVersion ? (
+                  {update.newVersion ? (
                     <Text style={styles.versionBannerSubtitle}>
                       {(t('publications.newVersion.label') || 'Version {version}').replace(
                         '{version}',
-                        serverVersion,
+                        update.newVersion,
                       )}
                     </Text>
                   ) : null}

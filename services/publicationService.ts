@@ -4,7 +4,7 @@
  * Handles fetching publications, PDF downloads with caching, and reading position persistence.
  * - Native: PDFs stored in documentDirectory/publications/, metadata in AsyncStorage
  * - Web: in-memory blob URLs (ephemeral, lost on page refresh)
- * - Cache invalidation: based on publication updatedAt timestamp
+ * - Cached PDFs are kept until the reader accepts a newer file (see utils/publicationUpdate)
  */
 
 import { Platform } from 'react-native';
@@ -13,6 +13,7 @@ import { API_CONFIG, API_ENDPOINTS, buildApiUrl, getAuthHeaders } from './apiCon
 import entityCacheService from './entityCacheService';
 import type { Publication } from '../types';
 import { hasExpiredPresignedUrl } from '../utils/presignedUrlExpiry';
+import type { CachedPublicationFile } from '../utils/publicationUpdate';
 
 const CACHE_METADATA_KEY = '@publication_cache:metadata';
 const POSITION_KEY_PREFIX = '@publication_position:';
@@ -21,6 +22,8 @@ interface PublicationCacheEntry {
   publicationId: string;
   updatedAt: string;
   version: string | null;
+  /** Absent from entries cached before the server sent fingerprints. */
+  fingerprint?: string | null;
   filePath: string;
   fileSize: number;
   cachedAt: string;
@@ -29,7 +32,7 @@ interface PublicationCacheEntry {
 // Web-only in-memory cache
 const webCache = new Map<
   string,
-  { blobUrl: string; updatedAt: string; version: string | null }
+  { blobUrl: string } & CachedPublicationFile
 >();
 
 // Loaded lazily (native only). A plain require instead of `await import()` keeps the
@@ -201,16 +204,19 @@ class PublicationService {
   }
 
   /**
-   * Return the cached version string for a publication, or null if not cached.
-   * Used by the UI to detect when the server has a newer version.
+   * Describe the cached copy of a publication's PDF, or null if not cached.
+   * Used by the UI to detect when the server has a newer file.
    */
-  async getCachedVersion(publicationId: string): Promise<string | null> {
+  async getCachedFile(publicationId: string): Promise<CachedPublicationFile | null> {
     if (this.isWeb) {
-      return webCache.get(publicationId)?.version ?? null;
+      const entry = webCache.get(publicationId);
+      return entry ? { version: entry.version, fingerprint: entry.fingerprint, updatedAt: entry.updatedAt } : null;
     }
     try {
       const metadata = await this.getCacheMetadata();
-      return metadata[publicationId]?.version ?? null;
+      const entry = metadata[publicationId];
+      if (!entry) return null;
+      return { version: entry.version, fingerprint: entry.fingerprint ?? null, updatedAt: entry.updatedAt };
     } catch {
       return null;
     }
@@ -224,6 +230,7 @@ class PublicationService {
     publicationId: string,
     updatedAt: string,
     version: string | null,
+    fingerprint: string | null,
     onProgress?: (progress: number) => void,
   ): Promise<string> {
     const pdfUrl = await this.getPdfUrl(publicationId);
@@ -240,7 +247,7 @@ class PublicationService {
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
-      webCache.set(publicationId, { blobUrl, updatedAt, version });
+      webCache.set(publicationId, { blobUrl, updatedAt, version, fingerprint });
 
       onProgress?.(1);
       return blobUrl;
@@ -290,6 +297,7 @@ class PublicationService {
         publicationId,
         updatedAt,
         version,
+        fingerprint,
         filePath,
         fileSize: (info as { size?: number }).size ?? 0,
         cachedAt: new Date().toISOString(),

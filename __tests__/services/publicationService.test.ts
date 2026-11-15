@@ -228,3 +228,42 @@ describe("publicationService.getCachedPdf — container path change", () => {
     expect(await publicationService.getCachedPdf("p1")).toBe("file:///doc/publications/p1.pdf");
   });
 });
+
+// ─── File fingerprint ────────────────────────────────────────────────
+
+describe("publicationService — cached file fingerprint", () => {
+  it("should remember the file fingerprint of a downloaded PDF", async () => {
+    const fs = jest.requireMock("expo-file-system/legacy");
+    fs.downloadAsync = jest.fn(async (_url: string, path: string) => fs.addFile(path, 10));
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ url: "https://signed" }) });
+
+    await publicationService.downloadAndCachePdf("p2", "2026-11-15T22:23:52Z", "v1.0", "f1ac71c4");
+
+    expect(await publicationService.getCachedFile("p2")).toEqual({
+      version: "v1.0",
+      fingerprint: "f1ac71c4",
+      updatedAt: "2026-11-15T22:23:52Z",
+    });
+  });
+
+  it("should report no fingerprint for a PDF cached before fingerprints existed", async () => {
+    const asyncStorageModule = require("@react-native-async-storage/async-storage");
+    const AsyncStorage = asyncStorageModule.default ?? asyncStorageModule;
+    await AsyncStorage.setItem(
+      "@publication_cache:metadata",
+      JSON.stringify({
+        p3: { publicationId: "p3", updatedAt: "2026-08-23", version: "v1.0", filePath: "x/p3.pdf", fileSize: 1, cachedAt: "2026-08-23" },
+      }),
+    );
+
+    expect(await publicationService.getCachedFile("p3")).toEqual({
+      version: "v1.0",
+      fingerprint: null,
+      updatedAt: "2026-08-23",
+    });
+  });
+
+  it("should report nothing for a publication that was never downloaded", async () => {
+    expect(await publicationService.getCachedFile("never")).toBeNull();
+  });
+});

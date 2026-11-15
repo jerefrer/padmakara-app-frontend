@@ -313,6 +313,8 @@ export interface Publication {
   pageCount: number | null;
   publicationDate: string | null;
   version: string | null;
+  /** Changes whenever the PDF file is replaced; absent from older servers. */
+  pdfFingerprint?: string | null;
   fileSizeBytes: number | null;
   updatedAt: string;
   coverImageUrl: string | null;
