@@ -15,6 +15,7 @@ import {
 } from "@/constants/layout";
 import type { Gathering } from "@/types";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
+import { pickThumbTeacher } from "@/utils/heroVariant";
 
 const colors = {
   burgundy: "#9b1b1b",
@@ -90,7 +91,7 @@ interface EventRowProps {
 export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID, titleFontSize }: EventRowProps) {
   const teacherNames =
     event.teachers?.map((t: any) => t.name || t.nameEn || "").filter(Boolean).join(", ") || "";
-  const teacher = event.teachers?.[0];
+  const teacher = pickThumbTeacher(event.teachers, event.photoTeacherId);
   const image = teacher?.avatarUrl || teacher?.photoUrl || null;
 
   const hasTranscripts = (event.transcripts?.length ?? 0) > 0;

@@ -99,6 +99,22 @@ export function pickPhotoTeacher<T extends PhotoTeacher>(
 }
 
 /**
+ * The teacher whose picture is the event's thumbnail in lists: the one the event page shows
+ * (see pickPhotoTeacher), so tapping a face never opens a page about someone else. When that
+ * teacher has no small picture, the first teacher who has one; else the first teacher.
+ */
+export function pickThumbTeacher<T extends PhotoTeacher>(
+  teachers: T[] | null | undefined,
+  photoTeacherId?: number | null,
+): T | null {
+  const list = teachers ?? [];
+  const hasPicture = (t: T) => !!(t.avatarUrl || t.photoUrl);
+  const photoTeacher = pickPhotoTeacher(list, photoTeacherId);
+  if (photoTeacher && hasPicture(photoTeacher)) return photoTeacher;
+  return list.find(hasPicture) ?? list[0] ?? null;
+}
+
+/**
  * Hero for the event page. While listening people want to see the teacher, so
  * the hero of the first teacher who has a photo wins; the retreat group's hero is the fallback (the
  * group page already shows the group image).

@@ -1,4 +1,4 @@
-import { pickEventHero, pickPhotoTeacher } from '@/utils/heroVariant';
+import { pickEventHero, pickPhotoTeacher, pickThumbTeacher } from '@/utils/heroVariant';
 
 const teacher = { heroUrl: 'https://img/teacher.webp', heroFocalX: 10, heroFocalY: 20, heroScale: 120 };
 const group = { heroUrl: 'https://img/group.webp', heroFocalX: 70, heroFocalY: 80, heroScale: 100 };
@@ -70,5 +70,32 @@ describe('pickPhotoTeacher', () => {
 
   it('should ignore an unknown photoTeacherId and choose locally', () => {
     expect(pickPhotoTeacher([{ id: 1, heroUrl: 'h' }], 99)?.id).toBe(1);
+  });
+});
+
+describe('pickThumbTeacher', () => {
+  it('should show the teacher the event page shows, not the first one listed', () => {
+    const teachers = [
+      { id: 1, avatarUrl: 'a1' },
+      { id: 2, avatarUrl: 'a2', heroUrl: 'h2' },
+    ];
+
+    expect(pickThumbTeacher(teachers, null)?.id).toBe(2);
+  });
+
+  it('should follow the API photoTeacherId', () => {
+    const teachers = [{ id: 1, avatarUrl: 'a1', heroUrl: 'h1' }, { id: 2, avatarUrl: 'a2' }];
+
+    expect(pickThumbTeacher(teachers, 2)?.id).toBe(2);
+  });
+
+  it('should fall back to a teacher with an avatar when the photo teacher has none', () => {
+    const teachers = [{ id: 1, heroUrl: 'h1' }, { id: 2, avatarUrl: 'a2' }];
+
+    expect(pickThumbTeacher(teachers, 1)?.id).toBe(2);
+  });
+
+  it('should return the first teacher when nobody has a picture', () => {
+    expect(pickThumbTeacher([{ id: 1 }, { id: 2 }], null)?.id).toBe(1);
   });
 });
