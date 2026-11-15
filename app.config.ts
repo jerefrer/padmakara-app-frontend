@@ -256,6 +256,8 @@ const config: PadmakaraConfig = {
     // Portrait at launch and everywhere by default; see plugins/withPhoneLandscape.js.
     ["expo-screen-orientation", { initialOrientation: "PORTRAIT_UP" }],
     "./plugins/withPhoneLandscape",
+    // react-native-pdf uses our AndroidPdfViewer build; see vendor/android-pdf-viewer.
+    "./plugins/withVendorMaven",
     [
       "expo-router",
       // SDK 58 turns async (lazy) routes on for web. The static export stays eager until the

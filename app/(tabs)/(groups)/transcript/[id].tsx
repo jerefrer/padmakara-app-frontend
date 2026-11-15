@@ -36,6 +36,7 @@ export default function TranscriptViewerScreen() {
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
   const [outlineVisible, setOutlineVisible] = useState(false);
+  const [readerBarHeight, setReaderBarHeight] = useState(0);
   const viewerRef = useRef<PDFViewerHandle>(null);
   // Reader mode: a tap on the page hides the header, tab bar and mini player;
   // the phone may turn sideways while the transcript is open.
@@ -189,7 +190,7 @@ export default function TranscriptViewerScreen() {
     >
       <StatusBar hidden={barsHidden} animated />
       <View style={styles.reader}>
-        <ReaderTopBar hidden={barsHidden} style={styles.topBar}>
+        <ReaderTopBar hidden={barsHidden} style={styles.topBar} onHeightChange={setReaderBarHeight}>
           <View style={styles.header}>
             <BackButton variant="inline" />
 
@@ -237,6 +238,7 @@ export default function TranscriptViewerScreen() {
           onPageChange={handlePageChange}
           onSingleTap={toggleBars}
           onOutline={setOutline}
+          contentInsetTop={readerBarHeight}
         />
       </View>
 

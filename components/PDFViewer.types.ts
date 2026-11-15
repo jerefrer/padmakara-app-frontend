@@ -9,6 +9,11 @@ export interface PDFViewerProps {
   onSingleTap?: () => void;
   /** The document's table of contents, once loaded; empty when it has none (iOS and Android). */
   onOutline?: (items: PdfOutlineItem[]) => void;
+  /**
+   * Room above the first page for a bar laid over the document, in points: the
+   * document opens below the bar and scrolls under it (iOS and Android).
+   */
+  contentInsetTop?: number;
 }
 
 export interface PDFViewerHandle {

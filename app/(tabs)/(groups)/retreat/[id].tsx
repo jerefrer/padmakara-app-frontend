@@ -369,6 +369,7 @@ export default function RetreatDetailScreen() {
   const [documentOutline, setDocumentOutline] = useState<PdfOutlineItem[]>([]);
   const [documentOutlineVisible, setDocumentOutlineVisible] = useState(false);
   const [documentPage, setDocumentPage] = useState(1);
+  const [documentBarHeight, setDocumentBarHeight] = useState(0);
   const documentViewerRef = useRef<PDFViewerHandle>(null);
   const { barsHidden: documentBarsHidden, toggleBars: toggleDocumentBars } = useReaderBars(!!documentPdfViewer);
   useUnlockedOrientation(!!documentPdfViewer);
@@ -2304,7 +2305,7 @@ export default function RetreatDetailScreen() {
         <SafeAreaView style={styles.documentViewerModal}>
           {/* The page keeps its size; the header is laid over it. */}
           <View style={styles.documentViewerBody}>
-            <ReaderTopBar hidden={documentBarsHidden} clearStatusBar={false}>
+            <ReaderTopBar hidden={documentBarsHidden} clearStatusBar={false} onHeightChange={setDocumentBarHeight}>
               <View style={styles.documentViewerHeader}>
                 <Text style={styles.documentViewerTitle} numberOfLines={1}>
                   {documentPdfViewer?.title}
@@ -2353,6 +2354,7 @@ export default function RetreatDetailScreen() {
                 onPageChange={(page) => setDocumentPage(page)}
                 onSingleTap={toggleDocumentBars}
                 onOutline={setDocumentOutline}
+                contentInsetTop={documentBarHeight}
               />
             )}
           </View>

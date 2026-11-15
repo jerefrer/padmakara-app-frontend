@@ -1,7 +1,36 @@
+diff --git a/node_modules/react-native-pdf/android/build.gradle b/node_modules/react-native-pdf/android/build.gradle
+--- a/node_modules/react-native-pdf/android/build.gradle
++++ b/node_modules/react-native-pdf/android/build.gradle
+@@ -141,7 +141,9 @@ dependencies {
+     }
+     // NOTE: The original repo at com.github.barteksc is abandoned by the maintainer; there will be no more updates coming from that repo.
+     // The repo from zacharee is based on PdfiumAndroidKt, a much newer fork of PdfiumAndroid, with better maintenance and updated native libraries.
+-    implementation 'com.github.zacharee:AndroidPdfViewer:4.0.1'
++    // AndroidPdfViewer 4.0.1 with room above the first page (contentInsetTop), built by
++    // the app in vendor/android-pdf-viewer; the app's withVendorMaven plugin adds its repository.
++    implementation 'org.padmakara.vendor:android-pdf-viewer:4.0.1-topinset.1'
+     // Depend on PdfiumAndroidKt directly so this can be updated independently of AndroidPdfViewer as updates are provided.
+     implementation 'io.legere:pdfiumandroid:1.0.32'
+     implementation 'com.google.code.gson:gson:2.13.2'
+diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java
+--- a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java
++++ b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java
+@@ -122,6 +122,11 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
+         pdfView.setSpacing(spacing);
+     }
+ 
++    @ReactProp(name = "contentInsetTop")
++    public void setContentInsetTop(PdfView pdfView, int contentInsetTop) {
++        pdfView.setContentInsetTop(contentInsetTop);
++    }
++
+     @ReactProp(name = "password")
+     public void setPassword(PdfView pdfView, String password) {
+         pdfView.setPassword(password);
 diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
 --- a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
 +++ b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
-@@ -23,6 +23,7 @@
+@@ -23,6 +23,7 @@ import android.util.Log;
  import android.net.Uri;
  import android.util.AttributeSet;
  import android.view.MotionEvent;
@@ -9,7 +38,7 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
  import android.graphics.Canvas;
  import android.graphics.pdf.PdfRenderer;
  
-@@ -103,9 +104,28 @@
+@@ -103,9 +104,28 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
      private int oldW = 0;
      private int oldH = 0;
  
@@ -38,14 +67,13 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
      }
  
      @Override
-@@ -239,12 +259,31 @@
-         // maybe change by other instance, restore zoom setting
+@@ -240,10 +260,29 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
          Constants.Pinch.MINIMUM_ZOOM = this.minScale;
          Constants.Pinch.MAXIMUM_ZOOM = this.maxScale;
-+
+ 
 +        this.lastScrollAt = android.os.SystemClock.uptimeMillis();
 +    }
- 
++
 +    @Override
 +    public boolean dispatchTouchEvent(MotionEvent ev) {
 +        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
@@ -64,26 +92,71 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
 +        if (!tapStopsScroll) sendSingleTap(e);
 +        return true;
 +    }
- 
-+    private void sendSingleTap(MotionEvent e){
 +
++    private void sendSingleTap(MotionEvent e){
+ 
          // maybe change by other instance, restore zoom setting
          //Constants.Pinch.MINIMUM_ZOOM = this.minScale;
-         //Constants.Pinch.MAXIMUM_ZOOM = this.maxScale;
-@@ -267,9 +306,6 @@
- //            "topChange",
+@@ -268,9 +307,6 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
  //            event
  //         );
--
+ 
 -        // process as tap
 -         return true;
- 
+-
      }
+ 
+     @Override
+@@ -456,6 +492,11 @@ public class PdfView extends PDFView implements OnPageChangeListener,OnLoadCompl
+         this.spacing = spacing;
+     }
+ 
++    // Room above the first page, in dp, for a toolbar laid over the document.
++    public void setContentInsetTop(int contentInsetTop) {
++        this.setTopInset(contentInsetTop * getResources().getDisplayMetrics().density);
++    }
++
+     public void setPassword(String password) {
+         this.password = password;
+     }
+diff --git a/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js b/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js
+--- a/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js
++++ b/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js
+@@ -29,6 +29,7 @@
+    enableDoubleTapZoom: ?boolean,
+    fitPolicy: ?Int32,
+    spacing: ?Int32,
++   contentInsetTop: ?Int32,
+    password: ?string,
+    onChange: ?BubblingEventHandler<ChangeEvent>,
+    singlePage: ?boolean,
+diff --git a/node_modules/react-native-pdf/index.d.ts b/node_modules/react-native-pdf/index.d.ts
+--- a/node_modules/react-native-pdf/index.d.ts
++++ b/node_modules/react-native-pdf/index.d.ts
+@@ -55,6 +55,8 @@ export interface PdfProps {
+     showsVerticalScrollIndicator?: boolean,
+     scrollEnabled?: boolean,
+     spacing?: number,
++    /** Room above the first page, in points, for a toolbar laid over the document (vertical only). */
++    contentInsetTop?: number,
+     password?: string,
+     renderActivityIndicator?: (progress: number) => React.ReactElement,
+     enableAntialiasing?: boolean,
+diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h
+--- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h
++++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h
+@@ -49,6 +49,7 @@ UIView
+ @property(nonatomic) BOOL enableDoubleTapZoom;
+ @property(nonatomic) int fitPolicy;
+ @property(nonatomic) int spacing;
++@property(nonatomic) int contentInsetTop;
+ @property(nonatomic, strong) NSString *password;
+ @property(nonatomic) BOOL singlePage;
  
 diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
 --- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
 +++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
-@@ -75,6 +75,9 @@
+@@ -75,6 +75,9 @@ @implementation RNPDFPdfView
      UIPinchGestureRecognizer *_pinchRecognizer;
      UILongPressGestureRecognizer *_longPressRecognizer;
      UITapGestureRecognizer *_doubleTapEmptyRecognizer;
@@ -93,37 +166,75 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
  }
  
  #ifdef RCT_NEW_ARCH_ENABLED
-@@ -424,6 +427,12 @@
-                     }
-                 }
+@@ -154,6 +157,10 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+         _spacing = newProps.spacing;
+         [updatedPropNames addObject:@"spacing"];
+     }
++    if (_contentInsetTop != newProps.contentInsetTop) {
++        _contentInsetTop = newProps.contentInsetTop;
++        [updatedPropNames addObject:@"contentInsetTop"];
++    }
+     if (_password != RCTNSStringFromStringNilIfEmpty(newProps.password)) {
+         _password = RCTNSStringFromStringNilIfEmpty(newProps.password);
+         [updatedPropNames addObject:@"password"];
+@@ -260,6 +267,7 @@ - (void)initCommonProps
+     _enableDoubleTapZoom = YES;
+     _fitPolicy = 2;
+     _spacing = 10;
++    _contentInsetTop = 0;
+     _singlePage = NO;
+     _showsHorizontalScrollIndicator = YES;
+     _showsVerticalScrollIndicator = YES;
+@@ -426,6 +434,12 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
              }
-+        }
-+
+         }
+ 
 +        if ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableDoubleTapZoom"]) {
 +            // The single tap waits for the double tap to fail; a disabled double
 +            // tap no longer holds it back, so the single tap fires at once.
 +            _doubleTapRecognizer.enabled = _enableDoubleTapZoom;
++        }
++
+         if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableRTL"])) {
+             _pdfView.displaysRTL = _enableRTL;
+         }
+@@ -535,6 +549,10 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+             }
          }
  
-         if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableRTL"])) {
-@@ -834,6 +843,11 @@
- - (void)handleSingleTap:(UITapGestureRecognizer *)sender
++        if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"horizontal"] || [changedProps containsObject:@"contentInsetTop"])) {
++            [self applyContentInsetTop];
++        }
++
+         if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enablePaging"] || [changedProps containsObject:@"horizontal"] || [changedProps containsObject:@"page"])) {
+ 
+             PDFPage *pdfPage = [_pdfDocument pageAtIndex:_page-1];
+@@ -544,7 +562,8 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+                     for (UIView *subview in self->_pdfView.subviews) {
+                         if ([subview isKindOfClass:[UIScrollView class]]) {
+                             UIScrollView *scrollView = (UIScrollView *)subview;
+-                            [scrollView setContentOffset:CGPointMake(0, 0) animated:NO];
++                            // The top of the first page, below any content inset.
++                            [scrollView setContentOffset:CGPointMake(0, -scrollView.adjustedContentInset.top) animated:NO];
+                             break;
+                         }
+                     }
+@@ -835,6 +854,11 @@ - (void)handleSingleTap:(UITapGestureRecognizer *)sender
  {
      //_pdfView.scaleFactor = _pdfView.minScaleFactor;
-+
+ 
 +    if (_tapStopsScroll) {
 +        _tapStopsScroll = NO;
 +        return;
 +    }
- 
++
      CGPoint point = [sender locationInView:self];
      PDFPage *pdfPage = [_pdfView pageForPoint:point nearest:NO];
-@@ -933,8 +947,34 @@
- - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
- {
+     if (pdfPage) {
+@@ -935,6 +959,54 @@ - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecogni
      return !_singlePage;
-+}
-+
+ }
+ 
 +- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 +{
 +    // Checked as the finger lands, before the scroll view stops gliding.
@@ -132,8 +243,30 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
 +        _tapStopsScroll = scrollView != nil && scrollView.isDecelerating;
 +    }
 +    return YES;
- }
- 
++}
++
++// Leaves room above the first page for a toolbar laid over the document: the
++// document starts below it and scrolls under it. Only the scroll view's inset
++// changes; the PDF view keeps its size, so its pages are not laid out again.
++// The inset counts from the top of the view, so the part iOS already adds for
++// the status bar is taken off.
++- (void)applyContentInsetTop
++{
++    UIScrollView *scrollView = [self findScrollView:_pdfView depth:0];
++    if (scrollView == nil) {
++        return;
++    }
++    CGFloat previousTop = scrollView.adjustedContentInset.top;
++    BOOL atTop = scrollView.contentOffset.y <= -previousTop + 0.5;
++    CGFloat systemTop = previousTop - scrollView.contentInset.top;
++    UIEdgeInsets inset = scrollView.contentInset;
++    inset.top = _horizontal ? 0 : MAX(0, _contentInsetTop - systemTop);
++    scrollView.contentInset = inset;
++    if (atTop) {
++        [scrollView setContentOffset:CGPointMake(scrollView.contentOffset.x, -scrollView.adjustedContentInset.top) animated:NO];
++    }
++}
++
 +- (UIScrollView *)findScrollView:(UIView *)view depth:(int)depth {
 +    if (view == nil || depth > 10) {
 +        return nil;
@@ -153,3 +286,14 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
  - (void)setScrollIndicators:(UIView *)view horizontal:(BOOL)horizontal vertical:(BOOL)vertical depth:(int)depth {
      // max depth, prevent infinite loop
      if (depth > 10) {
+diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm
+--- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm
++++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm
+@@ -42,6 +42,7 @@ - (UIView *)view
+ RCT_EXPORT_VIEW_PROPERTY(enableDoubleTapZoom, BOOL);
+ RCT_EXPORT_VIEW_PROPERTY(fitPolicy, int);
+ RCT_EXPORT_VIEW_PROPERTY(spacing, int);
++RCT_EXPORT_VIEW_PROPERTY(contentInsetTop, int);
+ RCT_EXPORT_VIEW_PROPERTY(password, NSString);
+ RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock);
+ RCT_EXPORT_VIEW_PROPERTY(singlePage, BOOL);

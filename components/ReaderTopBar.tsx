@@ -11,6 +11,8 @@ interface ReaderTopBarProps {
   /** Pad below the status bar; off inside a sheet that already clears it. */
   clearStatusBar?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** The bar's height, hidden or not, so the document can open below it. */
+  onHeightChange?: (height: number) => void;
 }
 
 /**
@@ -19,11 +21,12 @@ interface ReaderTopBarProps {
  * The document underneath keeps its size when the bar hides: resizing the
  * native PDF view in an animation crashed PDFKit on iOS 27 (its page
  * analysis threw while the visible pages changed under it), and the page no
- * longer jumps when the bar comes and goes. The web has no reader mode, so
- * there the bar stays in the layout above the document. Render it before the
- * document.
+ * longer jumps when the bar comes and goes. Pass the height it reports to the
+ * document's contentInsetTop so the document opens below the bar. The web has
+ * no reader mode, so there the bar stays in the layout above the document.
+ * Render it before the document.
  */
-export function ReaderTopBar({ hidden, children, clearStatusBar = true, style }: ReaderTopBarProps) {
+export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, onHeightChange }: ReaderTopBarProps) {
   const insets = useSafeAreaInsets();
   const opacity = useSharedValue(hidden ? 0 : 1);
 
@@ -40,6 +43,7 @@ export function ReaderTopBar({ hidden, children, clearStatusBar = true, style }:
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
       style={[styles.bar, clearStatusBar && { paddingTop: insets.top }, style, fade]}
+      onLayout={onHeightChange ? (e) => onHeightChange(e.nativeEvent.layout.height) : undefined}
     >
       {children}
     </Animated.View>

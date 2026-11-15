@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.padmakara.vendor</groupId>
+  <artifactId>android-pdf-viewer</artifactId>
+  <version>4.0.1-topinset.1</version>
+  <packaging>aar</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>io.legere</groupId>
+      <artifactId>pdfiumandroid</artifactId>
+      <version>1.0.19</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>androidx.core</groupId>
+      <artifactId>core</artifactId>
+      <version>1.12.0</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>

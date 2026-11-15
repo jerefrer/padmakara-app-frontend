@@ -1,0 +1,108 @@
+diff --git a/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/DragPinchManager.java b/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/DragPinchManager.java
+index 4ca50a3..6ebc0a1 100644
+--- a/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/DragPinchManager.java
++++ b/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/DragPinchManager.java
+@@ -226,8 +226,9 @@ class DragPinchManager implements GestureDetector.OnGestureListener, GestureDete
+             minY = -(pdfView.toCurrentScale(pdfFile.getMaxPageHeight()) - pdfView.getHeight());
+         }
+ 
++        int maxY = pdfView.isSwipeVertical() ? (int) pdfView.getTopInset() : 0;
+         animationManager.startFlingAnimation(xOffset, yOffset, (int) (velocityX), (int) (velocityY),
+-                (int) minX, 0, (int) minY, 0);
++                (int) minX, 0, (int) minY, maxY);
+         return true;
+     }
+ 
+diff --git a/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/PDFView.java b/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/PDFView.java
+index 0f01b62..91ba571 100644
+--- a/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/PDFView.java
++++ b/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/PDFView.java
+@@ -151,6 +151,13 @@ public class PDFView extends RelativeLayout {
+      */
+     private float currentYOffset = 0;
+ 
++    /**
++     * Room left above the first page when swiping vertically, in pixels, for a
++     * toolbar laid over the document: at the top of the document the first page
++     * starts below it, and scrolling slides the pages under it.
++     */
++    private float topInset = 0;
++
+     /**
+      * The zoom level, always >= 1
+      */
+@@ -344,6 +351,7 @@ public class PDFView extends RelativeLayout {
+         page = pdfFile.determineValidPageNumberFrom(page);
+         float offset = page == 0 ? 0 : -pdfFile.getPageOffset(page, zoom);
+         if (swipeVertical) {
++            offset += topInset;
+             if (withAnimation) {
+                 animationManager.startYAnimation(currentYOffset, offset);
+             } else {
+@@ -391,7 +399,7 @@ public class PDFView extends RelativeLayout {
+     public float getPositionOffset() {
+         float offset;
+         if (swipeVertical) {
+-            offset = -currentYOffset / (pdfFile.getDocLen(zoom) - getHeight());
++            offset = (topInset - currentYOffset) / (pdfFile.getDocLen(zoom) - getHeight() + topInset);
+         } else {
+             offset = -currentXOffset / (pdfFile.getDocLen(zoom) - getWidth());
+         }
+@@ -405,7 +413,7 @@ public class PDFView extends RelativeLayout {
+      */
+     public void setPositionOffset(float progress, boolean moveHandle) {
+         if (swipeVertical) {
+-            moveTo(currentXOffset, (-pdfFile.getDocLen(zoom) + getHeight()) * progress, moveHandle);
++            moveTo(currentXOffset, topInset - (pdfFile.getDocLen(zoom) - getHeight() + topInset) * progress, moveHandle);
+         } else {
+             moveTo((-pdfFile.getDocLen(zoom) + getWidth()) * progress, currentYOffset, moveHandle);
+         }
+@@ -597,7 +605,7 @@ public class PDFView extends RelativeLayout {
+         }
+ 
+         if (swipeVertical) {
+-            if (direction < 0 && currentYOffset < 0) {
++            if (direction < 0 && currentYOffset < topInset) {
+                 return true;
+             } else if (direction > 0 && currentYOffset + pdfFile.getDocLen(zoom) > getHeight()) {
+                 return true;
+@@ -899,11 +907,11 @@ public class PDFView extends RelativeLayout {
+ 
+             // Check Y offset
+             float contentHeight = pdfFile.getDocLen(zoom);
+-            if (contentHeight < getHeight()) { // whole document height visible on screen
+-                offsetY = (getHeight() - contentHeight) / 2;
++            if (contentHeight + topInset < getHeight()) { // whole document height visible below the inset
++                offsetY = topInset + (getHeight() - topInset - contentHeight) / 2;
+             } else {
+-                if (offsetY > 0) { // top visible
+-                    offsetY = 0;
++                if (offsetY > topInset) { // top visible
++                    offsetY = topInset;
+                 } else if (offsetY + contentHeight < getHeight()) { // bottom visible
+                     offsetY = -contentHeight + getHeight();
+                 }
+@@ -1171,6 +1179,23 @@ public class PDFView extends RelativeLayout {
+         return currentYOffset;
+     }
+ 
++    public float getTopInset() {
++        return topInset;
++    }
++
++    /**
++     * Sets the room above the first page (vertical swiping only). A document
++     * shown from its top stays at its top, below the new inset.
++     */
++    public void setTopInset(float topInset) {
++        float previous = this.topInset;
++        this.topInset = Math.max(0, topInset);
++        if (pdfFile != null && swipeVertical && currentYOffset >= previous - 0.5f) {
++            moveTo(currentXOffset, this.topInset);
++            loadPageByOffset();
++        }
++    }
++
+     public float toRealScale(float size) {
+         return size / zoom;
+     }

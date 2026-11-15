@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 
@@ -36,5 +36,18 @@ describe('ReaderTopBar', () => {
 
     const sheet = render(<ReaderTopBar hidden={false} clearStatusBar={false}><Text>B</Text></ReaderTopBar>);
     expect(flat(sheet.getByTestId('reader-top-bar').props.style).paddingTop).toBeUndefined();
+  });
+
+  it('should report its height so the document can start below it', () => {
+    const onHeightChange = jest.fn();
+    const { getByTestId } = render(
+      <ReaderTopBar hidden={false} onHeightChange={onHeightChange}>
+        <Text>Title</Text>
+      </ReaderTopBar>
+    );
+
+    fireEvent(getByTestId('reader-top-bar'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 103 } } });
+
+    expect(onHeightChange).toHaveBeenCalledWith(103);
   });
 });

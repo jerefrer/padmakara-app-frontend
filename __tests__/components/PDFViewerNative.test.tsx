@@ -50,6 +50,18 @@ describe('PDFViewer (iOS and Android)', () => {
     expect(pdfProps.enableDoubleTapZoom).toBe(false);
   });
 
+  it('should leave room above the first page for a bar laid over it', () => {
+    render(<PDFViewer source="file:///x.pdf" contentInsetTop={104.6} />);
+
+    expect(pdfProps.contentInsetTop).toBe(105);
+  });
+
+  it('should leave no room above the first page by default', () => {
+    render(<PDFViewer source="file:///x.pdf" />);
+
+    expect(pdfProps.contentInsetTop).toBe(0);
+  });
+
   it('should hide the loader when the document has loaded', () => {
     const { queryByText } = render(<PDFViewer source="https://example.com/doc.pdf" />);
     expect(queryByText('Loading PDF...')).toBeTruthy();

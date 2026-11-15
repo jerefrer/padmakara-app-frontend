@@ -87,6 +87,7 @@ export default function PublicationsScreen() {
   >({});
   const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
   const [outlineVisible, setOutlineVisible] = useState(false);
+  const [readerBarHeight, setReaderBarHeight] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const viewerRef = useRef<PDFViewerHandle>(null);
   // Reader mode while a publication is open: a tap on the page hides the
@@ -414,7 +415,7 @@ export default function PublicationsScreen() {
         <StatusBar hidden={barsHidden} animated />
         {/* The page always fills the screen; header and banner are laid over it. */}
         <View style={styles.container}>
-          <ReaderTopBar hidden={barsHidden} style={styles.readerTopBar}>
+          <ReaderTopBar hidden={barsHidden} style={styles.readerTopBar} onHeightChange={setReaderBarHeight}>
             {/* PDF header */}
             <View style={styles.pdfHeader}>
               <BackButton variant="inline" onPress={handleCloseViewer} />
@@ -523,6 +524,7 @@ export default function PublicationsScreen() {
             }}
             onSingleTap={toggleBars}
             onOutline={setOutline}
+            contentInsetTop={readerBarHeight}
           />
           <PdfOutlineSheet
             visible={outlineVisible}

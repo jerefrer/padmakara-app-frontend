@@ -22,7 +22,7 @@ const PAGE_BADGE_MS = 1500;
  * Accepts file:// paths and https URLs.
  */
 export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PDFViewer(
-  { source, onPageChange, onSingleTap, onOutline },
+  { source, onPageChange, onSingleTap, onOutline, contentInsetTop = 0 },
   ref
 ) {
   const { t } = useLanguage();
@@ -91,6 +91,8 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
           enableDoubleTapZoom={false}
           minScale={1}
           maxScale={4}
+          // The native prop is an integer.
+          contentInsetTop={Math.round(contentInsetTop)}
           onLoadComplete={(pages, _path, _size, tableContents) => {
             setLoading(false);
             onOutline?.(flattenPdfOutline(tableContents, pages));
