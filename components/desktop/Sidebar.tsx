@@ -14,6 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
+import { RULE_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -292,19 +293,18 @@ const styles = StyleSheet.create({
   /* Category navigation */
   navSection: {
     paddingTop: 32,
-    paddingHorizontal: 20,
   },
+  // Red hairline between items, same weight and colour as the mobile home
+  // rules. It runs to the sidebar's left edge; the text keeps its inset.
   categoryRow: {
     paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    paddingLeft: 20,
+    marginRight: 20,
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: RULE_COLOR,
   },
-  categoryRowActive: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.burgundy[500],
-    paddingLeft: 12,
-    backgroundColor: colors.burgundy[50],
-  },
+  // The selected item only greys out: its title shows as the page header.
+  categoryRowActive: {},
   categoryRowHover: {
     backgroundColor: '#faf9f8',
   },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   categoryTitleActive: {
-    color: colors.burgundy[500],
+    color: colors.gray[400],
   },
   categorySubtitle: {
     fontSize: 12,
@@ -326,13 +326,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   categorySubtitleActive: {
-    color: colors.burgundy[500],
-    opacity: 0.7,
+    color: colors.gray[400],
   },
 
   /* Search at bottom — matches category typography */
   bottomSection: {
-    paddingHorizontal: 20,
     paddingBottom: 12,
   },
   lastCategoryRow: {

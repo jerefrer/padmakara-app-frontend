@@ -17,6 +17,9 @@ import type { Gathering } from "@/types";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { pickThumbTeacher } from "@/utils/heroVariant";
 
+/** Light black separator between desktop rows. */
+export const DESKTOP_ROW_RULE_COLOR = "rgba(0,0,0,0.12)";
+
 const colors = {
   burgundy: "#9b1b1b",
   gray: { 200: "#e5e7eb", 400: "#9ca3af", 500: "#6b7280", 800: "#2c2c2c" },
@@ -101,7 +104,7 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
   return (
     <TouchableOpacity {...getRowPressDelayProps()}
       onPress={onPress}
-      style={[styles.row, !isDesktop && styles.rowToInset]}
+      style={[styles.row, isDesktop ? styles.rowDesktop : styles.rowToInset]}
       testID={testID}
     >
       <EventThumb
@@ -149,6 +152,15 @@ const styles = StyleSheet.create({
   // The separator starts at the left edge and stops at the right inset.
   rowToInset: {
     marginRight: RULE_RIGHT_INSET,
+  },
+  // Desktop: the lighter separator bleeds left to the column edge and stops
+  // 4x the former gap (one gutter) before the right edge. The container pads
+  // by TEXT_GUTTER, hence the negative left margin and the 3 extra gutters.
+  rowDesktop: {
+    marginLeft: -TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER,
+    marginRight: TEXT_GUTTER * 3,
+    borderBottomColor: DESKTOP_ROW_RULE_COLOR,
   },
   thumb: {
     width: 80,

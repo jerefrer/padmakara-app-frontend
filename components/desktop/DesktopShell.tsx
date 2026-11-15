@@ -1,9 +1,28 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
+
+/** Width of the soft shadows cast onto the main area and the right panel. */
+export const EDGE_SHADOW_WIDTH = 12;
+const EDGE_SHADOW_COLORS = ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0)'] as const;
+
+/** A vertical shadow falling left to right from the edge it is placed on. */
+function EdgeShadow({ testID, style }: { testID: string; style: object }) {
+  return (
+    <LinearGradient
+      testID={testID}
+      pointerEvents="none"
+      colors={EDGE_SHADOW_COLORS}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={[styles.edgeShadow, style]}
+    />
+  );
+}
 
 interface DesktopShellProps {
   sidebar: ReactNode;
@@ -108,6 +127,21 @@ export function DesktopShell({
         >
           {rightSidebar}
         </View>
+      )}
+
+      {/* Sidebar onto main area, main area onto the red panel. */}
+      <EdgeShadow
+        testID="shadow-main-left"
+        style={{ left: sidebarWidth, bottom: playerBar ? playerBarHeight : 0 }}
+      />
+      {rightSidebar && (
+        <EdgeShadow
+          testID="shadow-right-panel-left"
+          style={{
+            right: rightSidebarWidth - EDGE_SHADOW_WIDTH,
+            bottom: playerBar ? playerBarHeight : 0,
+          }}
+        />
       )}
 
       {playerBar && (
@@ -237,6 +271,12 @@ const styles = StyleSheet.create({
   },
   shell: {
     flex: 1,
+  },
+  edgeShadow: {
+    position: 'absolute',
+    top: 0,
+    width: EDGE_SHADOW_WIDTH,
+    zIndex: 5,
   },
   sidebarContainer: {
     backgroundColor: colors.white,
