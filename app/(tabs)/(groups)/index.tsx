@@ -427,6 +427,13 @@ export default function HomeScreen() {
             <Text style={styles.appTitle}>PADMAKARA</Text>
           )}
 
+          {/* Page title — desktop only, styled like the Teachings & Talks title */}
+          {isDesktop && (
+            <Text style={styles.desktopPageTitle} accessibilityRole="header" testID="home-page-title">
+              {t("home.whatsNew") || "What's New"}
+            </Text>
+          )}
+
           {/* Web only: invite signed-in non-members to the membership page.
               Native (reader app) never shows this. */}
           {Platform.OS === "web" && isAuthenticated && !hasActiveSubscription && (
@@ -568,6 +575,18 @@ const styles = StyleSheet.create({
   },
   indented: {
     paddingHorizontal: TEXT_GUTTER,
+  },
+  // Same look and position as the title of the Teachings & Talks screen
+  // (_events/index.tsx: header paddingTop 44 / paddingBottom 8, title 28pt).
+  // scrollContentDesktop already adds 32 on top, hence the 12.
+  desktopPageTitle: {
+    marginTop: 12,
+    marginBottom: 20,
+    fontSize: 28,
+    fontFamily: "MinionPro",
+    color: colors.burgundy[500],
+    fontVariant: ["small-caps"],
+    letterSpacing: 0.5,
   },
   // A red rule that starts at the left edge and stops at the right inset.
   ruleToGutter: {
