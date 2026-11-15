@@ -1,7 +1,8 @@
-import React, { Suspense, forwardRef, lazy } from 'react';
+import React, { Suspense, forwardRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { lazyWithReload } from '@/utils/lazyWithReload';
 
 import type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
 
@@ -9,8 +10,8 @@ export type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
 
 // react-pdf / pdfjs-dist require browser globals (DOMMatrix, window) that don't
 // exist during Expo Router's static render. Lazy-load so the import only
-// evaluates in the browser.
-const LazyImpl = lazy(() => import('./PDFViewerWebImpl'));
+// evaluates in the browser. A chunk missing after a deploy reloads the page once.
+const LazyImpl = lazyWithReload(() => import('./PDFViewerWebImpl'));
 
 // The web viewer has its own toolbar (layouts, fit, fullscreen); the reader
 // extras of the native viewer (tap, outline, goToPage) are not wired here.
