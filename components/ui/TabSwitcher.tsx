@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { RULE_RIGHT_INSET, TEXT_GUTTER } from "@/constants/layout";
+import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
 
 const colors = {
   burgundy500: "#9b1b1b",
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: colors.gray200,
     marginTop: 4,
     marginBottom: 12,

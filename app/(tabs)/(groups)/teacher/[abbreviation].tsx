@@ -27,6 +27,7 @@ import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
+import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const HERO_HEIGHT = 380;
@@ -86,6 +87,7 @@ export default function TeacherDetailScreen() {
   const { abbreviation } = useLocalSearchParams<{ abbreviation: string }>();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { isDesktop } = useDesktopLayout();
   const scrollY = useSharedValue(0);
   const eventBookmarks = useEventBookmarks();
 
@@ -217,13 +219,14 @@ export default function TeacherDetailScreen() {
         <View
           style={[
             styles.headerRow,
+            isDesktop && styles.headerRowDesktop,
             !hasHero && { paddingTop: insets.top + BACK_BUTTON_CLEARANCE },
           ]}
         >
           <Text style={styles.teacherName}>{teacher.name}</Text>
         </View>
         <View style={styles.infoSection}>
-          <Text style={styles.eventCount}>
+          <Text style={[styles.eventCount, isDesktop && styles.eventCountDesktop]}>
             {events.length} {events.length === 1
               ? (t('events.teaching') || 'Teaching')
               : (t('events.teachings') || 'Teachings & talks')}
@@ -281,7 +284,7 @@ export default function TeacherDetailScreen() {
                   <Text style={styles.eventStats}>{statsParts.join('  ')}</Text>
                 )}
                 {metaParts.length > 0 && (
-                  <Text style={styles.eventMeta}>{metaParts.join('  |  ')}</Text>
+                  <Text style={[styles.eventMeta, isDesktop && styles.eventMetaDesktop]}>{metaParts.join('  |  ')}</Text>
                 )}
                 <View style={styles.eventIconRow}>
                   <View style={styles.eventIconGroup}>
@@ -353,6 +356,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
+  // Desktop: the count sits 30% closer to the name (André).
+  headerRowDesktop: {
+    paddingBottom: 0,
+  },
   floatingBackButton: {
     position: 'absolute',
     left: 12,
@@ -380,6 +387,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray500,
     marginTop: 2,
+  },
+  eventCountDesktop: {
+    marginTop: 0,
   },
   eventList: {
     paddingTop: 0,
@@ -415,6 +425,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.gray500,
     marginTop: 2,
+  },
+  // Desktop: the date line sits as far below the stats line as the stats
+  // line sits below the title (André).
+  eventMetaDesktop: {
+    marginTop: 4,
   },
   eventIconRow: {
     flexDirection: 'row',

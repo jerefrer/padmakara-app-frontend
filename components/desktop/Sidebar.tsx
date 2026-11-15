@@ -314,7 +314,8 @@ const styles = StyleSheet.create({
     color: colors.gray[800],
     fontVariant: ['small-caps'],
     letterSpacing: 0.5,
-    marginBottom: 3,
+    // Pulls the subtitle up: the gap under the title was 30% too large (André).
+    marginBottom: -1,
   },
   categoryTitleActive: {
     color: colors.gray[400],

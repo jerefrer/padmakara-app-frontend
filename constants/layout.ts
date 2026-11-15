@@ -17,8 +17,12 @@ export const TEXT_GUTTER = 24;
 /** Lines run from the left edge and stop this far before the right edge. */
 export const RULE_RIGHT_INSET = TEXT_GUTTER + 12;
 
-/** Thickness of the red section rules. */
-export const RULE_THICKNESS = 1;
+/**
+ * Thickness of the red section rules. On the web a full 1px is two device pixels on a
+ * high-density screen and reads heavier than the sidebar dividers (SUBDIVISION_THICKNESS),
+ * so the web draws the same half-pixel hairline.
+ */
+export const RULE_THICKNESS = Platform.OS === "web" ? 0.5 : 1;
 
 /** Colour of the red rule at the top of a list or section (burgundy). */
 export const RULE_COLOR = "#9b1b1b";
