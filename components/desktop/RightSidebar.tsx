@@ -10,6 +10,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { colors } from '@/constants/colors';
 
+// The wordmark is live text beside a raster wheel, so its size and weight are
+// derived from the wheel's width: the two scale together and the stems of the
+// letters stay in step with the strokes of the wheel.
+const LOGO_SIZE = 100;
+const TITLE_FONT_SIZE = LOGO_SIZE * 0.22;
+const TITLE_LETTER_SPACING = TITLE_FONT_SIZE * 0.18;
+const SUBTITLE_FONT_SIZE = LOGO_SIZE * 0.11;
+const SUBTITLE_LETTER_SPACING = SUBTITLE_FONT_SIZE * 0.27;
+
 export type RightSidebarVariant = 'wide' | 'narrow';
 
 interface RightSidebarProps {
@@ -230,9 +239,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    marginBottom: LOGO_SIZE * 0.16,
     tintColor: 'rgba(255,255,255,0.85)',
   },
   logoNarrow: {
@@ -241,18 +250,18 @@ const styles = StyleSheet.create({
     tintColor: 'rgba(255,255,255,0.85)',
   },
   title: {
-    fontSize: 22,
-    fontFamily: 'EBGaramond_400Regular',
-    color: colors.white,
-    letterSpacing: 4,
+    fontSize: TITLE_FONT_SIZE,
+    fontFamily: 'EBGaramond_600SemiBold',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: TITLE_LETTER_SPACING,
     textTransform: 'uppercase',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 11,
-    fontFamily: 'EBGaramond_400Regular',
+    fontSize: SUBTITLE_FONT_SIZE,
+    fontFamily: 'EBGaramond_500Medium',
     color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 3,
+    letterSpacing: SUBTITLE_LETTER_SPACING,
     textTransform: 'uppercase',
     marginTop: 4,
     textAlign: 'center',
