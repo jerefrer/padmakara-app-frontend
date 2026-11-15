@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: 'EBGaramond_400Regular',
     color: 'rgba(255,255,255,0.7)',
     letterSpacing: 3,
     textTransform: 'uppercase',

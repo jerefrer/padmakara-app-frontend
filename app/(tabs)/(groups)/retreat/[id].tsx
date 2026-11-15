@@ -2874,9 +2874,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   currentTrackTitle: {
+    // Highlighted by colour only, no bold (André).
     color: colors.burgundy[600],
-    fontWeight: '600',
-    fontFamily: 'EBGaramond_600SemiBold',
   },
   trackSubtitleRow: {
     flexDirection: 'row',

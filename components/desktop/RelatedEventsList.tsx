@@ -296,8 +296,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   itemTitleActive: {
+    // Highlighted by colour only, no bold (André).
     color: colors.burgundy[500],
-    fontFamily: 'EBGaramond_700Bold',
   },
   itemMeta: {
     flexDirection: 'row',

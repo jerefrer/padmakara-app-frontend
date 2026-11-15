@@ -346,9 +346,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   trackTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: 'EBGaramond_700Bold',
+    // Regular weight at 1.3x the former 14pt (André).
+    fontSize: 18,
+    fontFamily: 'EBGaramond_400Regular',
     color: colors.gray[800],
   },
   trackSubtitle: {
