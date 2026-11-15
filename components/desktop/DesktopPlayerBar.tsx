@@ -4,6 +4,7 @@ import { RotateRightThinIcon } from '@/components/icons/RotateRightThinIcon';
 import { colors } from '@/constants/colors';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageCheckboxList } from '@/components/LanguageCheckboxList';
 import { getTrackTitle } from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -52,7 +53,15 @@ export function DesktopPlayerBar() {
     canOpenTranscript,
     openReadAlong,
     openTranscript,
+    trackBookmark,
+    languageControl,
   } = useAudioPlayerContext();
+
+  const [languageOpen, setLanguageOpen] = useState(false);
+  // The picker belongs to the event screen; close it when that control goes away.
+  useEffect(() => {
+    if (!languageControl) setLanguageOpen(false);
+  }, [languageControl]);
 
   // True only while the user is scrubbing: the seek thumb is drawn then and
   // hidden at rest, same as the mobile player.
@@ -276,10 +285,48 @@ export function DesktopPlayerBar() {
             </TouchableOpacity>
           )}
 
+          {/* Same order as the phone toolbar: bookmark, speed, read along, language. */}
+          <TouchableOpacity
+            onPress={trackBookmark?.onToggle}
+            style={[styles.toolbarButton, !trackBookmark && styles.toolbarButtonDisabled]}
+            disabled={!trackBookmark}
+            testID="audio-bookmark"
+            accessibilityLabel={t('player.bookmark') || 'bookmark'}
+          >
+            <Ionicons
+              name={trackBookmark?.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color={trackBookmark?.isBookmarked ? colors.burgundy[500] : colors.gray[600]}
+            />
+            <Text
+              style={[
+                styles.toolbarLabel,
+                trackBookmark?.isBookmarked && { color: colors.burgundy[500] },
+              ]}
+            >
+              {t('player.bookmark') || 'bookmark'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={changePlaybackSpeed}
+            style={styles.toolbarButton}
+            disabled={controlsDisabled}
+            testID="audio-speed"
+          >
+            <Text style={[styles.speedValue, controlsDisabled && styles.speedTextDisabled]}>
+              x{playbackSpeed}
+            </Text>
+            <Text style={[styles.toolbarLabel, controlsDisabled && styles.speedTextDisabled]}>
+              {t('player.speed') || 'speed'}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={canOpenReadAlong ? openReadAlong : undefined}
             style={[styles.toolbarButton, !canOpenReadAlong && styles.toolbarButtonDisabled]}
             disabled={!canOpenReadAlong}
+            testID="audio-read-along"
             accessibilityLabel={t('readAlong.title') || 'Read Along'}
             accessibilityState={{ disabled: !canOpenReadAlong }}
           >
@@ -289,18 +336,33 @@ export function DesktopPlayerBar() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={changePlaybackSpeed}
-            style={styles.toolbarButton}
-            disabled={controlsDisabled}
-          >
-            <Text style={[styles.speedValue, controlsDisabled && styles.speedTextDisabled]}>
-              x{playbackSpeed}
-            </Text>
-            <Text style={[styles.toolbarLabel, controlsDisabled && styles.speedTextDisabled]}>
-              {t('player.speed') || 'speed'}
-            </Text>
-          </TouchableOpacity>
+          {/* Language globe: shown only when the event screen offers the
+              picker (same condition as the phone), same checkbox list. */}
+          {languageControl && (
+            <View style={styles.languageWrapper}>
+              <TouchableOpacity
+                onPress={() => setLanguageOpen((open) => !open)}
+                style={styles.toolbarButton}
+                testID="audio-language"
+                accessibilityLabel={languageControl.label}
+              >
+                <Ionicons name="globe-outline" size={20} color={colors.gray[600]} />
+                <Text style={[styles.toolbarLabel, styles.languageLabel]} numberOfLines={1}>
+                  {languageControl.label}
+                </Text>
+              </TouchableOpacity>
+              {languageOpen && (
+                <View style={styles.languagePopover} testID="audio-language-popover">
+                  <LanguageCheckboxList
+                    options={languageControl.options}
+                    selected={languageControl.selected}
+                    onChange={languageControl.onChange}
+                    t={t}
+                  />
+                </View>
+              )}
+            </View>
+          )}
         </View>
       </View>
   );
@@ -467,6 +529,31 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.gray[500],
     marginTop: 2,
+  },
+  languageWrapper: {
+    position: 'relative',
+    zIndex: 100,
+  },
+  languageLabel: {
+    maxWidth: 96,
+  },
+  // Opens upwards from the globe: the bar sits at the bottom of the window.
+  languagePopover: {
+    position: 'absolute',
+    bottom: '100%',
+    right: 0,
+    marginBottom: 8,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minWidth: 200,
+    overflow: 'hidden',
   },
   speedValue: {
     fontSize: 15,

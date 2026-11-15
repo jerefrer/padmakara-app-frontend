@@ -54,6 +54,20 @@ export interface IdleTrackInfo {
   duration: number;
 }
 
+/** Bookmark toggle for the current track, as the phone player toolbar offers it. */
+export interface TrackBookmarkControl {
+  isBookmarked: boolean;
+  onToggle: () => void;
+}
+
+/** The event's content-language picker: the label and what the checkbox list needs. */
+export interface LanguageControl {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}
+
 export interface AudioPlayerContextType {
   // State
   currentTrack: Track | null;
@@ -76,6 +90,11 @@ export interface AudioPlayerContextType {
   // desktop player bar reads these to show or hide its right-zone buttons.
   canOpenReadAlong: boolean;
   canOpenTranscript: boolean;
+  // Event-screen controls the phone shows in its player toolbar (bookmark the
+  // current track, pick the content languages). The desktop player bar renders
+  // them from here; null while the mounted screen offers none.
+  trackBookmark: TrackBookmarkControl | null;
+  languageControl: LanguageControl | null;
   idleTrack: IdleTrackInfo | null;
   player: ReturnType<typeof useAudioPlayer> | null;
   // True while the event screen shows its own inline player. The MiniPlayer
@@ -117,6 +136,8 @@ export interface AudioPlayerContextType {
   setOnPreviousTrack: (cb: (() => void) | undefined) => void;
   setOnOpenReadAlong: (cb: (() => void) | undefined) => void;
   setOnOpenTranscript: (cb: (() => void) | undefined) => void;
+  setTrackBookmark: (control: TrackBookmarkControl | null) => void;
+  setLanguageControl: (control: LanguageControl | null) => void;
   setInlinePlayerVisible: (visible: boolean) => void;
   setVideoPlaying: (playing: boolean) => void;
 }
@@ -306,6 +327,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
   const [canOpenReadAlong, setCanOpenReadAlong] = useState(false);
   const [canOpenTranscript, setCanOpenTranscript] = useState(false);
+  const [trackBookmark, setTrackBookmark] = useState<TrackBookmarkControl | null>(null);
+  const [languageControl, setLanguageControl] = useState<LanguageControl | null>(null);
 
   // ─── Derived values ───
   // isPlaying reflects optimistic intent: if the user tapped play before
@@ -1311,6 +1334,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     hasPreviousTrack,
     canOpenReadAlong,
     canOpenTranscript,
+    trackBookmark,
+    languageControl,
     idleTrack,
     player: track ? player : null,
     inlinePlayerVisible,
@@ -1342,13 +1367,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setOnPreviousTrack,
     setOnOpenReadAlong,
     setOnOpenTranscript,
+    setTrackBookmark,
+    setLanguageControl,
     setInlinePlayerVisible,
     setVideoPlaying,
   }), [
     track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
     trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
     isPlayButtonDisabled, hasNextTrack, hasPreviousTrack,
-    canOpenReadAlong, canOpenTranscript, idleTrack, player, inlinePlayerVisible, videoPlaying,
+    canOpenReadAlong, canOpenTranscript, trackBookmark, languageControl, idleTrack, player, inlinePlayerVisible, videoPlaying,
     playTrack, resumeLastPlayed, clearTrack, togglePlayPause, pause, seekTo,
     skipForward, skipBackward, nextTrackAction, previousTrackAction,
     openReadAlong, openTranscript,
@@ -1356,7 +1383,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     onSlidingStart, onSlidingComplete, onSliderValueChange,
     setOnProgressUpdate, setOnTrackComplete, setOnPlayingStateChange,
     setOnNextTrack, setOnPreviousTrack,
-    setOnOpenReadAlong, setOnOpenTranscript, setInlinePlayerVisible, setVideoPlaying,
+    setOnOpenReadAlong, setOnOpenTranscript, setTrackBookmark, setLanguageControl,
+    setInlinePlayerVisible, setVideoPlaying,
   ]);
 
   return (

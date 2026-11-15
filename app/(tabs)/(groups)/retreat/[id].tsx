@@ -1030,6 +1030,36 @@ export default function RetreatDetailScreen() {
     };
   }, [currentTrack?.hasReadAlong]);
 
+  // Desktop / tablet: the shell's player bar shows the phone toolbar's
+  // bookmark and language controls, so hand them over while this screen is up.
+  const setShellTrackBookmark = audioContext.setTrackBookmark;
+  useEffect(() => {
+    if (!playerInShell || !currentTrack || !isAuthenticated) {
+      setShellTrackBookmark(null);
+      return;
+    }
+    setShellTrackBookmark({ isBookmarked: isCurrentTrackBookmarked, onToggle: toggleCurrentTrackBookmark });
+    return () => setShellTrackBookmark(null);
+  }, [playerInShell, currentTrack, isAuthenticated, isCurrentTrackBookmarked, toggleCurrentTrackBookmark, setShellTrackBookmark]);
+
+  const setShellLanguageControl = audioContext.setLanguageControl;
+  const shellLanguageLabel = getLanguageSelectionLabel(activeLanguages, pickerLanguages, t);
+  useEffect(() => {
+    if (!playerInShell || !showLanguagePicker) {
+      setShellLanguageControl(null);
+      return;
+    }
+    setShellLanguageControl({
+      label: shellLanguageLabel,
+      options: pickerLanguages,
+      selected: activeLanguages,
+      onChange: updateLanguagePreference,
+    });
+    return () => setShellLanguageControl(null);
+    // updateLanguagePreference is recreated every render; it only reads `id`/`retreat`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerInShell, showLanguagePicker, shellLanguageLabel, pickerLanguages, activeLanguages, retreat, id, setShellLanguageControl]);
+
   useEffect(() => {
     const hasAnyTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
     audioContext.setOnOpenTranscript(
@@ -1989,34 +2019,6 @@ export default function RetreatDetailScreen() {
           { top: isDesktop && Platform.OS === 'web' ? 16 : insets.top + 8 },
         ]}
       >
-        {playerInShell && showLanguagePicker && (
-          <View style={styles.languageDropdownContainerFloating}>
-            <TouchableOpacity
-              style={styles.languageButtonFloating}
-              onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              hitSlop={8}
-            >
-              <Text style={styles.languageButtonFloatingText}>
-                {getLanguageSelectionLabel(activeLanguages, pickerLanguages, t)}
-              </Text>
-              <Ionicons
-                name={showLanguageDropdown ? 'chevron-up' : 'chevron-down'}
-                size={14}
-                color={colors.white}
-              />
-            </TouchableOpacity>
-            {showLanguageDropdown && (
-              <View style={styles.languageDropdown}>
-                <LanguageCheckboxList
-                  options={pickerLanguages}
-                  selected={activeLanguages}
-                  onChange={updateLanguagePreference}
-                  t={t}
-                />
-              </View>
-            )}
-          </View>
-        )}
         {isAuthenticated && (
           <TouchableOpacity
             onPress={toggleBookmark}
@@ -2534,23 +2536,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     zIndex: 100,
   },
-  languageDropdown: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: 4,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    minWidth: 200,
-    overflow: 'hidden',
-  },
   content: {
     flex: 1,
     backgroundColor: colors.white,
@@ -2657,20 +2642,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Translucent pill version of the language button so it reads cleanly
-  // over a hero photo.
-  languageDropdownContainerFloating: {
-    position: 'relative',
-    zIndex: 100,
-  },
-  languageButtonFloating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
   languagePopupBackdrop: {
     flex: 1,
   },
@@ -2688,12 +2659,6 @@ const styles = StyleSheet.create({
     elevation: 5,
     minWidth: 200,
     overflow: 'hidden',
-  },
-  languageButtonFloatingText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.white,
-    marginRight: 6,
   },
   mobileDownloadBannerOverlay: {
     position: 'absolute',
