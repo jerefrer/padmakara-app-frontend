@@ -231,7 +231,7 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
      CGPoint point = [sender locationInView:self];
      PDFPage *pdfPage = [_pdfView pageForPoint:point nearest:NO];
      if (pdfPage) {
-@@ -935,6 +959,54 @@ - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecogni
+@@ -935,6 +959,66 @@ - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecogni
      return !_singlePage;
  }
  
@@ -248,22 +248,34 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
 +// Leaves room above the first page for a toolbar laid over the document: the
 +// document starts below it and scrolls under it. Only the scroll view's inset
 +// changes; the PDF view keeps its size, so its pages are not laid out again.
-+// The inset counts from the top of the view, so the part iOS already adds for
-+// the status bar is taken off.
++// The inset counts from the top of the view, and iOS adds the safe area (the
++// status bar) to the scroll view's inset on its own, so that part is taken off.
++// The safe area is often still zero when the document loads, hence the second
++// pass in safeAreaInsetsDidChange.
 +- (void)applyContentInsetTop
 +{
 +    UIScrollView *scrollView = [self findScrollView:_pdfView depth:0];
 +    if (scrollView == nil) {
 +        return;
 +    }
-+    CGFloat previousTop = scrollView.adjustedContentInset.top;
-+    BOOL atTop = scrollView.contentOffset.y <= -previousTop + 0.5;
-+    CGFloat systemTop = previousTop - scrollView.contentInset.top;
++    BOOL atTop = scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top + 0.5;
++    CGFloat systemTop = scrollView.contentInsetAdjustmentBehavior == UIScrollViewContentInsetAdjustmentNever ? 0 : self.safeAreaInsets.top;
 +    UIEdgeInsets inset = scrollView.contentInset;
 +    inset.top = _horizontal ? 0 : MAX(0, _contentInsetTop - systemTop);
 +    scrollView.contentInset = inset;
 +    if (atTop) {
 +        [scrollView setContentOffset:CGPointMake(scrollView.contentOffset.x, -scrollView.adjustedContentInset.top) animated:NO];
++    }
++}
++
++- (void)safeAreaInsetsDidChange
++{
++    [super safeAreaInsetsDidChange];
++    if (_pdfDocument && _contentInsetTop > 0) {
++        // After the layout pass, once the scroll view has its new safe area.
++        dispatch_async(dispatch_get_main_queue(), ^{
++            [self applyContentInsetTop];
++        });
 +    }
 +}
 +
