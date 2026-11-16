@@ -1,0 +1,16 @@
+diff --git a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
+index c66e0fa..9ad546f 100644
+--- a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
++++ b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
+@@ -221,7 +221,10 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
+         self?.pendingPiPCompletionHandler = nil
+       })
+     } else {
+-      completionHandler(false)
++      // The inline player is still on screen: let AVKit bring the video back
++      // into it. Answering false there told AVKit the app had no UI to return
++      // to, so tapping the PiP window's restore button stopped the video.
++      completionHandler(self.viewIfLoaded?.window != nil)
+     }
+   }
+ 

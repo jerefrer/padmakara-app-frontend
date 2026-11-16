@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { MiniPlayer } from '@/components/MiniPlayer';
@@ -37,6 +38,7 @@ jest.mock('react-native-safe-area-context', () => ({
 const baseContext = {
   currentTrack: { id: 't1', title: 'Track 1' },
   isPlaying: true,
+  listeningStarted: true,
   retreatId: '42',
   retreatName: 'Spring 2026',
   groupName: 'Lisboa',
@@ -59,6 +61,13 @@ beforeEach(() => {
 describe('MiniPlayer — visibility', () => {
   it('renders nothing when there is no current track', () => {
     mockAudioContext = { ...baseContext, currentTrack: null };
+    const { queryByLabelText } = renderMiniPlayer();
+    expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
+  });
+
+  it('should render nothing for a track that was loaded but never played', () => {
+    // An event screen loads its last track paused; that alone is not listening.
+    mockAudioContext = { ...baseContext, isPlaying: false, listeningStarted: false };
     const { queryByLabelText } = renderMiniPlayer();
     expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
   });
@@ -116,6 +125,27 @@ describe('MiniPlayer — content', () => {
     const { getByText, queryByText } = renderMiniPlayer();
     expect(getByText('Spring 2026')).toBeTruthy();
     expect(queryByText('Lisboa · Spring 2026')).toBeNull();
+  });
+});
+
+describe('MiniPlayer — progress line', () => {
+  // André: the red line along the top was always full width.
+  it('should draw the red line as far as the track has played', () => {
+    mockAudioContext = { ...baseContext, position: 30, duration: 120 };
+    const { getByTestId } = renderMiniPlayer();
+    expect(StyleSheet.flatten(getByTestId('miniplayer-progress').props.style).width).toBe('25%');
+  });
+
+  it('should keep the line where the track stopped while paused', () => {
+    mockAudioContext = { ...baseContext, isPlaying: false, position: 90, duration: 120 };
+    const { getByTestId } = renderMiniPlayer();
+    expect(StyleSheet.flatten(getByTestId('miniplayer-progress').props.style).width).toBe('75%');
+  });
+
+  it('should draw no line while the duration is unknown', () => {
+    mockAudioContext = { ...baseContext, position: 30, duration: 0 };
+    const { queryByTestId } = renderMiniPlayer();
+    expect(queryByTestId('miniplayer-progress')).toBeNull();
   });
 });
 

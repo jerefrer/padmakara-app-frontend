@@ -20,6 +20,7 @@ function audio(overrides: Record<string, unknown> = {}) {
   return {
     currentTrack: { id: '1', title: 'Verse 78' },
     isPlaying: true,
+    listeningStarted: true,
     retreatId: '920',
     retreatName: 'Shantideva',
     groupName: null,

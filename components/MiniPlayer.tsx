@@ -37,8 +37,9 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
  */
 export function usePlayerBarAboveTabBar(): boolean {
   const pathname = usePathname();
-  const { currentTrack, isPlaying, retreatId, inlinePlayerVisible } = useAudioPlayerContext();
-  return inlinePlayerVisible || isMiniPlayerShown(pathname, !!currentTrack, isPlaying, retreatId, inlinePlayerVisible);
+  const { currentTrack, isPlaying, listeningStarted, retreatId, inlinePlayerVisible } = useAudioPlayerContext();
+  return inlinePlayerVisible
+    || isMiniPlayerShown(pathname, !!currentTrack && listeningStarted, isPlaying, retreatId, inlinePlayerVisible);
 }
 
 /** Gap kept between the end of a list and the bars floating over it. */
@@ -56,12 +57,14 @@ export function useBottomBarsSpace(): number {
 
 function isMiniPlayerShown(
   pathname: string,
-  hasTrack: boolean,
+  // A track the person has played since the player was last closed: one an
+  // event screen only loaded, paused, does not bring the bar up.
+  hasListenedTrack: boolean,
   isPlaying: boolean,
   retreatId: string | null,
   inlinePlayerVisible: boolean,
 ): boolean {
-  if (!hasTrack) return false;
+  if (!hasListenedTrack) return false;
   // On the owning event screen the inline player already covers playback. When
   // that screen shows another tab (Videos, Documents) there is no player, so
   // the mini-player steps in, but only while audio is playing: a paused
@@ -76,6 +79,9 @@ export function MiniPlayer() {
   const {
     currentTrack,
     isPlaying,
+    listeningStarted,
+    position,
+    duration,
     retreatId,
     retreatName,
     groupName,
@@ -85,9 +91,11 @@ export function MiniPlayer() {
   } = useAudioPlayerContext();
 
   if (!currentTrack) return null;
-  if (!isMiniPlayerShown(pathname, true, isPlaying, retreatId, inlinePlayerVisible)) return null;
+  if (!isMiniPlayerShown(pathname, listeningStarted, isPlaying, retreatId, inlinePlayerVisible)) return null;
 
   const subtitle = makeSubtitle(groupName, retreatName);
+  // Share of the track played, for the red line along the top edge.
+  const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : null;
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');
 
   const handleOpenSession = () => {
@@ -99,9 +107,13 @@ export function MiniPlayer() {
   };
 
   return (
-    // While playing, moving bars and a burgundy rule say that sound is still
-    // coming from here: a still note read as a leftover from earlier.
-    <View style={[styles.wrapper, isPlaying && styles.wrapperPlaying, { bottom: tabBarHeight }]}>
+    // While playing, moving bars say that sound is still coming from here: a
+    // still note read as a leftover from earlier. The burgundy line along the
+    // top shows how far the track has played, paused or not.
+    <View style={[styles.wrapper, { bottom: tabBarHeight }]}>
+      {progress !== null ? (
+        <View testID="miniplayer-progress" style={[styles.progress, { width: `${progress * 100}%` }]} />
+      ) : null}
       <Pressable
         style={styles.surface}
         onPress={handleOpenSession}
@@ -174,9 +186,12 @@ const styles = StyleSheet.create({
     ...BAR_TOP_SHADOW,
     zIndex: 50,
   },
-  wrapperPlaying: {
-    borderTopWidth: 2,
-    borderTopColor: BURGUNDY,
+  progress: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 2,
+    backgroundColor: BURGUNDY,
   },
   surface: {
     flex: 1,

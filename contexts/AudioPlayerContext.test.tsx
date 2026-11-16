@@ -1492,3 +1492,63 @@ describe('AudioPlayerContext — audio and video never play together', () => {
     expect(result.current.isPlaying).toBe(false);
   });
 });
+
+describe('AudioPlayerContext — mini player follows what the person played', () => {
+  it('should not count a track as listened to when it is only loaded', async () => {
+    const { result } = renderPlayer();
+    const t = makeTrack({ id: 'tPreview', duration: 600 });
+
+    act(() => { __setDuration(600); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tPreview');
+    expect(result.current.listeningStarted).toBe(false);
+  });
+
+  it('should count a track as listened to once it plays, and keep it while paused', async () => {
+    const { result } = renderPlayer();
+    const t = makeTrack({ id: 'tHeard', duration: 600 });
+    act(() => { __setDuration(600); result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+
+    act(() => { __setPlaying(true); });
+    act(() => { result.current.pause(); });
+
+    expect(result.current.listeningStarted).toBe(true);
+  });
+
+  it('should stay closed when another track is loaded after the person closed the player', async () => {
+    const { result } = renderPlayer();
+    const tA = makeTrack({ id: 'tClosed', duration: 600 });
+    const tB = makeTrack({ id: 'tNextPage', duration: 600 });
+    act(() => { __setDuration(600); result.current.playTrack(tA, [tA], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+
+    act(() => { result.current.clearTrack(); });
+    act(() => { result.current.playTrack(tB, [tB], 0); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tNextPage');
+    expect(result.current.listeningStarted).toBe(false);
+  });
+});
+
+describe('AudioPlayerContext — closing drops the intent to play', () => {
+  it('should not start the next track by itself after closing one whose play was still pending', async () => {
+    const { result } = renderPlayer();
+    const tA = makeTrack({ id: 'tStillLoading', duration: 600 });
+    const tB = makeTrack({ id: 'tLoadedLater', duration: 600 });
+    // Play is tapped while the track is still loading, then the player is closed.
+    act(() => { result.current.playTrack(tA, [tA], 0, undefined, { autoPlay: true }); });
+    act(() => { result.current.clearTrack(); });
+    expect(result.current.isPlaying).toBe(false);
+
+    // An event screen then loads its track without asking for playback.
+    act(() => { __setDuration(600); result.current.playTrack(tB, [tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tLoadedLater');
+    expect(result.current.isPlaying).toBe(false);
+  });
+});

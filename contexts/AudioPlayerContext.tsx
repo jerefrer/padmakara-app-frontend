@@ -100,6 +100,11 @@ export interface AudioPlayerContextType {
   // stays out of the way then; otherwise it covers the owning event screen
   // only while audio is actually playing (see components/MiniPlayer.tsx).
   inlinePlayerVisible: boolean;
+  // True once the loaded audio has played since it was last closed. An event
+  // screen loads its last track paused, as a preview; the MiniPlayer only
+  // follows the person around for audio they actually listened to, and a
+  // closed player stays closed until something plays again.
+  listeningStarted: boolean;
   // True while a video is playing. Audio and video never play together: the
   // video player reports its state through setVideoPlaying, and starting a
   // video pauses the audio. Audio starting while a video plays is handled by
@@ -337,6 +342,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // mirror would still hold the previous render's value at that point.
   isPlayingRef.current = isPlaying;
   phaseRef.current = phase;
+
+  // Adjusted during render rather than from an effect, so the MiniPlayer never
+  // draws one frame with a stale value. Closing (or signing out) drops the
+  // track, which ends the listening.
+  const [listeningStarted, setListeningStarted] = useState(false);
+  if (track && isPlaying && !listeningStarted) setListeningStarted(true);
+  if (!track && listeningStarted) setListeningStarted(false);
 
   // Detect a stale status snapshot from a previous player. expo-audio's
   // `useEvent` hook (from `expo`) uses `useState(initialValue)` — useState
@@ -707,6 +719,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       seekToTargetDoneRef.current = null;
       audioSourceTrackIdRef.current = null;
       autoPlayOnLoadRef.current = false;
+      // A play tapped while the closed track was loading must not survive it:
+      // it kept isPlaying true with no track, and the next track an event
+      // screen loaded inherited it and started by itself.
+      setPendingPlay(false);
       setAudioSource(null);
       setPhase('idle');
       setTargetPosition(0);
@@ -1326,6 +1342,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     idleTrack,
     player: track ? player : null,
     inlinePlayerVisible,
+    listeningStarted,
     videoPlaying,
 
     playTrack,
@@ -1360,7 +1377,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     track, isPlaying, position, duration, playbackSpeed, isLoading, phase,
     trackListState, currentTrackIndex, metaRetreatId, metaRetreatName, metaGroupName,
     isPlayButtonDisabled, hasNextTrack, hasPreviousTrack,
-    canOpenReadAlong, trackBookmark, languageControl, idleTrack, player, inlinePlayerVisible, videoPlaying,
+    canOpenReadAlong, trackBookmark, languageControl, idleTrack, player, inlinePlayerVisible, listeningStarted, videoPlaying,
     playTrack, resumeLastPlayed, clearTrack, togglePlayPause, pause, seekTo,
     skipForward, skipBackward, nextTrackAction, previousTrackAction,
     openReadAlong,
