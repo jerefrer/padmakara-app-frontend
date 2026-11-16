@@ -15,6 +15,9 @@ jest.mock('@/services/tokenStorage', () => ({
   getPendingDeactivationRaw: jest.fn(),
   setPendingDeactivationRaw: jest.fn(),
   deletePendingDeactivation: jest.fn(),
+  getDeviceFingerprint: jest.fn().mockResolvedValue('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8'),
+  setDeviceFingerprint: jest.fn().mockResolvedValue(undefined),
+  deleteDeviceFingerprint: jest.fn().mockResolvedValue(undefined),
 }));
 
 const post = (apiService as any).post as jest.Mock;

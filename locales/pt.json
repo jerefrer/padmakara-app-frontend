@@ -111,7 +111,8 @@
       "codeIncorrect": "Código incorreto",
       "signedIn": "Sessão iniciada.",
       "close": "Fechar",
-      "stayHere": "Continua nesta página."
+      "stayHere": "Continua nesta página.",
+      "deviceStorage": "Não foi possível iniciar sessão neste dispositivo, porque ele não deixou a aplicação guardar a sua sessão em segurança. Feche a aplicação, abra-a de novo e tente outra vez. Se continuar a não funcionar, contacte-nos."
     },
     "welcomeBack": "Bem-vindo de Volta",
     "signInToContinue": "Por favor, faz login para continuar",

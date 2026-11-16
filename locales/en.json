@@ -111,7 +111,8 @@
       "codeIncorrect": "Incorrect code",
       "signedIn": "You are signed in.",
       "close": "Close",
-      "stayHere": "You stay on this page."
+      "stayHere": "You stay on this page.",
+      "deviceStorage": "We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us."
     },
     "welcomeBack": "Welcome Back",
     "signInToContinue": "Please sign in to continue",

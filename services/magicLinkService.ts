@@ -14,6 +14,10 @@ import {
   deleteAuthToken,
   deleteRefreshToken,
 } from './tokenStorage';
+import {
+  DeviceFingerprintUnavailableError,
+  getOrCreateDeviceFingerprint,
+} from './deviceFingerprint';
 
 /** What the server needs to deactivate a device once local credentials are gone. */
 export interface DeviceDeactivation {
@@ -29,6 +33,17 @@ interface DeviceInfo {
   name: string;
   type: string;
 }
+
+/** Set on a failed sign-in when this device cannot create or keep its fingerprint. */
+interface DeviceUnavailable {
+  deviceUnavailable?: boolean;
+}
+
+const DEVICE_UNAVAILABLE = {
+  success: false as const,
+  error: 'This device cannot keep a sign-in safely.',
+  deviceUnavailable: true,
+};
 
 interface MagicLinkResponse {
   status: 'magic_link_sent' | 'already_activated' | 'code_required';
@@ -49,46 +64,6 @@ class MagicLinkService {
       MagicLinkService.instance = new MagicLinkService();
     }
     return MagicLinkService.instance;
-  }
-
-  /**
-   * React Native compatible base64 encoding
-   */
-  private encodeBase64(str: string): string {
-    try {
-      // For React Native/Expo, we can use btoa if available (web)
-      if (typeof btoa !== 'undefined') {
-        return btoa(str);
-      }
-      
-      // Fallback for environments without btoa
-      // Simple base64 encoding for React Native
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-      let result = '';
-      let i = 0;
-      
-      while (i < str.length) {
-        const a = str.charCodeAt(i++);
-        const b = i < str.length ? str.charCodeAt(i++) : 0;
-        const c = i < str.length ? str.charCodeAt(i++) : 0;
-        
-        const bitmap = (a << 16) | (b << 8) | c;
-        
-        result += chars.charAt((bitmap >> 18) & 63);
-        result += chars.charAt((bitmap >> 12) & 63);
-        result += i - 2 < str.length ? chars.charAt((bitmap >> 6) & 63) : '=';
-        result += i - 1 < str.length ? chars.charAt(bitmap & 63) : '=';
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error encoding base64:', error);
-      // Fallback to simple string hash
-      return str.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0).toString(36);
-    }
   }
 
   // Safe AsyncStorage operations with error handling
@@ -130,53 +105,11 @@ class MagicLinkService {
   }
 
   /**
-   * Generate a unique device fingerprint with enhanced error handling
-   */
-  private async generateDeviceFingerprint(): Promise<string> {
-    try {
-      console.log('📱 Generating device fingerprint...');
-      let fingerprint = await this.safeGetItem('device_fingerprint');
-      
-      if (!fingerprint) {
-        // Create unique fingerprint combining device info
-        const deviceInfo = {
-          platform: Platform.OS,
-          brand: Device.brand || 'unknown',
-          modelName: Device.modelName || 'unknown',
-          osVersion: Device.osVersion || 'unknown',
-          timestamp: Date.now(),
-          random: Math.random().toString(36).substring(2)
-        };
-        
-        fingerprint = this.encodeBase64(JSON.stringify(deviceInfo));
-        const saved = await this.safeSetItem('device_fingerprint', fingerprint);
-        
-        if (!saved) {
-          console.warn('Failed to save device fingerprint, using session-only fingerprint');
-          // Use a session-only fingerprint that doesn't persist
-          fingerprint = `session-${this.encodeBase64(JSON.stringify(deviceInfo))}`;
-        }
-        
-        console.log('📱 Generated new device fingerprint');
-      } else {
-        console.log('📱 Using existing device fingerprint');
-      }
-      
-      return fingerprint;
-    } catch (error) {
-      console.error('Error generating device fingerprint:', error);
-      // Fallback fingerprint
-      const fallback = `${Platform.OS}-${Date.now()}-${Math.random().toString(36)}`;
-      console.log('📱 Using fallback fingerprint');
-      return fallback;
-    }
-  }
-
-  /**
    * Get device information for API calls
    */
   async getDeviceInfo(): Promise<DeviceInfo> {
-    const fingerprint = await this.generateDeviceFingerprint();
+    // Throws DeviceFingerprintUnavailableError: there is no weaker fallback.
+    const fingerprint = await getOrCreateDeviceFingerprint();
     
     // Generate friendly device name
     let deviceName = 'Unknown Device';
@@ -198,7 +131,10 @@ class MagicLinkService {
   /**
    * Step 1: Request magic link via email
    */
-  async requestMagicLink(email: string, language: string = 'en'): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string }> {
+  async requestMagicLink(
+    email: string,
+    language: string = 'en',
+  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string } & DeviceUnavailable> {
     try {
       console.log('Requesting magic link in language:', language);
       
@@ -226,6 +162,7 @@ class MagicLinkService {
 
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error requesting magic link:', error);
       
       
@@ -260,7 +197,7 @@ class MagicLinkService {
   async reviewLogin(
     email: string,
     code: string,
-  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean }> {
+  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean } & DeviceUnavailable> {
     try {
       const deviceInfo = await this.getDeviceInfo();
       const response = await apiService.post<MagicLinkResponse>(API_ENDPOINTS.REVIEW_LOGIN, {
@@ -282,6 +219,7 @@ class MagicLinkService {
       }
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error signing in with review code:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }
@@ -294,7 +232,9 @@ class MagicLinkService {
   async verifyEmailCode(
     email: string,
     code: string,
-  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean; network?: boolean }> {
+  ): Promise<
+    { success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean; network?: boolean } & DeviceUnavailable
+  > {
     try {
       const deviceInfo = await this.getDeviceInfo();
       const response = await apiService.post<MagicLinkResponse>(API_ENDPOINTS.VERIFY_CODE, {
@@ -318,6 +258,7 @@ class MagicLinkService {
       }
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error signing in with email code:', error);
       return { success: false, error: 'Network error. Please try again.', network: true };
     }
@@ -388,7 +329,7 @@ class MagicLinkService {
    */
   async captureDeviceDeactivation(): Promise<DeviceDeactivation> {
     const [fingerprint, accessToken, refreshToken] = await Promise.all([
-      this.generateDeviceFingerprint(),
+      getOrCreateDeviceFingerprint(),
       getAuthToken().catch(() => null),
       getRefreshToken().catch(() => null),
     ]);
@@ -722,6 +663,7 @@ class MagicLinkService {
 
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error auto-activating device:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }

@@ -14,6 +14,10 @@
  *   - expo-secure-store is unavailable; we keep using AsyncStorage
  *     (= localStorage under the hood), unchanged from before.
  *
+ * The device fingerprint (see deviceFingerprint.ts) is a bearer secret too and
+ * lives here under its own key, with strict helpers: unlike the tokens, a
+ * storage failure is reported to the caller instead of being read as "absent".
+ *
  * All other keys (user_data, device_activated, cache data, …) are NOT touched
  * by this module and remain in AsyncStorage as before.
  */
@@ -21,13 +25,14 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Lazy-import SecureStore so the module tree-shakes cleanly on web.
-// We only reference it on native paths guarded by Platform.OS checks.
+// Load SecureStore lazily; it is only referenced on native paths guarded by
+// Platform.OS checks. A plain require instead of `await import()` keeps the
+// call compilable to CommonJS under Jest, which has no dynamic-import support.
 let SecureStore: typeof import('expo-secure-store') | null = null;
 
 async function getSecureStore(): Promise<typeof import('expo-secure-store')> {
   if (SecureStore === null) {
-    SecureStore = await import('expo-secure-store');
+    SecureStore = require('expo-secure-store') as typeof import('expo-secure-store');
   }
   return SecureStore;
 }
@@ -180,4 +185,39 @@ export async function deletePendingDeactivation(): Promise<void> {
   return Platform.OS === 'web'
     ? webDelete(PENDING_DEACTIVATION_KEY)
     : nativeDelete(PENDING_DEACTIVATION_KEY);
+}
+
+// ─── Device fingerprint ──────────────────────────────────────────────────────
+// A new key, deliberately not 'device_fingerprint': nativeGet() would otherwise
+// copy the weak legacy value from AsyncStorage into SecureStore as if it were
+// the new one. The legacy key is migrated separately (magicLinkService).
+// These helpers throw on any storage failure: a fingerprint that cannot be
+// read or kept must fail the sign-in, never be silently replaced.
+
+const DEVICE_FINGERPRINT_KEY = 'device_fingerprint_v2';
+
+export async function getDeviceFingerprint(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return AsyncStorage.getItem(DEVICE_FINGERPRINT_KEY);
+  }
+  const ss = await getSecureStore();
+  return ss.getItemAsync(DEVICE_FINGERPRINT_KEY);
+}
+
+export async function setDeviceFingerprint(value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.setItem(DEVICE_FINGERPRINT_KEY, value);
+    return;
+  }
+  const ss = await getSecureStore();
+  await ss.setItemAsync(DEVICE_FINGERPRINT_KEY, value);
+}
+
+export async function deleteDeviceFingerprint(): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.removeItem(DEVICE_FINGERPRINT_KEY);
+    return;
+  }
+  const ss = await getSecureStore();
+  await ss.deleteItemAsync(DEVICE_FINGERPRINT_KEY);
 }

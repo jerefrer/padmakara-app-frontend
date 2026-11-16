@@ -207,7 +207,9 @@ export default function CheckEmailScreen() {
       } else {
         Alert.alert(
           t('auth.magicLink.errorTitle'),
-          result.error || t('auth.magicLink.checkEmail.resendFailed')
+          result.deviceUnavailable
+            ? t('auth.signInPanel.deviceStorage') || 'We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us.'
+            : result.error || t('auth.magicLink.checkEmail.resendFailed')
         );
       }
     } catch (error) {
