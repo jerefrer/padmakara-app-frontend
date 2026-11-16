@@ -298,19 +298,28 @@ eas submit --platform android
 ### Web Deployment
 
 The web app is served by Caddy from `~/padmakara-app/dist` on `admin.padmakara.pt`
-(`app.padmakara.pt`). Deploy on the server, one step at a time:
+(`app.padmakara.pt`). Deploy from the Mac, with main pushed and a clean checkout:
 
 ```bash
-cd ~/padmakara-app && git pull --ff-only
-npm install --no-audit --no-fund
-npm run export:web
+npm run deploy:web
 ```
 
-`npm run export:web` (`scripts/export-web.sh`) exports with source maps, uploads them
-to Sentry (org `padmakarapt`, project `react-native`) and deletes the `.map` files from
-`dist/`. The upload needs `SENTRY_AUTH_TOKEN=<organization token>` in
-`~/padmakara-app/.env.local` (gitignored); without it the build still succeeds and the
-upload is skipped with a warning.
+`scripts/deploy-web.sh` builds on the Mac (about a minute) instead of the server,
+whose 2 cores are shared with the API (an export there takes about 5 minutes of full
+CPU). It refuses to run unless the checkout is clean and at `origin/main`, brings the
+server's checkout to the same commit, builds into `dist-next/`, copies it to the
+server and runs `scripts/publish-web.sh` there. Publishing uploads the source maps to
+Sentry (org `padmakarapt`, project `react-native`), deletes the `.map` files, carries
+over the previous builds' hashed scripts and swaps `dist-next/` in place of `dist/`.
+The upload needs `SENTRY_AUTH_TOKEN=<organization token>` in
+`~/padmakara-app/.env.local` on the server (gitignored); without it the site is still
+published and the upload is skipped with a warning.
+
+If a dependency changed, run `npm install --no-audit --no-fund` in the server's
+checkout too: publishing runs the Sentry tool from its `node_modules`.
+
+Fallback, building on the server itself: `cd ~/padmakara-app && git pull --ff-only &&
+npm run export:web` (`scripts/export-web.sh` = build + `scripts/publish-web.sh`).
 
 ## Database Setup
 
