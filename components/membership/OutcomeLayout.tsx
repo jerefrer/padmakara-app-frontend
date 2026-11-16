@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: c.cream[100] },
   screen: { flex: 1, backgroundColor: c.cream[100], justifyContent: 'center', padding: 24 },
   card: { width: '100%', maxWidth: 480, alignSelf: 'center', alignItems: 'center', gap: 16 },
-  title: { fontSize: 26, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800], textAlign: 'center' },
+  title: { fontSize: 26, fontFamily: fonts.display, color: c.gray[800], textAlign: 'center' },
   body: { ...pageStyles.body, color: c.gray[600], textAlign: 'center' },
   primary: { ...pageStyles.button, alignSelf: 'center' },
   primaryPressed: pageStyles.buttonPressed,

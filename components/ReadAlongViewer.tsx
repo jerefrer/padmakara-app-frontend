@@ -706,7 +706,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '600',
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.burgundy[500],
   },

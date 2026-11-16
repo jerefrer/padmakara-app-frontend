@@ -114,7 +114,7 @@ function LockHeading({ children }: { children: string }) {
 const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 24, gap: 10 },
   hero: { width: '100%', height: 180, borderRadius: 12, backgroundColor: c.gray[100] },
-  title: { fontSize: 28, fontFamily: fonts.display, fontWeight: '600', color: c.burgundy[500], marginTop: 6 },
+  title: { fontSize: 28, fontFamily: fonts.display, color: c.burgundy[500], marginTop: 6 },
   meta: { fontSize: 15, color: c.gray[600] },
   lock: { marginTop: 12, gap: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.gray[200] },
   lockHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -130,6 +130,6 @@ const styles = StyleSheet.create({
     backgroundColor: c.white,
   },
   ghostPressed: { backgroundColor: c.gray[100] },
-  ghostText: { color: c.burgundy[500], fontSize: 16, fontWeight: '600', fontFamily: fonts.display },
+  ghostText: { color: c.burgundy[500], fontSize: 16, fontFamily: fonts.display },
   link: { color: c.burgundy[500], fontSize: 15, textDecorationLine: 'underline' },
 });

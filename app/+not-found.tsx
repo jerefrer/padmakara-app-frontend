@@ -38,7 +38,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontFamily: 'EBGaramond_600SemiBold',
-    fontWeight: '600',
     color: colors.gray[600],
   },
   link: {
