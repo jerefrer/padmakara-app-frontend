@@ -644,56 +644,6 @@ class MagicLinkService {
     }
   }
 
-  /**
-   * Auto-activate device using short-lived auto-activation token
-   */
-  async autoActivateDevice(token: string): Promise<{ success: boolean; data?: any; error?: string }> {
-    try {
-      console.log('Auto-activating device with token');
-      
-      const deviceInfo = await this.getDeviceInfo();
-      
-      const response = await apiService.post<any>(API_ENDPOINTS.AUTO_ACTIVATE_DEVICE, {
-        token: token,
-        device_fingerprint: deviceInfo.fingerprint,
-        device_name: deviceInfo.name,
-        device_type: deviceInfo.type
-      });
-
-      if (!response.success || !response.data) {
-        return { 
-          success: false, 
-          error: response.error || 'Failed to auto-activate device' 
-        };
-      }
-
-      // Store tokens if auto-activation successful
-      if (response.data.access_token) {
-        try {
-          // auth_token and refresh_token go to SecureStore on native.
-          await setAuthToken(response.data.access_token);
-          await setRefreshToken(response.data.refresh_token || '');
-          const metaResults = await Promise.all([
-            this.safeSetItem('user_data', JSON.stringify(response.data.user)),
-            this.safeSetItem('device_activated', 'true'),
-            this.safeSetItem('activation_date', new Date().toISOString())
-          ]);
-          if (!metaResults.every(result => result)) {
-            console.warn('Some auto-activation metadata failed to save to AsyncStorage');
-          }
-        } catch (storeError) {
-          console.warn('Some auto-activation tokens failed to save to secure storage', storeError);
-        }
-      }
-
-      return { success: true, data: response.data };
-    } catch (error) {
-      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
-      console.error('Error auto-activating device:', error);
-      return { success: false, error: 'Network error. Please try again.' };
-    }
-  }
-
   /** Delete this device's fingerprint (sign-out paths that keep the activation flags). */
   async forgetDeviceFingerprint(): Promise<void> {
     await forgetDeviceFingerprint();

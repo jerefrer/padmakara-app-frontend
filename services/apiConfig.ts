@@ -19,7 +19,6 @@ export const API_ENDPOINTS = {
   REQUEST_MAGIC_LINK: '/auth/request-magic-link',
   REVIEW_LOGIN: '/auth/review-login',
   VERIFY_CODE: '/auth/verify-code',
-  AUTO_ACTIVATE_DEVICE: '/auth/auto-activate',
   DISCOVER_DEVICE_ACTIVATION: '/auth/device/discover',
   DEACTIVATE_DEVICE: '/auth/device/deactivate',
   ROTATE_DEVICE_FINGERPRINT: '/auth/device/rotate',
