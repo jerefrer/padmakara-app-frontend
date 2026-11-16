@@ -315,14 +315,11 @@ class MagicLinkService {
         this.getDeviceInfo()
       ]);
       
-      const result = {
+      return {
         isActivated,
         activationDate: activationDate || undefined,
         deviceInfo
       };
-      
-      console.log('📱 Device activation info:', result);
-      return result;
     } catch (error) {
       console.error('Error getting activation info:', error);
       return { isActivated: false };
@@ -538,7 +535,6 @@ class MagicLinkService {
         user?: any;
         device?: {
           activated_at?: string;
-          device_fingerprint?: string;
           device_name?: string;
           user_name?: string;
           is_active?: boolean;
@@ -548,8 +544,6 @@ class MagicLinkService {
       });
 
       if (response.success && response.data) {
-        console.log('✅ Device discovery check successful:', response.data);
-        
         const isActivated = response.data.status === 'activated';
         
         if (isActivated && response.data.access_token) {
