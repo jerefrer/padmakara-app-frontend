@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 19, color: c.burgundy[500], fontFamily: fonts.display },
   identityText: { flex: 1, minWidth: 0 },
-  identityName: { fontSize: 17, fontWeight: '600', color: c.gray[800], fontFamily: fonts.display },
+  identityName: { fontSize: 17, color: c.gray[800], fontFamily: fonts.display },
   identityEmail: { fontSize: 14, color: c.gray[500], marginTop: 2 },
   twoPane: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 42, paddingHorizontal: 32, paddingBottom: 100, gap: 32 },
   nav: { width: 260, flexShrink: 0, gap: 2 },

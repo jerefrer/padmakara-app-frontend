@@ -441,7 +441,6 @@ const styles = StyleSheet.create({
   },
   biometricTitle: {
     fontSize: 18,
-    fontWeight: '700',
     fontFamily: 'EBGaramond_700Bold',
     color: colors.gray[700],
     marginLeft: 8,

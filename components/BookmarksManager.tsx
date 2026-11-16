@@ -273,7 +273,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     fontFamily: 'EBGaramond_700Bold',
     color: colors.burgundy[500],
   },
@@ -351,7 +350,6 @@ const styles = StyleSheet.create({
   },
   addModalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     fontFamily: 'EBGaramond_700Bold',
     color: colors.burgundy[500],
     marginBottom: 8,

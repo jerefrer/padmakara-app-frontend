@@ -2828,8 +2828,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   currentTrackTitle: {
-    // Highlighted by colour only, no bold (André).
+    // The bold comes from the font file. Never add fontWeight here: on the web
+    // each font file is its own family, so the browser would fake an extra bold
+    // on top of the already bold face and the title turns fuzzy.
     color: colors.burgundy[600],
+    fontFamily: 'EBGaramond_600SemiBold',
   },
   trackSubtitleRow: {
     flexDirection: 'row',

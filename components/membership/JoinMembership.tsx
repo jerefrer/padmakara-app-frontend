@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     marginBottom: space.tight,
   },
   summary: { marginTop: space.block, fontSize: 14, lineHeight: 21, color: c.gray[600] },
-  summaryBig: { fontSize: 19, fontFamily: fonts.display, fontWeight: '600', color: c.gray[800] },
+  summaryBig: { fontSize: 19, fontFamily: fonts.display, color: c.gray[800] },
   button: {
     marginTop: space.action,
     alignSelf: 'flex-start',
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   },
   buttonPressed: { backgroundColor: c.burgundy[600] },
   buttonOff: { backgroundColor: c.gray[300] },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: '600', fontFamily: 'EBGaramond_600SemiBold' },
+  buttonText: { color: 'white', fontSize: 16, fontFamily: 'EBGaramond_600SemiBold' },
   error: { marginTop: space.fine, fontSize: 14, color: c.red[700] },
   fine: { marginTop: space.fine, fontSize: 13, color: c.gray[500], lineHeight: 19 },
   link: { color: c.burgundy[500], textDecorationLine: 'underline' },

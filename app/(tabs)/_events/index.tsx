@@ -626,7 +626,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '600',
     fontFamily: 'EBGaramond_600SemiBold',
     color: colors.gray[800],
     marginBottom: 8,

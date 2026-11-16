@@ -49,6 +49,6 @@ export const pageStyles = StyleSheet.create({
     borderRadius: 2,
   },
   buttonPressed: { backgroundColor: c.burgundy[600] },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: '600', fontFamily: 'EBGaramond_600SemiBold' },
+  buttonText: { color: 'white', fontSize: 16, fontFamily: 'EBGaramond_600SemiBold' },
   link: { color: c.burgundy[500], fontSize: 16, fontFamily: fonts.display },
 });
