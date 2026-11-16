@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { MiniPlayer } from '@/components/MiniPlayer';
@@ -124,6 +125,27 @@ describe('MiniPlayer — content', () => {
     const { getByText, queryByText } = renderMiniPlayer();
     expect(getByText('Spring 2026')).toBeTruthy();
     expect(queryByText('Lisboa · Spring 2026')).toBeNull();
+  });
+});
+
+describe('MiniPlayer — progress line', () => {
+  // André: the red line along the top was always full width.
+  it('should draw the red line as far as the track has played', () => {
+    mockAudioContext = { ...baseContext, position: 30, duration: 120 };
+    const { getByTestId } = renderMiniPlayer();
+    expect(StyleSheet.flatten(getByTestId('miniplayer-progress').props.style).width).toBe('25%');
+  });
+
+  it('should keep the line where the track stopped while paused', () => {
+    mockAudioContext = { ...baseContext, isPlaying: false, position: 90, duration: 120 };
+    const { getByTestId } = renderMiniPlayer();
+    expect(StyleSheet.flatten(getByTestId('miniplayer-progress').props.style).width).toBe('75%');
+  });
+
+  it('should draw no line while the duration is unknown', () => {
+    mockAudioContext = { ...baseContext, position: 30, duration: 0 };
+    const { queryByTestId } = renderMiniPlayer();
+    expect(queryByTestId('miniplayer-progress')).toBeNull();
   });
 });
 

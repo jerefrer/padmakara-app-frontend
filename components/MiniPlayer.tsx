@@ -80,6 +80,8 @@ export function MiniPlayer() {
     currentTrack,
     isPlaying,
     listeningStarted,
+    position,
+    duration,
     retreatId,
     retreatName,
     groupName,
@@ -92,6 +94,8 @@ export function MiniPlayer() {
   if (!isMiniPlayerShown(pathname, listeningStarted, isPlaying, retreatId, inlinePlayerVisible)) return null;
 
   const subtitle = makeSubtitle(groupName, retreatName);
+  // Share of the track played, for the red line along the top edge.
+  const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : null;
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');
 
   const handleOpenSession = () => {
@@ -103,9 +107,13 @@ export function MiniPlayer() {
   };
 
   return (
-    // While playing, moving bars and a burgundy rule say that sound is still
-    // coming from here: a still note read as a leftover from earlier.
-    <View style={[styles.wrapper, isPlaying && styles.wrapperPlaying, { bottom: tabBarHeight }]}>
+    // While playing, moving bars say that sound is still coming from here: a
+    // still note read as a leftover from earlier. The burgundy line along the
+    // top shows how far the track has played, paused or not.
+    <View style={[styles.wrapper, { bottom: tabBarHeight }]}>
+      {progress !== null ? (
+        <View testID="miniplayer-progress" style={[styles.progress, { width: `${progress * 100}%` }]} />
+      ) : null}
       <Pressable
         style={styles.surface}
         onPress={handleOpenSession}
@@ -178,9 +186,12 @@ const styles = StyleSheet.create({
     ...BAR_TOP_SHADOW,
     zIndex: 50,
   },
-  wrapperPlaying: {
-    borderTopWidth: 2,
-    borderTopColor: BURGUNDY,
+  progress: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 2,
+    backgroundColor: BURGUNDY,
   },
   surface: {
     flex: 1,
