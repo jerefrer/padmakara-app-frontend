@@ -670,6 +670,7 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
 // ─── Cross-device sync (matrix G) ─────────────────────────────────────
 
 import apiService from '@/services/apiService';
+import retreatService from '@/services/retreatService';
 
 const apiGet = apiService.get as jest.Mock;
 const apiPost = apiService.post as jest.Mock;
@@ -1248,6 +1249,49 @@ describe('AudioPlayerContext — load safety timer', () => {
     act(() => { jest.advanceTimersByTime(15000); });
     expect(result.current.isLoading).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[SAFETY]'));
+    warn.mockRestore();
+  });
+
+  it('should not play the previous track\'s audio when the next one never loads', async () => {
+    const tA = makeTrack({ id: 'nA', duration: 100 });
+    const tB = makeTrack({ id: 'nB', duration: 100 });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderPlayer();
+    act(() => { __setDuration(100); result.current.playTrack(tA, [tA, tB], 0); });
+    await settle();
+    act(() => { __setPlaying(true); });
+
+    // B's stream address never arrives; the single native player still holds A.
+    (retreatService.getTrackStreamUrl as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+    act(() => { result.current.playTrack(tB, [tA, tB], 1); });
+    await settle();
+    expect(result.current.isPlaying).toBe(true);
+
+    act(() => { jest.advanceTimersByTime(15000); });
+    await settle();
+
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.playerState).toBe('idle');
+    warn.mockRestore();
+  });
+
+  it('should retry loading the track when play is tapped after it timed out', async () => {
+    const t = makeTrack({ id: 'nRetry', duration: 100 });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderPlayer();
+    (retreatService.getTrackStreamUrl as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+    act(() => { __setDuration(100); result.current.playTrack(t, [t], 0); });
+    await settle();
+    act(() => { jest.advanceTimersByTime(15000); });
+    await settle();
+    expect(result.current.playerState).toBe('idle');
+
+    act(() => { result.current.togglePlayPause(); });
+    await settle();
+
+    expect(result.current.playerState).toBe('ready');
+    expect(result.current.isPlaying).toBe(true);
     warn.mockRestore();
   });
 
