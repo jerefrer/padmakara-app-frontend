@@ -11,7 +11,7 @@ interface MockStatus {
   isLoaded: boolean;
 }
 
-interface MockPlayer {
+export interface MockPlayer {
   play: () => void;
   pause: () => void;
   // Production calls `await player.seekTo(...)` — must be async to match.

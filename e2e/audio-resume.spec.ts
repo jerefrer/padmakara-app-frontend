@@ -99,7 +99,7 @@ async function setupInstrumentation(page: Page) {
         });
         return a;
       };
-      Object.setPrototypeOf((window as Window).Audio, OrigAudio);
+      Object.setPrototypeOf(window.Audio, OrigAudio);
     },
     {
       trackAId: FIXTURE.trackA.id,
