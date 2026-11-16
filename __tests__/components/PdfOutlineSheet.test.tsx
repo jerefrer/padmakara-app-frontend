@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
@@ -7,6 +8,9 @@ jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
   return { Ionicons: (props: any) => <Text>{props.name}</Text> };
 });
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
 }));
@@ -52,6 +56,14 @@ describe('PdfOutlineSheet', () => {
 
     expect(onClose).toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('should keep the last entry clear of the home indicator', () => {
+    const { getByTestId } = render(
+      <PdfOutlineSheet visible items={items} currentPage={1} onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+
+    expect(StyleSheet.flatten(getByTestId('outline-sheet').props.style).paddingBottom).toBe(34);
   });
 
   it('should mark the section the reader is in', () => {

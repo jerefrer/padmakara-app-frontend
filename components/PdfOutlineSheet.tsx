@@ -1,6 +1,6 @@
 import React from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -31,6 +31,7 @@ function currentIndex(items: PdfOutlineItem[], page: number): number {
 export function PdfOutlineSheet({ visible, items, currentPage, onSelect, onClose }: PdfOutlineSheetProps) {
   const { t } = useLanguage();
   const active = currentIndex(items, currentPage);
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -50,7 +51,15 @@ export function PdfOutlineSheet({ visible, items, currentPage, onSelect, onClose
           accessible={false}
           importantForAccessibility="no"
         />
-        <SafeAreaView style={styles.sheet} edges={['bottom', 'left', 'right']}>
+        {/* Insets from the app's provider: SafeAreaView inside a transparent Modal
+            measures zero on iOS and let the last entry sit on the home indicator. */}
+        <View
+          testID="outline-sheet"
+          style={[
+            styles.sheet,
+            { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+          ]}
+        >
           <View style={styles.header}>
             <Text style={styles.title}>{t('pdfViewer.contents') || 'Contents'}</Text>
             <TouchableOpacity
@@ -94,7 +103,7 @@ export function PdfOutlineSheet({ visible, items, currentPage, onSelect, onClose
               );
             }}
           />
-        </SafeAreaView>
+        </View>
       </View>
     </Modal>
   );
