@@ -85,3 +85,22 @@ openssl, psql, bun), and the flows are iOS only. `ConfirmationModal` containers 
 **Revisit if:** the delay proves too short on slow devices, or Expo Router exposes a reliable "modal dismissed" signal.
 
 ---
+## 2026-11-16 — Patch expo-video so leaving Picture in Picture keeps the video playing
+**Chosen:** a `patch-package` patch on `expo-video` (`patches/expo-video+58.0.13.patch`). In
+`OrientationAVPlayerViewController.restoreUserInterfaceForPictureInPictureStop…`, the branch that
+does not re-enter fullscreen now answers `true` when the player's view is still in a window, instead
+of always `false`.
+**Alternatives:** `fullscreenOptions.keepFullscreenOnPiPStop: 'always'` (JS only, but it covers only
+PiP started from fullscreen, not from the inline player on the video page); resuming playback from
+JS on `onPictureInPictureStop` (treats the symptom, and the view is still not restored).
+**Why:** expo-video added this delegate method in April 2026 (expo/expo#44811, for
+`keepFullscreenOnPiPStop`). Before that, AVKit returned the video to the inline player by itself.
+Now every PiP that is not restored to fullscreen tells AVKit the app has no UI to return to, and
+André saw the video stop when he tapped to leave PiP. Upstream main still has the same code.
+**Trade-offs:** a native patch to carry, and it only takes effect while iOS builds compile Expo
+modules from source (`EXPO_USE_PRECOMPILED_MODULES` unset, as now). Checked only by typechecking the
+expression against the iOS SDK; the behaviour needs a device.
+**Revisit if:** expo-video changes this method (the patch then fails loudly on install), or the
+project turns on precompiled Expo modules.
+
+---
