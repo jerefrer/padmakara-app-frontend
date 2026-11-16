@@ -10,12 +10,17 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { installReadableStreamAsyncIterator } from '@/utils/readableStreamAsyncIterator';
+
+installReadableStreamAsyncIterator(typeof ReadableStream === 'undefined' ? undefined : ReadableStream.prototype);
 
 // Configure PDF.js worker via CDN pinned to the installed version.
 // Using a CDN keeps the Metro/Vite bundle slim and avoids worker setup in each
-// target. jsdelivr serves the ES module build that react-pdf 10 expects.
+// target. jsdelivr serves the ES module build that react-pdf 10 expects. The
+// legacy worker, like the legacy main build Metro swaps in (metro.config.js),
+// also runs on older browsers.
 const PDFJS_CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}`;
-pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/legacy/build/pdf.worker.min.mjs`;
 
 // The decoders and font data pdf.js loads on demand, from the same pinned CDN.
 // Without `wasmUrl` it silently drops JBIG2 images, which is how some of our
