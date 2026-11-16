@@ -41,6 +41,19 @@ describe('PdfOutlineSheet', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('should close when the dimmed area around the sheet is tapped', () => {
+    const onSelect = jest.fn();
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <PdfOutlineSheet visible items={items} currentPage={1} onSelect={onSelect} onClose={onClose} />
+    );
+
+    fireEvent.press(getByTestId('outline-backdrop'));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('should mark the section the reader is in', () => {
     const { getByTestId } = render(
       <PdfOutlineSheet visible items={items} currentPage={9} onSelect={jest.fn()} onClose={jest.fn()} />
