@@ -37,8 +37,9 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
  */
 export function usePlayerBarAboveTabBar(): boolean {
   const pathname = usePathname();
-  const { currentTrack, isPlaying, retreatId, inlinePlayerVisible } = useAudioPlayerContext();
-  return inlinePlayerVisible || isMiniPlayerShown(pathname, !!currentTrack, isPlaying, retreatId, inlinePlayerVisible);
+  const { currentTrack, isPlaying, listeningStarted, retreatId, inlinePlayerVisible } = useAudioPlayerContext();
+  return inlinePlayerVisible
+    || isMiniPlayerShown(pathname, !!currentTrack && listeningStarted, isPlaying, retreatId, inlinePlayerVisible);
 }
 
 /** Gap kept between the end of a list and the bars floating over it. */
@@ -56,12 +57,14 @@ export function useBottomBarsSpace(): number {
 
 function isMiniPlayerShown(
   pathname: string,
-  hasTrack: boolean,
+  // A track the person has played since the player was last closed: one an
+  // event screen only loaded, paused, does not bring the bar up.
+  hasListenedTrack: boolean,
   isPlaying: boolean,
   retreatId: string | null,
   inlinePlayerVisible: boolean,
 ): boolean {
-  if (!hasTrack) return false;
+  if (!hasListenedTrack) return false;
   // On the owning event screen the inline player already covers playback. When
   // that screen shows another tab (Videos, Documents) there is no player, so
   // the mini-player steps in, but only while audio is playing: a paused
@@ -76,6 +79,7 @@ export function MiniPlayer() {
   const {
     currentTrack,
     isPlaying,
+    listeningStarted,
     retreatId,
     retreatName,
     groupName,
@@ -85,7 +89,7 @@ export function MiniPlayer() {
   } = useAudioPlayerContext();
 
   if (!currentTrack) return null;
-  if (!isMiniPlayerShown(pathname, true, isPlaying, retreatId, inlinePlayerVisible)) return null;
+  if (!isMiniPlayerShown(pathname, listeningStarted, isPlaying, retreatId, inlinePlayerVisible)) return null;
 
   const subtitle = makeSubtitle(groupName, retreatName);
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');

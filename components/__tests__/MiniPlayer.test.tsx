@@ -37,6 +37,7 @@ jest.mock('react-native-safe-area-context', () => ({
 const baseContext = {
   currentTrack: { id: 't1', title: 'Track 1' },
   isPlaying: true,
+  listeningStarted: true,
   retreatId: '42',
   retreatName: 'Spring 2026',
   groupName: 'Lisboa',
@@ -59,6 +60,13 @@ beforeEach(() => {
 describe('MiniPlayer — visibility', () => {
   it('renders nothing when there is no current track', () => {
     mockAudioContext = { ...baseContext, currentTrack: null };
+    const { queryByLabelText } = renderMiniPlayer();
+    expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
+  });
+
+  it('should render nothing for a track that was loaded but never played', () => {
+    // An event screen loads its last track paused; that alone is not listening.
+    mockAudioContext = { ...baseContext, isPlaying: false, listeningStarted: false };
     const { queryByLabelText } = renderMiniPlayer();
     expect(queryByLabelText('miniPlayer.openSession')).toBeNull();
   });

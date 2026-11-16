@@ -555,6 +555,7 @@ export default function RetreatDetailScreen() {
     if (!retreat || filteredTracks.length === 0) return;
 
     const ctxTrack = audioContext.currentTrack;
+    const listeningStarted = audioContext.listeningStarted;
     const ctxTrackInThisEvent = ctxTrack
       ? filteredTracks.some((t) => String(t.id) === String(ctxTrack.id))
       : false;
@@ -610,11 +611,13 @@ export default function RetreatDetailScreen() {
         // Ignore — fall back to first track.
       }
 
-      if (ctxTrack && !ctxTrackInThisEvent) {
+      if (ctxTrack && !ctxTrackInThisEvent && listeningStarted) {
         // Something is already playing from a DIFFERENT event. Don't
         // interrupt the user's current listening session by replacing it.
         // Just update the local highlight state so the user can see which
         // track in this event they last played; tapping it will switch.
+        // A track another event screen only loaded (never played) is no
+        // listening session: it is replaced below like an empty player.
         setCurrentTrack(highlightTrack);
         setCurrentTrackIndex(highlightIndex);
         setSelectedTrack(highlightTrack);
@@ -625,7 +628,7 @@ export default function RetreatDetailScreen() {
         return;
       }
 
-      // No track is currently playing — load this event's last-played track
+      // Nothing is being listened to — load this event's last-played track
       // (or the first one) as the active player track.
       selectTrack(highlightTrack, highlightIndex);
       if (resumedFromMemory && highlightIndex > 0) {
@@ -633,7 +636,7 @@ export default function RetreatDetailScreen() {
         tryScrollToPendingTrack();
       }
     })();
-  }, [retreat, filteredTracks, audioContext.currentTrack, tryScrollToPendingTrack, trackIdParam]);
+  }, [retreat, filteredTracks, audioContext.currentTrack, audioContext.listeningStarted, tryScrollToPendingTrack, trackIdParam]);
 
   // Keep the local highlight in sync with the global audio context. Covers
   // two cases:
