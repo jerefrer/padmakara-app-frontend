@@ -347,9 +347,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
       
-      // Simple logout: only clear local auth data (all platforms)
-      // Device remains activated on backend for easy re-entry
+      // Simple logout (used after account deletion): only clear local data, no server call.
       await authService.logout();
+      // The next sign-in starts with a fresh fingerprint.
+      await magicLinkService.forgetDeviceFingerprint().catch((error) => {
+        console.warn('Could not delete the device fingerprint:', error);
+      });
       
       setIsAuthenticated(false);
       setUser(null);

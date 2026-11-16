@@ -18,6 +18,7 @@ import {
   DeviceFingerprintUnavailableError,
   createFingerprint,
   deleteLegacyFingerprint,
+  forgetDeviceFingerprint,
   getLegacyFingerprint,
   getOrCreateDeviceFingerprint,
   readStoredFingerprint,
@@ -492,6 +493,8 @@ class MagicLinkService {
       const success = await this.safeMultiRemove(['device_activated', 'activation_date', 'user_data']);
       if (!success) throw new Error('Some activation data could not be removed');
     });
+    // The next sign-in creates a fresh fingerprint.
+    await attempt(() => forgetDeviceFingerprint());
     if (failures.length === 0) {
       console.log('✅ Device activation cleared successfully');
     } else if (options.strict) {
@@ -681,6 +684,11 @@ class MagicLinkService {
       console.error('Error auto-activating device:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }
+  }
+
+  /** Delete this device's fingerprint (sign-out paths that keep the activation flags). */
+  async forgetDeviceFingerprint(): Promise<void> {
+    await forgetDeviceFingerprint();
   }
 
   private legacyMigrationTried = false;

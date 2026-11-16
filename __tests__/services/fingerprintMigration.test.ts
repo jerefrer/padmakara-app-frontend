@@ -192,3 +192,26 @@ describe('captureDeviceDeactivation while the migration is pending', () => {
     expect(record.fingerprint).toBe(fp);
   });
 });
+
+describe('clearDeviceActivation (sign-out)', () => {
+  it('should delete the new and the legacy fingerprint so the next sign-in creates a fresh one', async () => {
+    await signIn();
+    await AsyncStorage.setItem(LEGACY_KEY, LEGACY);
+    const first = await fingerprint.getOrCreateDeviceFingerprint();
+
+    await magicLinkService.clearDeviceActivation({ strict: true });
+
+    expect(storedNew()).toBeUndefined();
+    expect(await AsyncStorage.getItem(LEGACY_KEY)).toBeNull();
+    crypto.getRandomBytesAsync.mockResolvedValue(Uint8Array.from({ length: 32 }, () => 9));
+    const info = await magicLinkService.getDeviceInfo();
+    expect(info.fingerprint).not.toBe(first);
+  });
+
+  it('should report a failure in strict mode when the fingerprint cannot be deleted', async () => {
+    await fingerprint.getOrCreateDeviceFingerprint();
+    store.deleteItemAsync.mockRejectedValue(new Error('keychain locked'));
+
+    await expect(magicLinkService.clearDeviceActivation({ strict: true })).rejects.toThrow();
+  });
+});
