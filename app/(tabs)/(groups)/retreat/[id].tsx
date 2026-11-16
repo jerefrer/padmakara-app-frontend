@@ -1408,6 +1408,16 @@ export default function RetreatDetailScreen() {
     !!retreat &&
     audioContext.retreatId != null &&
     String(audioContext.retreatId) === String(retreat.id);
+  // A forthcoming event only carries content for people allowed to see it
+  // (the API strips it for everyone else), so the payload decides, not the role.
+  const hasEventContent =
+    !!retreat &&
+    ((retreat.videos?.length ?? 0) > 0 ||
+      !!retreat.sessions?.some((s) => (s.tracks?.length ?? 0) > 0) ||
+      (retreat.transcripts?.length ?? 0) > 0 ||
+      buildEventDocuments(retreat).length > 0 ||
+      (retreat.relatedPublications?.length ?? 0) > 0 ||
+      getEventTopics(retreat, language).hasContent);
   const showInlinePlayer =
     !isDesktop &&
     layoutAllowsInlinePlayer !== false &&
@@ -1508,7 +1518,10 @@ export default function RetreatDetailScreen() {
     ].filter(Boolean);
 
     // Indicators for the floating circles on the hero.
-    const isForthcoming = retreat?.status === 'forthcoming';
+    // Only a forthcoming event with nothing in it gets the calm notice; one that
+    // came back with content is shown like a published event.
+    const isForthcoming = retreat?.status === 'forthcoming' && !hasEventContent;
+    const isForthcomingWithContent = retreat?.status === 'forthcoming' && hasEventContent;
     const hasAudio = !!retreat?.sessions?.some((s) => (s.tracks?.length ?? 0) > 0);
     const hasVideo = (retreat?.videos?.length ?? 0) > 0;
     const hasTranscript = !!retreat?.transcripts && retreat.transcripts.length > 0;
@@ -1647,6 +1660,16 @@ export default function RetreatDetailScreen() {
             {metaParts.length > 0 && (
               <Text style={styles.eventTitleMetaText}>{metaParts.join(' | ')}</Text>
             )}
+          </View>
+        )}
+
+        {isForthcomingWithContent && (
+          <View style={styles.forthcomingNotice} testID="event-forthcoming-admin-notice">
+            <Ionicons name="eye-off-outline" size={20} color={colors.gray[500]} />
+            <Text style={styles.forthcomingNoticeText}>
+              {t('events.forthcomingAdminNotice') ||
+                'Forthcoming – only administrators can see this content until it is published.'}
+            </Text>
           </View>
         )}
 
@@ -2032,7 +2055,7 @@ export default function RetreatDetailScreen() {
             aren't offered, so the overflow menu would hold a single action —
             pre-download. Skip the menu and trigger it directly. Web keeps the
             kebab menu (download + ZIP + transcript shortcut). */}
-        {retreat?.status !== 'forthcoming' && (
+        {(retreat?.status !== 'forthcoming' || hasEventContent) && (
         <TouchableOpacity
           onPress={() =>
             Platform.OS === 'web' ? setMenuVisible(true) : handleDownloadForOffline()
