@@ -10,7 +10,7 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
 }));
 jest.mock('@/services/apiService', () => ({ __esModule: true, default: { post: jest.fn() } }));
-jest.mock('expo-device', () => ({ deviceName: null, modelName: null }));
+jest.mock('expo-device', () => ({ deviceName: null, modelName: null, osName: 'macOS' }));
 
 const crypto = Crypto as jest.Mocked<typeof Crypto>;
 const store = SecureStore as jest.Mocked<typeof SecureStore>;
@@ -71,5 +71,39 @@ describe('sign-in when the fingerprint cannot be stored', () => {
 
     expect(post).not.toHaveBeenCalled();
     expect(res).toMatchObject({ success: false, deviceUnavailable: true });
+  });
+});
+
+describe('getDeviceInfo name', () => {
+  const setUserAgent = (value: string) =>
+    Object.defineProperty(globalThis.navigator, 'userAgent', { value, configurable: true });
+
+  it('should name a web browser after the browser, not an Android device', async () => {
+    setOS('web');
+    setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+    );
+
+    const info = await magicLinkService.getDeviceInfo();
+
+    expect(info.name).toBe('Safari on macOS');
+    expect(info.type).toBe('web');
+  });
+
+  it('should fall back to "Web browser" when the browser is unknown', async () => {
+    setOS('web');
+    setUserAgent('SomethingElse/1.0');
+
+    const info = await magicLinkService.getDeviceInfo();
+
+    expect(info.name).toBe('Web browser on macOS');
+  });
+
+  it('should keep the Android fallback on Android', async () => {
+    setOS('android');
+
+    const info = await magicLinkService.getDeviceInfo();
+
+    expect(info.name).toBe('Android Device');
   });
 });

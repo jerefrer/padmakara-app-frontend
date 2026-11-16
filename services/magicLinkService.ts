@@ -51,6 +51,17 @@ const DEVICE_UNAVAILABLE = {
   deviceUnavailable: true,
 };
 
+/** Browser name for the device list and the link confirmation page; no user-agent library needed. */
+function webBrowserName(): string {
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/OPR\/|Opera/.test(ua)) return 'Opera';
+  if (/Firefox\/|FxiOS\//.test(ua)) return 'Firefox';
+  if (/Chrome\/|CriOS\//.test(ua)) return 'Chrome';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return 'Web browser';
+}
+
 interface MagicLinkResponse {
   status: 'magic_link_sent' | 'already_activated' | 'code_required';
   message: string;
@@ -117,9 +128,12 @@ class MagicLinkService {
     // Throws DeviceFingerprintUnavailableError: there is no weaker fallback.
     const fingerprint = await getOrCreateDeviceFingerprint();
     
-    // Generate friendly device name
+    // Friendly device name, shown in the device list and on the link confirmation page.
     let deviceName = 'Unknown Device';
-    if (Device.deviceName) {
+    if (Platform.OS === 'web') {
+      // The page adds "(web browser)"; a phone model alone would read as the app.
+      deviceName = Device.osName ? `${webBrowserName()} on ${Device.osName}` : webBrowserName();
+    } else if (Device.deviceName) {
       deviceName = Device.deviceName;
     } else if (Device.modelName) {
       deviceName = Device.modelName;
