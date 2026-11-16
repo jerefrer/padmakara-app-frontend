@@ -560,6 +560,27 @@ export default function RetreatDetailScreen() {
       ? filteredTracks.some((t) => String(t.id) === String(ctxTrack.id))
       : false;
 
+    // An explicit trackId param (e.g. tapped from the Bookmarks tab) is
+    // an explicit user intent — always load and play it, even if
+    // something else is currently playing, from this event or another.
+    if (trackIdParam) {
+      const idx = filteredTracks.findIndex((t) => String(t.id) === String(trackIdParam));
+      if (idx >= 0) {
+        autoLoadedRef.current = true;
+        if (ctxTrack && String(ctxTrack.id) === String(trackIdParam)) {
+          // Already loaded: playTrack would leave it as it is, so play it.
+          if (!audioContext.isPlaying) audioContext.togglePlayPause();
+        } else {
+          selectTrack(filteredTracks[idx], idx, { autoPlay: true });
+        }
+        if (idx > 0) {
+          pendingScrollTrackIdRef.current = String(filteredTracks[idx].id);
+          tryScrollToPendingTrack();
+        }
+        return;
+      }
+    }
+
     if (ctxTrackInThisEvent) {
       // The player already has a track from this event — leave it alone;
       // the sync effect will mirror it into local state for the highlight.
@@ -578,21 +599,6 @@ export default function RetreatDetailScreen() {
     autoLoadedRef.current = true;
 
     (async () => {
-      // An explicit trackId param (e.g. tapped from the Bookmarks tab) is
-      // an explicit user intent — always load and play it, even if
-      // something else is currently playing.
-      if (trackIdParam) {
-        const idx = filteredTracks.findIndex((t) => String(t.id) === String(trackIdParam));
-        if (idx >= 0) {
-          selectTrack(filteredTracks[idx], idx);
-          if (idx > 0) {
-            pendingScrollTrackIdRef.current = String(filteredTracks[idx].id);
-            tryScrollToPendingTrack();
-          }
-          return;
-        }
-      }
-
       // Look up this event's per-event last-played track (highlight target).
       let highlightTrack = filteredTracks[0];
       let highlightIndex = 0;
