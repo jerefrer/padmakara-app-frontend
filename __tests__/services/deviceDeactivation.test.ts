@@ -13,6 +13,9 @@ jest.mock('@/services/tokenStorage', () => ({
   getPendingDeactivationRaw: jest.fn(),
   setPendingDeactivationRaw: jest.fn().mockResolvedValue(undefined),
   deletePendingDeactivation: jest.fn().mockResolvedValue(undefined),
+  getDeviceFingerprint: jest.fn().mockResolvedValue('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8'),
+  setDeviceFingerprint: jest.fn().mockResolvedValue(undefined),
+  deleteDeviceFingerprint: jest.fn().mockResolvedValue(undefined),
 }));
 
 const ts = tokenStorage as unknown as Record<string, jest.Mock>;

@@ -1,6 +1,7 @@
 import apiService from './apiService';
 import { API_ENDPOINTS } from './apiConfig';
 import magicLinkService from './magicLinkService';
+import { DeviceFingerprintUnavailableError } from './deviceFingerprint';
 import passkeyClient from './passkeyClient';
 import type { PasskeyOptionsJSON, PasskeyCredentialJSON } from './passkeyClient.types';
 
@@ -14,8 +15,11 @@ export interface PasskeySummary {
 /**
  * `cancelled` is true when the person dismissed the system sheet (or the request was aborted): not an
  * error. `noCredential` is true when this device holds no key for Padmakara yet (native only).
+ * `deviceUnavailable` is true when this device cannot keep a sign-in safely (no secure storage).
  */
-export type PasskeyResult = { ok: true } | { ok: false; cancelled: boolean; noCredential?: boolean };
+export type PasskeyResult =
+  | { ok: true }
+  | { ok: false; cancelled: boolean; noCredential?: boolean; deviceUnavailable?: boolean };
 
 /** A single-use server challenge with the WebAuthn options built from it (valid for five minutes). */
 export interface PasskeyChallenge {
@@ -36,6 +40,7 @@ interface LoginVerifyResponse {
 const FAILED: PasskeyResult = { ok: false, cancelled: false };
 const CANCELLED: PasskeyResult = { ok: false, cancelled: true };
 const NO_CREDENTIAL: PasskeyResult = { ok: false, cancelled: false, noCredential: true };
+const DEVICE_UNAVAILABLE: PasskeyResult = { ok: false, cancelled: false, deviceUnavailable: true };
 
 export async function isPasskeySupported(): Promise<boolean> {
   try {
@@ -145,6 +150,7 @@ export async function signInWithPasskey(
     await magicLinkService.storeActivation(verified.data as Parameters<typeof magicLinkService.storeActivation>[0]);
     return { ok: true };
   } catch (error) {
+    if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
     console.error('Error signing in with passkey:', error);
     return FAILED;
   }

@@ -128,7 +128,12 @@ export default function MagicLinkScreen() {
       const result = await magicLinkService.requestMagicLink(email.trim(), language);
 
       if (!result.success) {
-        Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to process your request. Please try again.');
+        Alert.alert(
+          t('auth.magicLink.errorTitle'),
+          result.deviceUnavailable
+            ? t('auth.signInPanel.deviceStorage') || 'We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us.'
+            : result.error || 'Failed to process your request. Please try again.',
+        );
         return;
       }
 
@@ -187,7 +192,12 @@ export default function MagicLinkScreen() {
       } else if (result.incorrectCode) {
         setCodeError(true);
       } else {
-        Alert.alert(t('auth.magicLink.errorTitle'), result.error || 'Failed to process your request. Please try again.');
+        Alert.alert(
+          t('auth.magicLink.errorTitle'),
+          result.deviceUnavailable
+            ? t('auth.signInPanel.deviceStorage') || 'We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us.'
+            : result.error || 'Failed to process your request. Please try again.',
+        );
       }
     } catch (error) {
       Alert.alert(t('auth.magicLink.networkErrorTitle'), t('auth.magicLink.networkErrorMessage'));

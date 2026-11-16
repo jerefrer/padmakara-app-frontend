@@ -113,3 +113,22 @@ describe('SignInForm sent step, email code', () => {
     expect(utils.getByTestId('sign-in-done')).toBeTruthy();
   });
 });
+
+describe('SignInForm when this device cannot keep a sign-in', () => {
+  it('should explain it in plain words instead of a generic error', async () => {
+    request.mockResolvedValueOnce({ success: false, deviceUnavailable: true });
+    const utils = render(<SignInForm />);
+    fireEvent.changeText(utils.getByTestId('sign-in-email'), 'ana@example.pt');
+    await act(async () => {
+      fireEvent.press(utils.getByTestId('sign-in-submit'));
+    });
+    expect(utils.getByTestId('sign-in-error').props.children).toMatch(/could not sign you in on this device/i);
+  });
+
+  it('should explain it under the 6-digit code field too', async () => {
+    const utils = await openSentStep();
+    verify.mockResolvedValueOnce({ success: false, deviceUnavailable: true });
+    await type(utils, '123456');
+    expect(utils.getByTestId('email-code-error').props.children).toMatch(/could not sign you in on this device/i);
+  });
+});

@@ -30,6 +30,7 @@ export function EmailCodeField({ value, onChange, onSubmit, error, busy }: Props
     badCode: tx('codeIncorrect', 'Incorrect code'),
     network: tx('network', 'No connection. Please try again.'),
     generic: tx('error', 'Something went wrong. Please try again.'),
+    device: tx('deviceStorage', 'We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us.'),
   };
   const label = tx('emailCodeLabel', 'Or enter the 6-digit code from the email');
 

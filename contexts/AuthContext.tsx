@@ -100,10 +100,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // Deliver a device deactivation that could not reach the server at sign-out.
+    // Deliver a device deactivation that could not reach the server at sign-out,
+    // and move a device fingerprint left by an older build to secure storage (both in the background).
     initializeAuth().finally(() => {
       finishPendingLocalCleanup().catch(() => {});
       magicLinkService.retryPendingDeactivation().catch(() => {});
+      magicLinkService.migrateLegacyFingerprint().catch(() => {});
     });
 
     // Listen for auth state changes from API service (401 responses)
@@ -345,9 +347,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
       
-      // Simple logout: only clear local auth data (all platforms)
-      // Device remains activated on backend for easy re-entry
+      // Simple logout (used after account deletion): only clear local data, no server call.
       await authService.logout();
+      // The next sign-in starts with a fresh fingerprint.
+      await magicLinkService.forgetDeviceFingerprint().catch((error) => {
+        console.warn('Could not delete the device fingerprint:', error);
+      });
       
       setIsAuthenticated(false);
       setUser(null);

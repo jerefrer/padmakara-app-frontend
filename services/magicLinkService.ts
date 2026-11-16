@@ -14,6 +14,16 @@ import {
   deleteAuthToken,
   deleteRefreshToken,
 } from './tokenStorage';
+import {
+  DeviceFingerprintUnavailableError,
+  createFingerprint,
+  deleteLegacyFingerprint,
+  forgetDeviceFingerprint,
+  getLegacyFingerprint,
+  getOrCreateDeviceFingerprint,
+  readStoredFingerprint,
+  storeFingerprint,
+} from './deviceFingerprint';
 
 /** What the server needs to deactivate a device once local credentials are gone. */
 export interface DeviceDeactivation {
@@ -28,6 +38,28 @@ interface DeviceInfo {
   fingerprint: string;
   name: string;
   type: string;
+}
+
+/** Set on a failed sign-in when this device cannot create or keep its fingerprint. */
+interface DeviceUnavailable {
+  deviceUnavailable?: boolean;
+}
+
+const DEVICE_UNAVAILABLE = {
+  success: false as const,
+  error: 'This device cannot keep a sign-in safely.',
+  deviceUnavailable: true,
+};
+
+/** Browser name for the device list and the link confirmation page; no user-agent library needed. */
+function webBrowserName(): string {
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/OPR\/|Opera/.test(ua)) return 'Opera';
+  if (/Firefox\/|FxiOS\//.test(ua)) return 'Firefox';
+  if (/Chrome\/|CriOS\//.test(ua)) return 'Chrome';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return 'Web browser';
 }
 
 interface MagicLinkResponse {
@@ -49,46 +81,6 @@ class MagicLinkService {
       MagicLinkService.instance = new MagicLinkService();
     }
     return MagicLinkService.instance;
-  }
-
-  /**
-   * React Native compatible base64 encoding
-   */
-  private encodeBase64(str: string): string {
-    try {
-      // For React Native/Expo, we can use btoa if available (web)
-      if (typeof btoa !== 'undefined') {
-        return btoa(str);
-      }
-      
-      // Fallback for environments without btoa
-      // Simple base64 encoding for React Native
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-      let result = '';
-      let i = 0;
-      
-      while (i < str.length) {
-        const a = str.charCodeAt(i++);
-        const b = i < str.length ? str.charCodeAt(i++) : 0;
-        const c = i < str.length ? str.charCodeAt(i++) : 0;
-        
-        const bitmap = (a << 16) | (b << 8) | c;
-        
-        result += chars.charAt((bitmap >> 18) & 63);
-        result += chars.charAt((bitmap >> 12) & 63);
-        result += i - 2 < str.length ? chars.charAt((bitmap >> 6) & 63) : '=';
-        result += i - 1 < str.length ? chars.charAt(bitmap & 63) : '=';
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error encoding base64:', error);
-      // Fallback to simple string hash
-      return str.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0).toString(36);
-    }
   }
 
   // Safe AsyncStorage operations with error handling
@@ -130,57 +122,18 @@ class MagicLinkService {
   }
 
   /**
-   * Generate a unique device fingerprint with enhanced error handling
-   */
-  private async generateDeviceFingerprint(): Promise<string> {
-    try {
-      console.log('📱 Generating device fingerprint...');
-      let fingerprint = await this.safeGetItem('device_fingerprint');
-      
-      if (!fingerprint) {
-        // Create unique fingerprint combining device info
-        const deviceInfo = {
-          platform: Platform.OS,
-          brand: Device.brand || 'unknown',
-          modelName: Device.modelName || 'unknown',
-          osVersion: Device.osVersion || 'unknown',
-          timestamp: Date.now(),
-          random: Math.random().toString(36).substring(2)
-        };
-        
-        fingerprint = this.encodeBase64(JSON.stringify(deviceInfo));
-        const saved = await this.safeSetItem('device_fingerprint', fingerprint);
-        
-        if (!saved) {
-          console.warn('Failed to save device fingerprint, using session-only fingerprint');
-          // Use a session-only fingerprint that doesn't persist
-          fingerprint = `session-${this.encodeBase64(JSON.stringify(deviceInfo))}`;
-        }
-        
-        console.log('📱 Generated new device fingerprint');
-      } else {
-        console.log('📱 Using existing device fingerprint');
-      }
-      
-      return fingerprint;
-    } catch (error) {
-      console.error('Error generating device fingerprint:', error);
-      // Fallback fingerprint
-      const fallback = `${Platform.OS}-${Date.now()}-${Math.random().toString(36)}`;
-      console.log('📱 Using fallback fingerprint');
-      return fallback;
-    }
-  }
-
-  /**
    * Get device information for API calls
    */
   async getDeviceInfo(): Promise<DeviceInfo> {
-    const fingerprint = await this.generateDeviceFingerprint();
+    // Throws DeviceFingerprintUnavailableError: there is no weaker fallback.
+    const fingerprint = await getOrCreateDeviceFingerprint();
     
-    // Generate friendly device name
+    // Friendly device name, shown in the device list and on the link confirmation page.
     let deviceName = 'Unknown Device';
-    if (Device.deviceName) {
+    if (Platform.OS === 'web') {
+      // The page adds "(web browser)"; a phone model alone would read as the app.
+      deviceName = Device.osName ? `${webBrowserName()} on ${Device.osName}` : webBrowserName();
+    } else if (Device.deviceName) {
       deviceName = Device.deviceName;
     } else if (Device.modelName) {
       deviceName = Device.modelName;
@@ -198,7 +151,10 @@ class MagicLinkService {
   /**
    * Step 1: Request magic link via email
    */
-  async requestMagicLink(email: string, language: string = 'en'): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string }> {
+  async requestMagicLink(
+    email: string,
+    language: string = 'en',
+  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string } & DeviceUnavailable> {
     try {
       console.log('Requesting magic link in language:', language);
       
@@ -226,6 +182,7 @@ class MagicLinkService {
 
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error requesting magic link:', error);
       
       
@@ -260,7 +217,7 @@ class MagicLinkService {
   async reviewLogin(
     email: string,
     code: string,
-  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean }> {
+  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean } & DeviceUnavailable> {
     try {
       const deviceInfo = await this.getDeviceInfo();
       const response = await apiService.post<MagicLinkResponse>(API_ENDPOINTS.REVIEW_LOGIN, {
@@ -282,6 +239,7 @@ class MagicLinkService {
       }
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error signing in with review code:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }
@@ -294,7 +252,9 @@ class MagicLinkService {
   async verifyEmailCode(
     email: string,
     code: string,
-  ): Promise<{ success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean; network?: boolean }> {
+  ): Promise<
+    { success: boolean; data?: MagicLinkResponse; error?: string; incorrectCode?: boolean; network?: boolean } & DeviceUnavailable
+  > {
     try {
       const deviceInfo = await this.getDeviceInfo();
       const response = await apiService.post<MagicLinkResponse>(API_ENDPOINTS.VERIFY_CODE, {
@@ -318,6 +278,7 @@ class MagicLinkService {
       }
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error signing in with email code:', error);
       return { success: false, error: 'Network error. Please try again.', network: true };
     }
@@ -368,14 +329,11 @@ class MagicLinkService {
         this.getDeviceInfo()
       ]);
       
-      const result = {
+      return {
         isActivated,
         activationDate: activationDate || undefined,
         deviceInfo
       };
-      
-      console.log('📱 Device activation info:', result);
-      return result;
     } catch (error) {
       console.error('Error getting activation info:', error);
       return { isActivated: false };
@@ -388,11 +346,20 @@ class MagicLinkService {
    */
   async captureDeviceDeactivation(): Promise<DeviceDeactivation> {
     const [fingerprint, accessToken, refreshToken] = await Promise.all([
-      this.generateDeviceFingerprint(),
+      this.getActivatedFingerprint(),
       getAuthToken().catch(() => null),
       getRefreshToken().catch(() => null),
     ]);
     return { fingerprint, accessToken, refreshToken };
+  }
+
+  /**
+   * The fingerprint the server knows this device's activation by: the legacy
+   * value while its migration is still pending, the current one otherwise.
+   */
+  private async getActivatedFingerprint(): Promise<string> {
+    const legacy = await getLegacyFingerprint().catch(() => null);
+    return legacy ?? getOrCreateDeviceFingerprint();
   }
 
   private async postDeactivation(fingerprint: string, accessToken: string): Promise<Response> {
@@ -490,13 +457,13 @@ class MagicLinkService {
     try {
       console.log('🌐 Deactivating device on backend...');
       
-      const deviceInfo = await this.getDeviceInfo();
+      const fingerprint = await this.getActivatedFingerprint();
       
       // Call backend to deactivate this device
       const response = await apiService.post<{ status: string; message: string }>(
         API_ENDPOINTS.DEACTIVATE_DEVICE, 
         {
-          device_fingerprint: deviceInfo.fingerprint
+          device_fingerprint: fingerprint
         }
       );
       
@@ -537,6 +504,8 @@ class MagicLinkService {
       const success = await this.safeMultiRemove(['device_activated', 'activation_date', 'user_data']);
       if (!success) throw new Error('Some activation data could not be removed');
     });
+    // The next sign-in creates a fresh fingerprint.
+    await attempt(() => forgetDeviceFingerprint());
     if (failures.length === 0) {
       console.log('✅ Device activation cleared successfully');
     } else if (options.strict) {
@@ -580,7 +549,6 @@ class MagicLinkService {
         user?: any;
         device?: {
           activated_at?: string;
-          device_fingerprint?: string;
           device_name?: string;
           user_name?: string;
           is_active?: boolean;
@@ -590,8 +558,6 @@ class MagicLinkService {
       });
 
       if (response.success && response.data) {
-        console.log('✅ Device discovery check successful:', response.data);
-        
         const isActivated = response.data.status === 'activated';
         
         if (isActivated && response.data.access_token) {
@@ -722,8 +688,58 @@ class MagicLinkService {
 
       return { success: true, data: response.data };
     } catch (error) {
+      if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error auto-activating device:', error);
       return { success: false, error: 'Network error. Please try again.' };
+    }
+  }
+
+  /** Delete this device's fingerprint (sign-out paths that keep the activation flags). */
+  async forgetDeviceFingerprint(): Promise<void> {
+    await forgetDeviceFingerprint();
+  }
+
+  private legacyMigrationTried = false;
+
+  /**
+   * One-time move from the legacy fingerprint (AsyncStorage, guessable) to a
+   * CSPRNG one in secure storage, keeping a signed-in device signed in.
+   * Runs at most once per launch, in the background, and never throws:
+   * - signed out: the legacy value is simply deleted;
+   * - signed in: POST /auth/device/rotate { old, new }. On 200, or 404 (the
+   *   activation is gone), the new value is kept and the legacy one deleted.
+   *   On any other answer or no answer, nothing changes and the next launch
+   *   tries again.
+   * Idempotent: a new value already stored (an earlier run stopped half-way,
+   * or a request created it) is reused instead of drawing another.
+   */
+  async migrateLegacyFingerprint(): Promise<void> {
+    if (this.legacyMigrationTried) return;
+    this.legacyMigrationTried = true;
+    try {
+      const legacy = await getLegacyFingerprint();
+      if (!legacy) return;
+      // Read secure storage strictly first: when it is locked or failing, the
+      // token reads below would answer "signed out" and the legacy value would
+      // be dropped from a device that is in fact signed in.
+      const stored = await readStoredFingerprint();
+      if (!(await this.isDeviceActivated())) {
+        await deleteLegacyFingerprint();
+        return;
+      }
+      const next = stored ?? (await createFingerprint());
+      const response = await apiService.post<{ status: string }>(API_ENDPOINTS.ROTATE_DEVICE_FINGERPRINT, {
+        old_fingerprint: legacy,
+        new_fingerprint: next,
+      });
+      if (!response.success && response.status !== 404) {
+        console.warn('Device fingerprint migration deferred to the next launch:', response.status ?? 'no answer');
+        return;
+      }
+      if (!stored) await storeFingerprint(next);
+      await deleteLegacyFingerprint();
+    } catch (error) {
+      console.warn('Device fingerprint migration failed; will retry at the next launch:', error);
     }
   }
 

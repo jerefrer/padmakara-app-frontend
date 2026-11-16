@@ -26,7 +26,7 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
   const { refreshAuth } = useAuth();
   const [supported, setSupported] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<'failed' | 'noKey' | null>(null);
+  const [problem, setProblem] = useState<'failed' | 'noKey' | 'device' | null>(null);
   const mounted = useRef(true);
   // Web only: Safari needs the browser call inside the tap, so the options are fetched beforehand.
   const challenge = usePasskeyChallenge(fetchLoginChallenge, supported && Platform.OS === 'web');
@@ -48,6 +48,12 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
   };
 
   if (!supported) return null;
+
+  const deviceStorage = t('auth.signInPanel.deviceStorage');
+  const deviceText =
+    deviceStorage && deviceStorage !== 'auth.signInPanel.deviceStorage'
+      ? deviceStorage
+      : 'We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us.';
 
   const { method } = currentPasskeyWording(Platform.OS);
   const label =
@@ -78,6 +84,7 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
     }
     setBusy(false);
     if (result.noCredential) setProblem('noKey');
+    else if (result.deviceUnavailable) setProblem('device');
     else if (!result.cancelled) setProblem('failed');
   };
 
@@ -108,6 +115,10 @@ export function PasskeySignInButton({ onSignedIn, onStart }: Props) {
             "Face ID isn't turned on for Padmakara on this {{device}} yet. Sign in once with your email, then turn it on when the app offers, or later in Settings.",
             { device: Platform.OS === 'ios' && Platform.isPad ? 'iPad' : 'iPhone' },
           )}
+        </Text>
+      ) : problem === 'device' ? (
+        <Text testID="passkey-device-error" style={styles.quiet} accessibilityLiveRegion="polite">
+          {deviceText}
         </Text>
       ) : problem === 'failed' ? (
         <Text testID="passkey-error" style={styles.quiet} accessibilityLiveRegion="polite">

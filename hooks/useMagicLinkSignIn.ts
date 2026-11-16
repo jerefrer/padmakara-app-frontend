@@ -6,7 +6,8 @@ import { useEmailCodeSignIn } from '@/hooks/useEmailCodeSignIn';
 import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 
 export type SignInPhase = 'email' | 'sending' | 'sent' | 'code' | 'done';
-export type SignInError = 'invalid' | 'generic' | 'network' | 'badCode';
+/** `device`: this device cannot keep a sign-in safely (no secure storage or random generator). */
+export type SignInError = 'invalid' | 'generic' | 'network' | 'badCode' | 'device';
 
 // The store-review account signs in with a code the reviewers are given (6 to 12 characters).
 const CODE_MIN = 6;
@@ -70,7 +71,7 @@ export function useMagicLinkSignIn() {
         setPhase('code');
       } else {
         setPhase('email');
-        setError('generic');
+        setError(res.deviceUnavailable ? 'device' : 'generic');
       }
     } catch {
       setPhase('email');
@@ -94,7 +95,7 @@ export function useMagicLinkSignIn() {
         setPhase('done');
       } else {
         setPhase('code');
-        setError(res.incorrectCode ? 'badCode' : 'generic');
+        setError(res.incorrectCode ? 'badCode' : res.deviceUnavailable ? 'device' : 'generic');
       }
     } catch {
       setPhase('code');
@@ -147,7 +148,7 @@ export function useMagicLinkSignIn() {
         setError(null);
         setCooldown(RESEND_COOLDOWN_S);
       } else {
-        setError('generic');
+        setError(res.deviceUnavailable ? 'device' : 'generic');
       }
     } catch {
       setError('network');

@@ -44,6 +44,7 @@ export function SignInForm({ variant = 'panel', intro, autoFocus = false }: Prop
     generic: tx('error', 'Something went wrong. Please try again.'),
     network: tx('network', 'No connection. Please try again.'),
     badCode: tx('codeIncorrect', 'Incorrect code'),
+    device: tx('deviceStorage', 'We could not sign you in on this device, because it would not let the app keep your sign-in safely. Please close the app, open it again and try once more. If it still does not work, please contact us.'),
   };
 
   if (s.phase === 'done' || passkeyDone) {

@@ -27,6 +27,9 @@ jest.mock('@/services/tokenStorage', () => ({
   getPendingDeactivationRaw: jest.fn(),
   setPendingDeactivationRaw: jest.fn(),
   deletePendingDeactivation: jest.fn(),
+  getDeviceFingerprint: jest.fn().mockResolvedValue('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8'),
+  setDeviceFingerprint: jest.fn().mockResolvedValue(undefined),
+  deleteDeviceFingerprint: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/services/passkeyClient', () => ({
   __esModule: true,
@@ -71,6 +74,18 @@ describe('signInWithPasskey', () => {
     expect(await AsyncStorage.getItem('device_activated')).toBe('true');
     expect(api.post.mock.calls[0][0]).toBe('/auth/passkeys/login/options');
     expect(api.post.mock.calls[1][0]).toBe('/auth/passkeys/login/verify');
+  });
+
+  it('should report an unavailable device and send nothing when the fingerprint cannot be read', async () => {
+    api.post.mockResolvedValueOnce(loginOptions);
+    client.get.mockResolvedValue(credential);
+    ts.getDeviceFingerprint.mockRejectedValueOnce(new Error('keychain unavailable'));
+
+    const res = await signInWithPasskey();
+
+    expect(res).toEqual({ ok: false, cancelled: false, deviceUnavailable: true });
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(ts.setAuthToken).not.toHaveBeenCalled();
   });
 
   it('should send device info with login verify', async () => {

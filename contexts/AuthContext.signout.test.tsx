@@ -20,6 +20,8 @@ jest.mock('@/services/magicLinkService', () => ({
     captureDeviceDeactivation: jest.fn(),
     deactivateInBackground: jest.fn(),
     retryPendingDeactivation: jest.fn(),
+    migrateLegacyFingerprint: jest.fn(),
+    forgetDeviceFingerprint: jest.fn(),
   },
 }));
 jest.mock('@/services/apiService', () => ({
@@ -50,6 +52,8 @@ beforeEach(async () => {
   ml.clearDeviceActivation.mockResolvedValue(undefined);
   ml.captureDeviceDeactivation.mockResolvedValue(record);
   ml.retryPendingDeactivation.mockResolvedValue(undefined);
+  ml.migrateLegacyFingerprint.mockResolvedValue(undefined);
+  ml.forgetDeviceFingerprint.mockResolvedValue(undefined);
   auth.getAuthState.mockResolvedValue({ isAuthenticated: true, user: { id: 1, email: 'a@b.c' }, token: 'acc' });
   auth.refreshSession.mockResolvedValue({ success: false });
   auth.logout.mockResolvedValue(undefined);
@@ -156,5 +160,36 @@ describe('app start', () => {
   it('should retry a pending device deactivation', async () => {
     await mount();
     await waitFor(() => expect(ml.retryPendingDeactivation).toHaveBeenCalled());
+  });
+
+  it('should migrate a legacy device fingerprint in the background', async () => {
+    await mount();
+    await waitFor(() => expect(ml.migrateLegacyFingerprint).toHaveBeenCalledTimes(1));
+  });
+
+  it('should finish starting even when the fingerprint migration never resolves', async () => {
+    ml.migrateLegacyFingerprint.mockReturnValue(new Promise(() => {}));
+    await mount();
+    expect(ctx.isLoading).toBe(false);
+  });
+});
+
+describe('logout (account deletion)', () => {
+  it('should delete the device fingerprint so the next sign-in creates a fresh one', async () => {
+    await mount();
+    await act(async () => {
+      await ctx.logout();
+    });
+    expect(ml.forgetDeviceFingerprint).toHaveBeenCalled();
+    expect(ctx.isAuthenticated).toBe(false);
+  });
+
+  it('should still sign out when the fingerprint cannot be deleted', async () => {
+    ml.forgetDeviceFingerprint.mockRejectedValue(new Error('keychain locked'));
+    await mount();
+    await act(async () => {
+      await ctx.logout();
+    });
+    expect(ctx.isAuthenticated).toBe(false);
   });
 });

@@ -77,7 +77,8 @@ open_new_links() {
       # sheet before the flow has asserted it.
       sleep 3
       printf '%s\n' "$all" | tail -n "+$((opened + 1))" | while read -r url; do
-        curl -s -o /dev/null "$url" && echo "opened magic link ${url%%\?*}" >&2
+        # GET only shows the confirmation page; its button POSTs to the same URL.
+        curl -s -X POST -o /dev/null "$url" && echo "opened magic link ${url%%\?*}" >&2
       done
       opened=$count
     fi

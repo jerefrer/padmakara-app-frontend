@@ -5,7 +5,7 @@ import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 
 export const EMAIL_CODE_LENGTH = 6;
 
-export type EmailCodeError = 'badCode' | 'network' | 'generic';
+export type EmailCodeError = 'badCode' | 'network' | 'generic' | 'device';
 
 /** Keeps digits only, so "123 456" pasted from the email becomes "123456". */
 export const digitsOnly = (value: string) => value.replace(/\D/g, '').slice(0, EMAIL_CODE_LENGTH);
@@ -38,7 +38,9 @@ export function useEmailCodeSignIn(getEmail: () => string, onSignedIn?: () => vo
           await refreshAuth();
           onSignedIn?.();
         } else {
-          setEmailCodeError(res.incorrectCode ? 'badCode' : res.network ? 'network' : 'generic');
+          setEmailCodeError(
+            res.incorrectCode ? 'badCode' : res.deviceUnavailable ? 'device' : res.network ? 'network' : 'generic',
+          );
         }
       } catch {
         setEmailCodeError('network');

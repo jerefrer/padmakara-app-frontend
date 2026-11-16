@@ -227,3 +227,30 @@ describe('useMagicLinkSignIn', () => {
     });
   });
 });
+
+describe('useMagicLinkSignIn when this device cannot keep a sign-in', () => {
+  it('should report a device error, not a generic one, when the link is requested', async () => {
+    const { result } = await submit({ success: false, error: 'storage', deviceUnavailable: true });
+    expect(result.current.error).toBe('device');
+    expect(result.current.phase).toBe('email');
+  });
+
+  it('should report a device error for the 6-digit code', async () => {
+    const { result } = await submit({ success: true, data: { status: 'magic_link_sent' } });
+    verifyEmailCode.mockResolvedValueOnce({ success: false, deviceUnavailable: true });
+    await act(async () => {
+      await result.current.submitEmailCode('123456');
+    });
+    expect(result.current.emailCodeError).toBe('device');
+  });
+
+  it('should report a device error for the review code', async () => {
+    const { result } = await submit({ success: true, data: { status: 'code_required' } }, 'review@padmakara.pt');
+    reviewLogin.mockResolvedValueOnce({ success: false, deviceUnavailable: true });
+    act(() => result.current.setCode('demo-code'));
+    await act(async () => {
+      await result.current.submitCode();
+    });
+    expect(result.current.error).toBe('device');
+  });
+});
