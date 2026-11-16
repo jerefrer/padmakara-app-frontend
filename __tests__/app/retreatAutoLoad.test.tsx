@@ -6,9 +6,10 @@ import retreatService from '@/services/retreatService';
 
 let mockAuth: { isAuthenticated: boolean };
 const mockPush = jest.fn();
+let mockParams: Record<string, string> = { id: '7' };
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: '7' }),
+  useLocalSearchParams: () => mockParams,
   useFocusEffect: jest.fn(),
   router: { push: (...a: any[]) => mockPush(...a), replace: jest.fn(), back: jest.fn() },
 }));
@@ -19,11 +20,14 @@ jest.mock('@/contexts/LanguageContext', () => ({
 // One stable object: the screen registers callbacks on it from effects.
 // `mockAudioState` holds what each test sets (current track, listening state).
 const mockPlayTrack = jest.fn();
+const mockTogglePlayPause = jest.fn();
 let mockAudioState: Record<string, unknown> = {};
 const mockAudio = new Proxy({} as Record<string, unknown>, {
   get: (target, key: string) =>
     key === 'playTrack'
       ? mockPlayTrack
+      : key === 'togglePlayPause'
+      ? mockTogglePlayPause
       : key in mockAudioState
       ? mockAudioState[key]
       : key.startsWith('set') || ['playTrack', 'pause', 'resume', 'clearTrack', 'loadTrack'].includes(key)
@@ -108,6 +112,7 @@ const otherEventTrack = { id: 99, title: 'Another teaching', duration: 900 };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = { id: '7' };
   mockAuth = { isAuthenticated: true };
   getDetails.mockResolvedValue({ success: true, data: retreat });
 });
@@ -142,5 +147,63 @@ describe('retreat screen loading its track into the player', () => {
 
     await waitFor(() => expect(mockPlayTrack).toHaveBeenCalled());
     expect(mockPlayTrack.mock.calls[0][4]).toEqual({ autoPlay: false });
+  });
+});
+
+describe('retreat screen opened from a bookmark', () => {
+  const twoTracks = {
+    ...retreat,
+    sessions: [{
+      ...retreat.sessions[0],
+      tracks: [
+        ...retreat.sessions[0].tracks,
+        { id: 12, title: 'Main teaching', duration: 900, order: 2, sessionId: 1, languages: ['en'] },
+      ],
+    }],
+  };
+
+  beforeEach(() => {
+    mockParams = { id: '7', from: 'bookmarks', trackId: '12' };
+    getDetails.mockResolvedValue({ success: true, data: twoTracks });
+  });
+
+  it('should load and play the bookmarked track when the player is empty', async () => {
+    mockAudioState = { currentTrack: null, retreatId: null, listeningStarted: false, isPlaying: false };
+
+    render(<RetreatDetailScreen />);
+
+    await waitFor(() => expect(mockPlayTrack).toHaveBeenCalled());
+    expect(mockPlayTrack.mock.calls[0][0].id).toBe(12);
+    expect(mockPlayTrack.mock.calls[0][4]).toEqual({ autoPlay: true });
+  });
+
+  it('should switch to the bookmarked track when another track of this event is loaded', async () => {
+    mockAudioState = {
+      currentTrack: { id: 11, title: 'Initial prayers', duration: 600 },
+      retreatId: '7',
+      listeningStarted: true,
+      isPlaying: false,
+    };
+
+    render(<RetreatDetailScreen />);
+
+    await waitFor(() => expect(mockPlayTrack).toHaveBeenCalled());
+    expect(mockPlayTrack.mock.calls[0][0].id).toBe(12);
+    expect(mockPlayTrack.mock.calls[0][4]).toEqual({ autoPlay: true });
+  });
+
+  it('should play the bookmarked track when it is already loaded but paused', async () => {
+    mockAudioState = {
+      currentTrack: { id: 12, title: 'Main teaching', duration: 900 },
+      retreatId: '7',
+      listeningStarted: true,
+      isPlaying: false,
+    };
+
+    const screen = render(<RetreatDetailScreen />);
+    await screen.findByText('Main teaching');
+
+    await waitFor(() => expect(mockTogglePlayPause).toHaveBeenCalledTimes(1));
+    expect(mockPlayTrack).not.toHaveBeenCalled();
   });
 });

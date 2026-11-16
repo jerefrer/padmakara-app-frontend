@@ -121,8 +121,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 22,
-    fontWeight: '600',
-    fontFamily: 'MinionPro',
+    fontFamily: 'MinionPro_Semibold',
     color: colors.burgundy[500],
     letterSpacing: 2.5,
     fontVariant: ['small-caps'],

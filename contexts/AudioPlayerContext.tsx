@@ -16,6 +16,8 @@ import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
  *
  *   'idle'    : no track loaded (initial state, after sign-out, before
  *               resume-last-played) — controls hidden or in idle preview.
+ *               Also a selected track whose audio never arrived (see the
+ *               load safety timer): play then retries the load.
  *   'loading' : a track is selected but the audio is still being resolved
  *               (download / cache / stream URL) and/or being seeked to the
  *               saved position. The slider already shows the *target*
@@ -46,6 +48,10 @@ const RESUME_END_MARGIN_S = 5;
 // never report its end, which left the player stuck instead of going on.
 const END_STALL_WINDOW_S = 1;
 const END_STALL_MS = 3000;
+// Set when the person closes the player; removed once something plays again.
+// While it is set, no last-played track is restored, from this device or the
+// server, so a closed player stays closed across restarts.
+const PLAYER_CLOSED_KEY = 'audio_player_closed';
 
 export interface IdleTrackInfo {
   track: Track;
@@ -350,6 +356,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   if (track && isPlaying && !listeningStarted) setListeningStarted(true);
   if (!track && listeningStarted) setListeningStarted(false);
 
+  // Playing something again reopens the player for the next restarts.
+  useEffect(() => {
+    if (listeningStarted) void AsyncStorage.removeItem(PLAYER_CLOSED_KEY).catch(() => {});
+  }, [listeningStarted]);
+
   // Detect a stale status snapshot from a previous player. expo-audio's
   // `useEvent` hook (from `expo`) uses `useState(initialValue)` — useState
   // only consumes initialValue on the first render, so when the emitter
@@ -470,6 +481,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     (async () => {
       try {
+        if (await AsyncStorage.getItem(PLAYER_CLOSED_KEY)) return;
         const saved = await AsyncStorage.getItem('last_played_track');
         if (!saved) return;
         const { track: savedTrack, meta } = JSON.parse(saved) as {
@@ -520,6 +532,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     try {
       const remote = await progressService.getLastPlayedTrackRemote();
       if (!remote) return;
+      if (await AsyncStorage.getItem(PLAYER_CLOSED_KEY)) return;
       let localLastPlayed = '';
       try {
         const localRaw = await AsyncStorage.getItem('last_played_track');
@@ -772,12 +785,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setTargetPosition(savedPositionsRef.current.get(currentId) ?? 0);
 
     // Safety net: if source resolution or audio buffering is still
-    // unresolved after 15s, transition to ready anyway and surface the
-    // problem in the logs so the user isn't stuck staring at a spinner.
+    // unresolved after 15s, stop the spinner and surface the problem in the
+    // logs so the user isn't stuck staring at it. A play queued meanwhile is
+    // dropped: starting long after the tap would surprise. When this track's
+    // source never reached the player, the native single player still holds
+    // the previous track's audio, so the track goes idle rather than ready:
+    // nothing can play that audio, and play retries the load instead.
     const safetyTimer = setTimeout(() => {
       if (trackIdRef.current === currentId && phaseRef.current === 'loading') {
         console.warn(`[SAFETY] Track load exceeded ${SAFETY_LOAD_TIMEOUT_MS}ms: ${track.title}`);
-        setPhase('ready');
+        setPendingPlay(false);
+        setPhase(audioSourceTrackIdRef.current === currentId ? 'ready' : 'idle');
       }
     }, SAFETY_LOAD_TIMEOUT_MS);
 
@@ -1155,9 +1173,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setMetaRetreatName(null);
     setMetaGroupName(null);
     setIdleTrack(null);
+    void AsyncStorage.setItem(PLAYER_CLOSED_KEY, '1').catch(() => {});
   }, [player]);
 
   const togglePlayPause = useCallback(() => {
+    // Idle with a track: its audio never arrived (load safety timer). Load
+    // it again, as a new track object so the track-change effect reruns,
+    // and play once it is ready. Checked first: the selected track wins over
+    // a last-played one restored meanwhile.
+    if (phase === 'idle' && track) {
+      autoPlayOnLoadRef.current = true;
+      setPhase('loading');
+      setTrack({ ...track });
+      return;
+    }
     // Idle: there's a saved last-played track but no audio loaded. Mark
     // play as pending and resume the track; once it loads, playback will
     // start automatically.
@@ -1189,7 +1218,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
       setPendingPlay(false);
     }
-  }, [phase, player, status?.playing, status?.currentTime, idleTrack, playTrack, saveProgress]);
+  }, [phase, player, status?.playing, status?.currentTime, idleTrack, track, playTrack, saveProgress]);
 
   // Pause without toggling: a no-op when nothing is playing. Also drops a
   // play requested while the track was still loading.

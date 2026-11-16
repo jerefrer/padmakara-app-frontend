@@ -447,11 +447,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '600',
     color: colors.gray[800],
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: 'MinionPro',
+    fontFamily: 'MinionPro_Semibold',
     fontVariant: ['small-caps'],
   },
   subtitle: {

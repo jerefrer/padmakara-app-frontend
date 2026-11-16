@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { router, useGlobalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import magicLinkService from '@/services/magicLinkService';
-import { markEmailSignIn } from '@/hooks/passkeyInviteState';
 
 const colors = {
   cream: {
@@ -15,59 +13,9 @@ const colors = {
 };
 
 export default function RootIndex() {
-  const { isAuthenticated, isLoading, isDeviceActivated, refreshAuth } = useAuth();
+  const { isAuthenticated, isLoading, isDeviceActivated } = useAuth();
   const [hasRedirected, setHasRedirected] = useState(false);
   const [redirectTimeout, setRedirectTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [isAutoActivating, setIsAutoActivating] = useState(false);
-  const params = useGlobalSearchParams();
-
-  // Auto-activation effect - runs first if auto_activate parameter is present
-  useEffect(() => {
-    const autoActivateToken = params.auto_activate as string;
-    
-    if (autoActivateToken && !isAutoActivating && !isAuthenticated) {
-      console.log('🔄 Auto-activation token detected');
-      setIsAutoActivating(true);
-      
-      // Set timeout fallback to prevent infinite spinner
-      const autoActivationTimeout = setTimeout(() => {
-        console.warn('⏰ Auto-activation timeout - forcing fallback to normal flow');
-        setIsAutoActivating(false);
-      }, 15000); // 15 second timeout
-      
-      // Attempt auto-activation
-      handleAutoActivation(autoActivateToken).finally(() => {
-        clearTimeout(autoActivationTimeout);
-      });
-      
-      return () => {
-        clearTimeout(autoActivationTimeout);
-      };
-    }
-  }, [params.auto_activate, isAutoActivating, isAuthenticated]);
-
-  const handleAutoActivation = async (token: string) => {
-    try {
-      console.log('🚀 Attempting auto-activation with token');
-      
-      const result = await magicLinkService.autoActivateDevice(token);
-      
-      if (result.success) {
-        console.log('✅ Auto-activation successful, refreshing auth state');
-        markEmailSignIn();
-        await refreshAuth();
-        console.log('🔄 Auth refresh completed, allowing redirect logic');
-        setIsAutoActivating(false); // Critical: Allow redirect logic to execute
-      } else {
-        console.warn('❌ Auto-activation failed:', result.error);
-        // Fall back to normal authentication flow
-        setIsAutoActivating(false);
-      }
-    } catch (error) {
-      console.error('💥 Auto-activation error:', error);
-      setIsAutoActivating(false);
-    }
-  };
 
   useEffect(() => {
     // Clear any existing redirect timeout
@@ -76,8 +24,8 @@ export default function RootIndex() {
       setRedirectTimeout(null);
     }
 
-    // Don't redirect while loading, if already redirected, or if auto-activating
-    if (isLoading || hasRedirected || isAutoActivating) {
+    // Don't redirect while loading or if already redirected
+    if (isLoading || hasRedirected) {
       return;
     }
 
@@ -121,7 +69,7 @@ export default function RootIndex() {
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.burgundy[500]} />
       <Text style={styles.loadingText}>
-        {isAutoActivating ? 'Activating device...' : isLoading ? 'Checking authentication...' : 'Redirecting...'}
+        {isLoading ? 'Checking authentication...' : 'Redirecting...'}
       </Text>
     </View>
   );

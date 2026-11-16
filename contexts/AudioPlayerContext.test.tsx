@@ -670,6 +670,7 @@ describe('AudioPlayerContext — filter + advance integration (matrix F)', () =>
 // ─── Cross-device sync (matrix G) ─────────────────────────────────────
 
 import apiService from '@/services/apiService';
+import retreatService from '@/services/retreatService';
 
 const apiGet = apiService.get as jest.Mock;
 const apiPost = apiService.post as jest.Mock;
@@ -1251,6 +1252,49 @@ describe('AudioPlayerContext — load safety timer', () => {
     warn.mockRestore();
   });
 
+  it('should not play the previous track\'s audio when the next one never loads', async () => {
+    const tA = makeTrack({ id: 'nA', duration: 100 });
+    const tB = makeTrack({ id: 'nB', duration: 100 });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderPlayer();
+    act(() => { __setDuration(100); result.current.playTrack(tA, [tA, tB], 0); });
+    await settle();
+    act(() => { __setPlaying(true); });
+
+    // B's stream address never arrives; the single native player still holds A.
+    (retreatService.getTrackStreamUrl as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+    act(() => { result.current.playTrack(tB, [tA, tB], 1); });
+    await settle();
+    expect(result.current.isPlaying).toBe(true);
+
+    act(() => { jest.advanceTimersByTime(15000); });
+    await settle();
+
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.playerState).toBe('idle');
+    warn.mockRestore();
+  });
+
+  it('should retry loading the track when play is tapped after it timed out', async () => {
+    const t = makeTrack({ id: 'nRetry', duration: 100 });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderPlayer();
+    (retreatService.getTrackStreamUrl as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+    act(() => { __setDuration(100); result.current.playTrack(t, [t], 0); });
+    await settle();
+    act(() => { jest.advanceTimersByTime(15000); });
+    await settle();
+    expect(result.current.playerState).toBe('idle');
+
+    act(() => { result.current.togglePlayPause(); });
+    await settle();
+
+    expect(result.current.playerState).toBe('ready');
+    expect(result.current.isPlaying).toBe(true);
+    warn.mockRestore();
+  });
+
   it('should stay silent when the track has loaded before the timer fires', async () => {
     const tA = makeTrack({ id: 'qA', duration: 100 });
     const tB = makeTrack({ id: 'qB', duration: 100 });
@@ -1550,5 +1594,74 @@ describe('AudioPlayerContext — closing drops the intent to play', () => {
 
     expect(result.current.currentTrack?.id).toBe('tLoadedLater');
     expect(result.current.isPlaying).toBe(false);
+  });
+});
+
+describe('AudioPlayerContext — a closed player stays closed after a restart', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiGet.mockResolvedValue({ success: true, data: null });
+  });
+
+  const remoteLastPlayed = (trackId: number) => async (url: string) => (url === '/content/last-played'
+    ? {
+      success: true,
+      data: {
+        trackId,
+        positionSeconds: 47,
+        durationSeconds: 600,
+        isCompleted: false,
+        lastPlayed: '2026-05-08T10:00:00Z',
+        track: { id: trackId, title: 'Remote', duration: 600, order: 0, session_id: '7', created_at: '', updated_at: '' },
+        session: { id: 7 },
+        event: { id: 3, titleEn: 'Spring' },
+      },
+    }
+    : { success: true, data: null });
+
+  const playThenClose = async (id: string) => {
+    const first = renderPlayer();
+    const t = makeTrack({ id, duration: 600 });
+    act(() => { __setDuration(600); first.result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    act(() => { first.result.current.clearTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    first.unmount();
+  };
+
+  it('should not restore the last track at the next start when the person closed the player', async () => {
+    await playThenClose('tClosedBeforeRestart');
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should not take the closed track back from the server at the next start', async () => {
+    await playThenClose('42');
+    apiGet.mockImplementation(remoteLastPlayed(42));
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should restore the last track again once something played after the close', async () => {
+    await playThenClose('tClosedFirst');
+    const second = renderPlayer();
+    const t = makeTrack({ id: 'tPlayedAfter', duration: 600 });
+    act(() => { __setDuration(600); second.result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    second.unmount();
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack?.track.id).toBe('tPlayedAfter');
   });
 });
