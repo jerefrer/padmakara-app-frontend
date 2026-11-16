@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * EB Garamond is loaded as separate font files (EBGaramond_600SemiBold, ...).
+ * EB Garamond and Minion Pro are loaded as separate font files
+ * (EBGaramond_600SemiBold, MinionPro_Semibold, ...).
  * On the web each file becomes its own font family with normal weight, so a
  * style that sets a bold FILE and also a fontWeight makes the browser add a
  * synthetic bold on top of an already bold face (fuzzy, heavy text). Native
@@ -77,7 +78,7 @@ function fauxBoldStyles(): string[] {
       const source = fs.readFileSync(file, 'utf8');
       for (const block of extractStyleBlocks(source)) {
         // `fonts.display` (components/membership/theme.ts) is EBGaramond_600SemiBold.
-        const family = /fontFamily:\s*(?:['"](EBGaramond_[A-Za-z0-9]+)['"]|(fonts\.display))/.exec(block.body);
+        const family = /fontFamily:\s*(?:['"](EBGaramond_[A-Za-z0-9]+|MinionPro(?:_[A-Za-z]+)?)['"]|(fonts\.display))/.exec(block.body);
         const weight = /fontWeight:\s*['"]?(\w+)['"]?/.exec(block.body);
         if (family && weight && weight[1] !== 'normal' && weight[1] !== '400') {
           offenders.push(
@@ -90,7 +91,7 @@ function fauxBoldStyles(): string[] {
   return offenders;
 }
 
-describe('EB Garamond font files', () => {
+describe('EB Garamond and Minion Pro font files', () => {
   it('should never combine a font file with a non-normal fontWeight in a StyleSheet style', () => {
     expect(fauxBoldStyles()).toEqual([]);
   });
