@@ -16,7 +16,12 @@ import {
 } from './tokenStorage';
 import {
   DeviceFingerprintUnavailableError,
+  createFingerprint,
+  deleteLegacyFingerprint,
+  getLegacyFingerprint,
   getOrCreateDeviceFingerprint,
+  readStoredFingerprint,
+  storeFingerprint,
 } from './deviceFingerprint';
 
 /** What the server needs to deactivate a device once local credentials are gone. */
@@ -329,11 +334,20 @@ class MagicLinkService {
    */
   async captureDeviceDeactivation(): Promise<DeviceDeactivation> {
     const [fingerprint, accessToken, refreshToken] = await Promise.all([
-      getOrCreateDeviceFingerprint(),
+      this.getActivatedFingerprint(),
       getAuthToken().catch(() => null),
       getRefreshToken().catch(() => null),
     ]);
     return { fingerprint, accessToken, refreshToken };
+  }
+
+  /**
+   * The fingerprint the server knows this device's activation by: the legacy
+   * value while its migration is still pending, the current one otherwise.
+   */
+  private async getActivatedFingerprint(): Promise<string> {
+    const legacy = await getLegacyFingerprint().catch(() => null);
+    return legacy ?? getOrCreateDeviceFingerprint();
   }
 
   private async postDeactivation(fingerprint: string, accessToken: string): Promise<Response> {
@@ -431,13 +445,13 @@ class MagicLinkService {
     try {
       console.log('🌐 Deactivating device on backend...');
       
-      const deviceInfo = await this.getDeviceInfo();
+      const fingerprint = await this.getActivatedFingerprint();
       
       // Call backend to deactivate this device
       const response = await apiService.post<{ status: string; message: string }>(
         API_ENDPOINTS.DEACTIVATE_DEVICE, 
         {
-          device_fingerprint: deviceInfo.fingerprint
+          device_fingerprint: fingerprint
         }
       );
       
@@ -666,6 +680,50 @@ class MagicLinkService {
       if (error instanceof DeviceFingerprintUnavailableError) return DEVICE_UNAVAILABLE;
       console.error('Error auto-activating device:', error);
       return { success: false, error: 'Network error. Please try again.' };
+    }
+  }
+
+  private legacyMigrationTried = false;
+
+  /**
+   * One-time move from the legacy fingerprint (AsyncStorage, guessable) to a
+   * CSPRNG one in secure storage, keeping a signed-in device signed in.
+   * Runs at most once per launch, in the background, and never throws:
+   * - signed out: the legacy value is simply deleted;
+   * - signed in: POST /auth/device/rotate { old, new }. On 200, or 404 (the
+   *   activation is gone), the new value is kept and the legacy one deleted.
+   *   On any other answer or no answer, nothing changes and the next launch
+   *   tries again.
+   * Idempotent: a new value already stored (an earlier run stopped half-way,
+   * or a request created it) is reused instead of drawing another.
+   */
+  async migrateLegacyFingerprint(): Promise<void> {
+    if (this.legacyMigrationTried) return;
+    this.legacyMigrationTried = true;
+    try {
+      const legacy = await getLegacyFingerprint();
+      if (!legacy) return;
+      // Read secure storage strictly first: when it is locked or failing, the
+      // token reads below would answer "signed out" and the legacy value would
+      // be dropped from a device that is in fact signed in.
+      const stored = await readStoredFingerprint();
+      if (!(await this.isDeviceActivated())) {
+        await deleteLegacyFingerprint();
+        return;
+      }
+      const next = stored ?? (await createFingerprint());
+      const response = await apiService.post<{ status: string }>(API_ENDPOINTS.ROTATE_DEVICE_FINGERPRINT, {
+        old_fingerprint: legacy,
+        new_fingerprint: next,
+      });
+      if (!response.success && response.status !== 404) {
+        console.warn('Device fingerprint migration deferred to the next launch:', response.status ?? 'no answer');
+        return;
+      }
+      if (!stored) await storeFingerprint(next);
+      await deleteLegacyFingerprint();
+    } catch (error) {
+      console.warn('Device fingerprint migration failed; will retry at the next launch:', error);
     }
   }
 

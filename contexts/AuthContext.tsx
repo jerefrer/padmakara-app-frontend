@@ -100,10 +100,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // Deliver a device deactivation that could not reach the server at sign-out.
+    // Deliver a device deactivation that could not reach the server at sign-out,
+    // and move a device fingerprint left by an older build to secure storage (both in the background).
     initializeAuth().finally(() => {
       finishPendingLocalCleanup().catch(() => {});
       magicLinkService.retryPendingDeactivation().catch(() => {});
+      magicLinkService.migrateLegacyFingerprint().catch(() => {});
     });
 
     // Listen for auth state changes from API service (401 responses)

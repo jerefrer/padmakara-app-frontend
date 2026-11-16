@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
   AUTO_ACTIVATE_DEVICE: '/auth/auto-activate',
   DISCOVER_DEVICE_ACTIVATION: '/auth/device/discover',
   DEACTIVATE_DEVICE: '/auth/device/deactivate',
+  ROTATE_DEVICE_FINGERPRINT: '/auth/device/rotate',
   LIST_USER_DEVICES: '/auth/devices',
   REFRESH_TOKEN: '/auth/refresh',
 
