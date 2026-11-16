@@ -346,7 +346,7 @@ export default function EventsScreen() {
               {t('common.connectionError') || 'Connection Error'}
             </Text>
             <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadEvents}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => loadEvents(true)}>
               <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
             </TouchableOpacity>
           </View>
