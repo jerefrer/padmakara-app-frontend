@@ -267,6 +267,7 @@
   },
   "events": {
     "forthcomingNotice": "Em breve – este evento está a ser editado e ficará disponível em breve.",
+    "forthcomingAdminNotice": "Em breve – só os administradores veem este conteúdo até ser publicado.",
     "empty": "Sem eventos disponíveis",
     "retreats": "Mediateca Pessoal",
     "eventName": "Evento",

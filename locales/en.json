@@ -267,6 +267,7 @@
   },
   "events": {
     "forthcomingNotice": "Forthcoming – this event is being edited and will be available soon.",
+    "forthcomingAdminNotice": "Forthcoming – only administrators can see this content until it is published.",
     "empty": "No events available",
     "retreats": "Personal Library",
     "eventName": "Event",
