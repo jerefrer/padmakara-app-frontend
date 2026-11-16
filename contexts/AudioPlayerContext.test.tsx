@@ -1552,3 +1552,72 @@ describe('AudioPlayerContext — closing drops the intent to play', () => {
     expect(result.current.isPlaying).toBe(false);
   });
 });
+
+describe('AudioPlayerContext — a closed player stays closed after a restart', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiGet.mockResolvedValue({ success: true, data: null });
+  });
+
+  const remoteLastPlayed = (trackId: number) => async (url: string) => (url === '/content/last-played'
+    ? {
+      success: true,
+      data: {
+        trackId,
+        positionSeconds: 47,
+        durationSeconds: 600,
+        isCompleted: false,
+        lastPlayed: '2026-05-08T10:00:00Z',
+        track: { id: trackId, title: 'Remote', duration: 600, order: 0, session_id: '7', created_at: '', updated_at: '' },
+        session: { id: 7 },
+        event: { id: 3, titleEn: 'Spring' },
+      },
+    }
+    : { success: true, data: null });
+
+  const playThenClose = async (id: string) => {
+    const first = renderPlayer();
+    const t = makeTrack({ id, duration: 600 });
+    act(() => { __setDuration(600); first.result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    act(() => { first.result.current.clearTrack(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    first.unmount();
+  };
+
+  it('should not restore the last track at the next start when the person closed the player', async () => {
+    await playThenClose('tClosedBeforeRestart');
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should not take the closed track back from the server at the next start', async () => {
+    await playThenClose('42');
+    apiGet.mockImplementation(remoteLastPlayed(42));
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should restore the last track again once something played after the close', async () => {
+    await playThenClose('tClosedFirst');
+    const second = renderPlayer();
+    const t = makeTrack({ id: 'tPlayedAfter', duration: 600 });
+    act(() => { __setDuration(600); second.result.current.playTrack(t, [t], 0); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    second.unmount();
+
+    const { result } = renderPlayer();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.idleTrack?.track.id).toBe('tPlayedAfter');
+  });
+});

@@ -46,6 +46,10 @@ const RESUME_END_MARGIN_S = 5;
 // never report its end, which left the player stuck instead of going on.
 const END_STALL_WINDOW_S = 1;
 const END_STALL_MS = 3000;
+// Set when the person closes the player; removed once something plays again.
+// While it is set, no last-played track is restored, from this device or the
+// server, so a closed player stays closed across restarts.
+const PLAYER_CLOSED_KEY = 'audio_player_closed';
 
 export interface IdleTrackInfo {
   track: Track;
@@ -350,6 +354,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   if (track && isPlaying && !listeningStarted) setListeningStarted(true);
   if (!track && listeningStarted) setListeningStarted(false);
 
+  // Playing something again reopens the player for the next restarts.
+  useEffect(() => {
+    if (listeningStarted) void AsyncStorage.removeItem(PLAYER_CLOSED_KEY).catch(() => {});
+  }, [listeningStarted]);
+
   // Detect a stale status snapshot from a previous player. expo-audio's
   // `useEvent` hook (from `expo`) uses `useState(initialValue)` — useState
   // only consumes initialValue on the first render, so when the emitter
@@ -470,6 +479,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     (async () => {
       try {
+        if (await AsyncStorage.getItem(PLAYER_CLOSED_KEY)) return;
         const saved = await AsyncStorage.getItem('last_played_track');
         if (!saved) return;
         const { track: savedTrack, meta } = JSON.parse(saved) as {
@@ -520,6 +530,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     try {
       const remote = await progressService.getLastPlayedTrackRemote();
       if (!remote) return;
+      if (await AsyncStorage.getItem(PLAYER_CLOSED_KEY)) return;
       let localLastPlayed = '';
       try {
         const localRaw = await AsyncStorage.getItem('last_played_track');
@@ -1155,6 +1166,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setMetaRetreatName(null);
     setMetaGroupName(null);
     setIdleTrack(null);
+    void AsyncStorage.setItem(PLAYER_CLOSED_KEY, '1').catch(() => {});
   }, [player]);
 
   const togglePlayPause = useCallback(() => {
