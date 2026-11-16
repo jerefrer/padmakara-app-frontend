@@ -629,8 +629,9 @@ export default function RetreatDetailScreen() {
       }
 
       // Nothing is being listened to — load this event's last-played track
-      // (or the first one) as the active player track.
-      selectTrack(highlightTrack, highlightIndex);
+      // (or the first one) as the active player track. Paused: opening a
+      // page is not asking to listen, whatever the player was doing before.
+      selectTrack(highlightTrack, highlightIndex, { autoPlay: false });
       if (resumedFromMemory && highlightIndex > 0) {
         pendingScrollTrackIdRef.current = String(highlightTrack.id);
         tryScrollToPendingTrack();

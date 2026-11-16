@@ -719,6 +719,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       seekToTargetDoneRef.current = null;
       audioSourceTrackIdRef.current = null;
       autoPlayOnLoadRef.current = false;
+      // A play tapped while the closed track was loading must not survive it:
+      // it kept isPlaying true with no track, and the next track an event
+      // screen loaded inherited it and started by itself.
+      setPendingPlay(false);
       setAudioSource(null);
       setPhase('idle');
       setTargetPosition(0);

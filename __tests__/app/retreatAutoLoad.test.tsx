@@ -133,4 +133,14 @@ describe('retreat screen loading its track into the player', () => {
 
     expect(mockPlayTrack).not.toHaveBeenCalled();
   });
+
+  // André: returning to a teaching started its audio by itself.
+  it('should load its track paused when the player is empty', async () => {
+    mockAudioState = { currentTrack: null, retreatId: null, listeningStarted: false };
+
+    render(<RetreatDetailScreen />);
+
+    await waitFor(() => expect(mockPlayTrack).toHaveBeenCalled());
+    expect(mockPlayTrack.mock.calls[0][4]).toEqual({ autoPlay: false });
+  });
 });

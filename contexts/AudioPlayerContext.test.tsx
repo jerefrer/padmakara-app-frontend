@@ -1533,3 +1533,22 @@ describe('AudioPlayerContext — mini player follows what the person played', ()
     expect(result.current.listeningStarted).toBe(false);
   });
 });
+
+describe('AudioPlayerContext — closing drops the intent to play', () => {
+  it('should not start the next track by itself after closing one whose play was still pending', async () => {
+    const { result } = renderPlayer();
+    const tA = makeTrack({ id: 'tStillLoading', duration: 600 });
+    const tB = makeTrack({ id: 'tLoadedLater', duration: 600 });
+    // Play is tapped while the track is still loading, then the player is closed.
+    act(() => { result.current.playTrack(tA, [tA], 0, undefined, { autoPlay: true }); });
+    act(() => { result.current.clearTrack(); });
+    expect(result.current.isPlaying).toBe(false);
+
+    // An event screen then loads its track without asking for playback.
+    act(() => { __setDuration(600); result.current.playTrack(tB, [tB], 0); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(result.current.currentTrack?.id).toBe('tLoadedLater');
+    expect(result.current.isPlaying).toBe(false);
+  });
+});
