@@ -33,6 +33,8 @@ import { colors } from '@/constants/colors';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import type { Publication } from '@/types';
 import { BackButton } from '@/components/ui/BackButton';
+import { sanitizePdfFilename } from '@/components/DocumentShareButton';
+import { downloadFileWeb } from '@/utils/downloadFileWeb';
 import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
@@ -276,8 +278,17 @@ export default function PublicationsScreen() {
     }
   }, []);
 
+  // Same button as the transcript viewer: the file on the web, the share sheet on phones.
   const handleSharePdf = useCallback(async () => {
     if (!viewingPdf) return;
+    if (Platform.OS === 'web') {
+      try {
+        await downloadFileWeb(viewingPdf.uri, sanitizePdfFilename(viewingPdf.publication.title));
+      } catch (err) {
+        console.error('Publication download error:', err);
+      }
+      return;
+    }
     try {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(viewingPdf.uri, {
@@ -434,18 +445,20 @@ export default function PublicationsScreen() {
                   <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
                 </TouchableOpacity>
               )}
-              {Platform.OS !== 'web' && (
-                <TouchableOpacity
-                  testID="publication-share-button"
-                  onPress={handleSharePdf}
-                  hitSlop={8}
-                  style={styles.pdfShareButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('publications.share') || 'Share or save this publication'}
-                >
-                  <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                testID="publication-share-button"
+                onPress={handleSharePdf}
+                hitSlop={8}
+                style={styles.pdfShareButton}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  Platform.OS === 'web'
+                    ? t('transcript.downloadPdf') || 'Download PDF'
+                    : t('publications.share') || 'Share or save this publication'
+                }
+              >
+                <Ionicons name="share-outline" size={22} color={colors.burgundy[500]} />
+              </TouchableOpacity>
             </View>
 
             {/* New-version banner */}
@@ -525,6 +538,7 @@ export default function PublicationsScreen() {
             onSingleTap={toggleBars}
             onOutline={setOutline}
             contentInsetTop={readerBarHeight}
+            showDownloadButton={false}
           />
           <PdfOutlineSheet
             visible={outlineVisible}

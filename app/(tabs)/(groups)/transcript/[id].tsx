@@ -15,6 +15,7 @@ import { colors } from '@/constants/colors';
 import retreatService, { transcriptErrorKey } from '@/services/retreatService';
 import { transcriptCacheService } from '@/services/transcriptCacheService';
 import * as Sharing from 'expo-sharing';
+import { downloadFileWeb } from '@/utils/downloadFileWeb';
 import { BackButton } from '@/components/ui/BackButton';
 import { WatermarkNotice } from '@/components/WatermarkNotice';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,16 +109,7 @@ export default function TranscriptViewerScreen() {
     try {
       if (Platform.OS === 'web') {
         if (transcriptUrl) {
-          const res = await fetch(transcriptUrl);
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = eventName ? `${eventName} — Transcript.pdf` : 'transcript.pdf';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          await downloadFileWeb(transcriptUrl, eventName ? `${eventName} — Transcript.pdf` : 'transcript.pdf');
         }
       } else {
         // Native: use cached file path and share
@@ -145,7 +137,7 @@ export default function TranscriptViewerScreen() {
     } finally {
       setIsDownloading(false);
     }
-  }, [transcriptId, transcriptUrl, t]);
+  }, [transcriptId, transcriptUrl, eventName, t]);
 
   if (loading) {
     return (
@@ -216,11 +208,19 @@ export default function TranscriptViewerScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Download/Share button */}
+            {/* The one download button: the file on the web, the share sheet on phones.
+                The viewer's own toolbar button is turned off below. */}
             <TouchableOpacity
+              testID="transcript-download-button"
               onPress={handleDownloadPdf}
               style={styles.headerButton}
               disabled={isDownloading}
+              accessibilityRole="button"
+              accessibilityLabel={
+                Platform.OS === 'web'
+                  ? t('transcript.downloadPdf') || 'Download PDF'
+                  : t('documents.share') || 'Share or save this text'
+              }
             >
               {isDownloading ? (
                 <ActivityIndicator size="small" color={colors.burgundy[500]} />
@@ -239,6 +239,7 @@ export default function TranscriptViewerScreen() {
           onSingleTap={toggleBars}
           onOutline={setOutline}
           contentInsetTop={readerBarHeight}
+          showDownloadButton={false}
         />
       </View>
 

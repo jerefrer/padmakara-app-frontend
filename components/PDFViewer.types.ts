@@ -5,6 +5,11 @@ export interface PDFViewerProps {
   title?: string;
   onPageChange?: (page: number, totalPages: number) => void;
   compact?: boolean;
+  /**
+   * Web: show the download button in the viewer's toolbar (default true).
+   * Screens with their own download button in the header turn it off.
+   */
+  showDownloadButton?: boolean;
   /** A tap on the page that did not follow a link (iOS and Android). */
   onSingleTap?: () => void;
   /** The document's table of contents, once loaded; empty when it has none (iOS and Android). */
