@@ -4,6 +4,7 @@ jest.mock('react-pdf', () => ({
   pdfjs: { version: '9.9.9', GlobalWorkerOptions: {} },
 }));
 jest.mock('react-pdf/dist/Page/TextLayer.css', () => ({}), { virtual: true });
+jest.mock('react-pdf/dist/Page/AnnotationLayer.css', () => ({}), { virtual: true });
 
 import { PDF_DOCUMENT_OPTIONS } from '@/components/PDFViewerWebImpl';
 

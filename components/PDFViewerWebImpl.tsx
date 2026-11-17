@@ -8,6 +8,7 @@ import { FitWidthIcon } from './icons/FitWidthIcon';
 import { FitHeightIcon } from './icons/FitHeightIcon';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { installReadableStreamAsyncIterator } from '@/utils/readableStreamAsyncIterator';
@@ -64,6 +65,9 @@ interface PDFViewerProps {
   onPageChange?: (page: number, totalPages: number) => void;
   compact?: boolean;
 }
+
+/** External links open in a new tab that cannot reach back into the app. */
+export const EXTERNAL_LINK_REL = 'noopener noreferrer';
 
 const MODE_KEY = '@pdfViewer:viewMode';
 /** The former layout setting, read once to carry a two-page choice over. */
@@ -135,7 +139,9 @@ function ToolbarButton({ label, onPress, active = false, disabled = false, child
  * a continuous column, single pages or two-page spreads (cover alone), zoom by
  * trackpad pinch, Ctrl/Cmd-wheel, Ctrl/Cmd +/-/0 and the toolbar, with
  * fit-width and fit-page presets. The view mode and the fit preset persist in
- * localStorage. Annotations are disabled; text selection is kept.
+ * localStorage. The text layer keeps text selectable and the annotation layer
+ * makes the PDF's links work: external ones open in a new tab, internal ones
+ * (a table of contents) go to their page in whichever mode is shown.
  */
 export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFViewerProps) {
   const { t } = useLanguage();
@@ -503,6 +509,19 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
     };
   }, [zoomTo]);
 
+  // ── Links ───────────────────────────────────────────────────────────
+  // Internal links (a table of contents): pdf.js hands over the target page
+  // and the viewer scrolls or turns to it. react-pdf keeps the onItemClick of
+  // its first render, before the document had pages, so it gets a stable
+  // function that calls the current goToPage.
+  const goToPageRef = useRef(goToPage);
+  useLayoutEffect(() => {
+    goToPageRef.current = goToPage;
+  }, [goToPage]);
+  const followInternalLink = useCallback(({ pageNumber }: { pageNumber: number }) => {
+    goToPageRef.current(pageNumber);
+  }, []);
+
   // ── Input: keyboard ─────────────────────────────────────────────────
   const keyHandlers = useRef<Record<ViewerKeyAction, () => void> | null>(null);
   const modeRef = useRef(mode);
@@ -553,7 +572,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
           <Page
             pageNumber={pageNumber}
             width={box.width}
-            renderAnnotationLayer={false}
+            renderAnnotationLayer={true}
             renderTextLayer={true}
             loading={<div style={{ ...pagePlaceholderStyle, width: box.width, height: box.height }} />}
           />
@@ -700,6 +719,9 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
             options={PDF_DOCUMENT_OPTIONS}
             onLoadSuccess={onDocumentLoad}
             onLoadError={() => setError(true)}
+            onItemClick={followInternalLink}
+            externalLinkTarget="_blank"
+            externalLinkRel={EXTERNAL_LINK_REL}
             loading={
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={colors.burgundy[500]} />
