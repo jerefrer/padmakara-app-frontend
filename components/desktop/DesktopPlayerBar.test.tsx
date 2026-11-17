@@ -6,13 +6,19 @@ import { DesktopPlayerBar } from './DesktopPlayerBar';
 
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: () => '', language: 'en' }) }));
 let mockContextExtras: Record<string, unknown> = {};
+const mockOnSlidingStart = jest.fn();
+const mockOnSliderValueChange = jest.fn();
+const mockOnSlidingComplete = jest.fn();
 jest.mock('@/contexts/AudioPlayerContext', () => ({
   useAudioPlayerContext: () => ({
     ...mockContextExtras,
     currentTrack: { id: 1, title: 'Some words about Tenga Rinpoche' },
     isPlaying: false,
-    position: 0,
+    position: 25,
     duration: 100,
+    onSlidingStart: mockOnSlidingStart,
+    onSliderValueChange: mockOnSliderValueChange,
+    onSlidingComplete: mockOnSlidingComplete,
     playbackSpeed: 1,
     groupName: 'G',
     retreatName: 'R',
@@ -21,7 +27,6 @@ jest.mock('@/contexts/AudioPlayerContext', () => ({
 }));
 jest.mock('@/utils/i18n', () => ({ getTrackTitle: (t: { title: string }) => t.title }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
-jest.mock('@react-native-community/slider', () => () => null);
 jest.mock('@/components/PlayingIndicator', () => ({ PlayingIndicator: () => null }));
 
 const languageControl = { label: 'English + Portuguese', options: ['en', 'pt'], selected: ['en'], onChange: jest.fn() };
@@ -29,6 +34,48 @@ const languageControl = { label: 'English + Portuguese', options: ['en', 'pt'], 
 describe('DesktopPlayerBar', () => {
   beforeEach(() => {
     mockContextExtras = {};
+    jest.clearAllMocks();
+  });
+
+  it('should draw the play control as a bare icon without the red disc', () => {
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    const style = StyleSheet.flatten(getByTestId('audio-play-pause').props.style);
+    expect(style.backgroundColor).toBeUndefined();
+  });
+
+  it('should show the elapsed time left of the controls and the time left right of them', () => {
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    expect(getByTestId('audio-current-time').props.children).toBe('0:25');
+    expect(getByTestId('audio-remaining-time').props.children).toBe('- 1:15');
+  });
+
+  it('should fill the top progress line in proportion to the position', () => {
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    expect(StyleSheet.flatten(getByTestId('audio-progress-fill').props.style).width).toBe('25%');
+  });
+
+  it('should expose the progress line as an adjustable control with its value', () => {
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    const seek = getByTestId('audio-seek');
+    expect(seek.props.accessibilityRole).toBe('adjustable');
+    expect(seek.props['aria-valuemin']).toBe(0);
+    expect(seek.props['aria-valuemax']).toBe(100);
+    expect(seek.props['aria-valuenow']).toBe(25);
+  });
+
+  it('should seek to the clicked point of the progress line', () => {
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    const seek = getByTestId('audio-seek');
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 1000, height: 16, x: 0, y: 0 } } });
+    const at = (pageX: number) => ({ nativeEvent: { pageX, locationX: pageX - 100 } });
+
+    fireEvent(seek, 'responderGrant', at(400));
+    fireEvent(seek, 'responderMove', at(700));
+    fireEvent(seek, 'responderRelease', at(700));
+
+    expect(mockOnSlidingStart).toHaveBeenCalled();
+    expect(mockOnSliderValueChange).toHaveBeenLastCalledWith(60);
+    expect(mockOnSlidingComplete).toHaveBeenCalledWith(60);
   });
 
   it('should show the track title in regular weight at 18pt', () => {
