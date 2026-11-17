@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { claimTrackReveal } from '@/utils/trackReveal';
 
 // ─── Mocks ──────────────────────────────────────────────────────────
 
@@ -180,6 +181,14 @@ describe('MiniPlayer — interactions', () => {
     } else {
       expect(arg.params.id).toBe('42');
     }
+  });
+
+  it('should ask the event page to show the track when pressed', () => {
+    const { getByLabelText } = renderMiniPlayer();
+    fireEvent.press(getByLabelText('miniPlayer.openSession'));
+    const accept = jest.fn(() => true);
+    claimTrackReveal(accept);
+    expect(accept).toHaveBeenCalledWith('t1');
   });
 
   it('does not navigate when retreatId is missing', () => {

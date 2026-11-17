@@ -6,6 +6,8 @@ import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageCheckboxList } from '@/components/LanguageCheckboxList';
 import { getTrackTitle } from '@/utils/i18n';
+import { requestTrackReveal } from '@/utils/trackReveal';
+import { router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -39,6 +41,7 @@ export const PROGRESS_HIT_HEIGHT = 16;
 
 export function DesktopPlayerBar() {
   const { t, language } = useLanguage();
+  const pathname = usePathname();
   const {
     currentTrack,
     isPlaying,
@@ -66,6 +69,7 @@ export function DesktopPlayerBar() {
     openReadAlong,
     trackBookmark,
     languageControl,
+    retreatId,
   } = useAudioPlayerContext();
 
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -161,6 +165,15 @@ export function DesktopPlayerBar() {
   };
   const progress = progressOf(displayPosition, displayDuration);
 
+  // Tapping the title shows the track in its event's list, opening the event first when the
+  // person is elsewhere (the event page itself opens at its top).
+  const showTrackInEvent = () => {
+    if (!currentTrack || !retreatId) return;
+    requestTrackReveal(currentTrack.id);
+    if (pathname === `/retreat/${retreatId}`) return;
+    router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: retreatId } } as any);
+  };
+
   return (
       <View style={styles.container}>
 
@@ -216,7 +229,13 @@ export function DesktopPlayerBar() {
                 <PlayingIndicator isPlaying={isPlaying} size={16} color={colors.burgundy[500]} />
               </View>
             )}
-            <View style={styles.trackTextContainer}>
+            <TouchableOpacity
+              style={styles.trackTextContainer}
+              onPress={showTrackInEvent}
+              disabled={!hasTrack}
+              accessibilityRole="button"
+              testID="audio-track-title"
+            >
               <Text style={[styles.trackTitle, allDisabled && styles.idleText]} numberOfLines={1}>
                 {displayTitle || (t('player.noTrack') || 'No track selected')}
               </Text>
@@ -225,7 +244,7 @@ export function DesktopPlayerBar() {
                   {displaySubtitle}
                 </Text>
               ) : null}
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 

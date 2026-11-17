@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { DesktopPlayerBar } from './DesktopPlayerBar';
+import { claimTrackReveal } from '@/utils/trackReveal';
 
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: () => '', language: 'en' }) }));
 let mockContextExtras: Record<string, unknown> = {};
@@ -22,8 +23,15 @@ jest.mock('@/contexts/AudioPlayerContext', () => ({
     playbackSpeed: 1,
     groupName: 'G',
     retreatName: 'R',
+    retreatId: '42',
     idleTrack: null,
   }),
+}));
+const mockPush = jest.fn();
+let mockPathname = '/';
+jest.mock('expo-router', () => ({
+  router: { push: (...a: unknown[]) => mockPush(...a) },
+  usePathname: () => mockPathname,
 }));
 jest.mock('@/utils/i18n', () => ({ getTrackTitle: (t: { title: string }) => t.title }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
@@ -34,7 +42,27 @@ const languageControl = { label: 'English + Portuguese', options: ['en', 'pt'], 
 describe('DesktopPlayerBar', () => {
   beforeEach(() => {
     mockContextExtras = {};
+    mockPathname = '/';
     jest.clearAllMocks();
+  });
+
+  it('should open the event and ask it to show the track when the title is pressed elsewhere', () => {
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    fireEvent.press(getByTestId('audio-track-title'));
+    expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ params: { id: '42' } }));
+    const accept = jest.fn(() => true);
+    claimTrackReveal(accept);
+    expect(accept).toHaveBeenCalledWith('1');
+  });
+
+  it('should only ask for the track to be shown when its event is already open', () => {
+    mockPathname = '/retreat/42';
+    const { getByTestId } = render(<DesktopPlayerBar />);
+    fireEvent.press(getByTestId('audio-track-title'));
+    expect(mockPush).not.toHaveBeenCalled();
+    const accept = jest.fn(() => true);
+    claimTrackReveal(accept);
+    expect(accept).toHaveBeenCalledWith('1');
   });
 
   it('should draw the play control as a bare icon without the red disc', () => {

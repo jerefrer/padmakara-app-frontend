@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { useTabBarOverlap } from '@/hooks/useTabBarHeight';
 import { getTrackTitle } from '@/utils/i18n';
+import { requestTrackReveal } from '@/utils/trackReveal';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -327,10 +328,16 @@ export function AudioPlayer({
         <ScrubTime position={position} duration={duration} subscribe={subscribeScrub} remaining />
       </View>
 
-      {/* Track info */}
-      <Text style={styles.trackTitle} numberOfLines={1}>
-        {getTrackTitle(currentTrack, language)}
-      </Text>
+      {/* Track info. Tapping it brings the track into view in the event's list. */}
+      <TouchableOpacity
+        onPress={() => requestTrackReveal(currentTrack.id)}
+        accessibilityRole="button"
+        testID="audio-track-title"
+      >
+        <Text style={styles.trackTitle} numberOfLines={1}>
+          {getTrackTitle(currentTrack, language)}
+        </Text>
+      </TouchableOpacity>
 
       {/* Bottom toolbar */}
       <View style={styles.toolbar}>

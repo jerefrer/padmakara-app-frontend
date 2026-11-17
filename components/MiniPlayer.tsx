@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { getTrackTitle } from '@/utils/i18n';
+import { requestTrackReveal } from '@/utils/trackReveal';
 
 const BAR_HEIGHT = 60;
 const BURGUNDY = '#9b1b1b';
@@ -98,8 +99,10 @@ export function MiniPlayer() {
   const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : null;
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');
 
+  // Opens the event scrolled to this track: the page itself opens at its top.
   const handleOpenSession = () => {
     if (!retreatId) return;
+    requestTrackReveal(currentTrack.id);
     router.push({
       pathname: '/(tabs)/(groups)/retreat/[id]',
       params: { id: retreatId },

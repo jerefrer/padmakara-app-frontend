@@ -26,6 +26,7 @@ import { useReaderBars } from '@/hooks/useReaderBars';
 import { DocumentShareButton } from '@/components/DocumentShareButton';
 import { DocumentImageViewer } from '@/components/DocumentImageViewer';
 import { DESKTOP_ROW_RULE_COLOR } from '@/components/EventRow';
+import { claimTrackReveal, subscribeTrackReveal } from '@/utils/trackReveal';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -542,14 +543,18 @@ export default function RetreatDetailScreen() {
   // highlight it in the list.
   const autoLoadedRef = useRef(false);
 
-  // Refs for scrolling the track list to the remembered track on open.
-  // The Animated.ScrollView's ref + a per-item layout map let us center
-  // the active track in view without a FlatList. Only set when there's
-  // an actual remembered track to scroll to (not the first-track fallback).
+  // Refs for scrolling the track list to a track. The Animated.ScrollView's ref + a per-item
+  // layout map let us center a track in view without a FlatList. Opening the page never
+  // scrolls: it shows the photo and title (André). The list moves to the player's track only
+  // when play is pressed (and the track is out of view) or when its title is tapped in a
+  // player, and to a track opened from the Bookmarks tab, which plays it.
   const scrollViewRef = useRef<any>(null);
   const scrollViewHeightRef = useRef(0);
   const trackLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
   const pendingScrollTrackIdRef = useRef<string | null>(null);
+  // 'center' always centres the track; 'ifHidden' leaves the list alone when the whole row is
+  // already on screen (pressing play on a row one is looking at must not move it).
+  const pendingScrollModeRef = useRef<'center' | 'ifHidden'>('center');
 
   const tryScrollToPendingTrack = useCallback(() => {
     const id = pendingScrollTrackIdRef.current;
@@ -557,10 +562,27 @@ export default function RetreatDetailScreen() {
     const layout = trackLayoutsRef.current.get(id);
     const viewportH = scrollViewHeightRef.current;
     if (!layout || viewportH <= 0) return;
+    pendingScrollTrackIdRef.current = null;
+    const top = scrollY.value;
+    if (
+      pendingScrollModeRef.current === 'ifHidden' &&
+      layout.y >= top &&
+      layout.y + layout.height <= top + viewportH
+    ) {
+      return;
+    }
     const target = Math.max(0, layout.y + layout.height / 2 - viewportH / 2);
     scrollViewRef.current?.scrollTo?.({ y: target, animated: false });
-    pendingScrollTrackIdRef.current = null;
-  }, []);
+  }, [scrollY]);
+
+  const queueTrackScroll = useCallback(
+    (trackId: string | number, mode: 'center' | 'ifHidden') => {
+      pendingScrollTrackIdRef.current = String(trackId);
+      pendingScrollModeRef.current = mode;
+      tryScrollToPendingTrack();
+    },
+    [tryScrollToPendingTrack],
+  );
 
   useEffect(() => {
     if (autoLoadedRef.current) return;
@@ -585,10 +607,7 @@ export default function RetreatDetailScreen() {
         } else {
           selectTrack(filteredTracks[idx], idx, { autoPlay: true });
         }
-        if (idx > 0) {
-          pendingScrollTrackIdRef.current = String(filteredTracks[idx].id);
-          tryScrollToPendingTrack();
-        }
+        if (idx > 0) queueTrackScroll(filteredTracks[idx].id, 'center');
         return;
       }
     }
@@ -596,14 +615,7 @@ export default function RetreatDetailScreen() {
     if (ctxTrackInThisEvent) {
       // The player already has a track from this event — leave it alone;
       // the sync effect will mirror it into local state for the highlight.
-      // Queue a scroll so the list opens centered on it, but skip when
-      // it's the first track — there's nothing above to bring into view
-      // and scrolling would just hide the hero for no reason.
-      const ctxIdx = filteredTracks.findIndex((t) => String(t.id) === String(ctxTrack!.id));
-      if (ctxIdx > 0) {
-        pendingScrollTrackIdRef.current = String(ctxTrack!.id);
-        tryScrollToPendingTrack();
-      }
+      // The list stays at the top (see the scroll refs above).
       autoLoadedRef.current = true;
       return;
     }
@@ -614,7 +626,6 @@ export default function RetreatDetailScreen() {
       // Look up this event's per-event last-played track (highlight target).
       let highlightTrack = filteredTracks[0];
       let highlightIndex = 0;
-      let resumedFromMemory = false;
       try {
         const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
         if (lastId) {
@@ -622,7 +633,6 @@ export default function RetreatDetailScreen() {
           if (idx >= 0) {
             highlightTrack = filteredTracks[idx];
             highlightIndex = idx;
-            resumedFromMemory = true;
           }
         }
       } catch {
@@ -639,10 +649,6 @@ export default function RetreatDetailScreen() {
         setCurrentTrack(highlightTrack);
         setCurrentTrackIndex(highlightIndex);
         setSelectedTrack(highlightTrack);
-        if (resumedFromMemory && highlightIndex > 0) {
-          pendingScrollTrackIdRef.current = String(highlightTrack.id);
-          tryScrollToPendingTrack();
-        }
         return;
       }
 
@@ -650,12 +656,40 @@ export default function RetreatDetailScreen() {
       // (or the first one) as the active player track. Paused: opening a
       // page is not asking to listen, whatever the player was doing before.
       selectTrack(highlightTrack, highlightIndex, { autoPlay: false });
-      if (resumedFromMemory && highlightIndex > 0) {
-        pendingScrollTrackIdRef.current = String(highlightTrack.id);
-        tryScrollToPendingTrack();
-      }
     })();
-  }, [retreat, filteredTracks, audioContext.currentTrack, audioContext.listeningStarted, tryScrollToPendingTrack, trackIdParam]);
+  }, [retreat, filteredTracks, audioContext.currentTrack, audioContext.listeningStarted, queueTrackScroll, trackIdParam]);
+
+  // A player asked to show its track (title tapped): centre it when it is one of this event's.
+  // The request may predate this page (the mini player opens the event first), so a pending
+  // one is claimed as soon as the tracks are known.
+  const revealTrack = useCallback(
+    (trackId: string) => {
+      if (!filteredTracks.some((t) => String(t.id) === trackId)) return false;
+      queueTrackScroll(trackId, 'center');
+      return true;
+    },
+    [filteredTracks, queueTrackScroll],
+  );
+  useEffect(() => {
+    claimTrackReveal(revealTrack);
+    return subscribeTrackReveal(() => claimTrackReveal(revealTrack));
+  }, [revealTrack]);
+
+  // Pressing play (here, in the player bar or with the keyboard) brings this event's playing
+  // track into view when it is scrolled out of sight.
+  const wasPlayingRef = useRef(audioContext.isPlaying);
+  useEffect(() => {
+    const wasPlaying = wasPlayingRef.current;
+    wasPlayingRef.current = audioContext.isPlaying;
+    if (wasPlaying || !audioContext.isPlaying) return;
+    const playing = audioContext.currentTrack;
+    if (!playing || !filteredTracks.some((t) => String(t.id) === String(playing.id))) return;
+    // A centring already queued for this track (Topics, Bookmarks) stays a centring.
+    if (pendingScrollTrackIdRef.current === String(playing.id)) return;
+    queueTrackScroll(playing.id, 'ifHidden');
+    // Only the start of playback matters, not later track or list changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioContext.isPlaying]);
 
   // Keep the local highlight in sync with the global audio context. Covers
   // two cases:
@@ -1585,6 +1619,7 @@ export default function RetreatDetailScreen() {
       if (index < 0) return;
       setActiveContentTab('tracks');
       pendingScrollTrackIdRef.current = String(filteredTracks[index].id);
+      pendingScrollModeRef.current = 'center';
       selectTrack(filteredTracks[index], index, { autoPlay: true });
     };
 
@@ -1593,9 +1628,11 @@ export default function RetreatDetailScreen() {
     return (
       <Animated.ScrollView
         ref={scrollViewRef}
+        testID="event-scroll"
         style={styles.content}
         contentContainerStyle={[styles.scrollContent, !isDesktop && styles.scrollContentMobile, { paddingBottom }]}
-        onScroll={isDesktop ? undefined : scrollHandler}
+        // Every layout: the scroll offset tells whether the playing track is in view.
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
         onLayout={(e) => {
           scrollViewHeightRef.current = e.nativeEvent.layout.height;
