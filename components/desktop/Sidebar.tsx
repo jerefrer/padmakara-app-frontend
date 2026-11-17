@@ -40,7 +40,8 @@ export function Sidebar() {
       title: t('home.whatsNew') || "What's New",
       subtitle: t('home.whatsNewSubtitle') || 'Featured content and recent additions',
       route: '/(tabs)/(groups)',
-      icon: 'sparkles-outline' as const,
+      // The phone tab bar's house, so Home looks the same on both layouts.
+      icon: 'home-outline' as const,
       shortTitle: t('navigation.home') || 'Home',
     },
     {
@@ -56,7 +57,8 @@ export function Sidebar() {
       title: t('home.retreats') || 'Personal Library',
       subtitle: t('home.retreatsSubtitle') || 'Your audio, videos and transcriptions (registration required)',
       route: '/(tabs)/(groups)/retreats',
-      icon: 'people-outline' as const,
+      // One person: the library is the reader's own (André).
+      icon: 'person-outline' as const,
       shortTitle: t('navigation.retreats') || 'Personal Library',
     },
     {
