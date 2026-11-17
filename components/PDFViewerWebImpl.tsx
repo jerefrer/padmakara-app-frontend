@@ -14,6 +14,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { installReadableStreamAsyncIterator } from '@/utils/readableStreamAsyncIterator';
 import { downloadFileWeb } from '@/utils/downloadFileWeb';
 import {
+  READING_THEMES,
+  READING_THEME_ATTRIBUTE,
+  parseReadingTheme,
+  readingThemeCss,
+  themeSurfaces,
+  type ReadingTheme,
+} from '@/utils/pdfReadingTheme';
+import {
   anchoredScroll,
   buildSpreads,
   MAX_SCALE,
@@ -75,6 +83,9 @@ const MODE_KEY = '@pdfViewer:viewMode';
 /** The former layout setting, read once to carry a two-page choice over. */
 const LEGACY_LAYOUT_KEY = '@pdfViewer:layout';
 const FIT_KEY = '@pdfViewer:fit';
+const THEME_KEY = '@pdfViewer:theme';
+/** Filters for the page canvases of every theme, keyed by the scroller's attribute. */
+const READING_THEME_CSS = readingThemeCss();
 const PAGE_GAP = 16;
 const SIDE_PADDING = 24;
 /** Rows rendered above and below the visible ones in the continuous column. */
@@ -164,7 +175,11 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   const [fitPreset, setFitPreset] = useState<FitPreset>(() => parseFitPreset(readSetting(FIT_KEY)));
   const [zoom, setZoom] = useState<Zoom>(() => ({ kind: fitPreset }));
 
+  const [readingTheme, setReadingTheme] = useState<ReadingTheme>(() => parseReadingTheme(readSetting(THEME_KEY)));
+  const surfaces = themeSurfaces(readingTheme);
+
   useEffect(() => writeSetting(MODE_KEY, mode), [mode]);
+  useEffect(() => writeSetting(THEME_KEY, readingTheme), [readingTheme]);
   useEffect(() => writeSetting(FIT_KEY, fitPreset), [fitPreset]);
 
   // Measure the scrolling area: fit presets size the pages against it.
@@ -560,14 +575,23 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   const renderPage = (pageNumber: number, mounted: boolean) => {
     const box = pageBox(pageNumber);
     return (
-      <div key={pageNumber} data-page={pageNumber} style={{ ...pageWrapperStyle, width: box.width, height: box.height }}>
+      <div key={pageNumber} data-page={pageNumber} style={{ ...pageWrapperStyle, backgroundColor: surfaces.paper, width: box.width, height: box.height }}>
         {mounted ? (
           <Page
             pageNumber={pageNumber}
             width={box.width}
             renderAnnotationLayer={true}
             renderTextLayer={true}
-            loading={<div style={{ ...pagePlaceholderStyle, width: box.width, height: box.height }} />}
+            loading={
+              <div
+                style={{
+                  ...pagePlaceholderStyle,
+                  ...(readingTheme === 'normal' ? null : { backgroundColor: surfaces.paper }),
+                  width: box.width,
+                  height: box.height,
+                }}
+              />
+            }
           />
         ) : null}
       </div>
@@ -663,6 +687,26 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
           </ToolbarButton>
         </View>
 
+        <View style={styles.toolbarDivider} />
+        <View style={styles.toolbarGroup} accessibilityLabel={t('pdfViewer.readingTheme') || 'Reading theme'}>
+          {READING_THEMES.map((theme) => (
+            <ToolbarButton
+              key={theme}
+              label={t(`pdfViewer.theme.${theme}`) || THEME_FALLBACK_LABELS[theme]}
+              onPress={() => setReadingTheme(theme)}
+              active={readingTheme === theme}
+            >
+              <View
+                style={[
+                  styles.themeSwatch,
+                  { backgroundColor: themeSurfaces(theme).paper },
+                  readingTheme === theme && styles.themeSwatchActive,
+                ]}
+              />
+            </ToolbarButton>
+          ))}
+        </View>
+
         <View style={styles.toolbarSpacer} />
 
         {total ? (
@@ -701,8 +745,13 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
       </View>
 
       {/* Pages area */}
+      <style>{READING_THEME_CSS}</style>
       {/* @ts-ignore - DOM ref */}
-      <div ref={scrollRef} style={scrollerStyle}>
+      <div
+        ref={scrollRef}
+        style={{ ...scrollerStyle, backgroundColor: surfaces.ground }}
+        {...{ [READING_THEME_ATTRIBUTE]: readingTheme }}
+      >
         {error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle-outline" size={32} color={colors.gray[400]} />
@@ -783,6 +832,12 @@ const pagePlaceholderStyle: React.CSSProperties = {
   backgroundColor: colors.cream[200],
 };
 
+const THEME_FALLBACK_LABELS: Record<ReadingTheme, string> = {
+  normal: 'Normal',
+  sepia: 'Sepia',
+  night: 'Night (negative)',
+};
+
 const tooltipStyle: React.CSSProperties = {
   display: 'inline-flex',
 };
@@ -834,6 +889,16 @@ const styles = StyleSheet.create({
     opacity: 0.35,
     // @ts-ignore - web only
     cursor: 'default',
+  },
+  themeSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: colors.gray[400],
+  },
+  themeSwatchActive: {
+    borderColor: colors.burgundy[500],
   },
   zoomLevel: {
     minWidth: 44,
