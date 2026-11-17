@@ -377,6 +377,12 @@
     "zoomLevel": "Zoom {{percent}}",
     "previousPage": "Previous page",
     "nextPage": "Next page",
+    "readingTheme": "Reading theme",
+    "theme": {
+      "normal": "Normal",
+      "sepia": "Sepia",
+      "night": "Night (negative)"
+    },
     "enterFullscreen": "Enter fullscreen",
     "exitFullscreen": "Exit fullscreen",
     "contents": "Contents",

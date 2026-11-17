@@ -41,6 +41,13 @@ export const colors = {
     600: '#059669',
   },
   white: '#ffffff',
+  /** Reading themes of the web PDF viewer: the ground around the pages. */
+  reader: {
+    sepiaGround: '#ede3cc',
+    sepiaPaper: '#f6eedb',
+    nightGround: '#1c1b1a',
+    nightPaper: '#121212',
+  },
 };
 
 /**

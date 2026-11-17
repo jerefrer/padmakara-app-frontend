@@ -377,6 +377,12 @@
     "zoomLevel": "Zoom {{percent}}",
     "previousPage": "Página anterior",
     "nextPage": "Página seguinte",
+    "readingTheme": "Tema de leitura",
+    "theme": {
+      "normal": "Normal",
+      "sepia": "Sépia",
+      "night": "Noite (negativo)"
+    },
     "enterFullscreen": "Entrar em ecrã inteiro",
     "exitFullscreen": "Sair do ecrã inteiro",
     "contents": "Índice",
