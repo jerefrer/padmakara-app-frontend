@@ -6,7 +6,8 @@ import { SinglePageIcon } from './icons/SinglePageIcon';
 import { SpreadIcon } from './icons/SpreadIcon';
 import { FitWidthIcon } from './icons/FitWidthIcon';
 import { FitHeightIcon } from './icons/FitHeightIcon';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, pdfjs } from 'react-pdf';
+import { PdfThemedPage } from './PdfThemedPage';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import { colors } from '@/constants/colors';
@@ -577,11 +578,10 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
     return (
       <div key={pageNumber} data-page={pageNumber} style={{ ...pageWrapperStyle, backgroundColor: surfaces.paper, width: box.width, height: box.height }}>
         {mounted ? (
-          <Page
+          <PdfThemedPage
             pageNumber={pageNumber}
             width={box.width}
-            renderAnnotationLayer={true}
-            renderTextLayer={true}
+            keepPictureColours={readingTheme !== 'normal'}
             loading={
               <div
                 style={{
