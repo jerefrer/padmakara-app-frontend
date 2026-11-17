@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Page, pdfjs } from 'react-pdf';
+import { PAGE_TONE_ATTRIBUTE } from '@/utils/pdfReadingTheme';
 import {
   contentBounds,
   extractImageRects,
   imagesToKeep,
+  isPaperPage,
   looksLikeText,
   subRect,
   type ImageOps,
@@ -23,6 +25,11 @@ interface PageProxy {
 const rectCache = new WeakMap<PageProxy, Promise<PageRect[]>>();
 /** Per image: the part to keep in true colours (page fractions), or null for text-like images. */
 const verdictCache = new WeakMap<PageProxy, Map<number, PageRect | null>>();
+/** Per page: printed on paper (themed) or designed in colour (left as is). */
+const paperCache = new WeakMap<PageProxy, boolean>();
+
+/** Size of the scaled-down whole page whose edge ring decides paper or designed. */
+const PAGE_SAMPLE_SIDE = 64;
 
 function imageRects(page: PageProxy): Promise<PageRect[]> {
   let rects = rectCache.get(page);
@@ -81,6 +88,18 @@ function pictureArea(source: HTMLCanvasElement, rect: PageRect): PageRect | null
   return content ? subRect(rect, content) : null;
 }
 
+/** Whether the rendered page is printed on paper, from its original pixels. */
+function isPaper(source: HTMLCanvasElement): boolean {
+  if (!sampler) {
+    sampler = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  }
+  if (!sampler) return true;
+  sampler.canvas.width = PAGE_SAMPLE_SIDE;
+  sampler.canvas.height = PAGE_SAMPLE_SIDE;
+  sampler.drawImage(source, 0, 0, source.width, source.height, 0, 0, PAGE_SAMPLE_SIDE, PAGE_SAMPLE_SIDE);
+  return isPaperPage(sampler.getImageData(0, 0, PAGE_SAMPLE_SIDE, PAGE_SAMPLE_SIDE).data, PAGE_SAMPLE_SIDE, PAGE_SAMPLE_SIDE);
+}
+
 interface PdfThemedPageProps {
   pageNumber: number;
   width: number;
@@ -95,16 +114,21 @@ interface PdfThemedPageProps {
 
 /**
  * A react-pdf page that, under a reading theme, keeps photos and thangkas in
- * their own colours. The copies sit above the canvas and below nothing that
+ * their own colours, and leaves pages designed in colour (covers) untouched. The copies sit above the canvas and below nothing that
  * takes input (pointer-events: none), so selection and links still work.
  */
 export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }: PdfThemedPageProps) {
   const [page, setPage] = useState<PageProxy | null>(null);
   const [renders, setRenders] = useState(0);
   const [rects, setRects] = useState<PageRect[]>([]);
+  const [paper, setPaper] = useState<boolean | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
 
-  const onLoadSuccess = useCallback((proxy: PageProxy) => setPage(proxy), []);
+  const onLoadSuccess = useCallback((proxy: PageProxy) => {
+    setPage(proxy);
+    setPaper(paperCache.get(proxy) ?? null);
+  }, []);
   const onRenderSuccess = useCallback(() => setRenders((n) => n + 1), []);
 
   useEffect(() => {
@@ -118,11 +142,21 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
     };
   }, [keepPictureColours, page]);
 
+  // Decide paper or designed once per page, from the first themed render.
+  useEffect(() => {
+    if (!keepPictureColours || !page || renders === 0 || paper !== null) return;
+    const source = pageRef.current?.querySelector<HTMLCanvasElement>('canvas.react-pdf__Page__canvas');
+    if (!source || !source.width) return;
+    const verdict = isPaper(source);
+    paperCache.set(page, verdict);
+    setPaper(verdict);
+  }, [keepPictureColours, page, renders, paper]);
+
   // Copy each picture's pixels from the freshly rendered canvas.
   useEffect(() => {
     const layer = layerRef.current;
-    if (!keepPictureColours || !page || !layer || renders === 0) return;
-    const source = layer.parentElement?.querySelector<HTMLCanvasElement>('canvas.react-pdf__Page__canvas');
+    if (!keepPictureColours || !page || !layer || renders === 0 || paper === false) return;
+    const source = pageRef.current?.querySelector<HTMLCanvasElement>('canvas.react-pdf__Page__canvas');
     if (!source || !source.width) return;
     let verdicts = verdictCache.get(page);
     if (!verdicts) {
@@ -153,10 +187,11 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
       copy.style.display = 'block';
       copy.dataset.restored = 'true';
     });
-  }, [keepPictureColours, page, rects, renders]);
+  }, [keepPictureColours, page, rects, renders, paper]);
 
+  const tone = paper === null ? undefined : paper ? 'paper' : 'designed';
   return (
-    <>
+    <div ref={pageRef} style={pageStyle} {...{ [PAGE_TONE_ATTRIBUTE]: tone }}>
       <Page
         pageNumber={pageNumber}
         width={width}
@@ -166,7 +201,7 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
         onRenderSuccess={onRenderSuccess}
         loading={loading}
       />
-      {keepPictureColours && rects.length > 0 ? (
+      {keepPictureColours && paper !== false && rects.length > 0 ? (
         <div ref={layerRef} style={layerStyle} data-image-restore-layer="">
           {rects.map((_, index) => (
             <canvas
@@ -177,9 +212,13 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
           ))}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
+
+const pageStyle: React.CSSProperties = {
+  position: 'relative',
+};
 
 const layerStyle: React.CSSProperties = {
   position: 'absolute',
