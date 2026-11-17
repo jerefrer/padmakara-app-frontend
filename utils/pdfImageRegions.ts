@@ -222,3 +222,51 @@ export function contentBounds(rgba: ArrayLike<number>, width: number, height: nu
 export function subRect(outer: PageRect, inner: PageRect): PageRect {
   return { x: outer.x + inner.x * outer.w, y: outer.y + inner.y * outer.h, w: inner.w * outer.w, h: inner.h * outer.h };
 }
+
+/**
+ * Paper pages and designed pages. Reading themes recolour paper (white,
+ * cream or the grey of a scan) and the text on it. A page designed in colour
+ * (a cover, a back cover, a coloured divider, a full-page photo) keeps its
+ * original look. The page's background is read from the ring along its edges,
+ * where pages have margins, and decided by majority: a coloured header band
+ * over a white body still leaves the ring mostly paper, so that page is
+ * themed.
+ */
+/** Depth of the edge ring sampled, as a share of the page's width and height. */
+export const PAGE_RING_DEPTH = 0.12;
+/** A paper pixel is at least this light (luma, 0–255)… */
+export const PAPER_MIN_LUMA = 190;
+/** …and at most this colourful ((max − min channel) / 255). */
+export const PAPER_MAX_SATURATION = 0.15;
+/** Share of the ring that must be paper for the page to be themed. */
+export const PAPER_MAJORITY = 0.6;
+
+/**
+ * Whether a sampled page (width × height RGBA, the whole page scaled down)
+ * is printed on paper, so a reading theme applies to it.
+ */
+export function isPaperPage(rgba: ArrayLike<number>, width: number, height: number): boolean {
+  const ringX = Math.max(1, Math.round(width * PAGE_RING_DEPTH));
+  const ringY = Math.max(1, Math.round(height * PAGE_RING_DEPTH));
+  let ring = 0;
+  let paper = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const inRing = x < ringX || y < ringY || x >= width - ringX || y >= height - ringY;
+      if (!inRing) continue;
+      const i = (y * width + x) * 4;
+      ring++;
+      if (rgba[i + 3] < 16) {
+        paper++; // transparent: the white the page is drawn on
+        continue;
+      }
+      const r = rgba[i];
+      const g = rgba[i + 1];
+      const b = rgba[i + 2];
+      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+      const saturation = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+      if (luma >= PAPER_MIN_LUMA && saturation <= PAPER_MAX_SATURATION) paper++;
+    }
+  }
+  return ring === 0 || paper / ring >= PAPER_MAJORITY;
+}

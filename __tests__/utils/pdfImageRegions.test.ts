@@ -1,9 +1,14 @@
 import {
   MIN_IMAGE_AREA,
+  PAGE_RING_DEPTH,
+  PAPER_MAJORITY,
+  PAPER_MAX_SATURATION,
+  PAPER_MIN_LUMA,
   SCANNED_PAGE_COVERAGE,
   contentBounds,
   extractImageRects,
   imagesToKeep,
+  isPaperPage,
   isScannedPage,
   looksLikeText,
   multiply,
@@ -161,5 +166,50 @@ describe('contentBounds', () => {
       w: 0.25,
       h: 0.2,
     });
+  });
+});
+
+describe('isPaperPage', () => {
+  type RGB = [number, number, number];
+  const SIZE = 20;
+  /** A page whose pixel colour is chosen by position. */
+  const page = (colourAt: (x: number, y: number) => RGB) => {
+    const rgba: number[] = [];
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) rgba.push(...colourAt(x, y), 255);
+    return rgba;
+  };
+  const inMiddle = (x: number, y: number, margin: number) =>
+    x >= margin && y >= margin && x < SIZE - margin && y < SIZE - margin;
+
+  it('should theme a white page of text', () => {
+    expect(isPaperPage(page((x, y) => (inMiddle(x, y, 3) && y % 2 ? [20, 20, 20] : [255, 255, 255])), SIZE, SIZE)).toBe(true);
+  });
+
+  it('should theme a cream page', () => {
+    expect(isPaperPage(page(() => [246, 238, 219]), SIZE, SIZE)).toBe(true);
+  });
+
+  it('should theme a scan on grey-ish paper', () => {
+    expect(isPaperPage(page((x, y) => (inMiddle(x, y, 3) && x % 3 === 0 ? [60, 60, 60] : [214, 210, 202])), SIZE, SIZE)).toBe(true);
+  });
+
+  it('should leave a blue cover with white text as designed', () => {
+    expect(isPaperPage(page((x, y) => (inMiddle(x, y, 6) ? [255, 255, 255] : [24, 52, 120])), SIZE, SIZE)).toBe(false);
+  });
+
+  it('should leave a full-page dark photo cover as designed', () => {
+    expect(isPaperPage(page((x, y) => [(x * 13) % 90, (y * 7) % 60, 30]), SIZE, SIZE)).toBe(false);
+  });
+
+  it('should theme a page with a big photo inside white margins', () => {
+    expect(isPaperPage(page((x, y) => (inMiddle(x, y, 3) ? [180, 110, 20] : [255, 255, 255])), SIZE, SIZE)).toBe(true);
+  });
+
+  it('should theme a page with a coloured header band over a white body (majority of the edge is paper)', () => {
+    expect(isPaperPage(page((_, y) => (y < 3 ? [155, 27, 27] : [255, 255, 255])), SIZE, SIZE)).toBe(true);
+  });
+
+  it('should use named thresholds', () => {
+    expect([PAGE_RING_DEPTH, PAPER_MIN_LUMA, PAPER_MAX_SATURATION, PAPER_MAJORITY]).toEqual([0.12, 190, 0.15, 0.6]);
   });
 });

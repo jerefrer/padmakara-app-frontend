@@ -35,6 +35,12 @@ describe('readingThemeCss', () => {
     expect(css).not.toContain('"normal"');
     expect(css).not.toMatch(/textLayer|annotationLayer/);
   });
+
+  it('should leave pages designed in colour (covers) unfiltered in every theme', () => {
+    const css = readingThemeCss();
+    expect(css).toContain('[data-reading-theme="night"] [data-page-tone="designed"] .react-pdf__Page__canvas { filter: none; }');
+    expect(css).toContain('[data-reading-theme="sepia"] [data-page-tone="designed"] .react-pdf__Page__canvas { filter: none; }');
+  });
 });
 
 describe('themeSurfaces', () => {
