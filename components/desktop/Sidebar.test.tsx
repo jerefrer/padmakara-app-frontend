@@ -4,7 +4,7 @@ import { render } from '@testing-library/react-native';
 
 import { Sidebar } from './Sidebar';
 import { colors } from '@/constants/colors';
-import { RULE_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
+import { RULE_COLOR } from '@/constants/layout';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn() },
@@ -36,16 +36,37 @@ describe('Sidebar (desktop)', () => {
   });
 
   it('should draw red hairlines that reach the left edge between items', () => {
-    const { getByLabelText } = render(<Sidebar />);
+    const { getByLabelText, getAllByTestId } = render(<Sidebar />);
     const row = StyleSheet.flatten(getByLabelText('Teachings & Talks').props.style);
-    expect(row.borderBottomColor).toBe(RULE_COLOR);
-    expect(row.borderBottomWidth).toBe(SUBDIVISION_THICKNESS);
     expect(row.marginLeft).toBeUndefined();
+    expect(row.borderBottomWidth).toBeUndefined();
+    const line = StyleSheet.flatten(getAllByTestId('sidebar-hairline')[0].props.style);
+    expect(line.backgroundColor).toBe(RULE_COLOR);
+    expect(line.left).toBe(0);
+  });
+
+  it('should draw a hairline under every item except the last one at the bottom', () => {
+    const { getAllByTestId } = render(<Sidebar />);
+    // What's New, Teachings & Talks, Personal Library, Publications, My Bookmarks; not Search.
+    expect(getAllByTestId('sidebar-hairline')).toHaveLength(5);
   });
 
   it('should not offer an Account item, the right panel being the way in', () => {
     const { queryByLabelText, getByLabelText } = render(<Sidebar />);
     expect(queryByLabelText('Account')).toBeNull();
-    expect(getByLabelText('Bookmarks')).toBeTruthy();
+    expect(getByLabelText('My Bookmarks')).toBeTruthy();
+  });
+
+  it('should list My Bookmarks right below Publications and keep Search last', () => {
+    const { getAllByRole } = render(<Sidebar />);
+    const labels = getAllByRole('link').map((el) => el.props.accessibilityLabel);
+    expect(labels).toEqual([
+      "What's New",
+      'Teachings & Talks',
+      'Personal Library',
+      'Publications',
+      'My Bookmarks',
+      'Search',
+    ]);
   });
 });
