@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 
 import PublicationsScreen from '@/app/(tabs)/(groups)/publications';
 import { publicationService } from '@/services/publicationService';
+import { downloadFileWeb } from '@/utils/downloadFileWeb';
 
 const mockBack = jest.fn();
 const mockSetParams = jest.fn();
@@ -29,8 +30,15 @@ jest.mock('@/hooks/useDesktopLayout', () => ({ useDesktopLayout: () => ({ isDesk
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/components/PDFViewer', () => {
   const { Text } = require('react-native');
-  return { PDFViewer: ({ source }: { source: string }) => <Text testID="pdf-viewer">{source}</Text> };
+  return {
+    PDFViewer: ({ source, showDownloadButton }: { source: string; showDownloadButton?: boolean }) => (
+      <Text testID="pdf-viewer" accessibilityHint={`toolbar download: ${showDownloadButton ?? true}`}>
+        {source}
+      </Text>
+    ),
+  };
 });
+jest.mock('@/utils/downloadFileWeb', () => ({ downloadFileWeb: jest.fn(() => Promise.resolve()) }));
 jest.mock('@/services/publicationService', () => ({
   publicationService: {
     getPublicationsSync: jest.fn(() => null),
@@ -103,12 +111,26 @@ describe('publication viewer share button', () => {
     );
   });
 
-  it('should not show the share button on the web', async () => {
+  it('should download the file under the publication title when the header button is pressed on the web', async () => {
     (Platform as any).OS = 'web';
     mockParams = { open: '5' };
     const screen = render(<PublicationsScreen />);
-    await screen.findByTestId('pdf-viewer');
-    expect(screen.queryByTestId('publication-share-button')).toBeNull();
+
+    fireEvent.press(await screen.findByLabelText('Download PDF'));
+
+    await waitFor(() =>
+      expect(downloadFileWeb).toHaveBeenCalledWith('file:///cache/5.pdf', 'The Excellent Path.pdf'),
+    );
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+  });
+
+  it('should leave the header button as the only download button', async () => {
+    mockParams = { open: '5' };
+    const screen = render(<PublicationsScreen />);
+
+    const viewer = await screen.findByTestId('pdf-viewer');
+
+    expect(viewer.props.accessibilityHint).toBe('toolbar download: false');
   });
 });
 

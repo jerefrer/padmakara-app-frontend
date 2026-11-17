@@ -12,6 +12,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { installReadableStreamAsyncIterator } from '@/utils/readableStreamAsyncIterator';
+import { downloadFileWeb } from '@/utils/downloadFileWeb';
 import {
   anchoredScroll,
   buildSpreads,
@@ -64,6 +65,7 @@ interface PDFViewerProps {
   title?: string;
   onPageChange?: (page: number, totalPages: number) => void;
   compact?: boolean;
+  showDownloadButton?: boolean;
 }
 
 /** External links open in a new tab that cannot reach back into the app. */
@@ -143,7 +145,7 @@ function ToolbarButton({ label, onPress, active = false, disabled = false, child
  * makes the PDF's links work: external ones open in a new tab, internal ones
  * (a table of contents) go to their page in whichever mode is shown.
  */
-export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFViewerProps) {
+export default function PDFViewerWebImpl({ source, title, onPageChange, showDownloadButton = true }: PDFViewerProps) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -208,16 +210,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
 
   const handleDownload = useCallback(async () => {
     try {
-      const res = await fetch(source);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = downloadName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await downloadFileWeb(source, downloadName);
     } catch (err) {
       console.error('Download failed:', err);
     }
@@ -689,9 +682,11 @@ export default function PDFViewerWebImpl({ source, title, onPageChange }: PDFVie
         ) : null}
 
         <View style={styles.toolbarGroup}>
-          <ToolbarButton label={t('transcript.downloadPdf') || 'Download PDF'} onPress={handleDownload}>
-            {ionIcon('download-outline')}
-          </ToolbarButton>
+          {showDownloadButton ? (
+            <ToolbarButton label={t('transcript.downloadPdf') || 'Download PDF'} onPress={handleDownload}>
+              {ionIcon('download-outline')}
+            </ToolbarButton>
+          ) : null}
           <ToolbarButton
             label={
               isFullscreen
