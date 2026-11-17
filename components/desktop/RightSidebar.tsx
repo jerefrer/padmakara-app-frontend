@@ -10,13 +10,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { colors } from '@/constants/colors';
 
-// The wordmark is live text beside a raster wheel, so its size and weight are
-// derived from the wheel's width: the two scale together and the stems of the
-// letters stay in step with the strokes of the wheel.
-const LOGO_SIZE = 100;
-const TITLE_FONT_SIZE = LOGO_SIZE * 0.22;
-const TITLE_LETTER_SPACING = TITLE_FONT_SIZE * 0.18;
-const SUBTITLE_FONT_SIZE = LOGO_SIZE * 0.11;
+// The wheel and the PADMAKARA wordmark are André's artwork (logo-padmakara-branco-2026.eps,
+// rendered to brand-panel-logo.png @1x/2x/3x), sized so the wheel keeps the 99 px of the former
+// raster wheel; the wordmark then has the same cap height as the former live title.
+const BRAND_LOGO_WIDTH = 147;
+const BRAND_LOGO_HEIGHT = 127;
+// The artwork has no "Ramo Lusófono", which stays live text at its former size.
+const SUBTITLE_FONT_SIZE = 11;
 const SUBTITLE_LETTER_SPACING = SUBTITLE_FONT_SIZE * 0.27;
 
 export type RightSidebarVariant = 'wide' | 'narrow';
@@ -125,14 +125,22 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
     <View style={styles.container}>
       {/* Branding — wide shows logo + title; narrow shows just a small logo. */}
       <View style={[styles.brandingSection, isNarrow && styles.brandingSectionNarrow]}>
-        <Image
-          source={require('@/assets/images/logo.png')}
-          style={isNarrow ? styles.logoNarrow : styles.logo}
-          resizeMode="contain"
-        />
-        {!isNarrow && (
+        {isNarrow ? (
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logoNarrow}
+            resizeMode="contain"
+          />
+        ) : (
           <>
-            <Text style={styles.title}>Padmakara</Text>
+            <Image
+              source={require('@/assets/images/brand-panel-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+              accessibilityRole="image"
+              accessibilityLabel="Padmakara"
+              testID="brand-panel-logo"
+            />
             <Text style={styles.subtitle}>Ramo Lusófono</Text>
           </>
         )}
@@ -239,9 +247,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   logo: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-    marginBottom: LOGO_SIZE * 0.16,
+    width: BRAND_LOGO_WIDTH,
+    height: BRAND_LOGO_HEIGHT,
     tintColor: 'rgba(255,255,255,0.85)',
   },
   logoNarrow: {
@@ -249,21 +256,13 @@ const styles = StyleSheet.create({
     height: 36,
     tintColor: 'rgba(255,255,255,0.85)',
   },
-  title: {
-    fontSize: TITLE_FONT_SIZE,
-    fontFamily: 'EBGaramond_600SemiBold',
-    color: 'rgba(255,255,255,0.85)',
-    letterSpacing: TITLE_LETTER_SPACING,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
   subtitle: {
     fontSize: SUBTITLE_FONT_SIZE,
     fontFamily: 'EBGaramond_500Medium',
     color: 'rgba(255,255,255,0.7)',
     letterSpacing: SUBTITLE_LETTER_SPACING,
     textTransform: 'uppercase',
-    marginTop: 4,
+    marginTop: 10,
     textAlign: 'center',
   },
 

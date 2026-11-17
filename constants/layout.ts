@@ -35,3 +35,10 @@ export const SUBDIVISION_COLOR = "#2c2c2c";
  * reads as a heavy black bar; half a pixel draws a true hairline on high-density screens.
  */
 export const SUBDIVISION_THICKNESS = Platform.OS === "web" ? 0.5 : StyleSheet.hairlineWidth;
+
+/**
+ * Desktop pictures are square, text beside them (André): the home highlight and the event
+ * header. They take 45% of the column up to this size, so a wide screen does not push the
+ * content below them out of sight.
+ */
+export const DESKTOP_SQUARE_MAX = 480;

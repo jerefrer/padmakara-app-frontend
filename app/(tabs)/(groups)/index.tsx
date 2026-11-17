@@ -29,7 +29,7 @@ import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
-import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_SQUARE_MAX, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 import { useRetryWhileFailed } from '@/hooks/useRetryWhileFailed';
@@ -517,7 +517,7 @@ export default function HomeScreen() {
               <Text style={[styles.highlightLabel, !isDesktop && styles.indented]}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
-              <View style={[styles.recentDivider, !isDesktop && styles.ruleToGutter]} />
+              <View style={[styles.recentDivider, isDesktop ? styles.recentDividerDesktop : styles.ruleToGutter]} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}
@@ -703,11 +703,15 @@ const styles = StyleSheet.create({
     aspectRatio: 2,
     borderRadius: 4,
   },
+  // Desktop: a square photo, the text beside it (André: every desktop picture takes this format).
+  // flex-start so the row's stretch does not override the square; the text column then takes
+  // the photo's height and keeps its label at the top, the details at the bottom.
   featuredImageContainerDesktop: {
     borderRadius: 4,
     width: "45%",
-    aspectRatio: undefined,
-    minHeight: 280,
+    maxWidth: DESKTOP_SQUARE_MAX,
+    aspectRatio: 1,
+    alignSelf: "flex-start",
   },
   featuredImage: {
     width: "100%",
@@ -780,6 +784,11 @@ const styles = StyleSheet.create({
     height: SUBDIVISION_THICKNESS,
     backgroundColor: colors.burgundy[500],
     marginBottom: 4,
+  },
+  // Desktop: the rule starts at the column's left edge, flush with the black separators of the
+  // rows below it (EventRow rowDesktop), while the label keeps the text gutter (André).
+  recentDividerDesktop: {
+    marginLeft: -TEXT_GUTTER,
   },
 
   // Sign in section — subtle, at the bottom

@@ -6,8 +6,9 @@ import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageCheckboxList } from '@/components/LanguageCheckboxList';
 import { getTrackTitle } from '@/utils/i18n';
+import { requestTrackReveal } from '@/utils/trackReveal';
+import { router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -16,6 +17,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
 
 const formatTime = (seconds: number) => {
@@ -24,8 +26,22 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+/** Time left, as the phone player shows it to the right of its controls. */
+const formatTimeRemaining = (position: number, duration: number) =>
+  `- ${formatTime(Math.max(duration - position, 0))}`;
+
+/** Fraction of the track at `position`, clamped to 0..1. */
+const progressOf = (position: number, duration: number) =>
+  duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
+
+/** Thickness of the progress line drawn along the bar's top edge. */
+export const PROGRESS_LINE_HEIGHT = 2;
+/** Invisible band around the line that takes clicks and drags to seek. */
+export const PROGRESS_HIT_HEIGHT = 16;
+
 export function DesktopPlayerBar() {
   const { t, language } = useLanguage();
+  const pathname = usePathname();
   const {
     currentTrack,
     isPlaying,
@@ -53,6 +69,7 @@ export function DesktopPlayerBar() {
     openReadAlong,
     trackBookmark,
     languageControl,
+    retreatId,
   } = useAudioPlayerContext();
 
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -64,6 +81,10 @@ export function DesktopPlayerBar() {
   // True only while the user is scrubbing: the seek thumb is drawn then and
   // hidden at rest, same as the mobile player.
   const [isSeeking, setIsSeeking] = useState(false);
+  // The progress line spans the whole bar; its width and page offset turn a pointer's x into a time.
+  const [lineWidth, setLineWidth] = useState(0);
+  const lineLeftRef = useRef(0);
+  const lastSeekRef = useRef(0);
 
   const hasTrack = !!currentTrack;
   const hasIdleTrack = !hasTrack && !!idleTrack;
@@ -120,8 +141,85 @@ export function DesktopPlayerBar() {
     outputRange: ['0deg', '360deg'],
   });
 
+  // Click or drag anywhere on the progress line to seek. The line's page offset is taken when
+  // the press starts (the press lands on the hit band itself, so locationX is relative to it),
+  // so a drag that leaves the band keeps mapping pageX correctly.
+  const timeAtPageX = (pageX: number) =>
+    lineWidth > 0
+      ? Math.min(1, Math.max(0, (pageX - lineLeftRef.current) / lineWidth)) * displayDuration
+      : 0;
+  const onSeekGrant = (e: GestureResponderEvent) => {
+    lineLeftRef.current = e.nativeEvent.pageX - e.nativeEvent.locationX;
+    lastSeekRef.current = timeAtPageX(e.nativeEvent.pageX);
+    setIsSeeking(true);
+    onSlidingStart();
+    onSliderValueChange(lastSeekRef.current);
+  };
+  const onSeekMove = (e: GestureResponderEvent) => {
+    lastSeekRef.current = timeAtPageX(e.nativeEvent.pageX);
+    onSliderValueChange(lastSeekRef.current);
+  };
+  const onSeekEnd = () => {
+    setIsSeeking(false);
+    onSlidingComplete(lastSeekRef.current);
+  };
+  const progress = progressOf(displayPosition, displayDuration);
+
+  // Tapping the title shows the track in its event's list, opening the event first when the
+  // person is elsewhere (the event page itself opens at its top).
+  const showTrackInEvent = () => {
+    if (!currentTrack || !retreatId) return;
+    requestTrackReveal(currentTrack.id);
+    if (pathname === `/retreat/${retreatId}`) return;
+    router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: retreatId } } as any);
+  };
+
   return (
       <View style={styles.container}>
+
+        {/* The bar's top edge is the track's progress line (André): red as the track plays,
+            full width. A taller invisible band over it takes clicks and drags to seek. */}
+        <View
+          style={styles.progressHitArea}
+          onLayout={(e) => setLineWidth(e.nativeEvent.layout.width)}
+          onStartShouldSetResponder={() => !controlsDisabled}
+          onMoveShouldSetResponder={() => !controlsDisabled}
+          onResponderTerminationRequest={() => false}
+          onResponderGrant={onSeekGrant}
+          onResponderMove={onSeekMove}
+          onResponderRelease={onSeekEnd}
+          onResponderTerminate={onSeekEnd}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel={t('player.seek') || 'Playback position'}
+          accessibilityState={{ disabled: controlsDisabled }}
+          // aria-* rather than accessibilityValue: react-native-web drops the latter.
+          aria-valuemin={0}
+          aria-valuemax={Math.round(displayDuration)}
+          aria-valuenow={Math.round(displayPosition)}
+          aria-valuetext={`${formatTime(displayPosition)} / ${formatTime(displayDuration)}`}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={(e) => {
+            if (controlsDisabled) return;
+            if (e.nativeEvent.actionName === 'increment') skipForward();
+            if (e.nativeEvent.actionName === 'decrement') skipBackward();
+          }}
+          testID="audio-seek"
+        >
+          <View style={styles.progressTrack} pointerEvents="none">
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${progress * 100}%` },
+                controlsDisabled && styles.progressFillDisabled,
+              ]}
+              testID="audio-progress-fill"
+            />
+          </View>
+          {isSeeking && !controlsDisabled && (
+            <View pointerEvents="none" style={[styles.progressThumb, { left: `${progress * 100}%` }]} />
+          )}
+        </View>
 
         {/* Left zone: track info */}
         <View style={styles.leftZone}>
@@ -131,7 +229,13 @@ export function DesktopPlayerBar() {
                 <PlayingIndicator isPlaying={isPlaying} size={16} color={colors.burgundy[500]} />
               </View>
             )}
-            <View style={styles.trackTextContainer}>
+            <TouchableOpacity
+              style={styles.trackTextContainer}
+              onPress={showTrackInEvent}
+              disabled={!hasTrack}
+              accessibilityRole="button"
+              testID="audio-track-title"
+            >
               <Text style={[styles.trackTitle, allDisabled && styles.idleText]} numberOfLines={1}>
                 {displayTitle || (t('player.noTrack') || 'No track selected')}
               </Text>
@@ -140,13 +244,20 @@ export function DesktopPlayerBar() {
                   {displaySubtitle}
                 </Text>
               ) : null}
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Center zone: transport controls + slider */}
+        {/* Center zone: elapsed | transport controls | remaining, as on the phone player */}
         <View style={styles.centerZone}>
           <View style={styles.transportRow}>
+            <Text
+              style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}
+              testID="audio-current-time"
+            >
+              {formatTime(displayPosition)}
+            </Text>
+
             {/* Previous */}
             <TouchableOpacity
               onPress={previousTrack}
@@ -156,7 +267,7 @@ export function DesktopPlayerBar() {
               <Ionicons
                 name="play-skip-back"
                 size={18}
-                color={!controlsDisabled && hasPreviousTrack ? colors.gray[600] : colors.gray[400]}
+                color={!controlsDisabled && hasPreviousTrack ? colors.gray[700] : colors.gray[400]}
               />
             </TouchableOpacity>
 
@@ -170,7 +281,7 @@ export function DesktopPlayerBar() {
             >
               <RotateLeftThinIcon
                 size={24}
-                color={controlsDisabled ? colors.gray[400] : colors.gray[600]}
+                color={controlsDisabled ? colors.gray[400] : colors.gray[700]}
                 strokeWidth={1.5}
               />
               <Text style={[styles.skipNumber, controlsDisabled && styles.skipNumberDisabled]}>
@@ -187,17 +298,19 @@ export function DesktopPlayerBar() {
                   style={[styles.loadingRing, { transform: [{ rotate: ringRotation }] }]}
                 />
               )}
+              {/* A black triangle, no red disc: the phone player's look (André). */}
               <TouchableOpacity
                 onPress={hasIdleTrack ? resumeLastPlayed : togglePlayPause}
                 style={[styles.playButton, allDisabled && styles.playButtonDisabled]}
                 disabled={allDisabled}
                 testID="audio-play-pause"
+                accessibilityRole="button"
+                accessibilityLabel={isPlaying ? t('common.pause') || 'Pause' : t('common.play') || 'Play'}
               >
                 <Ionicons
                   name={isPlaying ? 'pause' : 'play'}
-                  size={22}
-                  color={colors.white}
-                  style={!isPlaying ? styles.playIconOffset : undefined}
+                  size={28}
+                  color={colors.gray[800]}
                 />
               </TouchableOpacity>
             </View>
@@ -211,7 +324,7 @@ export function DesktopPlayerBar() {
             >
               <RotateRightThinIcon
                 size={24}
-                color={controlsDisabled ? colors.gray[400] : colors.gray[600]}
+                color={controlsDisabled ? colors.gray[400] : colors.gray[700]}
                 strokeWidth={1.5}
               />
               <Text style={[styles.skipNumber, controlsDisabled && styles.skipNumberDisabled]}>
@@ -228,41 +341,16 @@ export function DesktopPlayerBar() {
               <Ionicons
                 name="play-skip-forward"
                 size={18}
-                color={!controlsDisabled && hasNextTrack ? colors.gray[600] : colors.gray[400]}
+                color={!controlsDisabled && hasNextTrack ? colors.gray[700] : colors.gray[400]}
               />
             </TouchableOpacity>
-          </View>
 
-          {/* Slider + time — interactive whenever a real track is loaded;
-              gray only when there is no track at all. */}
-          <View style={styles.sliderRow}>
             <Text
               style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}
-              testID="audio-current-time"
+              testID="audio-remaining-time"
             >
-              {formatTime(displayPosition)}
+              {formatTimeRemaining(displayPosition, displayDuration)}
             </Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={Math.max(displayDuration, 1)}
-              value={displayPosition}
-              onSlidingStart={() => {
-                setIsSeeking(true);
-                onSlidingStart();
-              }}
-              onSlidingComplete={(value) => {
-                setIsSeeking(false);
-                onSlidingComplete(value);
-              }}
-              onValueChange={onSliderValueChange}
-              minimumTrackTintColor={controlsDisabled ? colors.gray[300] : colors.burgundy[500]}
-              maximumTrackTintColor={colors.gray[300]}
-              thumbTintColor={isSeeking && !controlsDisabled ? colors.burgundy[500] : 'transparent'}
-              disabled={controlsDisabled}
-              testID="audio-seek"
-            />
-            <Text style={[styles.timeText, controlsDisabled && styles.timeTextDisabled]}>{formatTime(displayDuration)}</Text>
           </View>
         </View>
 
@@ -363,6 +451,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
+  // Progress line on the bar's top edge. The shell draws a 1px border there; the line's track
+  // sits right over it (top -1) so the border itself reads as the progress line.
+  progressHitArea: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -1 - (PROGRESS_HIT_HEIGHT - PROGRESS_LINE_HEIGHT) / 2,
+    height: PROGRESS_HIT_HEIGHT,
+    justifyContent: 'center',
+    zIndex: 20,
+    cursor: 'pointer',
+  } as object,
+  progressTrack: {
+    height: PROGRESS_LINE_HEIGHT,
+    backgroundColor: colors.gray[200],
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.burgundy[500],
+  },
+  progressFillDisabled: {
+    backgroundColor: colors.gray[300],
+  },
+  progressThumb: {
+    position: 'absolute',
+    top: PROGRESS_HIT_HEIGHT / 2 - 6,
+    width: 12,
+    height: 12,
+    marginLeft: -6,
+    borderRadius: 6,
+    backgroundColor: colors.burgundy[500],
+  },
+
   // Loading overlay
   loadingOverlay: {
     position: 'absolute',
@@ -418,7 +539,7 @@ const styles = StyleSheet.create({
   transportRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   transportButton: {
     padding: 6,
@@ -448,18 +569,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playButton: {
-    backgroundColor: colors.burgundy[500],
-    borderRadius: 18,
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   playButtonDisabled: {
-    opacity: 0.5,
-  },
-  playIconOffset: {
-    marginLeft: 2,
+    opacity: 0.4,
   },
   loadingRing: {
     position: 'absolute',
@@ -470,22 +586,12 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     borderTopColor: colors.burgundy[500],
   },
-  sliderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 480,
-    marginTop: 2,
-  },
-  slider: {
-    flex: 1,
-    height: 20,
-    marginHorizontal: 8,
-  },
+  // Same as the phone player's times: red, beside the controls.
   timeText: {
-    fontSize: 11,
-    color: colors.gray[500],
-    minWidth: 36,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.burgundy[500],
+    minWidth: 52,
     textAlign: 'center',
   },
   timeTextDisabled: {

@@ -25,6 +25,8 @@ import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { DocumentShareButton } from '@/components/DocumentShareButton';
 import { DocumentImageViewer } from '@/components/DocumentImageViewer';
+import { DESKTOP_ROW_RULE_COLOR } from '@/components/EventRow';
+import { claimTrackReveal, subscribeTrackReveal } from '@/utils/trackReveal';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -87,7 +89,16 @@ import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { resolveContentTab, shouldShowInlinePlayer, type EventContentTab } from '@/utils/eventContentTab';
 import { findTrackIndexByNumber, getEventTopics } from '@/utils/eventTopics';
 import { EventTopics } from '@/components/EventTopics';
-import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import {
+  DESKTOP_SQUARE_MAX,
+  RULE_RIGHT_INSET,
+  SUBDIVISION_COLOR,
+  SUBDIVISION_THICKNESS,
+  TEXT_GUTTER,
+} from '@/constants/layout';
+
+/** styles.scrollContent's padding, which desktop lines bleed through to the column edge. */
+const DESKTOP_SCROLL_PADDING = 16;
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
@@ -120,7 +131,7 @@ const LANG_COLORS: Record<string, { bg: string; text: string }> = {
   en: { bg: 'transparent', text: '#6b7fad' },
   pt: { bg: 'transparent', text: '#5a8a6a' },
   fr: { bg: 'transparent', text: '#8a6aad' },
-  tib: { bg: 'transparent', text: '#9a7a4a' },
+  // Tibetan needs no highlight (André): it takes the neutral grey of DEFAULT_LANG_COLOR.
 };
 const READ_ALONG_BARS_AUTO_HIDE_MS = 5000;
 const DEFAULT_LANG_COLOR = { bg: 'transparent', text: colors.gray[500] };
@@ -259,7 +270,9 @@ export default function RetreatDetailScreen() {
   const heroFocalCover = useFocalCover({
     focalX: heroOwner?.heroFocalX ?? 50,
     focalY: heroOwner?.heroFocalY ?? 50,
-    frameHeight: HERO_HEIGHT,
+    // The phone/tablet hero collapses, so its focal point is computed for the full height; the
+    // desktop square never collapses and is measured.
+    frameHeight: isDesktop ? undefined : HERO_HEIGHT,
     override: pickFrameOverride(heroOwner?.heroFrameOverrides, eventPageFrameKey(isDesktop)),
   });
 
@@ -530,14 +543,18 @@ export default function RetreatDetailScreen() {
   // highlight it in the list.
   const autoLoadedRef = useRef(false);
 
-  // Refs for scrolling the track list to the remembered track on open.
-  // The Animated.ScrollView's ref + a per-item layout map let us center
-  // the active track in view without a FlatList. Only set when there's
-  // an actual remembered track to scroll to (not the first-track fallback).
+  // Refs for scrolling the track list to a track. The Animated.ScrollView's ref + a per-item
+  // layout map let us center a track in view without a FlatList. Opening the page never
+  // scrolls: it shows the photo and title (André). The list moves to the player's track only
+  // when play is pressed (and the track is out of view) or when its title is tapped in a
+  // player, and to a track opened from the Bookmarks tab, which plays it.
   const scrollViewRef = useRef<any>(null);
   const scrollViewHeightRef = useRef(0);
   const trackLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
   const pendingScrollTrackIdRef = useRef<string | null>(null);
+  // 'center' always centres the track; 'ifHidden' leaves the list alone when the whole row is
+  // already on screen (pressing play on a row one is looking at must not move it).
+  const pendingScrollModeRef = useRef<'center' | 'ifHidden'>('center');
 
   const tryScrollToPendingTrack = useCallback(() => {
     const id = pendingScrollTrackIdRef.current;
@@ -545,10 +562,27 @@ export default function RetreatDetailScreen() {
     const layout = trackLayoutsRef.current.get(id);
     const viewportH = scrollViewHeightRef.current;
     if (!layout || viewportH <= 0) return;
+    pendingScrollTrackIdRef.current = null;
+    const top = scrollY.value;
+    if (
+      pendingScrollModeRef.current === 'ifHidden' &&
+      layout.y >= top &&
+      layout.y + layout.height <= top + viewportH
+    ) {
+      return;
+    }
     const target = Math.max(0, layout.y + layout.height / 2 - viewportH / 2);
     scrollViewRef.current?.scrollTo?.({ y: target, animated: false });
-    pendingScrollTrackIdRef.current = null;
-  }, []);
+  }, [scrollY]);
+
+  const queueTrackScroll = useCallback(
+    (trackId: string | number, mode: 'center' | 'ifHidden') => {
+      pendingScrollTrackIdRef.current = String(trackId);
+      pendingScrollModeRef.current = mode;
+      tryScrollToPendingTrack();
+    },
+    [tryScrollToPendingTrack],
+  );
 
   useEffect(() => {
     if (autoLoadedRef.current) return;
@@ -573,10 +607,7 @@ export default function RetreatDetailScreen() {
         } else {
           selectTrack(filteredTracks[idx], idx, { autoPlay: true });
         }
-        if (idx > 0) {
-          pendingScrollTrackIdRef.current = String(filteredTracks[idx].id);
-          tryScrollToPendingTrack();
-        }
+        if (idx > 0) queueTrackScroll(filteredTracks[idx].id, 'center');
         return;
       }
     }
@@ -584,14 +615,7 @@ export default function RetreatDetailScreen() {
     if (ctxTrackInThisEvent) {
       // The player already has a track from this event — leave it alone;
       // the sync effect will mirror it into local state for the highlight.
-      // Queue a scroll so the list opens centered on it, but skip when
-      // it's the first track — there's nothing above to bring into view
-      // and scrolling would just hide the hero for no reason.
-      const ctxIdx = filteredTracks.findIndex((t) => String(t.id) === String(ctxTrack!.id));
-      if (ctxIdx > 0) {
-        pendingScrollTrackIdRef.current = String(ctxTrack!.id);
-        tryScrollToPendingTrack();
-      }
+      // The list stays at the top (see the scroll refs above).
       autoLoadedRef.current = true;
       return;
     }
@@ -602,7 +626,6 @@ export default function RetreatDetailScreen() {
       // Look up this event's per-event last-played track (highlight target).
       let highlightTrack = filteredTracks[0];
       let highlightIndex = 0;
-      let resumedFromMemory = false;
       try {
         const lastId = await AsyncStorage.getItem(LAST_TRACK_KEY(retreat.id));
         if (lastId) {
@@ -610,7 +633,6 @@ export default function RetreatDetailScreen() {
           if (idx >= 0) {
             highlightTrack = filteredTracks[idx];
             highlightIndex = idx;
-            resumedFromMemory = true;
           }
         }
       } catch {
@@ -627,10 +649,6 @@ export default function RetreatDetailScreen() {
         setCurrentTrack(highlightTrack);
         setCurrentTrackIndex(highlightIndex);
         setSelectedTrack(highlightTrack);
-        if (resumedFromMemory && highlightIndex > 0) {
-          pendingScrollTrackIdRef.current = String(highlightTrack.id);
-          tryScrollToPendingTrack();
-        }
         return;
       }
 
@@ -638,12 +656,40 @@ export default function RetreatDetailScreen() {
       // (or the first one) as the active player track. Paused: opening a
       // page is not asking to listen, whatever the player was doing before.
       selectTrack(highlightTrack, highlightIndex, { autoPlay: false });
-      if (resumedFromMemory && highlightIndex > 0) {
-        pendingScrollTrackIdRef.current = String(highlightTrack.id);
-        tryScrollToPendingTrack();
-      }
     })();
-  }, [retreat, filteredTracks, audioContext.currentTrack, audioContext.listeningStarted, tryScrollToPendingTrack, trackIdParam]);
+  }, [retreat, filteredTracks, audioContext.currentTrack, audioContext.listeningStarted, queueTrackScroll, trackIdParam]);
+
+  // A player asked to show its track (title tapped): centre it when it is one of this event's.
+  // The request may predate this page (the mini player opens the event first), so a pending
+  // one is claimed as soon as the tracks are known.
+  const revealTrack = useCallback(
+    (trackId: string) => {
+      if (!filteredTracks.some((t) => String(t.id) === trackId)) return false;
+      queueTrackScroll(trackId, 'center');
+      return true;
+    },
+    [filteredTracks, queueTrackScroll],
+  );
+  useEffect(() => {
+    claimTrackReveal(revealTrack);
+    return subscribeTrackReveal(() => claimTrackReveal(revealTrack));
+  }, [revealTrack]);
+
+  // Pressing play (here, in the player bar or with the keyboard) brings this event's playing
+  // track into view when it is scrolled out of sight.
+  const wasPlayingRef = useRef(audioContext.isPlaying);
+  useEffect(() => {
+    const wasPlaying = wasPlayingRef.current;
+    wasPlayingRef.current = audioContext.isPlaying;
+    if (wasPlaying || !audioContext.isPlaying) return;
+    const playing = audioContext.currentTrack;
+    if (!playing || !filteredTracks.some((t) => String(t.id) === String(playing.id))) return;
+    // A centring already queued for this track (Topics, Bookmarks) stays a centring.
+    if (pendingScrollTrackIdRef.current === String(playing.id)) return;
+    queueTrackScroll(playing.id, 'ifHidden');
+    // Only the start of playback matters, not later track or list changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioContext.isPlaying]);
 
   // Keep the local highlight in sync with the global audio context. Covers
   // two cases:
@@ -1573,6 +1619,7 @@ export default function RetreatDetailScreen() {
       if (index < 0) return;
       setActiveContentTab('tracks');
       pendingScrollTrackIdRef.current = String(filteredTracks[index].id);
+      pendingScrollModeRef.current = 'center';
       selectTrack(filteredTracks[index], index, { autoPlay: true });
     };
 
@@ -1581,9 +1628,11 @@ export default function RetreatDetailScreen() {
     return (
       <Animated.ScrollView
         ref={scrollViewRef}
+        testID="event-scroll"
         style={styles.content}
         contentContainerStyle={[styles.scrollContent, !isDesktop && styles.scrollContentMobile, { paddingBottom }]}
-        onScroll={isDesktop ? undefined : scrollHandler}
+        // Every layout: the scroll offset tells whether the playing track is in view.
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
         onLayout={(e) => {
           scrollViewHeightRef.current = e.nativeEvent.layout.height;
@@ -1600,8 +1649,8 @@ export default function RetreatDetailScreen() {
         {/* Hero (mobile only) — collapses on scroll. Floating action circles
             sit at the bottom-right and overlap the boundary between hero and
             content, exactly like the design. */}
-        {heroSource && (
-          <Animated.View style={[styles.heroContainer, !isDesktop && styles.heroContainerMobile, heroStyle]}>
+        {heroSource && !isDesktop && (
+          <Animated.View style={[styles.heroContainer, styles.heroContainerMobile, heroStyle]}>
             <View style={styles.heroImageWrapper}>
               <ExpoImage
                 source={{ uri: heroSource, cacheKey: heroCacheKey }}
@@ -1642,10 +1691,68 @@ export default function RetreatDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Event title block — sits below the hero on both mobile and
-            desktop. On mobile it replaces the title that used to live in
-            the fixed top bar; on desktop it's the main event header. */}
-        {(
+        {/* Desktop with a photo: the home highlight's layout (André). A full-width banner
+            always cropped the teacher's head; a square photo shows it whole, with the title,
+            teachers, dates and places, the content circles and the bookmark / menu beside it. */}
+        {heroSource && isDesktop && (
+          <View style={styles.desktopHeader} testID="event-desktop-header">
+            <View style={styles.desktopHeroSquare} testID="event-desktop-hero">
+              <ExpoImage
+                source={{ uri: heroSource, cacheKey: heroCacheKey }}
+                cachePolicy="memory-disk"
+                transition={0}
+                style={[
+                  StyleSheet.absoluteFill,
+                  !heroFocalCover.hasOverride && heroScale !== 100 && { transform: [{ scale: heroScale / 100 }] },
+                  heroFocalCover.zoomStyle,
+                ]}
+                contentFit="cover"
+                contentPosition={heroFocalCover.contentPosition}
+                onLayout={heroFocalCover.onLayout}
+                onLoad={heroFocalCover.onLoad}
+              />
+            </View>
+            <View style={styles.desktopHeaderInfo}>
+              <View style={styles.eventTitleRow}>
+                <Text style={styles.eventTitleText}>{titleText}</Text>
+                {retreat.status === 'draft' && <DraftBadge />}
+                {retreat.status === 'forthcoming' && <ForthcomingBadge />}
+              </View>
+              {speakersText ? (
+                <Text style={styles.eventSpeakerText}>{speakersText}</Text>
+              ) : null}
+              {metaParts.length > 0 && (
+                <Text style={styles.eventTitleMetaText}>{metaParts.join(' | ')}</Text>
+              )}
+              <View style={styles.desktopHeaderSpacer} />
+              <View style={styles.desktopHeaderActions}>
+                <View style={styles.desktopContentCircles} pointerEvents="none">
+                  {hasVideo && (
+                    <View style={styles.heroActionCircle}>
+                      <Ionicons name="videocam-outline" size={18} color={colors.white} />
+                    </View>
+                  )}
+                  {hasAudio && (
+                    <View style={styles.heroActionCircle}>
+                      <Ionicons name="musical-notes-outline" size={18} color={colors.white} />
+                    </View>
+                  )}
+                  {hasTranscript && (
+                    <View style={styles.heroActionCircle}>
+                      <Ionicons name="book-outline" size={18} color={colors.white} />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.desktopHeaderButtons}>{renderEventActionButtons(true)}</View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Event title block — sits below the hero on mobile and tablet, where it replaces
+            the title that used to live in the fixed top bar; on desktop it is the event
+            header when there is no photo. */}
+        {!(heroSource && isDesktop) && (
           <View
             style={[
               styles.eventTitleSection,
@@ -1757,7 +1864,7 @@ export default function RetreatDetailScreen() {
                   but the dedicated Video tab now provides that
                   affordance, so the header is text-only. */}
               {showSessionHeader && (
-                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, !isDesktop && styles.sessionHeaderBleed]}>
+                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, isDesktop ? styles.sessionHeaderDesktop : styles.sessionHeaderBleed]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track, retreat?.startDate, language, t)}
                   </Text>
@@ -1776,7 +1883,7 @@ export default function RetreatDetailScreen() {
                 }}
                 style={[
                   styles.trackItem,
-                  !isDesktop && styles.trackItemBleed,
+                  isDesktop ? styles.trackItemDesktop : styles.trackItemBleed,
                   isActive && styles.currentTrackItem,
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
                   nextIsContinuation && styles.trackItemSiblingAbove,
@@ -2006,6 +2113,66 @@ export default function RetreatDetailScreen() {
     </>
   );
 
+  // Bookmark and overflow menu (or pre-download on native): floating white-on-dark circles
+  // over the photo, or plain grey icons in the desktop header beside the square photo.
+  const renderEventActionButtons = (inline: boolean) => (
+    <>
+      {isAuthenticated && (
+        <TouchableOpacity
+          onPress={toggleBookmark}
+          disabled={bookmarkBusy}
+          style={inline ? styles.eventActionButtonInline : styles.floatingTopButtonInline}
+          hitSlop={8}
+          testID="event-bookmark-button"
+          accessibilityLabel={
+            isBookmarked
+              ? t('bookmarks.remove') || 'Remove bookmark'
+              : t('bookmarks.add') || 'Bookmark this event'
+          }
+        >
+          <Ionicons
+            name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+            size={22}
+            color={inline ? colors.gray[600] : colors.white}
+          />
+        </TouchableOpacity>
+      )}
+      {/* On native mobile the transcript moved to a tab and ZIP downloads
+          aren't offered, so the overflow menu would hold a single action —
+          pre-download. Skip the menu and trigger it directly. Web keeps the
+          kebab menu (download + ZIP + transcript shortcut). */}
+      {(retreat?.status !== 'forthcoming' || hasEventContent) && (
+      <TouchableOpacity
+        onPress={() =>
+          Platform.OS === 'web' ? setMenuVisible(true) : handleDownloadForOffline()
+        }
+        style={inline ? styles.eventActionButtonInline : styles.floatingTopButtonInline}
+        hitSlop={8}
+        testID="event-menu-button"
+        accessibilityLabel={
+          Platform.OS === 'web'
+            ? undefined
+            : isRetreatDownloaded
+              ? t('events.preDownloadRemove') || 'Remove download'
+              : t('events.preDownload') || 'Pre-download'
+        }
+      >
+        <Ionicons
+          name={
+            Platform.OS === 'web'
+              ? 'ellipsis-vertical'
+              : isRetreatDownloaded
+                ? 'cloud-offline-outline'
+                : 'download-outline'
+          }
+          size={22}
+          color={inline ? colors.gray[600] : colors.white}
+        />
+      </TouchableOpacity>
+      )}
+    </>
+  );
+
   return (
     <View style={styles.container}>
       {/* No fixed top bar on either platform — the hero extends to the very
@@ -2035,66 +2202,17 @@ export default function RetreatDetailScreen() {
         ]}
       />
 
-      <View
-        style={[
-          styles.floatingTopRightCluster,
-          { top: isDesktop && Platform.OS === 'web' ? 16 : insets.top + 8 },
-        ]}
-      >
-        {isAuthenticated && (
-          <TouchableOpacity
-            onPress={toggleBookmark}
-            disabled={bookmarkBusy}
-            style={styles.floatingTopButtonInline}
-            hitSlop={8}
-            testID="event-bookmark-button"
-            accessibilityLabel={
-              isBookmarked
-                ? t('bookmarks.remove') || 'Remove bookmark'
-                : t('bookmarks.add') || 'Bookmark this event'
-            }
-          >
-            <Ionicons
-              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-              size={22}
-              color={colors.white}
-            />
-          </TouchableOpacity>
-        )}
-        {/* On native mobile the transcript moved to a tab and ZIP downloads
-            aren't offered, so the overflow menu would hold a single action —
-            pre-download. Skip the menu and trigger it directly. Web keeps the
-            kebab menu (download + ZIP + transcript shortcut). */}
-        {(retreat?.status !== 'forthcoming' || hasEventContent) && (
-        <TouchableOpacity
-          onPress={() =>
-            Platform.OS === 'web' ? setMenuVisible(true) : handleDownloadForOffline()
-          }
-          style={styles.floatingTopButtonInline}
-          hitSlop={8}
-          testID="event-menu-button"
-          accessibilityLabel={
-            Platform.OS === 'web'
-              ? undefined
-              : isRetreatDownloaded
-                ? t('events.preDownloadRemove') || 'Remove download'
-                : t('events.preDownload') || 'Pre-download'
-          }
+      {/* On desktop with a photo, these buttons sit beside it in the event header instead. */}
+      {!(isDesktop && eventHero.url) && (
+        <View
+          style={[
+            styles.floatingTopRightCluster,
+            { top: isDesktop && Platform.OS === 'web' ? 16 : insets.top + 8 },
+          ]}
         >
-          <Ionicons
-            name={
-              Platform.OS === 'web'
-                ? 'ellipsis-vertical'
-                : isRetreatDownloaded
-                  ? 'cloud-offline-outline'
-                  : 'download-outline'
-            }
-            size={22}
-            color={colors.white}
-          />
-        </TouchableOpacity>
-        )}
-      </View>
+          {renderEventActionButtons(false)}
+        </View>
+      )}
 
       {/* Mobile keeps the full-width strip under the floating controls. On
           desktop that same strip lands squarely on the track rows, so the
@@ -2564,7 +2682,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   scrollContent: {
-    padding: 16,
+    padding: DESKTOP_SCROLL_PADDING,
   },
   // Mobile text follows the shared gutter. Lines (rules, session headers,
   // track and document rows) bleed to the left screen edge and stop at the
@@ -2589,6 +2707,71 @@ const styles = StyleSheet.create({
     marginLeft: -TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
     paddingLeft: TEXT_GUTTER + 4,
+  },
+  // Desktop: the home list's black lines (EventRow rowDesktop). They start flush with the
+  // column's left edge and stop four gutters before its right edge; scrollContent pads by 16.
+  sessionHeaderDesktop: {
+    marginLeft: -DESKTOP_SCROLL_PADDING,
+    marginRight: TEXT_GUTTER * 4 - DESKTOP_SCROLL_PADDING,
+    paddingLeft: DESKTOP_SCROLL_PADDING + 7,
+    borderBottomColor: DESKTOP_ROW_RULE_COLOR,
+  },
+  // No red bar on the playing row: its shade already marks it (André). The bar's 3 px go to the
+  // padding so the numbers stay where they were.
+  trackItemDesktop: {
+    marginLeft: -DESKTOP_SCROLL_PADDING,
+    marginRight: TEXT_GUTTER * 4 - DESKTOP_SCROLL_PADDING,
+    paddingLeft: DESKTOP_SCROLL_PADDING + 4 + 3,
+    borderLeftWidth: 0,
+    borderBottomColor: DESKTOP_ROW_RULE_COLOR,
+  },
+  // Desktop event header: square photo, text beside it (the home highlight's layout).
+  desktopHeader: {
+    flexDirection: 'row',
+    gap: 24,
+    paddingBottom: 16,
+    marginBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.burgundy[500],
+  },
+  desktopHeroSquare: {
+    width: '45%',
+    maxWidth: DESKTOP_SQUARE_MAX,
+    aspectRatio: 1,
+    alignSelf: 'flex-start',
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: colors.gray[200],
+  },
+  // The floating back button sits over the photo's corner, so the text needs no clearance.
+  desktopHeaderInfo: {
+    flex: 1,
+    paddingTop: 4,
+  },
+  desktopHeaderSpacer: {
+    flex: 1,
+    minHeight: 16,
+  },
+  desktopHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  desktopContentCircles: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  desktopHeaderButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  eventActionButtonInline: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroContainer: {
     alignSelf: 'stretch',

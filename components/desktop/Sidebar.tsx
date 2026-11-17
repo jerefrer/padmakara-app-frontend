@@ -14,7 +14,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
-import { RULE_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
+import { RULE_COLOR } from '@/constants/layout';
+import { Hairline } from '@/components/ui/Hairline';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -65,6 +66,15 @@ export function Sidebar() {
       route: '/(tabs)/(groups)/publications',
       icon: 'book-outline' as const,
       shortTitle: t('home.publications') || 'Publications',
+    },
+    // Right under Publications (André); the full sidebar says whose bookmarks they are.
+    {
+      key: 'bookmarks',
+      title: t('navigation.myBookmarks') || 'My Bookmarks',
+      subtitle: null,
+      route: '/(tabs)/bookmarks',
+      icon: 'bookmark-outline' as const,
+      shortTitle: t('navigation.bookmarks') || 'Bookmarks',
     },
   ];
 
@@ -127,8 +137,8 @@ export function Sidebar() {
     }
   }, [isAuthenticated, isActive]);
 
-  // Bottom entries: search and bookmarks. On the full sidebar the account is
-  // reached from the right panel (the user's name, or Login when signed out).
+  // Bottom entry: search, kept apart while it is an experiment (André). On the full sidebar
+  // the account is reached from the right panel (the user's name, or Login when signed out).
   const bottomItems = [
     {
       key: 'search',
@@ -137,14 +147,6 @@ export function Sidebar() {
       route: '/(tabs)/search',
       icon: 'search-outline' as const,
       shortTitle: t('navigation.search') || 'Search',
-    },
-    {
-      key: 'bookmarks',
-      title: t('navigation.bookmarks') || 'Bookmarks',
-      subtitle: null,
-      route: '/(tabs)/bookmarks',
-      icon: 'bookmark-outline' as const,
-      shortTitle: t('navigation.bookmarks') || 'Bookmarks',
     },
   ];
 
@@ -234,16 +236,19 @@ export function Sidebar() {
                 <Text style={[styles.categoryTitle, active && styles.categoryTitleActive]}>
                   {cat.title}
                 </Text>
-                <Text style={[styles.categorySubtitle, active && styles.categorySubtitleActive]}>
-                  {cat.subtitle}
-                </Text>
+                {cat.subtitle ? (
+                  <Text style={[styles.categorySubtitle, active && styles.categorySubtitleActive]}>
+                    {cat.subtitle}
+                  </Text>
+                ) : null}
+                <Hairline color={RULE_COLOR} testID="sidebar-hairline" />
               </Pressable>
             );
           })}
         </View>
       </ScrollView>
 
-      {/* Search and bookmarks — styled as categories for visual consistency */}
+      {/* Search — styled as the categories for visual consistency */}
       <View style={styles.bottomSection}>
         {bottomItems.map((item, index) => {
           const active = isActive(item.key);
@@ -253,7 +258,6 @@ export function Sidebar() {
               key={item.key}
               style={({ pressed }) => [
                 styles.categoryRow,
-                isLast && styles.lastCategoryRow,
                 active && styles.categoryRowActive,
                 (hoveredItem === item.key || pressed) && !active && styles.categoryRowHover,
               ]}
@@ -274,6 +278,8 @@ export function Sidebar() {
                   {item.subtitle}
                 </Text>
               ) : null}
+              {/* The last row has nothing visually following it, so no bottom hairline. */}
+              {!isLast && <Hairline color={RULE_COLOR} testID="sidebar-hairline" />}
             </Pressable>
           );
         })}
@@ -296,14 +302,12 @@ const styles = StyleSheet.create({
   navSection: {
     paddingTop: 32,
   },
-  // Red hairline between items, same weight and colour as the mobile home
-  // rules. It runs to the sidebar's left edge; the text keeps its inset.
+  // A red hairline (Hairline, the thinnest the screen draws) runs under each item to the
+  // sidebar's left edge; the text keeps its inset.
   categoryRow: {
     paddingVertical: 16,
     paddingLeft: 20,
     marginRight: 20,
-    borderBottomWidth: SUBDIVISION_THICKNESS,
-    borderBottomColor: RULE_COLOR,
   },
   // The selected item only greys out: its title shows as the page header.
   categoryRowActive: {},
@@ -335,10 +339,6 @@ const styles = StyleSheet.create({
   /* Search at bottom — matches category typography */
   bottomSection: {
     paddingBottom: 12,
-  },
-  lastCategoryRow: {
-    // The last row has nothing visually following it, so no bottom hairline.
-    borderBottomWidth: 0,
   },
   categoryRowPressed: {
     backgroundColor: colors.gray[100],

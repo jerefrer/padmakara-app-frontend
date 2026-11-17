@@ -238,6 +238,7 @@
     "events": "Eventos",
     "search": "Pesquisar",
     "bookmarks": "Marcadores",
+    "myBookmarks": "Os Meus Marcadores",
     "account": "Conta"
   },
   "groups": {
@@ -425,6 +426,7 @@
     "upNext": "A Seguir",
     "trackMetadata": "Detalhes da Faixa",
     "close": "Fechar",
+    "seek": "Posição da reprodução",
     "noTrack": "Nenhuma faixa selecionada",
     "speed": "Velocidade",
     "read": "Ler em Conjunto",
