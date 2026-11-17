@@ -50,4 +50,49 @@ describe('ReaderTopBar', () => {
 
     expect(onHeightChange).toHaveBeenCalledWith(103);
   });
+
+  it('should not report the height it takes while hidden', () => {
+    const onHeightChange = jest.fn();
+    const { getByTestId, rerender } = render(
+      <ReaderTopBar hidden={false} onHeightChange={onHeightChange}>
+        <Text>Title</Text>
+      </ReaderTopBar>
+    );
+    const layout = (height: number) =>
+      fireEvent(getByTestId('reader-top-bar', { includeHiddenElements: true }), 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width: 390, height } },
+      });
+    layout(103);
+
+    // Hiding also hides the status bar, which shrinks the bar on an iPad.
+    rerender(
+      <ReaderTopBar hidden onHeightChange={onHeightChange}>
+        <Text>Title</Text>
+      </ReaderTopBar>
+    );
+    layout(79);
+
+    expect(onHeightChange.mock.calls).toEqual([[103]]);
+  });
+
+  it('should report its height once a bar that opened hidden is shown', () => {
+    const onHeightChange = jest.fn();
+    const { getByTestId, rerender } = render(
+      <ReaderTopBar hidden onHeightChange={onHeightChange}>
+        <Text>Title</Text>
+      </ReaderTopBar>
+    );
+    fireEvent(getByTestId('reader-top-bar', { includeHiddenElements: true }), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 844, height: 56 } },
+    });
+    expect(onHeightChange).not.toHaveBeenCalled();
+
+    rerender(
+      <ReaderTopBar hidden={false} onHeightChange={onHeightChange}>
+        <Text>Title</Text>
+      </ReaderTopBar>
+    );
+
+    expect(onHeightChange).toHaveBeenCalledWith(56);
+  });
 });

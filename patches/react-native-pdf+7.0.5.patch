@@ -1,4 +1,5 @@
 diff --git a/node_modules/react-native-pdf/android/build.gradle b/node_modules/react-native-pdf/android/build.gradle
+index 34da324..803e393 100644
 --- a/node_modules/react-native-pdf/android/build.gradle
 +++ b/node_modules/react-native-pdf/android/build.gradle
 @@ -141,7 +141,9 @@ dependencies {
@@ -13,6 +14,7 @@ diff --git a/node_modules/react-native-pdf/android/build.gradle b/node_modules/r
      implementation 'io.legere:pdfiumandroid:1.0.32'
      implementation 'com.google.code.gson:gson:2.13.2'
 diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java
+index 03c60d5..ccc5730 100644
 --- a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java
 +++ b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfManager.java
 @@ -122,6 +122,11 @@ public class PdfManager extends SimpleViewManager<PdfView> implements RNPDFPdfVi
@@ -28,6 +30,7 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
      public void setPassword(PdfView pdfView, String password) {
          pdfView.setPassword(password);
 diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
+index c3d3245..e7550d6 100644
 --- a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
 +++ b/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/PdfView.java
 @@ -23,6 +23,7 @@ import android.util.Log;
@@ -120,6 +123,7 @@ diff --git a/node_modules/react-native-pdf/android/src/main/java/org/wonday/pdf/
          this.password = password;
      }
 diff --git a/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js b/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js
+index 43fea3b..5f78aef 100644
 --- a/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js
 +++ b/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js
 @@ -29,6 +29,7 @@
@@ -131,6 +135,7 @@ diff --git a/node_modules/react-native-pdf/fabric/RNPDFPdfNativeComponent.js b/n
     onChange: ?BubblingEventHandler<ChangeEvent>,
     singlePage: ?boolean,
 diff --git a/node_modules/react-native-pdf/index.d.ts b/node_modules/react-native-pdf/index.d.ts
+index d8192b2..b7b6f3e 100644
 --- a/node_modules/react-native-pdf/index.d.ts
 +++ b/node_modules/react-native-pdf/index.d.ts
 @@ -55,6 +55,8 @@ export interface PdfProps {
@@ -143,6 +148,7 @@ diff --git a/node_modules/react-native-pdf/index.d.ts b/node_modules/react-nativ
      renderActivityIndicator?: (progress: number) => React.ReactElement,
      enableAntialiasing?: boolean,
 diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h
+index 723ca7b..1979af7 100644
 --- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h
 +++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h
 @@ -49,6 +49,7 @@ UIView
@@ -154,19 +160,39 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.h b/node_mo
  @property(nonatomic) BOOL singlePage;
  
 diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
+index 1bc263b..cf5c09b 100644
 --- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
 +++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm
-@@ -75,6 +75,9 @@ @implementation RNPDFPdfView
+@@ -75,6 +75,12 @@ const float MIN_SCALE = 1.0f;
      UIPinchGestureRecognizer *_pinchRecognizer;
      UILongPressGestureRecognizer *_longPressRecognizer;
      UITapGestureRecognizer *_doubleTapEmptyRecognizer;
 +    // Set when the touch that starts a tap lands on a page still gliding from
 +    // a swipe: that tap only stops the scroll and is not reported.
 +    BOOL _tapStopsScroll;
++    // The path as last received from JS. _path is rewritten once decoded, so
++    // the next update compares against this copy.
++    NSString *_sourcePath;
  }
  
  #ifdef RCT_NEW_ARCH_ENABLED
-@@ -154,6 +157,10 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+@@ -106,8 +112,13 @@ using namespace facebook::react;
+ {
+     const auto &newProps = *std::static_pointer_cast<const RNPDFPdfViewProps>(props);
+     NSMutableArray<NSString *> *updatedPropNames = [NSMutableArray new];
+-    if (_path != RCTNSStringFromStringNilIfEmpty(newProps.path)) {
+-        _path = RCTNSStringFromStringNilIfEmpty(newProps.path);
++    // Compare the text, not the pointer: every update brings a new string, so
++    // any other prop change (contentInsetTop when the status bar hides) used to
++    // reload the document and send the reader back to page 1.
++    NSString *newPath = RCTNSStringFromStringNilIfEmpty(newProps.path);
++    if (!(_sourcePath == newPath || [_sourcePath isEqualToString:newPath])) {
++        _sourcePath = newPath;
++        _path = newPath;
+         [updatedPropNames addObject:@"path"];
+     }
+     if (_page != newProps.page) {
+@@ -154,6 +165,10 @@ using namespace facebook::react;
          _spacing = newProps.spacing;
          [updatedPropNames addObject:@"spacing"];
      }
@@ -177,7 +203,26 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
      if (_password != RCTNSStringFromStringNilIfEmpty(newProps.password)) {
          _password = RCTNSStringFromStringNilIfEmpty(newProps.password);
          [updatedPropNames addObject:@"password"];
-@@ -260,6 +267,7 @@ - (void)initCommonProps
+@@ -217,6 +232,10 @@ using namespace facebook::react;
+     NSMutableArray *mProps = [_changedProps mutableCopy];
+     if (_initialed) {
+         [mProps removeObject:@"path"];
++        // A new size (rotation, Split View, a bar coming or going) keeps the
++        // reader where they are: replaying the first props' page would go
++        // back to it.
++        [mProps removeObject:@"page"];
+     }
+     _initialed = YES;
+ 
+@@ -249,6 +268,7 @@ using namespace facebook::react;
+ 
+ - (void)initCommonProps
+ {
++    _sourcePath = nil;
+     _page = 1;
+     _scale = 1;
+     _minScale = MIN_SCALE;
+@@ -260,6 +280,7 @@ using namespace facebook::react;
      _enableDoubleTapZoom = YES;
      _fitPolicy = 2;
      _spacing = 10;
@@ -185,7 +230,7 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
      _singlePage = NO;
      _showsHorizontalScrollIndicator = YES;
      _showsVerticalScrollIndicator = YES;
-@@ -426,6 +434,12 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+@@ -426,6 +447,12 @@ using namespace facebook::react;
              }
          }
  
@@ -198,7 +243,7 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
          if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enableRTL"])) {
              _pdfView.displaysRTL = _enableRTL;
          }
-@@ -535,6 +549,10 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+@@ -535,6 +562,10 @@ using namespace facebook::react;
              }
          }
  
@@ -209,7 +254,7 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
          if (_pdfDocument && ([changedProps containsObject:@"path"] || [changedProps containsObject:@"enablePaging"] || [changedProps containsObject:@"horizontal"] || [changedProps containsObject:@"page"])) {
  
              PDFPage *pdfPage = [_pdfDocument pageAtIndex:_page-1];
-@@ -544,7 +562,8 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+@@ -544,7 +575,8 @@ using namespace facebook::react;
                      for (UIView *subview in self->_pdfView.subviews) {
                          if ([subview isKindOfClass:[UIScrollView class]]) {
                              UIScrollView *scrollView = (UIScrollView *)subview;
@@ -219,7 +264,18 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
                              break;
                          }
                      }
-@@ -835,6 +854,11 @@ - (void)handleSingleTap:(UITapGestureRecognizer *)sender
+@@ -579,6 +611,10 @@ using namespace facebook::react;
+     NSMutableArray *mProps = [_changedProps mutableCopy];
+     if (_initialed) {
+         [mProps removeObject:@"path"];
++        // A new size (rotation, Split View, a bar coming or going) keeps the
++        // reader where they are: replaying the first props' page would go
++        // back to it.
++        [mProps removeObject:@"page"];
+     }
+     _initialed = YES;
+ 
+@@ -835,6 +871,11 @@ using namespace facebook::react;
  {
      //_pdfView.scaleFactor = _pdfView.minScaleFactor;
  
@@ -231,7 +287,7 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
      CGPoint point = [sender locationInView:self];
      PDFPage *pdfPage = [_pdfView pageForPoint:point nearest:NO];
      if (pdfPage) {
-@@ -935,6 +959,66 @@ - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecogni
+@@ -935,6 +976,66 @@ using namespace facebook::react;
      return !_singlePage;
  }
  
@@ -299,9 +355,10 @@ diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfView.mm b/node_m
      // max depth, prevent infinite loop
      if (depth > 10) {
 diff --git a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm
+index 2dfa7f5..c167366 100644
 --- a/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm
 +++ b/node_modules/react-native-pdf/ios/RNPDFPdf/RNPDFPdfViewManager.mm
-@@ -42,6 +42,7 @@ - (UIView *)view
+@@ -42,6 +42,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableAnnotationRendering, BOOL);
  RCT_EXPORT_VIEW_PROPERTY(enableDoubleTapZoom, BOOL);
  RCT_EXPORT_VIEW_PROPERTY(fitPolicy, int);
  RCT_EXPORT_VIEW_PROPERTY(spacing, int);

@@ -27,6 +27,7 @@ import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { publicationUpdate, type CachedPublicationFile } from '@/utils/publicationUpdate';
+import { compareTitles } from '@/utils/titleSort';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { colors } from '@/constants/colors';
@@ -161,7 +162,7 @@ export default function PublicationsScreen() {
     // Sort
     switch (sortMode) {
       case 'title': {
-        list.sort((a, b) => a.title.localeCompare(b.title));
+        list.sort((a, b) => compareTitles(a.title, b.title));
         break;
       }
       case 'author': {

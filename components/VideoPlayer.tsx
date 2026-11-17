@@ -284,6 +284,8 @@ export function VideoPlayer({
   useEventListener(player, 'playingChange', ({ isPlaying }) => {
     reportVideoPlaying(isPlaying);
     if (isPlaying) setPlayerBuffering(false);
+    // A pause, including closing the floating (PiP) window, saves at once.
+    else flushProgressRef.current();
   });
 
   // Audio started while a video is playing: the audio wins, the video pauses.
@@ -480,28 +482,70 @@ export function VideoPlayer({
   }, [hlsUrl, player, resumePosition, isWeb]);
 
   // Shared progress recorder for both playback paths (native timeUpdate event
-  // and the web element's timeupdate). Throttled to once per 5s; fires
-  // onComplete once when playback crosses the completion threshold.
-  const recordProgress = (currentTime: number, duration: number) => {
-    if (!video) return;
+  // and the web element's timeupdate). Throttled to once per 5s unless
+  // `immediate`; fires onComplete once when playback crosses the completion
+  // threshold. `forVideo` saves a video that is being left (its effect cleanup),
+  // which no longer owns the completion state.
+  const recordProgress = (
+    currentTime: number,
+    duration: number,
+    { immediate = false, forVideo }: { immediate?: boolean; forVideo?: EventVideo } = {},
+  ) => {
+    const target = forVideo ?? video;
+    if (!target) return;
     // ExoPlayer reports a huge negative duration until the source has loaded.
     if (!(duration > 0) || currentTime <= 0) return;
 
     const now = Date.now();
-    if (now - lastSavedAtRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
+    if (!immediate && now - lastSavedAtRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
+    // A position just saved is not saved again (Android keeps reporting the
+    // time while paused; a close follows the pause it causes).
     const last = lastSavedPositionRef.current;
-    if (last && last.videoId === video.id && Math.abs(currentTime - last.position) < 1) return;
+    if (last && last.videoId === target.id && Math.abs(currentTime - last.position) < 1) return;
     lastSavedAtRef.current = now;
-    lastSavedPositionRef.current = { videoId: video.id, position: currentTime };
+    lastSavedPositionRef.current = { videoId: target.id, position: currentTime };
 
     const completed = currentTime >= duration * COMPLETE_THRESHOLD_RATIO;
-    saveVideoProgress(video.id, currentTime, duration, completed, isAuthenticated);
+    saveVideoProgress(target.id, currentTime, duration, completed, isAuthenticated);
 
-    if (completed && !completedRef.current) {
+    if (!forVideo && completed && !completedRef.current) {
       completedRef.current = true;
       onComplete?.();
     }
   };
+
+  // Saves where playback is now, without waiting for the throttle: a pause,
+  // the floating window's close button, closing the page or leaving the video
+  // must not lose the seconds since the last periodic save.
+  const flushProgress = (forVideo?: EventVideo) => {
+    const target = forVideo ?? video;
+    if (!target) return;
+    let currentTime = 0;
+    let duration = 0;
+    try {
+      currentTime = isWeb ? (webPlayerRef.current?.getCurrentTime() ?? 0) : (player.currentTime ?? 0);
+      duration = isWeb
+        ? (webPlayerRef.current?.getDuration() || target.durationSeconds || 0)
+        : (player.duration ?? target.durationSeconds ?? 0);
+    } catch {
+      // The native player may already be released while unmounting.
+      return;
+    }
+    recordProgress(currentTime, duration, { immediate: true, forVideo });
+  };
+  // The player's listeners and the cleanup below run after a render: they
+  // read the latest flush through this ref.
+  const flushProgressRef = useRef(flushProgress);
+  useEffect(() => {
+    flushProgressRef.current = flushProgress;
+  });
+
+  // Leaving a video (another one chosen, the page closed by its parent, or the
+  // player unmounting) saves where it stopped.
+  useEffect(() => {
+    if (!video) return;
+    return () => flushProgressRef.current(video);
+  }, [video]);
 
   useEventListener(player, 'statusChange', ({ status }) => {
     if (status !== 'loading' && status !== 'idle') setPlayerBuffering(false);
@@ -724,21 +768,7 @@ export function VideoPlayer({
   // Save progress one last time when closing (so quick taps don't lose state).
   const saveProgressAndPause = () => {
     if (!video) return;
-    const currentTime = isWeb
-      ? (webPlayerRef.current?.getCurrentTime() ?? 0)
-      : (player.currentTime ?? 0);
-    const duration = isWeb
-      ? (webPlayerRef.current?.getDuration() || video.durationSeconds || 0)
-      : (player.duration ?? video.durationSeconds ?? 0);
-    if (currentTime > 0 && duration > 0) {
-      saveVideoProgress(
-        video.id,
-        currentTime,
-        duration,
-        currentTime >= duration * COMPLETE_THRESHOLD_RATIO,
-        isAuthenticated,
-      );
-    }
+    flushProgress();
     try {
       if (isWeb) webPlayerRef.current?.pause();
       else player.pause();
@@ -904,7 +934,10 @@ export function VideoPlayer({
                     )
                   }
                   onError={() => setErrorMsg(t('video.loadError') ?? 'Failed to load video')}
-                  onPlayingChange={reportVideoPlaying}
+                  onPlayingChange={(playing) => {
+                    reportVideoPlaying(playing);
+                    if (!playing) flushProgress();
+                  }}
                 />
               )
             ) : (

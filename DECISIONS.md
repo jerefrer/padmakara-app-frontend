@@ -104,3 +104,25 @@ expression against the iOS SDK; the behaviour needs a device.
 project turns on precompiled Expo modules.
 
 ---
+## 2026-11-17 — Stop the native PDF reader from going back to page 1 on iPad taps
+**Chosen:** two changes. (1) `ReaderTopBar` reports its height only while it is shown, so a tap no
+longer changes the document's `contentInsetTop`. (2) In the `react-native-pdf` patch
+(`RNPDFPdfView.mm`), `updateProps` compares the path by value (it compared `NSString` pointers, so
+every prop update reloaded the document at page 1), and a layout change after the first one no
+longer replays the initial `page` prop.
+**Alternatives:** passing the current page back as the `page` prop (each update would then snap to
+the top of that page while the reader scrolls); not hiding the status bar on tap (hides the
+symptom on iPad only, and any other prop change would still reload the document).
+**Why:** a tap hides the status bar; on an iPad (and a phone without a notch) that shrinks the
+safe area, the reader bar loses that height, and the new inset reached the native view. Any prop
+update counted as a new path there, so the document was reloaded and opened on page 1. The tap's
+"internal link" heuristic in `PDFViewer` then saw a jump of many pages and showed the bars again,
+which is why André saw only the jump. Rotation and Split View resizes went back to page 1 too,
+through the replayed `page` prop.
+**Trade-offs:** more native patch to carry, checked by reading and by tests with the native view
+mocked, not on a device. The iPad's side rail and player bar stay on screen when the bars hide:
+removing them resizes the PDF view, which is what crashed PDFKit before (see a6e8dc15).
+**Revisit if:** react-native-pdf fixes the path comparison upstream (the patch then fails on
+install), or hiding the iPad rail and player bar is wanted (needs a device test for PDFKit).
+
+---

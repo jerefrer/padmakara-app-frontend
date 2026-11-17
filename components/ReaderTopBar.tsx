@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,12 +29,32 @@ interface ReaderTopBarProps {
 export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, onHeightChange }: ReaderTopBarProps) {
   const insets = useSafeAreaInsets();
   const opacity = useSharedValue(hidden ? 0 : 1);
+  const measured = useRef<number | null>(null);
+  const reported = useRef(false);
 
   useEffect(() => {
     opacity.value = withTiming(hidden ? 0 : 1, { duration: FADE_MS });
   }, [hidden, opacity]);
 
+  // A bar that opened hidden (a phone held sideways) reports once it shows.
+  useEffect(() => {
+    if (hidden || reported.current || measured.current === null) return;
+    reported.current = true;
+    onHeightChange?.(measured.current);
+  }, [hidden, onHeightChange]);
+
   const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  // Only the height of a shown bar counts. Hiding the bars also hides the
+  // status bar, and on an iPad (or a phone without a notch) that shrinks the
+  // bar by the status bar's height: reported, it changed the document's
+  // inset, and every change of inset sent the native reader back to page 1.
+  const handleLayout = (height: number) => {
+    measured.current = height;
+    if (hidden) return;
+    reported.current = true;
+    onHeightChange?.(height);
+  };
 
   return (
     <Animated.View
@@ -43,7 +63,7 @@ export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, o
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
       style={[styles.bar, clearStatusBar && { paddingTop: insets.top }, style, fade]}
-      onLayout={onHeightChange ? (e) => onHeightChange(e.nativeEvent.layout.height) : undefined}
+      onLayout={onHeightChange ? (e) => handleLayout(e.nativeEvent.layout.height) : undefined}
     >
       {children}
     </Animated.View>
