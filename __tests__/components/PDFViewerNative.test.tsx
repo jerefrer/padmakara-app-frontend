@@ -5,6 +5,7 @@ import { PDFViewer } from '@/components/PDFViewer';
 import type { PDFViewerHandle } from '@/components/PDFViewer.types';
 
 let pdfProps: any;
+let mockPdfMounts = 0;
 const mockSetPage = jest.fn();
 
 jest.mock('react-native-pdf', () => {
@@ -14,6 +15,9 @@ jest.mock('react-native-pdf', () => {
     __esModule: true,
     default: React.forwardRef((props: any, ref: any) => {
       pdfProps = props;
+      React.useEffect(() => {
+        mockPdfMounts += 1;
+      }, []);
       React.useImperativeHandle(ref, () => ({ setPage: mockSetPage }));
       return <View testID="pdf" />;
     }),
@@ -29,6 +33,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 
 beforeEach(() => {
   pdfProps = undefined;
+  mockPdfMounts = 0;
   mockSetPage.mockClear();
   jest.useFakeTimers();
 });
@@ -153,5 +158,23 @@ describe('PDFViewer (iOS and Android)', () => {
     act(() => ref.current?.goToPage(12));
 
     expect(mockSetPage).toHaveBeenCalledWith(12);
+  });
+
+  it('should keep the open document and its page when the reader re-renders after a tap', () => {
+    const onSingleTap = jest.fn();
+    const { rerender } = render(
+      <PDFViewer source="file:///x.pdf" onSingleTap={onSingleTap} contentInsetTop={80} />
+    );
+    act(() => pdfProps.onPageChanged(12, 40));
+
+    act(() => pdfProps.onPageSingleTap(12, 10, 10));
+    rerender(<PDFViewer source="file:///x.pdf" onSingleTap={onSingleTap} contentInsetTop={80} />);
+
+    expect(onSingleTap).toHaveBeenCalledTimes(1);
+    expect(mockPdfMounts).toBe(1);
+    expect(pdfProps.source).toEqual({ uri: 'file:///x.pdf', cache: false });
+    // A page prop would send the native reader back to it on every update.
+    expect(pdfProps).not.toHaveProperty('page');
+    expect(mockSetPage).not.toHaveBeenCalled();
   });
 });
