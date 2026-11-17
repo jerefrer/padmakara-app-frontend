@@ -148,6 +148,24 @@ describe('retreat screen track list', () => {
     expect(style.borderBottomColor).toBe(DESKTOP_ROW_RULE_COLOR);
   });
 
+  it('should mark the playing row on desktop by its shade alone, without the red bar', async () => {
+    const screen = render(<RetreatDetailScreen />);
+    await screen.findByText('Idle prayer');
+    const style = StyleSheet.flatten(screen.getByTestId('track-row-11').props.style);
+    expect(style.backgroundColor).toBe('#f8f1f1');
+    expect(style.borderLeftWidth).toBe(0);
+    expect(style.marginLeft).toBe(-16);
+  });
+
+  it('should keep the red bar on the playing row on a phone', async () => {
+    mockLayout = { isDesktop: false, isMobile: true };
+    const screen = render(<RetreatDetailScreen />);
+    await screen.findByText('Idle prayer');
+    const style = StyleSheet.flatten(screen.getByTestId('track-row-11').props.style);
+    expect(style.borderLeftWidth).toBe(3);
+    expect(style.borderLeftColor).toBe('#9b1b1b');
+  });
+
   it('should show the Tibetan tag in neutral grey without a highlight colour', async () => {
     const screen = render(<RetreatDetailScreen />);
     await screen.findByText('Idle prayer');

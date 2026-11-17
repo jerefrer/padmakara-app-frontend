@@ -2679,10 +2679,13 @@ const styles = StyleSheet.create({
     paddingLeft: DESKTOP_SCROLL_PADDING + 7,
     borderBottomColor: DESKTOP_ROW_RULE_COLOR,
   },
+  // No red bar on the playing row: its shade already marks it (André). The bar's 3 px go to the
+  // padding so the numbers stay where they were.
   trackItemDesktop: {
     marginLeft: -DESKTOP_SCROLL_PADDING,
     marginRight: TEXT_GUTTER * 4 - DESKTOP_SCROLL_PADDING,
-    paddingLeft: DESKTOP_SCROLL_PADDING + 4,
+    paddingLeft: DESKTOP_SCROLL_PADDING + 4 + 3,
+    borderLeftWidth: 0,
     borderBottomColor: DESKTOP_ROW_RULE_COLOR,
   },
   // Desktop event header: square photo, text beside it (the home highlight's layout).
