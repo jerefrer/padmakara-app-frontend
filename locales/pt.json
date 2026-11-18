@@ -548,7 +548,7 @@
     "shareError": "Não foi possível partilhar esta publicação",
     "title": "Publicações",
     "tabs": {
-      "latest": "mais recentes",
+      "lastOpened": "últimos abertos",
       "author": "por autor",
       "title": "por título"
     },
@@ -589,7 +589,7 @@
     "accountDataTitle": "Informações da Conta",
     "accountData": "Quando cria uma conta, recolhemos o seu endereço de e-mail, nome e, opcionalmente, o seu nome de dharma. Utilizamos um sistema de autenticação sem palavra-passe (links mágicos enviados para o seu e-mail).",
     "usageDataTitle": "Dados de Utilização",
-    "usageData": "Para proporcionar uma experiência de audição sem interrupções, a App armazena o seu progresso de audição (posição na faixa e estado de conclusão), marcadores e notas. Estes dados são sincronizados entre os seus dispositivos através do nosso servidor.",
+    "usageData": "Para proporcionar uma experiência de audição sem interrupções, a App armazena o seu progresso de audição (posição na faixa e estado de conclusão), marcadores, notas e a data em que abriu cada publicação pela última vez (para que as que mais lê apareçam primeiro). Estes dados são sincronizados entre os seus dispositivos através do nosso servidor.",
     "deviceDataTitle": "Dados do Dispositivo",
     "deviceData": "Armazenamos um identificador de dispositivo para gerir a ativação do mesmo. Se ativar a autenticação biométrica (Face ID, impressão digital), esta é tratada inteiramente pelo seu dispositivo — nunca recebemos nem armazenamos dados biométricos.",
     "searchDataTitle": "Dados de Pesquisa",
@@ -630,7 +630,7 @@
     "changes": "Podemos atualizar esta política periodicamente. Alterações significativas serão comunicadas através da App. A data de \"última atualização\" no topo reflete a revisão mais recente.",
     "section9Title": "9. Contacte-nos",
     "contact": "Se tiver questões sobre esta política de privacidade ou desejar exercer os seus direitos sobre os dados, contacte:",
-    "lastUpdatedDate": "13 de novembro de 2026"
+    "lastUpdatedDate": "18 de novembro de 2026"
   },
   "deleteAccount": {
     "title": "Eliminar Conta",

@@ -12,6 +12,7 @@ let mockInsets: number[] = [];
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
+  useFocusEffect: () => {},
   useLocalSearchParams: () => ({ open: '5' }),
   router: { push: jest.fn(), back: jest.fn(), setParams: jest.fn() },
 }));
@@ -45,6 +46,8 @@ jest.mock('@/components/PDFViewer', () => {
 jest.mock('@/services/publicationService', () => ({
   publicationService: {
     getPublicationsSync: jest.fn(() => null),
+    getDeviceOpenTimes: jest.fn(() => Promise.resolve({})),
+    recordOpen: jest.fn(() => Promise.resolve()),
     getPublications: jest.fn(),
     getCachedPdf: jest.fn(),
     getCachedFile: jest.fn(),

@@ -116,6 +116,7 @@ export const API_ENDPOINTS = {
   // Publications
   PUBLICATIONS: '/publications',
   PUBLICATION_PDF: (id: string) => `/publications/${id}/pdf`,
+  PUBLICATION_OPENED: (id: string) => `/publications/${id}/opened`,
 
   // ZIP Download Endpoints
   PUBLIC_EVENT_DOWNLOAD_REQUEST: (eventId: string) => `/events/public/${eventId}/request-download`,

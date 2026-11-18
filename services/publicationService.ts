@@ -5,18 +5,22 @@
  * - Native: PDFs stored in documentDirectory/publications/, metadata in AsyncStorage
  * - Web: in-memory blob URLs (ephemeral, lost on page refresh)
  * - Cached PDFs are kept until the reader accepts a newer file (see utils/publicationUpdate)
+ * - Opens are recorded on the device and, signed in, on the server (see utils/publicationOrder)
  */
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, API_ENDPOINTS, buildApiUrl, getAuthHeaders } from './apiConfig';
 import entityCacheService from './entityCacheService';
+import apiService from './apiService';
 import type { Publication } from '../types';
 import { hasExpiredPresignedUrl } from '../utils/presignedUrlExpiry';
 import type { CachedPublicationFile } from '../utils/publicationUpdate';
+import type { DeviceOpenTimes } from '../utils/publicationOrder';
 
 const CACHE_METADATA_KEY = '@publication_cache:metadata';
 const POSITION_KEY_PREFIX = '@publication_position:';
+const OPENS_KEY = '@publication_opens';
 
 interface PublicationCacheEntry {
   publicationId: string;
@@ -328,6 +332,42 @@ class PublicationService {
    */
   async saveReadingPosition(publicationId: string, page: number): Promise<void> {
     await AsyncStorage.setItem(`${POSITION_KEY_PREFIX}${publicationId}`, JSON.stringify(page));
+  }
+
+  /**
+   * When each publication was last opened on this device (epoch ms). Kept
+   * signed out and offline; merged with the server's times for the
+   * "Last opened" order.
+   */
+  async getDeviceOpenTimes(): Promise<DeviceOpenTimes> {
+    try {
+      const raw = await AsyncStorage.getItem(OPENS_KEY);
+      const parsed: unknown = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? (parsed as DeviceOpenTimes) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Record that the reader opened a publication: on this device always, and
+   * on the server when signed in so the order follows the person to their
+   * other devices. Never throws: a lost server call only delays that.
+   */
+  async recordOpen(publicationId: string, { signedIn }: { signedIn: boolean }): Promise<void> {
+    try {
+      const times = await this.getDeviceOpenTimes();
+      times[publicationId] = Date.now();
+      await AsyncStorage.setItem(OPENS_KEY, JSON.stringify(times));
+    } catch (err) {
+      console.error('Publication open save error:', err);
+    }
+    if (!signedIn) return;
+    try {
+      await apiService.post(API_ENDPOINTS.PUBLICATION_OPENED(publicationId));
+    } catch (err) {
+      console.error('Publication open report error:', err);
+    }
   }
 
   /**

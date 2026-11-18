@@ -13,6 +13,7 @@ let mockParams: Record<string, string | undefined> = {};
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
+  useFocusEffect: () => {},
   useLocalSearchParams: () => mockParams,
   router: { push: jest.fn(), back: (...a: any[]) => mockBack(...a), setParams: (...a: any[]) => mockSetParams(...a) },
 }));
@@ -42,6 +43,8 @@ jest.mock('@/utils/downloadFileWeb', () => ({ downloadFileWeb: jest.fn(() => Pro
 jest.mock('@/services/publicationService', () => ({
   publicationService: {
     getPublicationsSync: jest.fn(() => null),
+    getDeviceOpenTimes: jest.fn(() => Promise.resolve({})),
+    recordOpen: jest.fn(() => Promise.resolve()),
     getPublications: jest.fn(),
     getCachedPdf: jest.fn(),
     getCachedFile: jest.fn(),
