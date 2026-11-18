@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { isPictureInPictureSupported, useVideoPlayer, VideoView } from 'expo-video';
 import { subscribeToDeviceRotation } from '@/modules/device-rotation';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -44,6 +44,10 @@ const PHONE_MAX_SHORT_SIDE = 600;
 const PAGE_MAX_WIDTH = 960;
 const MAX_PLAYER_HEIGHT_RATIO = 0.7;
 const FULLSCREEN_AFTER_ROTATION_MS = 300;
+/** Without a start from the system picture in picture by then, the floating window takes over. */
+const PIP_START_TIMEOUT_MS = 1500;
+/** Closing the PiP window pauses the player just around its stop event: wait before reading it. */
+const PIP_STOP_SETTLE_MS = 300;
 /** Lets the audio player release the lock screen before the video claims it again. */
 const NOW_PLAYING_CLAIM_DELAY_MS = 500;
 
@@ -57,6 +61,21 @@ const colors = {
   scrimStrong: 'rgba(0,0,0,0.45)',
 };
 
+/**
+ * iOS hands a video left while playing to the system picture in picture,
+ * which (unlike Android's) can float over the app itself.
+ */
+function systemPipAvailable(): boolean {
+  if (Platform.OS !== 'ios') return false;
+  try {
+    return typeof isPictureInPictureSupported === 'function' && isPictureInPictureSupported();
+  } catch {
+    return false;
+  }
+}
+
+/** Where the hand-off to the system picture in picture stands. */
+type PipHandoff = 'none' | 'starting' | 'active';
 
 interface VideoPlayerProps {
   /** The specific recording being played. The modal closes when this becomes null. */
@@ -102,6 +121,14 @@ interface VideoPlayerProps {
   onExpand?: () => void;
   /** Where the floating window sits, from the bottom-right corner of the screen. */
   floatingFrame?: FloatingFrame;
+  /**
+   * iOS: leaving the page while the video plays hands it to the system picture
+   * in picture, and this is called once it has started. Without it (or when
+   * the system refuses), the floating window takes over.
+   */
+  onSystemPip?: () => void;
+  /** The video plays in the system picture in picture: the page stays mounted but hidden. */
+  inSystemPip?: boolean;
   /** The event's teachers, shown as the artist on the lock screen. */
   teacherNames?: string;
   /** The event's square artwork for the lock screen. */
@@ -202,6 +229,8 @@ export function VideoPlayer({
   onMinimize,
   onExpand,
   floatingFrame = DEFAULT_FLOATING_FRAME,
+  onSystemPip,
+  inSystemPip = false,
   teacherNames,
   artworkUrl,
 }: VideoPlayerProps) {
@@ -218,7 +247,11 @@ export function VideoPlayer({
   // rotating the screen first would show the navigation bar on its side.
   // On native the close button gets its own white bar above the video; web and
   // the immersive landscape view keep it overlaid on the video.
-  const showCloseBar = Platform.OS !== 'web' && !isImmersive && !minimized;
+  // In the system picture in picture the page's player stays laid out (AVKit
+  // brings the video back to it) but hidden; only the in-app floating window
+  // shrinks it.
+  const floating = minimized && !inSystemPip;
+  const showCloseBar = Platform.OS !== 'web' && !isImmersive && !floating;
   const followsPhysicalRotation = isPhone && Platform.OS === 'android';
   const videoViewRef = useRef<VideoView>(null);
   const { t, language } = useLanguage();
@@ -915,13 +948,86 @@ export function VideoPlayer({
     onClose();
   };
 
+  // The PiP events and timers below run after a render: they read the latest
+  // callbacks through these refs.
+  const handleCloseRef = useRef(handleClose);
+  const onMinimizeRef = useRef(onMinimize);
+  const onSystemPipRef = useRef(onSystemPip);
+  const onExpandRef = useRef(onExpand);
+  const inSystemPipRef = useRef(inSystemPip);
+
+  // iOS: the page hands a playing video to the system picture in picture. The
+  // page stays as it is until the PiP window has started (AVKit needs the
+  // video on screen to start it), then hides. If the system refuses or never
+  // starts it, the in-app floating window takes over.
+  const pipHandoffRef = useRef<PipHandoff>('none');
+  const pipStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPipStartTimer = () => {
+    if (pipStartTimerRef.current) clearTimeout(pipStartTimerRef.current);
+    pipStartTimerRef.current = null;
+  };
+  const fallBackToFloatingWindow = () => {
+    clearPipStartTimer();
+    if (pipHandoffRef.current !== 'starting') return;
+    pipHandoffRef.current = 'none';
+    onMinimizeRef.current?.();
+  };
+  const handOffToSystemPip = () => {
+    const view = videoViewRef.current;
+    if (!view || typeof view.startPictureInPicture !== 'function') {
+      onMinimize?.();
+      return;
+    }
+    pipHandoffRef.current = 'starting';
+    clearPipStartTimer();
+    pipStartTimerRef.current = setTimeout(fallBackToFloatingWindow, PIP_START_TIMEOUT_MS);
+    try {
+      Promise.resolve(view.startPictureInPicture()).catch(fallBackToFloatingWindow);
+    } catch {
+      fallBackToFloatingWindow();
+    }
+  };
+  const handlePipStart = () => {
+    // A PiP the system started on its own (the app sent to the background)
+    // leaves the page as it is.
+    if (pipHandoffRef.current !== 'starting') return;
+    clearPipStartTimer();
+    pipHandoffRef.current = 'active';
+    onSystemPipRef.current?.();
+  };
+  const handlePipStop = () => {
+    if (pipHandoffRef.current === 'starting') {
+      fallBackToFloatingWindow();
+      return;
+    }
+    if (pipHandoffRef.current !== 'active') return;
+    pipHandoffRef.current = 'none';
+    // The page was brought back from inside the app (the video opened again).
+    if (!inSystemPipRef.current) return;
+    // The PiP window's "back to the app" button keeps the video playing; its
+    // close button pauses it. AVKit sends no other signal JS can read.
+    setTimeout(() => {
+      if (!inSystemPipRef.current) return;
+      let playing = false;
+      try {
+        playing = player.playing === true;
+      } catch {
+        // Released: nothing left to bring back.
+      }
+      if (playing) onExpandRef.current?.();
+      else handleCloseRef.current();
+    }, PIP_STOP_SETTLE_MS);
+  };
+
   // Leaving the page (its close button, Android back, Escape on the web): a
   // playing video goes on in the floating window, like the audio mini player;
-  // a paused, loading or failed one has nothing to go on with, so it closes.
+  // on iOS, in the system picture in picture. A paused, loading or failed
+  // video has nothing to go on with, so it closes.
   const hasPlayableVideo = !!video && !!hlsUrl;
   const handleLeavePage = () => {
     if (onMinimize && hasPlayableVideo && !errorMsg && videoPlayingRef.current) {
-      onMinimize();
+      if (onSystemPip && systemPipAvailable()) handOffToSystemPip();
+      else onMinimize();
       return;
     }
     handleClose();
@@ -929,7 +1035,21 @@ export function VideoPlayer({
   const handleLeavePageRef = useRef(handleLeavePage);
   useEffect(() => {
     handleLeavePageRef.current = handleLeavePage;
+    handleCloseRef.current = handleClose;
+    onMinimizeRef.current = onMinimize;
+    onSystemPipRef.current = onSystemPip;
+    onExpandRef.current = onExpand;
+    inSystemPipRef.current = inSystemPip;
   });
+
+  // The page shown again while the system PiP still has the video (the video
+  // opened again from the app): bring it back into the page.
+  useEffect(() => {
+    if (minimized || pipHandoffRef.current !== 'active') return;
+    pipHandoffRef.current = 'none';
+    videoViewRef.current?.stopPictureInPicture?.()?.catch?.(() => undefined);
+  }, [minimized]);
+  useEffect(() => () => clearPipStartTimer(), []);
 
   const togglePlayback = () => {
     try {
@@ -1022,11 +1142,12 @@ export function VideoPlayer({
   return (
       <View
         testID="video-player-root"
-        pointerEvents={minimized ? 'box-none' : 'auto'}
+        pointerEvents={inSystemPip ? 'none' : floating ? 'box-none' : 'auto'}
         style={[
           styles.host,
-          !minimized && styles.root,
+          !floating && styles.root,
           isImmersive && styles.rootImmersive,
+          inSystemPip && styles.hiddenForSystemPip,
         ]}
       >
         {/* Add-bookmark modal — paused video stays visible behind it */}
@@ -1075,9 +1196,9 @@ export function VideoPlayer({
         </Modal>
 
         <View
-          testID={minimized ? 'video-floating' : undefined}
+          testID={floating ? 'video-floating' : inSystemPip ? 'video-in-system-pip' : undefined}
           style={
-            minimized
+            floating
               ? [
                   styles.floating,
                   {
@@ -1113,7 +1234,7 @@ export function VideoPlayer({
           testID="video-frame"
           style={[
             styles.videoContainer,
-            minimized
+            floating
               ? { width: floatingFrame.width, height: floatingHeight }
               : isImmersive
                 ? styles.videoContainerImmersive
@@ -1136,7 +1257,7 @@ export function VideoPlayer({
                 <WebHlsVideo
                   ref={webPlayerRef}
                   uri={hlsUrl}
-                  controls={!minimized}
+                  controls={!floating}
                   resumePosition={resumePosition}
                   subtitleLanguage={subtitleLanguage}
                   onTimeUpdate={(currentTime) =>
@@ -1164,7 +1285,10 @@ export function VideoPlayer({
                 startsPictureInPictureAutomatically={Platform.OS !== 'web'}
                 contentFit="contain"
                 // The floating window is too small for the system controls: it has its own.
-                nativeControls={!minimized}
+                // The system picture in picture keeps them, as when it started.
+                nativeControls={!floating}
+                onPictureInPictureStart={handlePipStart}
+                onPictureInPictureStop={handlePipStop}
               />
             )
           ) : (
@@ -1179,7 +1303,7 @@ export function VideoPlayer({
               <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
             </View>
           )}
-          {!showCloseBar && !minimized && (
+          {!showCloseBar && !floating && !inSystemPip && (
             <TouchableOpacity
               onPress={handleLeavePage}
               style={styles.closeButton}
@@ -1189,7 +1313,7 @@ export function VideoPlayer({
               <Ionicons name="chevron-down" size={28} color={colors.white} />
             </TouchableOpacity>
           )}
-          {minimized && (
+          {floating && (
             // Only the video, with small controls drawn over it on a light scrim.
             <View style={styles.floatingControls} testID="video-floating-controls">
               {/* A tap anywhere on the video brings the page back. */}
@@ -1349,6 +1473,11 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  // Hidden while the system picture in picture shows the video; still laid
+  // out, so AVKit can bring the video back to the page.
+  hiddenForSystemPip: {
+    opacity: 0,
   },
   floating: {
     position: 'absolute',

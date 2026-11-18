@@ -23,11 +23,18 @@ interface VideoSessionValue {
   session: VideoSession | null;
   /** The video plays in the small floating window instead of on its page. */
   minimized: boolean;
+  /**
+   * The video plays in the system picture-in-picture window (iOS): the page is
+   * hidden and the app draws no floating window. `minimized` is true as well.
+   */
+  inSystemPip: boolean;
   /** Opens a video on its page; the one already open is replaced. */
   openVideo: (session: VideoSession) => void;
   /** Switches to another video of the same event. */
   selectVideo: (video: EventVideo) => void;
   minimize: () => void;
+  /** The system picture-in-picture window took the video over. */
+  enterSystemPip: () => void;
   expand: () => void;
   /** Ends the session: the player is released. */
   close: () => void;
@@ -45,6 +52,7 @@ const VideoSessionContext = createContext<VideoSessionValue | null>(null);
 export function VideoSessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<VideoSession | null>(null);
   const [minimized, setMinimized] = useState(false);
+  const [inSystemPip, setInSystemPip] = useState(false);
   const cellularAcceptedRef = useRef(false);
 
   const openVideo = useCallback((next: VideoSession) => {
@@ -57,22 +65,45 @@ export function VideoSessionProvider({ children }: { children: React.ReactNode }
       return next;
     });
     setMinimized(false);
+    setInSystemPip(false);
   }, []);
 
   const selectVideo = useCallback((video: EventVideo) => {
     setSession((current) => (current ? { ...current, video, initialPositionSeconds: undefined } : current));
   }, []);
 
-  const minimize = useCallback(() => setMinimized(true), []);
-  const expand = useCallback(() => setMinimized(false), []);
+  const minimize = useCallback(() => {
+    setMinimized(true);
+    setInSystemPip(false);
+  }, []);
+  const enterSystemPip = useCallback(() => {
+    setMinimized(true);
+    setInSystemPip(true);
+  }, []);
+  const expand = useCallback(() => {
+    setMinimized(false);
+    setInSystemPip(false);
+  }, []);
   const close = useCallback(() => {
     setSession(null);
     setMinimized(false);
+    setInSystemPip(false);
   }, []);
 
   const value = useMemo(
-    () => ({ session, minimized, openVideo, selectVideo, minimize, expand, close, cellularAcceptedRef }),
-    [session, minimized, openVideo, selectVideo, minimize, expand, close],
+    () => ({
+      session,
+      minimized,
+      inSystemPip,
+      openVideo,
+      selectVideo,
+      minimize,
+      enterSystemPip,
+      expand,
+      close,
+      cellularAcceptedRef,
+    }),
+    [session, minimized, inSystemPip, openVideo, selectVideo, minimize, enterSystemPip, expand, close],
   );
 
   return <VideoSessionContext.Provider value={value}>{children}</VideoSessionContext.Provider>;
