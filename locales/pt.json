@@ -425,7 +425,13 @@
     "close": "Fechar",
     "image": "Imagem",
     "document": "Texto",
-    "watermarkNotice": "A tua cópia pessoal está a ser gerada, com uma marca de água com o teu nome e email."
+    "watermarkNotice": "A tua cópia pessoal está a ser gerada, com uma marca de água com o teu nome e email.",
+    "transcriptStatus": {
+      "provisional": "Provisória",
+      "unrevised": "Não revista",
+      "draft": "Rascunho"
+    },
+    "transcriptExcerpts": "Excertos"
   },
   "player": {
     "nowPlaying": "Em reprodução",
