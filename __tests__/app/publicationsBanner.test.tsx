@@ -13,6 +13,7 @@ let mockLocale: any = en;
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
+  useFocusEffect: () => {},
   useLocalSearchParams: () => ({}),
   router: { push: (...a: any[]) => mockPush(...a), back: jest.fn() },
 }));
@@ -32,6 +33,8 @@ jest.mock('@/components/PDFViewer', () => ({ PDFViewer: () => null }));
 jest.mock('@/services/publicationService', () => ({
   publicationService: {
     getPublicationsSync: jest.fn(() => null),
+    getDeviceOpenTimes: jest.fn(() => Promise.resolve({})),
+    recordOpen: jest.fn(() => Promise.resolve()),
     getPublications: jest.fn(),
   },
 }));

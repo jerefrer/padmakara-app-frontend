@@ -7,6 +7,7 @@ import { publicationService } from '@/services/publicationService';
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
+  useFocusEffect: () => {},
   useLocalSearchParams: () => ({}),
   router: { push: jest.fn(), back: jest.fn() },
 }));
@@ -32,7 +33,7 @@ jest.mock('@/hooks/useDesktopLayout', () => ({ useDesktopLayout: () => ({ isDesk
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/components/PDFViewer', () => ({ PDFViewer: () => null }));
 jest.mock('@/services/publicationService', () => ({
-  publicationService: { getPublicationsSync: jest.fn(() => null), getPublications: jest.fn() },
+  publicationService: { getPublicationsSync: jest.fn(() => null), getDeviceOpenTimes: jest.fn(() => Promise.resolve({})), recordOpen: jest.fn(() => Promise.resolve()), getPublications: jest.fn() },
 }));
 
 const pub = (id: string, title: string) => ({

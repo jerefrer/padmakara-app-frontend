@@ -548,7 +548,7 @@
     "shareError": "Não foi possível partilhar esta publicação",
     "title": "Publicações",
     "tabs": {
-      "latest": "mais recentes",
+      "lastOpened": "últimos abertos",
       "author": "por autor",
       "title": "por título"
     },

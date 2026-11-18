@@ -323,6 +323,8 @@ export interface Publication {
   fileSizeBytes: number | null;
   updatedAt: string;
   coverImageUrl: string | null;
+  /** When the signed-in person last opened it, on any device; null if never or signed out. */
+  lastOpenedAt?: string | null;
 }
 
 // ─── Search ──────────────────────────────────────────────────────────

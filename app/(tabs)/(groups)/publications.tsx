@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { publicationCoverCacheKey } from '@/utils/cacheKeys';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,8 @@ import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { publicationUpdate, type CachedPublicationFile } from '@/utils/publicationUpdate';
 import { compareTitles } from '@/utils/titleSort';
+import { sortByLastOpened } from '@/utils/publicationOrder';
+import { usePublicationOpens } from '@/hooks/usePublicationOpens';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { colors } from '@/constants/colors';
@@ -41,7 +43,7 @@ import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
-type SortMode = 'title' | 'author' | 'latest';
+type SortMode = 'title' | 'author' | 'lastOpened';
 
 /** The cache entry a publication's current file gets once downloaded. */
 function currentFile(publication: Publication): CachedPublicationFile {
@@ -70,8 +72,9 @@ export default function PublicationsScreen() {
     publicationService.getPublicationsSync() === null
   );
   const [refreshing, setRefreshing] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>('latest');
+  const [sortMode, setSortMode] = useState<SortMode>('lastOpened');
   const [languageFilter, setLanguageFilter] = useState<string | null>(null);
+  const { deviceOpenTimes, recordOpen } = usePublicationOpens(isAuthenticated);
 
   // Language dropdown
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -125,6 +128,35 @@ export default function PublicationsScreen() {
     };
   }, []);
 
+  // Back on the screen: fetch the list again, quietly, for the times this
+  // person opened publications on their other devices. The first focus is
+  // the mount, already loading above.
+  const focusedBefore = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!focusedBefore.current) {
+        focusedBefore.current = true;
+        return;
+      }
+      if (!isAuthenticated) return;
+      let cancelled = false;
+      publicationService
+        .getPublications(undefined, undefined, { force: true })
+        .then(({ publications: data, hasHiddenPublications: hidden }) => {
+          if (!cancelled) {
+            setPublications(data);
+            setHasHiddenPublications(hidden);
+          }
+        })
+        .catch(() => {
+          // Offline: the list on screen stays, ordered by this device's opens.
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [isAuthenticated]),
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -173,18 +205,14 @@ export default function PublicationsScreen() {
         });
         break;
       }
-      case 'latest': {
-        list.sort((a, b) => {
-          const dateA = a.publicationDate || a.updatedAt || '';
-          const dateB = b.publicationDate || b.updatedAt || '';
-          return dateB.localeCompare(dateA);
-        });
+      case 'lastOpened': {
+        list = sortByLastOpened(list, deviceOpenTimes);
         break;
       }
     }
 
     return list;
-  }, [publications, sortMode, languageFilter]);
+  }, [publications, sortMode, languageFilter, deviceOpenTimes]);
 
   // Sections grouped by author (for author sort mode)
   const authorSections = useMemo(() => {
@@ -235,6 +263,7 @@ export default function PublicationsScreen() {
 
         setDownloading(null);
         setViewingPdf({ uri: pdfUri, publication, cachedFile: cachedFile ?? currentFile(publication) });
+        recordOpen(publication.id);
 
         // Restore reading position
         const savedPage = await publicationService.getReadingPosition(
@@ -250,7 +279,7 @@ export default function PublicationsScreen() {
         // Could show alert here
       }
     },
-    []
+    [recordOpen]
   );
 
   // Deep link from an event page: open the requested publication once the list
@@ -609,7 +638,7 @@ export default function PublicationsScreen() {
           style={[styles.sortBar, isDesktop && styles.sortBarDesktop]}
           activeKey={sortMode}
           onChange={setSortMode}
-          tabs={(['latest', 'author', 'title'] as SortMode[]).map((mode) => ({
+          tabs={(['lastOpened', 'author', 'title'] as SortMode[]).map((mode) => ({
             key: mode,
             label: t(`publications.tabs.${mode}`) || mode,
             testID: `publications-tab-${mode}`,
