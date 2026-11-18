@@ -589,7 +589,7 @@
     "accountDataTitle": "Account Information",
     "accountData": "When you create an account, we collect your email address, name, and optionally your dharma name. We use a passwordless authentication system (magic links sent to your email).",
     "usageDataTitle": "Usage Data",
-    "usageData": "To provide a seamless listening experience, the App stores your listening progress (track position and completion status), bookmarks, and notes. This data is synced across your devices via our server.",
+    "usageData": "To provide a seamless listening experience, the App stores your listening progress (track position and completion status), bookmarks, notes, and when you last opened each publication (so the ones you read most are listed first). This data is synced across your devices via our server.",
     "deviceDataTitle": "Device Data",
     "deviceData": "We store a device identifier to manage device activation. If you enable biometric authentication (Face ID, fingerprint), this is handled entirely by your device — we never receive or store biometric data.",
     "searchDataTitle": "Search Data",
@@ -630,7 +630,7 @@
     "changes": "We may update this policy from time to time. Significant changes will be communicated through the App. The \"last updated\" date at the top reflects the most recent revision.",
     "section9Title": "9. Contact Us",
     "contact": "If you have questions about this privacy policy or wish to exercise your data rights, please contact:",
-    "lastUpdatedDate": "13 November 2026"
+    "lastUpdatedDate": "18 November 2026"
   },
   "deleteAccount": {
     "title": "Delete Account",
