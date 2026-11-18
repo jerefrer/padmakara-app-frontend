@@ -1055,6 +1055,9 @@ export function VideoPlayer({
                 player={player}
                 fullscreenOptions={{ enable: true, orientation: 'landscape', autoExitOnRotate: true }}
                 allowsPictureInPicture={Platform.OS !== 'web'}
+                // Leaving the app while a video plays (on its page or in the floating
+                // window) hands it to the system PiP window instead of stopping it.
+                startsPictureInPictureAutomatically={Platform.OS !== 'web'}
                 contentFit="contain"
                 // The floating window is too small for the system controls: it has its own.
                 nativeControls={!minimized}

@@ -298,6 +298,8 @@ const config: PadmakaraConfig = {
       "expo-video",
       {
         supportsBackgroundPlayback: true,
+        // Android only opens a PiP window when the activity declares support.
+        supportsPictureInPicture: true,
       },
     ],
     "expo-secure-store",
