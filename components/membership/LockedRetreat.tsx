@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatDateRange } from '@/utils/dateFormat';
+import { guestLine, mainTeacherNames } from '@/utils/eventTeachers';
 import type { EventPreview } from '@/types';
 import { pageStyles } from './pageStyles';
 import { membershipColors as c, fonts } from './theme';
@@ -29,9 +30,11 @@ export function LockedRetreat({ reason, preview }: Props) {
   const lang: 'en' | 'pt' = language === 'pt' ? 'pt' : 'en';
 
   const title = preview ? ((lang === 'pt' ? preview.titlePt || preview.titleEn : preview.titleEn || preview.titlePt) ?? '') : '';
-  const teachers = preview?.teachers.map((x) => x.name).filter(Boolean).join(', ') ?? '';
+  // Main teachers, then the guests on their own line (see utils/eventTeachers).
+  const teachers = mainTeacherNames(preview?.teachers);
+  const guests = guestLine(preview, t) ?? '';
   const dates = preview?.startDate ? formatDateRange(preview.startDate, preview.endDate ?? undefined, lang) : '';
-  const meta = [teachers, dates].filter(Boolean);
+  const meta = [teachers, guests, dates].filter(Boolean);
 
   const signIn = () =>
     openSignIn({ returnTo: preview ? `/(tabs)/(groups)/retreat/${preview.id}` : '/(tabs)/(groups)' });

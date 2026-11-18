@@ -24,6 +24,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { pickEventPhoto, pickPhotoTeacher } from "@/utils/heroVariant";
+import { mainTeacherNames } from "@/utils/eventTeachers";
 import { eventHeroCacheKey, teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
@@ -111,10 +112,11 @@ function FeaturedEventCard({ event, onPress, language, isDesktop, highlightLabel
   // else the first teacher).
   const focusTeacher = pickPhotoTeacher(event.teachers, event.photoTeacherId) ?? event.teachers?.[0];
   // The event's own photo (e.g. several teachers together) replaces the teacher's; the card
-  // then names every teacher, since the picture is not of one of them alone.
+  // then names every main teacher (never the guests: the card is compact), since the
+  // picture is not of one of them alone.
   const eventPhoto = pickEventPhoto(event);
   const teacherNames = eventPhoto
-    ? (event.teachers ?? []).map((t) => t.name).filter(Boolean).join(", ")
+    ? mainTeacherNames(event.teachers)
     : focusTeacher?.name || (focusTeacher as any)?.nameEn || "";
 
   const eventTypeName = event.eventType

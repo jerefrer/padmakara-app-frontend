@@ -4,7 +4,7 @@ import type { CheckoutManifest } from "./membershipService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CACHE_KEY_PREFIX } from "./cacheSchemaVersion";
 import { mapEvent } from "./retreatService";
-import type { Gathering } from "@/types";
+import type { Gathering, GuestIntroKey } from "@/types";
 
 // One key per user: nothing wipes this cache on sign-out, so a shared key would hand
 // the previous account's teachings to the next one when /mine fails. The shared
@@ -19,7 +19,9 @@ export interface Teaching {
   startDate: string | null;
   endDate: string | null;
   imageUrl: string | null;
-  teachers: { name: string }[];
+  /** Main teachers first, then the guests (role 'guest'); an older API sends no role. */
+  teachers: { name: string; role?: "teacher" | "guest" }[];
+  guestIntro?: GuestIntroKey | null;
   places: { name: string }[];
   sessionCount: number;
   published: boolean;

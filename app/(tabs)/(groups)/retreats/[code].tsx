@@ -25,6 +25,7 @@ import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
+import { mainTeachers } from '@/utils/eventTeachers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
@@ -164,7 +165,8 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
   const [isHovered, setIsHovered] = useState(false);
   const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
   const displayName = cleanEventName(rawName, groupNameForStrip);
-  const teachers = retreat.teachers || [];
+  // Compact row: main teachers only, never the guests (see utils/eventTeachers).
+  const teachers = mainTeachers(retreat.teachers);
 
   const webHoverProps = Platform.OS === 'web' ? {
     onMouseEnter: () => setIsHovered(true),

@@ -54,6 +54,20 @@ describe('LockedRetreat on web', () => {
     expect(mockPush).toHaveBeenCalledWith('/membership');
   });
 
+  it('should show the main teachers, then the guests on their own line', () => {
+    const preview = {
+      ...PREVIEW,
+      guestIntro: 'practice_sessions_by' as const,
+      teachers: [
+        { name: 'Teacher One', role: 'teacher' as const },
+        { name: 'Guest One', role: 'guest' as const },
+      ],
+    };
+    const { getByText } = render(<LockedRetreat reason="membership" preview={preview} />);
+    expect(getByText('Teacher One')).toBeTruthy();
+    expect(getByText('practice sessions by Guest One')).toBeTruthy();
+  });
+
   it('should present the lock as plain text under a thin rule with a lock icon, not a tinted box', () => {
     const { getByTestId } = render(<LockedRetreat reason="membership" preview={PREVIEW} />);
     const style = StyleSheet.flatten(getByTestId('locked-retreat-block').props.style) ?? {};

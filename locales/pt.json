@@ -295,7 +295,14 @@
     "downloadFailedMessage": "Não foi possível transferir o retiro",
     "unexpectedError": "Ocorreu um erro inesperado",
     "zipFailed": "Não foi possível transferir o ZIP",
-    "loadFailed": "Não foi possível carregar os detalhes do retiro"
+    "loadFailed": "Não foi possível carregar os detalhes do retiro",
+    "guestIntro": {
+      "with_presence_of": "com a presença de",
+      "and": "&",
+      "practice_sessions_by": "sessões de prática por",
+      "with_visit_of": "com a visita de",
+      "with_guest": "com a participação de"
+    }
   },
   "home": {
     "greetingMorning": "Bom dia",

@@ -157,7 +157,10 @@ export function mapEvent(backend: any): Gathering {
       heroFrameOverrides: et.teacher?.heroFrameOverrides ?? null,
       avatarUpdatedAt: et.teacher?.avatarUpdatedAt || null,
       heroUpdatedAt: et.teacher?.heroUpdatedAt || null,
+      role: et.role === 'guest' ? 'guest' : 'teacher',
     })).filter((t: any) => t.name) || undefined,
+    // The API sends the main teachers first, then the guests introduced by this phrase.
+    guestIntro: backend.guestIntro ?? null,
     places: backend.eventPlaces?.map((ep: any) => ({
       id: ep.place?.id,
       name: ep.place?.name || '',

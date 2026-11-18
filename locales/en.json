@@ -295,7 +295,14 @@
     "downloadFailedMessage": "Failed to download retreat",
     "unexpectedError": "An unexpected error occurred",
     "zipFailed": "Failed to download ZIP",
-    "loadFailed": "Failed to load retreat details"
+    "loadFailed": "Failed to load retreat details",
+    "guestIntro": {
+      "with_presence_of": "with the presence of",
+      "and": "&",
+      "practice_sessions_by": "practice sessions by",
+      "with_visit_of": "with the visit of",
+      "with_guest": "with guest"
+    }
   },
   "home": {
     "greetingMorning": "Good morning",
