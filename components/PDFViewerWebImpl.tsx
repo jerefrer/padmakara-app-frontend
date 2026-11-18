@@ -41,6 +41,8 @@ import {
   viewerKeyAction,
   visibleRows,
   keepRecentRows,
+  spreadReady,
+  spreadsToRender,
   type FitPreset,
   type PageSize,
   type ViewMode,
@@ -94,6 +96,8 @@ const SIDE_PADDING = 24;
 const OVERSCAN_ROWS = 3;
 /** Rows of the continuous column kept drawn after they scroll away. */
 const KEEP_ROWS = 14;
+/** Longest wait for the next spread to be drawn before turning anyway. */
+const TURN_TIMEOUT_MS = 1500;
 /** A4 in points, used until the document reports its own page sizes. */
 const DEFAULT_PAGE: PageSize = { width: 595, height: 842 };
 /** Accumulated wheel distance that turns a page in single and two-page modes. */
@@ -588,6 +592,38 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   }
   const keptRows = kept.rows;
 
+  // ── Single and two-page modes: turn only to a drawn spread ───────────
+  // Each page reports the width it has been fully drawn (and themed) at.
+  const [drawnAt, setDrawnAt] = useState<ReadonlyMap<number, number>>(() => new Map());
+  const onPageDrawn = useCallback((pageNumber: number, width: number | null) => {
+    setDrawnAt((previous) => {
+      if (width === null ? !previous.has(pageNumber) : previous.get(pageNumber) === width) return previous;
+      const next = new Map(previous);
+      if (width === null) next.delete(pageNumber);
+      else next.set(pageNumber, width);
+      return next;
+    });
+  }, []);
+
+  // The spread on screen stays until the one turned to is drawn (it was
+  // usually drawn ahead, so the swap is immediate); a new layout shows the
+  // target straight away. Adjusted while rendering.
+  const pagedKey = `${mode}:${total}`;
+  const [shown, setShown] = useState({ key: '', index: 0 });
+  const targetReady =
+    paged && !!spreads[spreadIndex] && spreadReady(spreads[spreadIndex], drawnAt, (p) => pageBox(p).width);
+  if (paged && (shown.key !== pagedKey || (shown.index !== spreadIndex && targetReady))) {
+    setShown({ key: pagedKey, index: spreadIndex });
+  }
+  const shownIndex = shown.key === pagedKey ? Math.min(shown.index, Math.max(0, spreads.length - 1)) : spreadIndex;
+
+  // A page that fails to draw must not block the turn forever.
+  useEffect(() => {
+    if (!paged || shownIndex === spreadIndex) return;
+    const timer = setTimeout(() => setShown({ key: pagedKey, index: spreadIndex }), TURN_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [paged, shownIndex, spreadIndex, pagedKey]);
+
   const renderPage = (pageNumber: number, mounted: boolean) => {
     const box = pageBox(pageNumber);
     return (
@@ -597,16 +633,9 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
             pageNumber={pageNumber}
             width={box.width}
             keepPictureColours={readingTheme !== 'normal'}
-            loading={
-              <div
-                style={{
-                  ...pagePlaceholderStyle,
-                  ...(readingTheme === 'normal' ? null : { backgroundColor: surfaces.paper }),
-                  width: box.width,
-                  height: box.height,
-                }}
-              />
-            }
+            onDrawn={onPageDrawn}
+            // A blank sheet in the theme's paper colour, no spinner.
+            loading={<div style={{ backgroundColor: surfaces.paper, width: box.width, height: box.height }} />}
           />
         ) : null}
       </div>
@@ -614,7 +643,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   };
 
   const renderRow = (rowIndex: number) => {
-    const mounted = (rowIndex >= visible.first && rowIndex <= visible.last) || keptRows.includes(rowIndex);
+    const mounted = paged || (rowIndex >= visible.first && rowIndex <= visible.last) || keptRows.includes(rowIndex);
     return (
       <div key={rowIndex} style={{ ...rowStyle, height: rowHeights[rowIndex], marginBottom: paged ? 0 : PAGE_GAP }}>
         {spreads[rowIndex].map((page) => renderPage(page, mounted))}
@@ -794,7 +823,20 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
           >
             {paged ? (
               spreads.length ? (
-                <div style={{ ...pagedContentStyle, minHeight: viewport.height }}>{renderRow(spreadIndex)}</div>
+                // The spread shown plus the ones drawn ahead, stacked in one
+                // grid cell; only the shown one is visible.
+                <div style={{ ...pagedStackStyle, minHeight: viewport.height }}>
+                  {spreadsToRender(shownIndex, spreadIndex, spreads.length).map((index) => (
+                    <div
+                      key={index}
+                      style={{ ...pagedLayerStyle, visibility: index === shownIndex ? 'visible' : 'hidden' }}
+                      aria-hidden={index !== shownIndex}
+                      data-spread={index}
+                    >
+                      {renderRow(index)}
+                    </div>
+                  ))}
+                </div>
               ) : null
             ) : (
               <div style={{ ...columnStyle, minHeight: columnHeight }}>{spreads.map((_, i) => renderRow(i))}</div>
@@ -825,9 +867,15 @@ const columnStyle: React.CSSProperties = {
   alignItems: 'center',
 };
 
-const pagedContentStyle: React.CSSProperties = {
-  ...columnStyle,
-  justifyContent: 'center',
+const pagedStackStyle: React.CSSProperties = {
+  width: 'max-content',
+  minWidth: '100%',
+  display: 'grid',
+  placeItems: 'center',
+};
+
+const pagedLayerStyle: React.CSSProperties = {
+  gridArea: '1 / 1',
 };
 
 const rowStyle: React.CSSProperties = {
@@ -845,10 +893,6 @@ const pageWrapperStyle: React.CSSProperties = {
   boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
   backgroundColor: colors.white,
   flexShrink: 0,
-};
-
-const pagePlaceholderStyle: React.CSSProperties = {
-  backgroundColor: colors.cream[200],
 };
 
 const THEME_FALLBACK_LABELS: Record<ReadingTheme, string> = {
