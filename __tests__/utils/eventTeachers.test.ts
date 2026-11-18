@@ -73,7 +73,7 @@ describe('guestIntroLabel', () => {
     ['and', '&', '&'],
     ['practice_sessions_by', 'practice sessions by', 'sessões de prática por'],
     ['with_visit_of', 'with the visit of', 'com a visita de'],
-    ['with_guest', 'with guest', 'com a participação de'],
+    ['with_guest', 'with', 'com'],
   ])('should label %s in both languages', (key, enLabel, ptLabel) => {
     expect(guestIntroLabel(key, tEn)).toBe(enLabel);
     expect(guestIntroLabel(key, tPt)).toBe(ptLabel);

@@ -53,7 +53,7 @@ export function guestIntroLabel(key: GuestIntroKey | string | null | undefined, 
     case 'with_visit_of':
       return t('events.guestIntro.with_visit_of') || 'with the visit of';
     case 'with_guest':
-      return t('events.guestIntro.with_guest') || 'with guest';
+      return t('events.guestIntro.with_guest') || 'with';
     default:
       return t('events.guestIntro.with_presence_of') || 'with the presence of';
   }
