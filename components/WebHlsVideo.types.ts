@@ -24,4 +24,6 @@ export interface WebHlsVideoProps {
   onError: () => void;
   /** Fired when playback starts (true) or pauses / ends (false). */
   onPlayingChange?: (playing: boolean) => void;
+  /** Show the browser's own controls (default). The floating window has its own. */
+  controls?: boolean;
 }

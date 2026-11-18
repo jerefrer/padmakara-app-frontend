@@ -24,6 +24,8 @@ import { NameGate } from '@/components/auth/NameGate';
 import { AppLockProvider } from '@/contexts/AppLockContext';
 import { NotificationExplainer } from '@/components/NotificationExplainer';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
+import { VideoSessionProvider } from '@/contexts/VideoSessionContext';
+import { VideoHost } from '@/components/VideoHost';
 import { ensureCacheSchemaCurrent } from '@/services/cacheSchemaVersion';
 import { cleanupLegacyWebCache } from '@/services/legacyCacheCleanup';
 import syncService from '@/services/syncService';
@@ -151,6 +153,7 @@ export default function RootLayout() {
       <AuthProvider>
         <LanguageProvider>
           <AudioPlayerProvider>
+            <VideoSessionProvider>
             <AppLockProvider>
             <SignInProvider>
             <Stack>
@@ -163,11 +166,15 @@ export default function RootLayout() {
             <Stack.Screen name="account-deletion" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
+            {/* After the navigator, so the open video and its floating window
+                stay above every screen and survive navigation. */}
+            <VideoHost />
             <StatusBar style="dark" />
             <NotificationExplainer />
             <NameGate />
             </SignInProvider>
             </AppLockProvider>
+            </VideoSessionProvider>
           </AudioPlayerProvider>
         </LanguageProvider>
       </AuthProvider>

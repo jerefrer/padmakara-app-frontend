@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 
 import RetreatDetailScreen from '@/app/(tabs)/(groups)/retreat/[id]';
 import retreatService from '@/services/retreatService';
@@ -39,13 +39,10 @@ jest.mock('expo-sharing', () => ({}));
 jest.mock('@/components/PDFViewer', () => ({ PDFViewer: () => null }));
 jest.mock('@/components/DocumentImageViewer', () => ({ DocumentImageViewer: () => null }));
 jest.mock('@/components/AudioPlayer', () => ({ AudioPlayer: () => null }));
-// The latest props the screen gave the video player.
-let mockVideoPlayerProps: any;
-jest.mock('@/components/VideoPlayer', () => ({
-  VideoPlayer: (props: any) => {
-    mockVideoPlayerProps = props;
-    return null;
-  },
+// The video plays above the navigator: the screen only asks for it to open.
+const mockOpenVideo = jest.fn();
+jest.mock('@/contexts/VideoSessionContext', () => ({
+  useVideoSession: () => ({ openVideo: mockOpenVideo }),
 }));
 jest.mock('@/components/PlayingIndicator', () => ({ PlayingIndicator: () => null }));
 jest.mock('@/components/OfflineBadge', () => ({ OfflineBadge: () => null }));
@@ -117,31 +114,21 @@ const retreat = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockAuth = { isAuthenticated: true };
-  mockVideoPlayerProps = undefined;
   getDetails.mockResolvedValue({ success: true, data: retreat });
 });
 
-describe('retreat screen video completion', () => {
-  // Completion fires at 97% of the video. Closing the player then cut the last
-  // minutes and, on iOS in full screen, left a blank white screen.
-  it('should keep the video open when it is marked as watched', async () => {
+describe('retreat screen opening a video', () => {
+  it('should open the tapped video with its event', async () => {
     const screen = render(<RetreatDetailScreen />);
     fireEvent.press(await screen.findByTestId('event-tab-video'));
-    fireEvent.press(await screen.findByTestId('play-first-video'));
-    expect(mockVideoPlayerProps.video).toBeTruthy();
 
-    act(() => mockVideoPlayerProps.onComplete?.());
-
-    expect(mockVideoPlayerProps.video).toBeTruthy();
-  });
-
-  it('should close the video when the viewer closes it', async () => {
-    const screen = render(<RetreatDetailScreen />);
-    fireEvent.press(await screen.findByTestId('event-tab-video'));
     fireEvent.press(await screen.findByTestId('play-first-video'));
 
-    act(() => mockVideoPlayerProps.onClose());
-
-    expect(mockVideoPlayerProps.video).toBeNull();
+    expect(mockOpenVideo).toHaveBeenCalledWith({
+      video,
+      eventId: '7',
+      eventTitle: 'Guru Yoga',
+      videos: [video],
+    });
   });
 });

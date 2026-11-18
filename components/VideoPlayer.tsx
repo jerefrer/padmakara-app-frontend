@@ -24,8 +24,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -77,7 +79,30 @@ interface VideoPlayerProps {
    * caller clears it when the user picks another video.
    */
   initialPositionSeconds?: number;
+  /**
+   * The video plays in the small floating window instead of on its page. Only
+   * the container changes: the video view stays mounted, so playback goes on.
+   */
+  minimized?: boolean;
+  /**
+   * Leaving the page while the video plays calls this instead of `onClose`,
+   * so the video keeps playing in the floating window. Without it, leaving
+   * the page closes the video.
+   */
+  onMinimize?: () => void;
+  /** Called by the floating window's expand button and a tap on its video. */
+  onExpand?: () => void;
+  /** Where the floating window sits, from the bottom-right corner of the screen. */
+  floatingFrame?: FloatingFrame;
 }
+
+export interface FloatingFrame {
+  right: number;
+  bottom: number;
+  width: number;
+}
+
+const DEFAULT_FLOATING_FRAME: FloatingFrame = { right: 12, bottom: 24, width: 240 };
 
 type CellularGate = 'pending' | 'allowed' | 'blocked';
 
@@ -157,6 +182,10 @@ export function VideoPlayer({
   onComplete,
   cellularAcceptedRef,
   initialPositionSeconds,
+  minimized = false,
+  onMinimize,
+  onExpand,
+  floatingFrame = DEFAULT_FLOATING_FRAME,
 }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuth();
@@ -165,12 +194,13 @@ export function VideoPlayer({
   // A rotated phone is for watching: the page gives way to full screen. Tablets
   // and the web have room for both, so they keep the page.
   const isPhone = Platform.OS !== 'web' && Math.min(windowWidth, windowHeight) < PHONE_MAX_SHORT_SIDE;
-  const isImmersive = isPhone && isLandscape;
+  // The floating window is never immersive: the app around it is portrait.
+  const isImmersive = isPhone && isLandscape && !minimized;
   // Android phones stay in portrait and read how the phone is held instead:
   // rotating the screen first would show the navigation bar on its side.
   // On native the close button gets its own white bar above the video; web and
   // the immersive landscape view keep it overlaid on the video.
-  const showCloseBar = Platform.OS !== 'web' && !isImmersive;
+  const showCloseBar = Platform.OS !== 'web' && !isImmersive && !minimized;
   const followsPhysicalRotation = isPhone && Platform.OS === 'android';
   const videoViewRef = useRef<VideoView>(null);
   const { t, language } = useLanguage();
@@ -178,8 +208,11 @@ export function VideoPlayer({
   // context (which pauses the audio) and pause the video when audio starts.
   const { isPlaying: audioPlaying, setVideoPlaying } = useAudioPlayerContext();
   const videoPlayingRef = useRef(false);
+  // Drives the floating window's play/pause button.
+  const [videoIsPlaying, setVideoIsPlaying] = useState(false);
   const reportVideoPlaying = (playing: boolean) => {
     videoPlayingRef.current = playing;
+    setVideoIsPlaying(playing);
     setVideoPlaying(playing);
   };
   // The subtitle track to turn on when the video starts. Settings can pick a
@@ -302,8 +335,11 @@ export function VideoPlayer({
   }, [audioPlaying]);
 
   // No video open (or the player unmounting) means no video playing.
+  // (Nothing is drawn without a video, so the floating button's state is left alone.)
   useEffect(() => {
-    if (!video) reportVideoPlaying(false);
+    if (video) return;
+    videoPlayingRef.current = false;
+    setVideoPlaying(false);
   }, [video]);
   useEffect(() => () => setVideoPlaying(false), []);
 
@@ -637,15 +673,16 @@ export function VideoPlayer({
   // Allow the device to rotate while the video player is open. The app is
   // locked to portrait globally (app.json), so we unlock here and restore
   // portrait on close. Skipped on web where ScreenOrientation is a no-op.
+  // The floating window floats over the portrait app: rotation is only for the page.
   useEffect(() => {
-    if (!video || Platform.OS === 'web' || followsPhysicalRotation) return;
+    if (!video || minimized || Platform.OS === 'web' || followsPhysicalRotation) return;
     ScreenOrientation.unlockAsync().catch(() => undefined);
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(
         () => undefined,
       );
     };
-  }, [video, followsPhysicalRotation]);
+  }, [video, minimized, followsPhysicalRotation]);
 
   const seekToBookmark = (bookmark: Bookmark) => {
     if (!player) return;
@@ -782,6 +819,57 @@ export function VideoPlayer({
     onClose();
   };
 
+  // Leaving the page (its close button, Android back, Escape on the web): a
+  // playing video goes on in the floating window, like the audio mini player;
+  // a paused, loading or failed one has nothing to go on with, so it closes.
+  const hasPlayableVideo = !!video && !!hlsUrl;
+  const handleLeavePage = () => {
+    if (onMinimize && hasPlayableVideo && !errorMsg && videoPlayingRef.current) {
+      onMinimize();
+      return;
+    }
+    handleClose();
+  };
+  const handleLeavePageRef = useRef(handleLeavePage);
+  useEffect(() => {
+    handleLeavePageRef.current = handleLeavePage;
+  });
+
+  const togglePlayback = () => {
+    try {
+      if (videoPlayingRef.current) {
+        if (isWeb) webPlayerRef.current?.pause();
+        else player.pause();
+      } else if (isWeb) webPlayerRef.current?.play();
+      else player.play();
+    } catch {
+      // Ignore — player may already be torn down.
+    }
+  };
+
+  // The page used to be a Modal, which handled these. It is now a view above
+  // the navigator (so it can shrink into the floating window without
+  // remounting the video), and handles them itself while it is shown.
+  const pageShown = !!video && !minimized;
+  useEffect(() => {
+    if (!pageShown) return;
+    if (Platform.OS === 'android') {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleLeavePageRef.current();
+        return true;
+      });
+      return () => sub.remove();
+    }
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') handleLeavePageRef.current();
+      };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
+    }
+    return undefined;
+  }, [pageShown]);
+
   const handleSelectVideo = (next: EventVideo) => {
     saveProgressAndPause();
     onSelectVideo?.(next);
@@ -791,7 +879,6 @@ export function VideoPlayer({
   // full screen while still in landscape must not re-enter it. The short wait lets
   // the rotation finish, because Android can drop an activity started during it.
   const enteredFullscreenRef = useRef(false);
-  const hasPlayableVideo = !!video && !!hlsUrl;
   useEffect(() => {
     if (!isImmersive) {
       enteredFullscreenRef.current = false;
@@ -806,7 +893,7 @@ export function VideoPlayer({
   }, [isImmersive, hasPlayableVideo]);
 
   useEffect(() => {
-    if (!followsPhysicalRotation || !hasPlayableVideo) return;
+    if (!followsPhysicalRotation || !hasPlayableVideo || minimized) return;
     // Once per turn: leaving full screen while still holding the phone sideways
     // must not reopen it. It re-arms when the phone is back upright.
     let armed = true;
@@ -818,7 +905,7 @@ export function VideoPlayer({
         videoViewRef.current?.enterFullscreen?.()?.catch?.(() => undefined);
       }
     });
-  }, [followsPhysicalRotation, hasPlayableVideo]);
+  }, [followsPhysicalRotation, hasPlayableVideo, minimized]);
 
   const otherVideos = (videos ?? []).filter((v) => v.id !== video?.id);
   const playerHeight = Math.min(
@@ -826,18 +913,20 @@ export function VideoPlayer({
     windowHeight * MAX_PLAYER_HEIGHT_RATIO,
   );
 
+  if (!video) return null;
+
+  const floatingHeight = (floatingFrame.width * 9) / 16;
+
+  // One tree for the page and the floating window: only the containers'
+  // styles change, so the video view below keeps its place and is never
+  // remounted (a remount would restart and rebuffer the video).
   return (
-    <Modal
-      visible={video !== null}
-      animationType="slide"
-      onRequestClose={handleClose}
-      supportedOrientations={['portrait', 'landscape']}
-      statusBarTranslucent
-    >
       <View
         testID="video-player-root"
+        pointerEvents={minimized ? 'box-none' : 'auto'}
         style={[
-          styles.root,
+          styles.host,
+          !minimized && styles.root,
           isImmersive && styles.rootImmersive,
         ]}
       >
@@ -887,19 +976,32 @@ export function VideoPlayer({
         </Modal>
 
         <View
-          style={[
-            styles.playerBand,
-            { paddingTop: isImmersive ? 0 : insets.top },
-            isImmersive && styles.rootImmersive,
-            showCloseBar && styles.playerBandWithBar,
-          ]}
+          testID={minimized ? 'video-floating' : undefined}
+          style={
+            minimized
+              ? [
+                  styles.floating,
+                  {
+                    right: floatingFrame.right,
+                    bottom: floatingFrame.bottom,
+                    width: floatingFrame.width,
+                    height: floatingHeight,
+                  },
+                ]
+              : [
+                  styles.playerBand,
+                  { paddingTop: isImmersive ? 0 : insets.top },
+                  isImmersive && styles.rootImmersive,
+                  showCloseBar && styles.playerBandWithBar,
+                ]
+          }
         >
         {showCloseBar && (
           // Native page: the close button sits on a white bar above the video,
           // so the system player controls never draw over it.
           <View style={styles.closeBar} testID="video-close-bar">
             <TouchableOpacity
-              onPress={handleClose}
+              onPress={handleLeavePage}
               style={styles.closeBarButton}
               testID="video-close"
               accessibilityLabel={t('common.close') || 'Close'}
@@ -908,7 +1010,12 @@ export function VideoPlayer({
             </TouchableOpacity>
           </View>
         )}
-        <View style={[styles.videoContainer, isImmersive ? styles.rootImmersive : { height: playerHeight }]}>
+        <View
+          style={[
+            styles.videoContainer,
+            minimized ? styles.videoContainerFloating : isImmersive ? styles.rootImmersive : { height: playerHeight },
+          ]}
+        >
           {notReady ? (
             <View style={styles.errorBox} testID="video-not-ready">
               <Ionicons name="time-outline" size={48} color={colors.gray[400]} />
@@ -925,6 +1032,7 @@ export function VideoPlayer({
                 <WebHlsVideo
                   ref={webPlayerRef}
                   uri={hlsUrl}
+                  controls={!minimized}
                   resumePosition={resumePosition}
                   subtitleLanguage={subtitleLanguage}
                   onTimeUpdate={(currentTime) =>
@@ -948,7 +1056,8 @@ export function VideoPlayer({
                 fullscreenOptions={{ enable: true, orientation: 'landscape', autoExitOnRotate: true }}
                 allowsPictureInPicture={Platform.OS !== 'web'}
                 contentFit="contain"
-                nativeControls
+                // The floating window is too small for the system controls: it has its own.
+                nativeControls={!minimized}
               />
             )
           ) : (
@@ -963,9 +1072,9 @@ export function VideoPlayer({
               <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
             </View>
           )}
-          {!showCloseBar && (
+          {!showCloseBar && !minimized && (
             <TouchableOpacity
-              onPress={handleClose}
+              onPress={handleLeavePage}
               style={styles.closeButton}
               testID="video-close"
               accessibilityLabel={t('common.close') || 'Close'}
@@ -973,10 +1082,52 @@ export function VideoPlayer({
               <Ionicons name="chevron-down" size={28} color={colors.white} />
             </TouchableOpacity>
           )}
+          {minimized && (
+            <View style={styles.floatingControls}>
+              {/* A tap anywhere on the video brings the page back. */}
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={onExpand}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+              <View style={styles.floatingTopRow} pointerEvents="box-none">
+                <TouchableOpacity
+                  onPress={handleClose}
+                  style={styles.floatingButton}
+                  testID="video-floating-close"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('video.floatingClose') || 'Stop and close the video'}
+                >
+                  <Ionicons name="close" size={22} color={colors.white} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={onExpand}
+                  style={styles.floatingButton}
+                  testID="video-floating-expand"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('video.floatingExpand') || 'Open the video page'}
+                >
+                  <Ionicons name="expand" size={20} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                onPress={togglePlayback}
+                style={styles.floatingPlayButton}
+                testID="video-floating-play-pause"
+                accessibilityRole="button"
+                accessibilityLabel={
+                  videoIsPlaying ? t('miniPlayer.pause') || 'Pause' : t('miniPlayer.play') || 'Play'
+                }
+              >
+                <Ionicons name={videoIsPlaying ? 'pause' : 'play'} size={28} color={colors.white} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         </View>
 
-        {!isImmersive && (
+        {!isImmersive && !minimized && (
           <ScrollView
             testID="video-page"
             style={styles.page}
@@ -1077,14 +1228,61 @@ export function VideoPlayer({
           </ScrollView>
         )}
       </View>
-    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  // Above the navigator, the tab bar and the audio mini player.
+  host: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+    elevation: 1000,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  floating: {
+    position: 'absolute',
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.black,
+    shadowColor: colors.black,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  videoContainerFloating: {
+    flex: 1,
+  },
+  floatingControls: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingTopRow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  floatingButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingPlayButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rootImmersive: {
     flex: 1,

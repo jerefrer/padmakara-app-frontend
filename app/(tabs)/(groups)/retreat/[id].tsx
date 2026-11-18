@@ -37,7 +37,7 @@ const FLOATING_BUTTONS_CLEARANCE = 52;
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AudioPlayer } from '@/components/AudioPlayer';
-import { VideoPlayer } from '@/components/VideoPlayer';
+import { useVideoSession } from '@/contexts/VideoSessionContext';
 import { resolveVideoDeepLink } from '@/utils/videoDeepLink';
 import { PlayingIndicator } from '@/components/PlayingIndicator';
 import { useTabBarHeight, useTabBarOverlap } from '@/hooks/useTabBarHeight';
@@ -337,17 +337,11 @@ export default function RetreatDetailScreen() {
    */
   const [eventLanguageChoice, setEventLanguageChoice] = useState<string[] | null>(null);
 
-  // Video playback (separate from the audio context — opens a full-screen modal).
-  // An event may have several videos; tap a card in the Video tab to open
-  // the specific recording here.
-  const [activeVideo, setActiveVideo] = useState<EventVideo | null>(null);
-  // Set when the event is opened from a video bookmark; cleared as soon as the
-  // user picks a video themselves or closes the player.
-  const [initialVideoPosition, setInitialVideoPosition] = useState<number | undefined>(undefined);
+  // Video playback: an event may have several videos; tapping a card opens
+  // that recording on its page. The player lives above the navigator
+  // (VideoHost), so it keeps playing in a floating window when this screen is left.
+  const { openVideo } = useVideoSession();
   const appliedVideoLinkRef = useRef<string | null>(null);
-  // App-session-of-use ref to remember "I accepted cellular playback" — survives
-  // remounts when the user opens different videos in the same screen visit.
-  const cellularAcceptedRef = useRef<boolean>(false);
 
   // Read Along state (mobile)
   const [readAlongModalVisible, setReadAlongModalVisible] = useState(false);
@@ -891,9 +885,16 @@ export default function RetreatDetailScreen() {
     if (appliedVideoLinkRef.current === linkKey) return;
     appliedVideoLinkRef.current = linkKey;
     setActiveContentTab('video');
-    setInitialVideoPosition(target.position);
-    setActiveVideo(target.video);
-  }, [retreat, id, videoIdParam, positionParam]);
+    openVideo({
+      video: target.video,
+      eventId: String(retreat.id),
+      eventTitle: getTranslatedName(retreat as any, language) || retreat.name,
+      videos: retreat.videos,
+      initialPositionSeconds: target.position,
+    });
+    // Only a new link opens the video again; the title's language is read once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retreat, id, videoIdParam, positionParam, openVideo]);
 
   // Load whether this event is currently bookmarked. We check by listing
   // the user's bookmarks (typically a small set) rather than adding a
@@ -1024,11 +1025,16 @@ export default function RetreatDetailScreen() {
     AsyncStorage.setItem(LAST_TRACK_KEY(retreat!.id), String(track.id)).catch(() => {});
   };
 
-  /** Open the video modal for the given recording. */
+  /** Open the video page for the given recording. */
   const watchVideo = useCallback((video: EventVideo) => {
-    setInitialVideoPosition(undefined);
-    setActiveVideo(video);
-  }, []);
+    if (!retreat) return;
+    openVideo({
+      video,
+      eventId: String(retreat.id),
+      eventTitle: getTranslatedName(retreat as any, language) || retreat.name,
+      videos: retreat.videos,
+    });
+  }, [retreat, language, openVideo]);
 
   const goToNextTrack = () => {
     const nextIndex = currentTrackIndex + 1;
@@ -2272,24 +2278,6 @@ export default function RetreatDetailScreen() {
           )}
         </>
       )}
-
-      {/* Full-screen video player (opens when a recording's card is tapped).
-          It stays open when the video counts as watched: that happens at 97%,
-          and closing then cut the last minutes and, in iOS full screen, left
-          a blank white screen behind the native player. */}
-      <VideoPlayer
-        video={activeVideo}
-        eventTitle={retreat ? (getTranslatedName(retreat as any, language) || retreat.name) : undefined}
-        totalVideos={retreat?.videos?.length}
-        videos={retreat?.videos}
-        onSelectVideo={watchVideo}
-        cellularAcceptedRef={cellularAcceptedRef}
-        initialPositionSeconds={initialVideoPosition}
-        onClose={() => {
-          setInitialVideoPosition(undefined);
-          setActiveVideo(null);
-        }}
-      />
 
       {/* Overflow Menu Modal */}
       <Modal
