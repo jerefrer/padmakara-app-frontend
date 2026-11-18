@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { VideoHost } from '@/components/VideoHost';
@@ -13,6 +14,8 @@ const mockPlayer: Record<string, any> = {
   currentTime: 0,
   duration: 0,
 };
+// The props the video view last received.
+const mockVideoView: { props: Record<string, any> } = { props: {} };
 // Counts the players created: leaving the screen must not create (and so
 // restart) another one.
 let mockPlayersCreated = 0;
@@ -27,7 +30,10 @@ jest.mock('expo-video', () => {
         mockPlayersCreated += 1;
         return mockPlayer;
       })[0],
-    VideoView: () => null,
+    VideoView: (props: Record<string, any>) => {
+      mockVideoView.props = props;
+      return null;
+    },
   };
 });
 jest.mock('@/modules/device-rotation', () => ({ subscribeToDeviceRotation: () => () => undefined }));
@@ -122,6 +128,7 @@ describe('VideoHost — the video keeps playing while the viewer moves around th
     mockAudioPlaying = false;
     mockPlayer.duration = 6925;
     mockPlayer.currentTime = 0;
+    mockVideoView.props = {};
   });
 
   const openAndPlay = async () => {
@@ -246,3 +253,66 @@ describe('VideoHost — the video keeps playing while the viewer moves around th
     expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('VideoHost floating window layout', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAudioPlaying = false;
+  });
+
+  const openFloating = async () => {
+    const view = render(<App onEventScreen />);
+    await waitFor(() => expect(mockPlayer.replace).toHaveBeenCalledTimes(1));
+    await setPlaying(true);
+    fireEvent.press(view.getByTestId('video-close'));
+    return view;
+  };
+
+  it('should show only the video in a 16:9 window with no bar above it', async () => {
+    const view = await openFloating();
+
+    const window = StyleSheet.flatten(view.getByTestId('video-floating').props.style);
+    const frame = StyleSheet.flatten(view.getByTestId('video-frame').props.style);
+    expect(window.height).toBe(Math.round((window.width * 9) / 16));
+    // The video fills the whole window: same explicit size, nothing above it.
+    expect(frame.width).toBe(window.width);
+    expect(frame.height).toBe(window.height);
+    expect(window.padding).toBe(0);
+    expect(view.queryByTestId('video-close-bar')).toBeNull();
+    expect(mockVideoView.props.contentFit).toBe('contain');
+    expect(mockVideoView.props.nativeControls).toBe(false);
+  });
+
+  it('should draw close, expand and play/pause over the video', async () => {
+    const view = await openFloating();
+
+    expect(StyleSheet.flatten(view.getByTestId('video-floating-controls').props.style)).toMatchObject({
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    });
+    expect(StyleSheet.flatten(view.getByTestId('video-floating-close').props.style)).toMatchObject({
+      position: 'absolute',
+      left: 6,
+    });
+    expect(StyleSheet.flatten(view.getByTestId('video-floating-expand').props.style)).toMatchObject({
+      position: 'absolute',
+      right: 6,
+    });
+    expect(view.getByTestId('video-floating-play-pause')).toBeTruthy();
+  });
+
+  it('should give the video its page size back when expanded', async () => {
+    const view = await openFloating();
+
+    fireEvent.press(view.getByTestId('video-floating-expand'));
+
+    const frame = StyleSheet.flatten(view.getByTestId('video-frame').props.style);
+    expect(frame.width).toBe('100%');
+    expect(frame.height).toBeGreaterThan(0);
+    expect(view.getByTestId('video-page')).toBeTruthy();
+  });
+});
+

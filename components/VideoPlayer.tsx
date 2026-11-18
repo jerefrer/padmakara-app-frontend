@@ -48,7 +48,11 @@ const colors = {
   gray: { 200: '#e5e7eb', 400: '#9ca3af', 600: '#4b5563', 800: '#2c2c2c' },
   white: '#ffffff',
   black: '#000000',
+  /** Over the floating window's video, so its controls read on any picture. */
+  scrim: 'rgba(0,0,0,0.25)',
+  scrimStrong: 'rgba(0,0,0,0.45)',
 };
+
 
 interface VideoPlayerProps {
   /** The specific recording being played. The modal closes when this becomes null. */
@@ -103,6 +107,10 @@ export interface FloatingFrame {
 }
 
 const DEFAULT_FLOATING_FRAME: FloatingFrame = { right: 12, bottom: 24, width: 240 };
+const FLOATING_BUTTON_SIZE = 32;
+const FLOATING_BUTTON_INSET = 6;
+/** The small buttons keep a 44 pt touch target. */
+const FLOATING_BUTTON_HIT_SLOP = (44 - FLOATING_BUTTON_SIZE) / 2;
 
 type CellularGate = 'pending' | 'allowed' | 'blocked';
 
@@ -915,11 +923,14 @@ export function VideoPlayer({
 
   if (!video) return null;
 
-  const floatingHeight = (floatingFrame.width * 9) / 16;
+  const floatingHeight = Math.round((floatingFrame.width * 9) / 16);
 
   // One tree for the page and the floating window: only the containers'
   // styles change, so the video view below keeps its place and is never
   // remounted (a remount would restart and rebuffer the video).
+  // Every size is set explicitly in each layout: the floating window used to
+  // keep the page's player height (its container only switched to flex: 1),
+  // so the 16:9 window showed a black band and the top of a cropped video.
   return (
       <View
         testID="video-player-root"
@@ -1011,9 +1022,14 @@ export function VideoPlayer({
           </View>
         )}
         <View
+          testID="video-frame"
           style={[
             styles.videoContainer,
-            minimized ? styles.videoContainerFloating : isImmersive ? styles.rootImmersive : { height: playerHeight },
+            minimized
+              ? { width: floatingFrame.width, height: floatingHeight }
+              : isImmersive
+                ? styles.videoContainerImmersive
+                : { width: '100%', height: playerHeight },
           ]}
         >
           {notReady ? (
@@ -1086,7 +1102,8 @@ export function VideoPlayer({
             </TouchableOpacity>
           )}
           {minimized && (
-            <View style={styles.floatingControls}>
+            // Only the video, with small controls drawn over it on a light scrim.
+            <View style={styles.floatingControls} testID="video-floating-controls">
               {/* A tap anywhere on the video brings the page back. */}
               <Pressable
                 style={StyleSheet.absoluteFill}
@@ -1094,26 +1111,26 @@ export function VideoPlayer({
                 accessibilityElementsHidden
                 importantForAccessibility="no"
               />
-              <View style={styles.floatingTopRow} pointerEvents="box-none">
-                <TouchableOpacity
-                  onPress={handleClose}
-                  style={styles.floatingButton}
-                  testID="video-floating-close"
-                  accessibilityRole="button"
-                  accessibilityLabel={t('video.floatingClose') || 'Stop and close the video'}
-                >
-                  <Ionicons name="close" size={22} color={colors.white} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={onExpand}
-                  style={styles.floatingButton}
-                  testID="video-floating-expand"
-                  accessibilityRole="button"
-                  accessibilityLabel={t('video.floatingExpand') || 'Open the video page'}
-                >
-                  <Ionicons name="expand" size={20} color={colors.white} />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[styles.floatingButton, styles.floatingButtonLeft]}
+                hitSlop={FLOATING_BUTTON_HIT_SLOP}
+                testID="video-floating-close"
+                accessibilityRole="button"
+                accessibilityLabel={t('video.floatingClose') || 'Stop and close the video'}
+              >
+                <Ionicons name="close" size={18} color={colors.white} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onExpand}
+                style={[styles.floatingButton, styles.floatingButtonRight]}
+                hitSlop={FLOATING_BUTTON_HIT_SLOP}
+                testID="video-floating-expand"
+                accessibilityRole="button"
+                accessibilityLabel={t('video.floatingExpand') || 'Open the video page'}
+              >
+                <Ionicons name="expand" size={16} color={colors.white} />
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={togglePlayback}
                 style={styles.floatingPlayButton}
@@ -1123,7 +1140,7 @@ export function VideoPlayer({
                   videoIsPlaying ? t('miniPlayer.pause') || 'Pause' : t('miniPlayer.play') || 'Play'
                 }
               >
-                <Ionicons name={videoIsPlaying ? 'pause' : 'play'} size={28} color={colors.white} />
+                <Ionicons name={videoIsPlaying ? 'pause' : 'play'} size={24} color={colors.white} />
               </TouchableOpacity>
             </View>
           )}
@@ -1247,6 +1264,7 @@ const styles = StyleSheet.create({
   },
   floating: {
     position: 'absolute',
+    padding: 0,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: colors.black,
@@ -1256,34 +1274,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  videoContainerFloating: {
-    flex: 1,
-  },
   floatingControls: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: colors.scrim,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  floatingTopRow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   floatingButton: {
-    width: 44,
-    height: 44,
+    position: 'absolute',
+    top: FLOATING_BUTTON_INSET,
+    width: FLOATING_BUTTON_SIZE,
+    height: FLOATING_BUTTON_SIZE,
+    borderRadius: FLOATING_BUTTON_SIZE / 2,
+    backgroundColor: colors.scrimStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  floatingButtonLeft: {
+    left: FLOATING_BUTTON_INSET,
+  },
+  floatingButtonRight: {
+    right: FLOATING_BUTTON_INSET,
+  },
   floatingPlayButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.scrimStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1399,6 +1416,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
     justifyContent: 'center',
     alignItems: 'center',
+    // Set in every layout, so none keeps another's sizing (see the render).
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+  },
+  videoContainerImmersive: {
+    flexGrow: 1,
+    flexShrink: 1,
+    width: '100%',
   },
   video: {
     width: '100%',
