@@ -22,9 +22,9 @@ const SUBTITLE_LETTER_SPACING = SUBTITLE_FONT_SIZE * 0.27;
 export type RightSidebarVariant = 'wide' | 'narrow';
 
 interface RightSidebarProps {
-  /** 'wide' is the default brand panel (logo + Padmakara title + name).
-   *  'narrow' collapses to a 64px rail used on the event detail screen
-   *  where horizontal space is at a premium. */
+  /** 'wide' is the default brand panel (logo + Ramo Lusófono).
+   *  'narrow' collapses to a 64px rail (no logo, only the account
+   *  avatar) used where horizontal space is at a premium. */
   variant?: RightSidebarVariant;
 }
 
@@ -123,15 +123,10 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
 
   return (
     <View style={styles.container}>
-      {/* Branding — wide shows logo + title; narrow shows just a small logo. */}
+      {/* Branding — wide shows the logo block. Narrow shows nothing: either the full
+          logo + PADMAKARA + RAMO LUSÓFONO block fits, or none of it does (André). */}
       <View style={[styles.brandingSection, isNarrow && styles.brandingSectionNarrow]}>
-        {isNarrow ? (
-          <Image
-            source={require('@/assets/images/logo.png')}
-            style={styles.logoNarrow}
-            resizeMode="contain"
-          />
-        ) : (
+        {!isNarrow && (
           <>
             <Image
               source={require('@/assets/images/brand-panel-logo.png')}
@@ -249,11 +244,6 @@ const styles = StyleSheet.create({
   logo: {
     width: BRAND_LOGO_WIDTH,
     height: BRAND_LOGO_HEIGHT,
-    tintColor: 'rgba(255,255,255,0.85)',
-  },
-  logoNarrow: {
-    width: 36,
-    height: 36,
     tintColor: 'rgba(255,255,255,0.85)',
   },
   subtitle: {
