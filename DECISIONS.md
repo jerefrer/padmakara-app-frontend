@@ -126,3 +126,31 @@ removing them resizes the PDF view, which is what crashed PDFKit before (see a6e
 install), or hiding the iPad rail and player bar is wanted (needs a device test for PDFKit).
 
 ---
+## 2026-11-18 — The open video lives above the navigator and floats when its page is left
+**Chosen:** the event screen no longer renders `VideoPlayer`. It calls `openVideo` on
+`VideoSessionProvider` (root layout), and `VideoHost`, mounted once after the root `<Stack>`,
+renders the player. The page is no longer a React Native `Modal` but an absolutely filled view in
+that host; leaving it while the video plays (close chevron, Android back, Escape on the web)
+switches to `minimized`, which only restyles the same containers into a floating 16:9 window
+(above the tab bar and the audio bar on phones, bottom right above the player bar on iPad and
+desktop) with close, expand and play/pause. The `VideoView` (native) or `<video>` (web) keeps its
+place in the tree, so it is never remounted. Leaving a paused, loading or failed video closes it,
+as before. The window's close button saves the position, pauses and releases the player.
+**Alternatives:** keeping the player in the event screen and portalling only the view (the
+`VideoPlayer` instance would still be released when the screen unmounts); a second `VideoView` on
+the same player in a separate floating component (two native views on one player is unreliable on
+Android, and on the web it is a second `<video>` that reloads the stream); a `Modal` page plus a
+floating window (moving a view between a `Modal` and the app root remounts it: restart and rebuffer).
+**Why:** André and Ana Paula saw the video stop and vanish when they navigated after closing the
+page. `useVideoPlayer` belonged to the event screen, so leaving the screen released the player
+(and the page's close button paused it first). The audio mini player survives navigation because
+its player lives in a root provider; the video now does the same.
+**Trade-offs:** no slide-in animation for the page (it was the `Modal`'s); Android back and web
+Escape are handled by hand; the window is docked, not draggable; the system PiP is still started
+only from the native controls (`startsPictureInPictureAutomatically` stays off, and Android has no
+`supportsPictureInPicture` in the expo-video plugin). Verified in jest and on the web export; the
+native floating window (iOS layout, Android SurfaceView inside a small overlay) still needs a device.
+**Revisit if:** testers want to drag the window, or want the floating window to enter the system PiP
+when the app goes to the background.
+
+---
