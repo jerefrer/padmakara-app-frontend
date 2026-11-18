@@ -91,6 +91,7 @@ import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { resolveContentTab, shouldShowInlinePlayer, type EventContentTab } from '@/utils/eventContentTab';
 import { findTrackIndexByNumber, getEventTopics } from '@/utils/eventTopics';
 import { EventTopics } from '@/components/EventTopics';
+import { guestLine, mainTeacherNames } from '@/utils/eventTeachers';
 import {
   DESKTOP_SQUARE_MAX,
   RULE_RIGHT_INSET,
@@ -188,7 +189,11 @@ interface RetreatDetails {
     heroFrameOverrides?: HeroFrameOverrides | null;
     avatarUpdatedAt?: string | null;
     heroUpdatedAt?: string | null;
+    /** 'guest' = guest / other speaker, shown on its own line (see utils/eventTeachers). */
+    role?: 'teacher' | 'guest';
   }>;
+  /** The phrase before the guests; null/absent = the default. */
+  guestIntro?: string | null;
   places?: Array<{ id: number; name: string }>;
   retreatGroups?: Array<{ id: number; name: string; abbreviation?: string | null }>;
   organizer?: string | null;
@@ -1568,7 +1573,9 @@ export default function RetreatDetailScreen() {
 
     // Computed bits for the title block under the hero.
     const titleText = retreat ? getTranslatedName(retreat as any, language) : '';
-    const speakersText = retreat?.teachers?.map((te) => te.name).filter(Boolean).join(', ') || '';
+    // Main teachers on the speaker line; guests on a smaller line of their own.
+    const speakersText = mainTeacherNames(retreat?.teachers);
+    const guestsText = guestLine(retreat, t);
     const dateLabel = retreat?.startDate
       ? formatDateRange(retreat.startDate, retreat.endDate, language)
       : '';
@@ -1731,6 +1738,9 @@ export default function RetreatDetailScreen() {
               {speakersText ? (
                 <Text style={styles.eventSpeakerText}>{speakersText}</Text>
               ) : null}
+              {guestsText ? (
+                <Text style={styles.eventGuestText} testID="event-guests">{guestsText}</Text>
+              ) : null}
               {metaParts.length > 0 && (
                 <Text style={styles.eventTitleMetaText}>{metaParts.join(' | ')}</Text>
               )}
@@ -1783,6 +1793,9 @@ export default function RetreatDetailScreen() {
             </View>
             {speakersText ? (
               <Text style={styles.eventSpeakerText}>{speakersText}</Text>
+            ) : null}
+            {guestsText ? (
+              <Text style={styles.eventGuestText} testID="event-guests">{guestsText}</Text>
             ) : null}
             {metaParts.length > 0 && (
               <Text style={styles.eventTitleMetaText}>{metaParts.join(' | ')}</Text>
@@ -2946,6 +2959,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.gray[700],
     marginTop: 6,
+  },
+  // Guests / other speakers: same family as the teachers, lighter and smaller,
+  // so they read as secondary to the main teachers.
+  eventGuestText: {
+    fontFamily: 'EBGaramond_400Regular',
+    fontSize: 16,
+    color: colors.gray[600],
+    marginTop: 2,
   },
   eventTitleMetaText: {
     fontSize: 13,

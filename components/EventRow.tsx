@@ -16,6 +16,7 @@ import {
 import type { Gathering } from "@/types";
 import { eventAvatarCacheKey, teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { pickEventPhoto, pickThumbTeacher } from "@/utils/heroVariant";
+import { mainTeachers } from "@/utils/eventTeachers";
 
 /** Light black separator between desktop rows. */
 export const DESKTOP_ROW_RULE_COLOR = "rgba(0,0,0,0.12)";
@@ -92,8 +93,9 @@ interface EventRowProps {
  * constants/layout.ts).
  */
 export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID, titleFontSize }: EventRowProps) {
+  // Compact row: the main teachers only, never the guests (see utils/eventTeachers).
   const teacherNames =
-    event.teachers?.map((t: any) => t.name || t.nameEn || "").filter(Boolean).join(", ") || "";
+    mainTeachers(event.teachers).map((t: any) => t.name || t.nameEn || "").filter(Boolean).join(", ") || "";
   const teacher = pickThumbTeacher(event.teachers, event.photoTeacherId);
   // The event's own photo replaces the teacher's face in the list.
   const eventPhoto = pickEventPhoto(event);

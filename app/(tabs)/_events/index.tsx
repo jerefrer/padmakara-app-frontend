@@ -11,6 +11,7 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
+import { mainTeacherNames, mainTeachers } from '@/utils/eventTeachers';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
@@ -181,14 +182,15 @@ function DesktopEventRow({ event, onPress, language, testID }: { event: any; onP
       {...webHoverProps}
       testID={testID}
     >
-      <TeacherAvatars teachers={event.teachers} />
+      {/* Compact row: main teachers only, never the guests (see utils/eventTeachers). */}
+      <TeacherAvatars teachers={mainTeachers(event.teachers)} />
       <View style={styles.desktopRowMain}>
         <Text style={styles.desktopRowName} numberOfLines={1}>{title}</Text>
         <Text style={styles.desktopRowSubDate} numberOfLines={1}>
           {event.startDate && event.endDate
             ? formatDateRangePretty(event.startDate, event.endDate, language)
             : event.startDate || '—'}
-          {event.teachers?.length > 0 && ` · ${event.teachers.map((t: any) => t.name).filter(Boolean).join(', ')}`}
+          {event.teachers?.length > 0 && ` · ${mainTeacherNames(event.teachers)}`}
         </Text>
       </View>
       {(event.status === 'draft' || event.status === 'forthcoming') && (

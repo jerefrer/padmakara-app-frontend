@@ -74,7 +74,13 @@ export interface GatheringTeacher {
   heroFrameOverrides?: HeroFrameOverrides | null;
   avatarUpdatedAt?: string | null;
   heroUpdatedAt?: string | null;
+  /** 'guest' = a guest / other speaker (shown after the event's guest intro); absent or
+   *  'teacher' = a main teacher. A copy cached before the API sent roles has none. */
+  role?: 'teacher' | 'guest';
 }
+
+/** The phrase introducing an event's guests (API `guestIntro`); see utils/eventTeachers.ts. */
+export type GuestIntroKey = 'with_presence_of' | 'and' | 'practice_sessions_by' | 'with_visit_of' | 'with_guest';
 
 export interface EventType {
   id: number;
@@ -129,7 +135,10 @@ export interface Gathering {
   photoTeacherId?: number | null;
   /** The event's own photo; when present it wins over the teachers' and the group's photos. */
   image?: EventImage | null;
+  /** Main teachers first, then the guests (role 'guest'), each in the admin's order. */
   teachers?: GatheringTeacher[];
+  /** The phrase before the guests; null/absent = the default ("with the presence of"). */
+  guestIntro?: GuestIntroKey | null;
   places?: GatheringPlace[];
   retreatGroups?: GatheringGroup[];
   /** Free-text organizing body, e.g. "Padmakara Portugal". Distinct from
@@ -368,7 +377,9 @@ export interface EventPreview {
   startDate: string | null;
   endDate: string | null;
   imageUrl: string | null;
-  teachers: { name: string }[];
+  /** Main teachers first, then the guests (role 'guest'); an older API sends no role. */
+  teachers: { name: string; role?: 'teacher' | 'guest' }[];
+  guestIntro?: GuestIntroKey | null;
   sessionCount: number;
   audience: 'free-subscribers';
 }

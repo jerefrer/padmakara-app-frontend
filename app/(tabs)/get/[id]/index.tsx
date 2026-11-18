@@ -26,6 +26,7 @@ import {
   type TeachingCheckoutResult,
 } from '@/services/teachingService';
 import { formatDateRange } from '@/utils/dateFormat';
+import { guestLine, mainTeacherNames } from '@/utils/eventTeachers';
 import { formatEuro } from '@/utils/membership';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -127,7 +128,8 @@ function GetTeachingPage() {
   const title = (lang === 'pt' ? teaching.titlePt || teaching.titleEn : teaching.titleEn || teaching.titlePt) ?? '';
   const meta = [
     teaching.startDate ? formatDateRange(teaching.startDate, teaching.endDate ?? undefined, lang) : '',
-    teaching.teachers.map((x) => x.name).join(', '),
+    mainTeacherNames(teaching.teachers),
+    guestLine(teaching, t) ?? '',
     teaching.places.map((x) => x.name).join(', '),
   ].filter(Boolean);
   const sessions =

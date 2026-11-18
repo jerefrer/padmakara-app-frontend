@@ -138,6 +138,37 @@ describe('retreat screen desktop header', () => {
   });
 });
 
+describe('retreat screen teachers and guests', () => {
+  const withGuests = {
+    ...retreat,
+    guestIntro: 'with_presence_of',
+    teachers: [
+      { id: 1, name: 'Jigme Khyentse Rinpoche', role: 'teacher', heroUrl: 'https://img.example/hero.webp' },
+      { id: 2, name: 'Pema Wangyal Rinpoche', role: 'teacher' },
+      { id: 3, name: 'Shechen Rabjam Rinpoche', role: 'guest' },
+    ],
+  };
+
+  it.each([
+    ['desktop', { isDesktop: true, isMobile: false }],
+    ['phone', { isDesktop: false, isMobile: true }],
+  ])('should show the main teachers, then the guests on a second line, on %s', async (_label, layout) => {
+    mockLayout = layout;
+    getDetails.mockResolvedValue({ success: true, data: withGuests });
+
+    const screen = render(<RetreatDetailScreen />);
+
+    expect(await screen.findByText('Jigme Khyentse Rinpoche, Pema Wangyal Rinpoche')).toBeTruthy();
+    expect(screen.getByTestId('event-guests').props.children).toBe('with the presence of Shechen Rabjam Rinpoche');
+  });
+
+  it('should show no guest line when the event has no guests', async () => {
+    const screen = render(<RetreatDetailScreen />);
+    await screen.findByText('Tenga Rinpoche');
+    expect(screen.queryByTestId('event-guests')).toBeNull();
+  });
+});
+
 describe('retreat screen track list', () => {
   it('should draw the home list lines on desktop: flush left, a gap on the right', async () => {
     const screen = render(<RetreatDetailScreen />);
