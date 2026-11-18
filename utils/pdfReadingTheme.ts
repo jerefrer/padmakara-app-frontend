@@ -50,21 +50,23 @@ export const READING_THEME_ATTRIBUTE = 'data-reading-theme';
 /**
  * Attribute a page carries once its background is known: "paper" pages are
  * themed, "designed" pages (covers, coloured dividers, full-page photos) keep
- * their original colours.
+ * their original colours. "pending" until then (canvas hidden).
  */
 export const PAGE_TONE_ATTRIBUTE = 'data-page-tone';
 
 /**
  * Style sheet that applies each theme's filter to the page canvases only:
  * the toolbar, the text layer (selection) and the link layer stay as they are.
- * A page found to be designed in colour is exempt (the more specific rule).
+ * A page found to be designed in colour is exempt (the more specific rule),
+ * and a page whose tone is not known yet stays hidden on its themed paper.
  */
 export function readingThemeCss(): string {
   return READING_THEMES.map((theme) => {
     const filter = pageFilter(theme);
     return filter
       ? `[${READING_THEME_ATTRIBUTE}="${theme}"] .react-pdf__Page__canvas { filter: ${filter}; }\n` +
-          `[${READING_THEME_ATTRIBUTE}="${theme}"] [${PAGE_TONE_ATTRIBUTE}="designed"] .react-pdf__Page__canvas { filter: none; }`
+          `[${READING_THEME_ATTRIBUTE}="${theme}"] [${PAGE_TONE_ATTRIBUTE}="designed"] .react-pdf__Page__canvas { filter: none; }\n` +
+          `[${READING_THEME_ATTRIBUTE}="${theme}"] [${PAGE_TONE_ATTRIBUTE}="pending"] .react-pdf__Page__canvas { visibility: hidden; }`
       : '';
   })
     .filter(Boolean)

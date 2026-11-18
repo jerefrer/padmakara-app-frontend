@@ -110,6 +110,13 @@ interface PdfThemedPageProps {
    * unfiltered pixels, so they keep their true colours.
    */
   keepPictureColours: boolean;
+  /**
+   * Called with the width the page has been fully drawn at (canvas rendered
+   * and, under a reading theme, its tone known and pictures restored), and
+   * with null when the page goes away. Lets the viewer swap to a page only
+   * once it is ready.
+   */
+  onDrawn?: (pageNumber: number, width: number | null) => void;
 }
 
 /**
@@ -117,10 +124,15 @@ interface PdfThemedPageProps {
  * their own colours, and leaves pages designed in colour (covers) untouched. The copies sit above the canvas and below nothing that
  * takes input (pointer-events: none), so selection and links still work.
  */
-export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }: PdfThemedPageProps) {
+export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours, onDrawn }: PdfThemedPageProps) {
   const [page, setPage] = useState<PageProxy | null>(null);
   const [renders, setRenders] = useState(0);
-  const [rects, setRects] = useState<PageRect[]>([]);
+  // Null until the page's image rectangles are known.
+  const [rects, setRects] = useState<PageRect[] | null>(null);
+  const [copiedRender, setCopiedRender] = useState(0);
+  // Under a theme, the canvas stays hidden until its first themed draw is
+  // complete, so a cover never flashes inverted and a picture never negative.
+  const [revealed, setRevealed] = useState(false);
   const [paper, setPaper] = useState<boolean | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -155,7 +167,7 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
   // Copy each picture's pixels from the freshly rendered canvas.
   useEffect(() => {
     const layer = layerRef.current;
-    if (!keepPictureColours || !page || !layer || renders === 0 || paper === false) return;
+    if (!keepPictureColours || !page || !layer || !rects || renders === 0 || paper === false) return;
     const source = pageRef.current?.querySelector<HTMLCanvasElement>('canvas.react-pdf__Page__canvas');
     if (!source || !source.width) return;
     let verdicts = verdictCache.get(page);
@@ -187,9 +199,32 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
       copy.style.display = 'block';
       copy.dataset.restored = 'true';
     });
+    setCopiedRender(renders);
   }, [keepPictureColours, page, rects, renders, paper]);
 
-  const tone = paper === null ? undefined : paper ? 'paper' : 'designed';
+  const ready =
+    renders > 0 &&
+    (!keepPictureColours ||
+      paper === false ||
+      (paper === true && rects !== null && (rects.length === 0 || copiedRender === renders)));
+
+  const onDrawnRef = useRef(onDrawn);
+  useEffect(() => {
+    onDrawnRef.current = onDrawn;
+  }, [onDrawn]);
+
+  // Adjusted while rendering: once ready under a theme, the page stays shown.
+  if (keepPictureColours && ready && !revealed) setRevealed(true);
+
+  useEffect(() => {
+    if (!ready) return;
+    onDrawnRef.current?.(pageNumber, width);
+  }, [ready, pageNumber, width, renders]);
+
+  useEffect(() => () => onDrawnRef.current?.(pageNumber, null), [pageNumber]);
+
+  const tone =
+    keepPictureColours && !revealed ? 'pending' : paper === null ? undefined : paper ? 'paper' : 'designed';
   return (
     <div ref={pageRef} style={pageStyle} {...{ [PAGE_TONE_ATTRIBUTE]: tone }}>
       <Page
@@ -197,11 +232,13 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
         width={width}
         renderAnnotationLayer={true}
         renderTextLayer={true}
+        // Never suspend: the nearest boundary is the whole viewer (see Document).
+        suspense={false}
         onLoadSuccess={onLoadSuccess as never}
         onRenderSuccess={onRenderSuccess}
         loading={loading}
       />
-      {keepPictureColours && paper !== false && rects.length > 0 ? (
+      {keepPictureColours && paper !== false && rects && rects.length > 0 ? (
         <div ref={layerRef} style={layerStyle} data-image-restore-layer="">
           {rects.map((_, index) => (
             <canvas

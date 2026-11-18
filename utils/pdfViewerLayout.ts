@@ -249,3 +249,38 @@ export function swipeDirection(dx: number, dy: number, threshold = 50): 1 | -1 |
   if (Math.abs(dx) < threshold || Math.abs(dx) <= Math.abs(dy)) return 0;
   return dx < 0 ? 1 : -1;
 }
+
+/**
+ * Rows of the continuous column whose pages stay mounted: the ones in view
+ * (with overscan) plus the most recently shown ones, so scrolling back does
+ * not redraw a page that was on screen a moment ago. Most recent last.
+ */
+export function keepRecentRows(previous: number[], first: number, last: number, max: number): number[] {
+  const inView: number[] = [];
+  for (let row = first; row <= last; row++) inView.push(row);
+  const rest = previous.filter((row) => row < first || row > last);
+  return [...rest, ...inView].slice(-Math.max(max, inView.length));
+}
+
+/**
+ * Spreads mounted in single and two-page modes: the one shown, the one being
+ * turned to, and its neighbours, drawn ahead so the next turn is instant.
+ */
+export function spreadsToRender(shown: number, target: number, count: number, prefetch = 1): number[] {
+  const set = new Set<number>();
+  const add = (index: number) => {
+    if (index >= 0 && index < count) set.add(index);
+  };
+  add(shown);
+  for (let d = -prefetch; d <= prefetch; d++) add(target + d);
+  return [...set].sort((a, b) => a - b);
+}
+
+/**
+ * Whether the viewer can swap to the target spread: every page of it has
+ * been drawn (and themed) at its current width. Until then the spread on
+ * screen stays, so turning a page never shows a blank sheet.
+ */
+export function spreadReady(pages: number[], drawnAt: ReadonlyMap<number, number>, widthOf: (page: number) => number): boolean {
+  return pages.length > 0 && pages.every((page) => drawnAt.get(page) === widthOf(page));
+}

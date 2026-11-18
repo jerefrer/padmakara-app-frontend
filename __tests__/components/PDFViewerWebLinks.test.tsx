@@ -100,7 +100,7 @@ describe('PDFViewerWebImpl links', () => {
     expect(getByText('6–7 / 10')).toBeTruthy();
   });
 
-  it('should show the target page alone when an internal link is followed in single-page mode', async () => {
+  it('should draw the target page and its neighbours, keeping the page on screen until it is drawn, in single-page mode', async () => {
     const { getByText, getByLabelText } = await renderLoaded(10);
     fireEvent.press(getByLabelText('Single page'));
     pageProps.length = 0;
@@ -108,7 +108,8 @@ describe('PDFViewerWebImpl links', () => {
     act(() => documentProps.first.onItemClick({ pageIndex: 3, pageNumber: 4 }));
 
     expect(getByText('4 / 10')).toBeTruthy();
-    expect(pageProps.map((props) => props.pageNumber)).toEqual(expect.arrayContaining([4]));
-    expect(pageProps.every((props) => props.pageNumber === 4)).toBe(true);
+    // Page 1 stays on screen (the mocked page never finishes drawing);
+    // page 4 and its neighbours are drawn ahead, nothing else.
+    expect([...new Set(pageProps.map((props) => props.pageNumber))].sort((a, b) => a - b)).toEqual([1, 3, 4, 5]);
   });
 });
