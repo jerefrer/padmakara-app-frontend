@@ -355,6 +355,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [listeningStarted, setListeningStarted] = useState(false);
   if (track && isPlaying && !listeningStarted) setListeningStarted(true);
   if (!track && listeningStarted) setListeningStarted(false);
+  // The last-played track waits in the player bars until something plays: an
+  // event screen loading one of its tracks, paused, does not replace it.
+  if (listeningStarted && idleTrack) setIdleTrack(null);
 
   // Playing something again reopens the player for the next restarts.
   useEffect(() => {
@@ -431,6 +434,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Skip ±15s and speed change still need a ready engine to act on; the
   // mobile/desktop player bars gate those separately.
   const isPlayButtonDisabled = !track && !idleTrack;
+
+  // ─── Persist last-played for "resume on next launch" ───
+  // Only audio the person listened to: a track an event screen merely loaded
+  // must not replace the one the player bars bring back after a restart. The
+  // duration the audio reported is kept with it, since listings often carry
+  // none and the restored bar needs it to draw how far the track was played.
+  const playedDuration = Math.round(duration);
+  useEffect(() => {
+    if (!listeningStarted || !track) return;
+    const meta = metaRetreatId
+      ? { retreatId: metaRetreatId, retreatName: metaRetreatName ?? '', groupName: metaGroupName ?? '' }
+      : null;
+    const saved = !track.duration && playedDuration > 0 ? { ...track, duration: playedDuration } : track;
+    AsyncStorage.setItem('last_played_track', JSON.stringify({ track: saved, meta }))
+      .catch((error) => console.error('saveLastPlayedTrack error:', error));
+  }, [listeningStarted, track, metaRetreatId, metaRetreatName, metaGroupName, playedDuration]);
 
   // ─── Audio session (mount once) ───
   useEffect(() => {
@@ -1077,21 +1096,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [track, status?.duration]);
 
-  // ─── Persist last-played for "resume on next launch" ───
-  const saveLastPlayedTrack = useCallback(async (
-    savedTrack: Track,
-    meta?: { retreatId: string; retreatName: string; groupName: string },
-  ) => {
-    try {
-      await AsyncStorage.setItem(
-        'last_played_track',
-        JSON.stringify({ track: savedTrack, meta: meta || null }),
-      );
-    } catch (error) {
-      console.error('saveLastPlayedTrack error:', error);
-    }
-  }, []);
-
   // ─── Actions ───
 
   const playTrack = useCallback((
@@ -1101,7 +1105,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     meta?: { retreatId: string; retreatName: string; groupName: string },
     options?: { autoPlay?: boolean },
   ) => {
-    setIdleTrack(null);
     setTrackListState(newTrackList);
     setCurrentTrackIndex(index);
     if (meta) {
@@ -1174,17 +1177,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setTargetPosition(savedPositionsRef.current.get(newTrack.id) ?? 0);
       setTrack(newTrack);
     }
-    void saveLastPlayedTrack(newTrack, meta);
-  }, [track, phase, status?.currentTime, saveProgress, saveLastPlayedTrack]);
+  }, [track, phase, status?.currentTime, saveProgress]);
   playTrackRef.current = playTrack;
   trackListRef.current = trackListState;
   currentTrackIndexRef.current = currentTrackIndex;
-
-  const resumeLastPlayed = useCallback(() => {
-    if (!idleTrack) return;
-    const { track: idleT, meta } = idleTrack;
-    playTrack(idleT, [idleT], 0, meta || undefined, { autoPlay: true });
-  }, [idleTrack, playTrack]);
 
   const clearTrack = useCallback(() => {
     try { player?.pause(); } catch {}
@@ -1197,6 +1193,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setIdleTrack(null);
     void AsyncStorage.setItem(PLAYER_CLOSED_KEY, '1').catch(() => {});
   }, [player]);
+
+  // Loads the last-played track and plays it. Without saved event details its
+  // meta is cleared, so the bars don't show the event of a track loaded before.
+  const playIdleTrack = useCallback((idle: IdleTrackInfo) => {
+    if (!idle.meta) {
+      setMetaRetreatId(null);
+      setMetaRetreatName(null);
+      setMetaGroupName(null);
+    }
+    playTrack(idle.track, [idle.track], 0, idle.meta || undefined, { autoPlay: true });
+  }, [playTrack]);
 
   const togglePlayPause = useCallback(() => {
     // Idle with a track: its audio never arrived (load safety timer). Load
@@ -1213,8 +1220,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     // play as pending and resume the track; once it loads, playback will
     // start automatically.
     if (phase === 'idle' && idleTrack) {
-      const { track: idleT, meta } = idleTrack;
-      playTrack(idleT, [idleT], 0, meta || undefined, { autoPlay: true });
+      playIdleTrack(idleTrack);
       return;
     }
     // Loading: the audio engine isn't ready yet. Toggle the optimistic
@@ -1240,7 +1246,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
       setPendingPlay(false);
     }
-  }, [phase, player, status?.playing, status?.currentTime, idleTrack, track, playTrack, saveProgress]);
+  }, [phase, player, status?.playing, status?.currentTime, idleTrack, track, playIdleTrack, saveProgress]);
+
+  // Plays the last-played track the player bars show after a restart. An event
+  // screen may already have loaded that same track, paused: playTrack would
+  // leave it as it is, so it is simply played.
+  const resumeLastPlayed = useCallback(() => {
+    if (!idleTrack) return;
+    if (track?.id === idleTrack.track.id) {
+      if (!isPlayingRef.current) togglePlayPause();
+      return;
+    }
+    playIdleTrack(idleTrack);
+  }, [idleTrack, track, togglePlayPause, playIdleTrack]);
 
   // Pause without toggling: a no-op when nothing is playing. Also drops a
   // play requested while the track was still loading.
