@@ -197,6 +197,8 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours }
         width={width}
         renderAnnotationLayer={true}
         renderTextLayer={true}
+        // Never suspend: the nearest boundary is the whole viewer (see Document).
+        suspense={false}
         onLoadSuccess={onLoadSuccess as never}
         onRenderSuccess={onRenderSuccess}
         loading={loading}

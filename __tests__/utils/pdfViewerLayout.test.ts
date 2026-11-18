@@ -5,6 +5,7 @@ import {
   anchoredScroll,
   buildSpreads,
   fitScale,
+  keepRecentRows,
   parseFitPreset,
   parseViewMode,
   pinchScale,
@@ -12,6 +13,8 @@ import {
   rowAtMiddle,
   rowOffsets,
   spreadIndexOfPage,
+  spreadReady,
+  spreadsToRender,
   stepScale,
   swipeDirection,
   viewerKeyAction,
@@ -216,5 +219,47 @@ describe('swipeDirection', () => {
   it('should ignore short or mostly vertical moves', () => {
     expect(swipeDirection(-20, 0)).toBe(0);
     expect(swipeDirection(-80, 120)).toBe(0);
+  });
+});
+
+describe('keepRecentRows', () => {
+  it('should keep the rows in view', () => {
+    expect(keepRecentRows([], 3, 5, 10)).toEqual([3, 4, 5]);
+  });
+
+  it('should keep recently shown rows after they leave the view', () => {
+    expect(keepRecentRows([3, 4, 5], 6, 8, 10)).toEqual([3, 4, 5, 6, 7, 8]);
+  });
+
+  it('should drop the oldest rows beyond the limit, never the ones in view', () => {
+    expect(keepRecentRows([1, 2, 3, 4, 5], 6, 8, 5)).toEqual([4, 5, 6, 7, 8]);
+    expect(keepRecentRows([1, 2], 3, 9, 3)).toEqual([3, 4, 5, 6, 7, 8, 9]);
+  });
+});
+
+describe('spreadsToRender', () => {
+  it('should draw the neighbours of the spread shown ahead of time', () => {
+    expect(spreadsToRender(4, 4, 10)).toEqual([3, 4, 5]);
+  });
+
+  it('should keep the spread on screen while turning to a far one', () => {
+    expect(spreadsToRender(0, 7, 10)).toEqual([0, 6, 7, 8]);
+  });
+
+  it('should stay within the document', () => {
+    expect(spreadsToRender(0, 0, 3)).toEqual([0, 1]);
+  });
+});
+
+describe('spreadReady', () => {
+  const widthOf = () => 500;
+
+  it('should swap only when every page of the spread is drawn at its width', () => {
+    expect(spreadReady([2, 3], new Map([[2, 500], [3, 500]]), widthOf)).toBe(true);
+    expect(spreadReady([2, 3], new Map([[2, 500]]), widthOf)).toBe(false);
+  });
+
+  it('should wait for a page drawn at a previous zoom', () => {
+    expect(spreadReady([2], new Map([[2, 400]]), widthOf)).toBe(false);
   });
 });

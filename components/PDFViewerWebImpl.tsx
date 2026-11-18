@@ -40,6 +40,7 @@ import {
   swipeDirection,
   viewerKeyAction,
   visibleRows,
+  keepRecentRows,
   type FitPreset,
   type PageSize,
   type ViewMode,
@@ -90,7 +91,9 @@ const READING_THEME_CSS = readingThemeCss();
 const PAGE_GAP = 16;
 const SIDE_PADDING = 24;
 /** Rows rendered above and below the visible ones in the continuous column. */
-const OVERSCAN_ROWS = 2;
+const OVERSCAN_ROWS = 3;
+/** Rows of the continuous column kept drawn after they scroll away. */
+const KEEP_ROWS = 14;
 /** A4 in points, used until the document reports its own page sizes. */
 const DEFAULT_PAGE: PageSize = { width: 595, height: 842 };
 /** Accumulated wheel distance that turns a page in single and two-page modes. */
@@ -573,6 +576,18 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
     ? { first: spreadIndex, last: spreadIndex }
     : visibleRows(offsets, rowHeights, Math.max(0, scrollTop - PAGE_GAP), viewport.height, OVERSCAN_ROWS);
 
+  // Pages that scrolled away stay drawn for a while (scrolling back shows
+  // them at once); only the oldest beyond KEEP_ROWS are let go.
+  // Updated while rendering (React's "adjust state on prop change" pattern):
+  // the window moves with the scroll position, and resets with the layout.
+  const layoutKey = `${mode}:${total}:${scale}`;
+  const [kept, setKept] = useState({ key: '', first: 0, last: -1, rows: [] as number[] });
+  if (!paged && (kept.key !== layoutKey || kept.first !== visible.first || kept.last !== visible.last)) {
+    const previous = kept.key === layoutKey ? kept.rows : [];
+    setKept({ key: layoutKey, first: visible.first, last: visible.last, rows: keepRecentRows(previous, visible.first, visible.last, KEEP_ROWS) });
+  }
+  const keptRows = kept.rows;
+
   const renderPage = (pageNumber: number, mounted: boolean) => {
     const box = pageBox(pageNumber);
     return (
@@ -599,7 +614,7 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   };
 
   const renderRow = (rowIndex: number) => {
-    const mounted = rowIndex >= visible.first && rowIndex <= visible.last;
+    const mounted = (rowIndex >= visible.first && rowIndex <= visible.last) || keptRows.includes(rowIndex);
     return (
       <div key={rowIndex} style={{ ...rowStyle, height: rowHeights[rowIndex], marginBottom: paged ? 0 : PAGE_GAP }}>
         {spreads[rowIndex].map((page) => renderPage(page, mounted))}
@@ -761,6 +776,10 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
           <Document
             file={file}
             options={PDF_DOCUMENT_OPTIONS}
+            // react-pdf 11 suspends by default: a page that starts loading
+            // would suspend the viewer's lazy-loading boundary, which hides
+            // the whole document (scroll position lost, "Loading" shown).
+            suspense={false}
             onLoadSuccess={onDocumentLoad}
             onLoadError={() => setError(true)}
             onItemClick={followInternalLink}
