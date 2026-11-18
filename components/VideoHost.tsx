@@ -41,11 +41,21 @@ function useFloatingFrame(): FloatingFrame {
  * Renders the open video above the navigator (mounted once, in the root
  * layout). Because it lives here and not in the event screen, navigating
  * inside the app never unmounts the player: leaving the video page moves the
- * same view into the floating window, and the player is released only when
- * the viewer closes the video.
+ * same view into the floating window (or, on iOS, the system picture in
+ * picture), and the player is released only when the viewer closes the video.
  */
 export function VideoHost() {
-  const { session, minimized, selectVideo, minimize, expand, close, cellularAcceptedRef } = useVideoSession();
+  const {
+    session,
+    minimized,
+    inSystemPip,
+    selectVideo,
+    minimize,
+    enterSystemPip,
+    expand,
+    close,
+    cellularAcceptedRef,
+  } = useVideoSession();
   const floatingFrame = useFloatingFrame();
   if (!session) return null;
   // No onComplete: the video stays open when it counts as watched (97%).
@@ -61,10 +71,14 @@ export function VideoHost() {
       cellularAcceptedRef={cellularAcceptedRef}
       initialPositionSeconds={session.initialPositionSeconds}
       minimized={minimized}
+      inSystemPip={inSystemPip}
       onMinimize={minimize}
+      onSystemPip={enterSystemPip}
       onExpand={expand}
       onClose={close}
       floatingFrame={floatingFrame}
+      teacherNames={session.teacherNames}
+      artworkUrl={session.artworkUrl}
     />
   );
 }

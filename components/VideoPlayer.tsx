@@ -7,6 +7,8 @@ import videoBookmarkService, { type VideoBookmark } from '@/services/videoBookma
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
 import type { Bookmark, EventVideo } from '@/types';
 import { getVideoTitle } from '@/utils/videoTitle';
+import { videoNowPlayingMetadata } from '@/utils/videoNowPlaying';
+import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
 import { pickResumePosition } from '@/utils/videoDeepLink';
 import { migrateLocalVideoBookmarks } from '@/utils/videoBookmarkMigration';
 import { pickPreferredSubtitle, resolveSubtitleLanguage } from '@/utils/subtitlePreference';
@@ -18,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { getNetworkStateAsync, NetworkStateType } from 'expo-network';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { isPictureInPictureSupported, useVideoPlayer, VideoView } from 'expo-video';
 import { subscribeToDeviceRotation } from '@/modules/device-rotation';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -42,13 +44,38 @@ const PHONE_MAX_SHORT_SIDE = 600;
 const PAGE_MAX_WIDTH = 960;
 const MAX_PLAYER_HEIGHT_RATIO = 0.7;
 const FULLSCREEN_AFTER_ROTATION_MS = 300;
+/** Without a start from the system picture in picture by then, the floating window takes over. */
+const PIP_START_TIMEOUT_MS = 1500;
+/** Closing the PiP window pauses the player just around its stop event: wait before reading it. */
+const PIP_STOP_SETTLE_MS = 300;
+/** Lets the audio player release the lock screen before the video claims it again. */
+const NOW_PLAYING_CLAIM_DELAY_MS = 500;
 
 const colors = {
   burgundy: { 500: '#9b1b1b' },
   gray: { 200: '#e5e7eb', 400: '#9ca3af', 600: '#4b5563', 800: '#2c2c2c' },
   white: '#ffffff',
   black: '#000000',
+  /** Over the floating window's video, so its controls read on any picture. */
+  scrim: 'rgba(0,0,0,0.25)',
+  scrimStrong: 'rgba(0,0,0,0.45)',
 };
+
+/**
+ * iOS hands a video left while playing to the system picture in picture,
+ * which (unlike Android's) can float over the app itself.
+ */
+function systemPipAvailable(): boolean {
+  if (Platform.OS !== 'ios') return false;
+  try {
+    return typeof isPictureInPictureSupported === 'function' && isPictureInPictureSupported();
+  } catch {
+    return false;
+  }
+}
+
+/** Where the hand-off to the system picture in picture stands. */
+type PipHandoff = 'none' | 'starting' | 'active';
 
 interface VideoPlayerProps {
   /** The specific recording being played. The modal closes when this becomes null. */
@@ -94,6 +121,18 @@ interface VideoPlayerProps {
   onExpand?: () => void;
   /** Where the floating window sits, from the bottom-right corner of the screen. */
   floatingFrame?: FloatingFrame;
+  /**
+   * iOS: leaving the page while the video plays hands it to the system picture
+   * in picture, and this is called once it has started. Without it (or when
+   * the system refuses), the floating window takes over.
+   */
+  onSystemPip?: () => void;
+  /** The video plays in the system picture in picture: the page stays mounted but hidden. */
+  inSystemPip?: boolean;
+  /** The event's teachers, shown as the artist on the lock screen. */
+  teacherNames?: string;
+  /** The event's square artwork for the lock screen. */
+  artworkUrl?: string | null;
 }
 
 export interface FloatingFrame {
@@ -103,6 +142,10 @@ export interface FloatingFrame {
 }
 
 const DEFAULT_FLOATING_FRAME: FloatingFrame = { right: 12, bottom: 24, width: 240 };
+const FLOATING_BUTTON_SIZE = 32;
+const FLOATING_BUTTON_INSET = 6;
+/** The small buttons keep a 44 pt touch target. */
+const FLOATING_BUTTON_HIT_SLOP = (44 - FLOATING_BUTTON_SIZE) / 2;
 
 type CellularGate = 'pending' | 'allowed' | 'blocked';
 
@@ -186,6 +229,10 @@ export function VideoPlayer({
   onMinimize,
   onExpand,
   floatingFrame = DEFAULT_FLOATING_FRAME,
+  onSystemPip,
+  inSystemPip = false,
+  teacherNames,
+  artworkUrl,
 }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuth();
@@ -200,7 +247,11 @@ export function VideoPlayer({
   // rotating the screen first would show the navigation bar on its side.
   // On native the close button gets its own white bar above the video; web and
   // the immersive landscape view keep it overlaid on the video.
-  const showCloseBar = Platform.OS !== 'web' && !isImmersive && !minimized;
+  // In the system picture in picture the page's player stays laid out (AVKit
+  // brings the video back to it) but hidden; only the in-app floating window
+  // shrinks it.
+  const floating = minimized && !inSystemPip;
+  const showCloseBar = Platform.OS !== 'web' && !isImmersive && !floating;
   const followsPhysicalRotation = isPhone && Platform.OS === 'android';
   const videoViewRef = useRef<VideoView>(null);
   const { t, language } = useLanguage();
@@ -290,6 +341,38 @@ export function VideoPlayer({
     return eventTitle ? `${eventTitle} · ${title}` : title;
   }, [video, eventTitle, totalVideos, language, t]);
 
+  // The lock screen and Control Center name the video like its page does,
+  // with the teachers as artist and the event's artwork (else the poster,
+  // else the bundled artwork the audio player falls back to).
+  const [fallbackArtwork, setFallbackArtwork] = useState<string | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    getLockScreenArtworkUri()
+      .then((uri) => {
+        if (!cancelled) setFallbackArtwork(uri);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const nowPlayingMetadata = useMemo(
+    () =>
+      videoNowPlayingMetadata({
+        title: headerTitle,
+        artist: teacherNames,
+        artworkCandidates: [artworkUrl, video?.posterUrl, fallbackArtwork],
+      }),
+    [headerTitle, teacherNames, artworkUrl, video?.posterUrl, fallbackArtwork],
+  );
+  // Read when the source loads: a title change alone must not reload the video.
+  // (This effect runs before the one that loads the source.)
+  const nowPlayingMetadataRef = useRef(nowPlayingMetadata);
+  useEffect(() => {
+    nowPlayingMetadataRef.current = nowPlayingMetadata;
+  }, [nowPlayingMetadata]);
+
   // Build the player. We pass `null` until we have a URL — expo-video accepts
   // a null source and waits for replace(). Increase forward buffer so brief
   // network outages (tunnels, weak coverage) don't stall playback.
@@ -310,13 +393,59 @@ export function VideoPlayer({
     };
   });
 
+  // Audio and video share the lock screen: the one that last started owns it.
+  // The audio player releases it when a video plays and claims it back when
+  // audio plays; the video does the same here. Re-registering is what makes
+  // expo-video write its title and controls again after the audio held them.
+  // Until the video has claimed it, the audio may hold it.
+  const nowPlayingReleasedRef = useRef(true);
+  const nowPlayingClaimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const claimNowPlaying = () => {
+    if (isWeb || !nowPlayingReleasedRef.current) return;
+    nowPlayingReleasedRef.current = false;
+    if (nowPlayingClaimTimerRef.current) clearTimeout(nowPlayingClaimTimerRef.current);
+    // After the audio player's release, which runs once React has rendered
+    // the video as playing: its release clears what was there.
+    nowPlayingClaimTimerRef.current = setTimeout(() => {
+      nowPlayingClaimTimerRef.current = null;
+      try {
+        player.showNowPlayingNotification = false;
+        player.showNowPlayingNotification = true;
+      } catch {
+        // The player may already be released.
+      }
+    }, NOW_PLAYING_CLAIM_DELAY_MS);
+  };
+  useEffect(() => {
+    if (isWeb || !audioPlaying) return;
+    if (nowPlayingClaimTimerRef.current) {
+      clearTimeout(nowPlayingClaimTimerRef.current);
+      nowPlayingClaimTimerRef.current = null;
+    }
+    nowPlayingReleasedRef.current = true;
+    try {
+      player.showNowPlayingNotification = false;
+    } catch {
+      // The player may already be released.
+    }
+  }, [audioPlaying, isWeb, player]);
+  useEffect(
+    () => () => {
+      if (nowPlayingClaimTimerRef.current) clearTimeout(nowPlayingClaimTimerRef.current);
+    },
+    [],
+  );
+
   // Video start/stop on native. (Web reports through WebHlsVideo.)
   // A playing video is loaded: this also hides the loader when reopening a
   // video the player already had, whose status stays readyToPlay and so never
   // sends the statusChange that would.
   useEventListener(player, 'playingChange', ({ isPlaying }) => {
     reportVideoPlaying(isPlaying);
-    if (isPlaying) setPlayerBuffering(false);
+    if (isPlaying) {
+      setPlayerBuffering(false);
+      claimNowPlaying();
+    }
     // A pause, including closing the floating (PiP) window, saves at once.
     else flushProgressRef.current();
   });
@@ -505,7 +634,7 @@ export function VideoPlayer({
     if (!hlsUrl || !player) return;
     try {
       setPlayerBuffering(true);
-      player.replace({ uri: hlsUrl });
+      player.replace({ uri: hlsUrl, metadata: nowPlayingMetadataRef.current });
       // expo-video applies seek after the source loads — currentTime is settable.
       if (resumePosition > 0) {
         player.currentTime = resumePosition;
@@ -819,13 +948,86 @@ export function VideoPlayer({
     onClose();
   };
 
+  // The PiP events and timers below run after a render: they read the latest
+  // callbacks through these refs.
+  const handleCloseRef = useRef(handleClose);
+  const onMinimizeRef = useRef(onMinimize);
+  const onSystemPipRef = useRef(onSystemPip);
+  const onExpandRef = useRef(onExpand);
+  const inSystemPipRef = useRef(inSystemPip);
+
+  // iOS: the page hands a playing video to the system picture in picture. The
+  // page stays as it is until the PiP window has started (AVKit needs the
+  // video on screen to start it), then hides. If the system refuses or never
+  // starts it, the in-app floating window takes over.
+  const pipHandoffRef = useRef<PipHandoff>('none');
+  const pipStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPipStartTimer = () => {
+    if (pipStartTimerRef.current) clearTimeout(pipStartTimerRef.current);
+    pipStartTimerRef.current = null;
+  };
+  const fallBackToFloatingWindow = () => {
+    clearPipStartTimer();
+    if (pipHandoffRef.current !== 'starting') return;
+    pipHandoffRef.current = 'none';
+    onMinimizeRef.current?.();
+  };
+  const handOffToSystemPip = () => {
+    const view = videoViewRef.current;
+    if (!view || typeof view.startPictureInPicture !== 'function') {
+      onMinimize?.();
+      return;
+    }
+    pipHandoffRef.current = 'starting';
+    clearPipStartTimer();
+    pipStartTimerRef.current = setTimeout(fallBackToFloatingWindow, PIP_START_TIMEOUT_MS);
+    try {
+      Promise.resolve(view.startPictureInPicture()).catch(fallBackToFloatingWindow);
+    } catch {
+      fallBackToFloatingWindow();
+    }
+  };
+  const handlePipStart = () => {
+    // A PiP the system started on its own (the app sent to the background)
+    // leaves the page as it is.
+    if (pipHandoffRef.current !== 'starting') return;
+    clearPipStartTimer();
+    pipHandoffRef.current = 'active';
+    onSystemPipRef.current?.();
+  };
+  const handlePipStop = () => {
+    if (pipHandoffRef.current === 'starting') {
+      fallBackToFloatingWindow();
+      return;
+    }
+    if (pipHandoffRef.current !== 'active') return;
+    pipHandoffRef.current = 'none';
+    // The page was brought back from inside the app (the video opened again).
+    if (!inSystemPipRef.current) return;
+    // The PiP window's "back to the app" button keeps the video playing; its
+    // close button pauses it. AVKit sends no other signal JS can read.
+    setTimeout(() => {
+      if (!inSystemPipRef.current) return;
+      let playing = false;
+      try {
+        playing = player.playing === true;
+      } catch {
+        // Released: nothing left to bring back.
+      }
+      if (playing) onExpandRef.current?.();
+      else handleCloseRef.current();
+    }, PIP_STOP_SETTLE_MS);
+  };
+
   // Leaving the page (its close button, Android back, Escape on the web): a
   // playing video goes on in the floating window, like the audio mini player;
-  // a paused, loading or failed one has nothing to go on with, so it closes.
+  // on iOS, in the system picture in picture. A paused, loading or failed
+  // video has nothing to go on with, so it closes.
   const hasPlayableVideo = !!video && !!hlsUrl;
   const handleLeavePage = () => {
     if (onMinimize && hasPlayableVideo && !errorMsg && videoPlayingRef.current) {
-      onMinimize();
+      if (onSystemPip && systemPipAvailable()) handOffToSystemPip();
+      else onMinimize();
       return;
     }
     handleClose();
@@ -833,7 +1035,21 @@ export function VideoPlayer({
   const handleLeavePageRef = useRef(handleLeavePage);
   useEffect(() => {
     handleLeavePageRef.current = handleLeavePage;
+    handleCloseRef.current = handleClose;
+    onMinimizeRef.current = onMinimize;
+    onSystemPipRef.current = onSystemPip;
+    onExpandRef.current = onExpand;
+    inSystemPipRef.current = inSystemPip;
   });
+
+  // The page shown again while the system PiP still has the video (the video
+  // opened again from the app): bring it back into the page.
+  useEffect(() => {
+    if (minimized || pipHandoffRef.current !== 'active') return;
+    pipHandoffRef.current = 'none';
+    videoViewRef.current?.stopPictureInPicture?.()?.catch?.(() => undefined);
+  }, [minimized]);
+  useEffect(() => () => clearPipStartTimer(), []);
 
   const togglePlayback = () => {
     try {
@@ -915,19 +1131,23 @@ export function VideoPlayer({
 
   if (!video) return null;
 
-  const floatingHeight = (floatingFrame.width * 9) / 16;
+  const floatingHeight = Math.round((floatingFrame.width * 9) / 16);
 
   // One tree for the page and the floating window: only the containers'
   // styles change, so the video view below keeps its place and is never
   // remounted (a remount would restart and rebuffer the video).
+  // Every size is set explicitly in each layout: the floating window used to
+  // keep the page's player height (its container only switched to flex: 1),
+  // so the 16:9 window showed a black band and the top of a cropped video.
   return (
       <View
         testID="video-player-root"
-        pointerEvents={minimized ? 'box-none' : 'auto'}
+        pointerEvents={inSystemPip ? 'none' : floating ? 'box-none' : 'auto'}
         style={[
           styles.host,
-          !minimized && styles.root,
+          !floating && styles.root,
           isImmersive && styles.rootImmersive,
+          inSystemPip && styles.hiddenForSystemPip,
         ]}
       >
         {/* Add-bookmark modal — paused video stays visible behind it */}
@@ -976,9 +1196,9 @@ export function VideoPlayer({
         </Modal>
 
         <View
-          testID={minimized ? 'video-floating' : undefined}
+          testID={floating ? 'video-floating' : inSystemPip ? 'video-in-system-pip' : undefined}
           style={
-            minimized
+            floating
               ? [
                   styles.floating,
                   {
@@ -1011,9 +1231,14 @@ export function VideoPlayer({
           </View>
         )}
         <View
+          testID="video-frame"
           style={[
             styles.videoContainer,
-            minimized ? styles.videoContainerFloating : isImmersive ? styles.rootImmersive : { height: playerHeight },
+            floating
+              ? { width: floatingFrame.width, height: floatingHeight }
+              : isImmersive
+                ? styles.videoContainerImmersive
+                : { width: '100%', height: playerHeight },
           ]}
         >
           {notReady ? (
@@ -1032,7 +1257,7 @@ export function VideoPlayer({
                 <WebHlsVideo
                   ref={webPlayerRef}
                   uri={hlsUrl}
-                  controls={!minimized}
+                  controls={!floating}
                   resumePosition={resumePosition}
                   subtitleLanguage={subtitleLanguage}
                   onTimeUpdate={(currentTime) =>
@@ -1060,7 +1285,10 @@ export function VideoPlayer({
                 startsPictureInPictureAutomatically={Platform.OS !== 'web'}
                 contentFit="contain"
                 // The floating window is too small for the system controls: it has its own.
-                nativeControls={!minimized}
+                // The system picture in picture keeps them, as when it started.
+                nativeControls={!floating}
+                onPictureInPictureStart={handlePipStart}
+                onPictureInPictureStop={handlePipStop}
               />
             )
           ) : (
@@ -1075,7 +1303,7 @@ export function VideoPlayer({
               <Text style={styles.loadingText}>{t('video.loading') || 'Loading video…'}</Text>
             </View>
           )}
-          {!showCloseBar && !minimized && (
+          {!showCloseBar && !floating && !inSystemPip && (
             <TouchableOpacity
               onPress={handleLeavePage}
               style={styles.closeButton}
@@ -1085,8 +1313,9 @@ export function VideoPlayer({
               <Ionicons name="chevron-down" size={28} color={colors.white} />
             </TouchableOpacity>
           )}
-          {minimized && (
-            <View style={styles.floatingControls}>
+          {floating && (
+            // Only the video, with small controls drawn over it on a light scrim.
+            <View style={styles.floatingControls} testID="video-floating-controls">
               {/* A tap anywhere on the video brings the page back. */}
               <Pressable
                 style={StyleSheet.absoluteFill}
@@ -1094,26 +1323,26 @@ export function VideoPlayer({
                 accessibilityElementsHidden
                 importantForAccessibility="no"
               />
-              <View style={styles.floatingTopRow} pointerEvents="box-none">
-                <TouchableOpacity
-                  onPress={handleClose}
-                  style={styles.floatingButton}
-                  testID="video-floating-close"
-                  accessibilityRole="button"
-                  accessibilityLabel={t('video.floatingClose') || 'Stop and close the video'}
-                >
-                  <Ionicons name="close" size={22} color={colors.white} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={onExpand}
-                  style={styles.floatingButton}
-                  testID="video-floating-expand"
-                  accessibilityRole="button"
-                  accessibilityLabel={t('video.floatingExpand') || 'Open the video page'}
-                >
-                  <Ionicons name="expand" size={20} color={colors.white} />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[styles.floatingButton, styles.floatingButtonLeft]}
+                hitSlop={FLOATING_BUTTON_HIT_SLOP}
+                testID="video-floating-close"
+                accessibilityRole="button"
+                accessibilityLabel={t('video.floatingClose') || 'Stop and close the video'}
+              >
+                <Ionicons name="close" size={18} color={colors.white} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onExpand}
+                style={[styles.floatingButton, styles.floatingButtonRight]}
+                hitSlop={FLOATING_BUTTON_HIT_SLOP}
+                testID="video-floating-expand"
+                accessibilityRole="button"
+                accessibilityLabel={t('video.floatingExpand') || 'Open the video page'}
+              >
+                <Ionicons name="expand" size={16} color={colors.white} />
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={togglePlayback}
                 style={styles.floatingPlayButton}
@@ -1123,7 +1352,7 @@ export function VideoPlayer({
                   videoIsPlaying ? t('miniPlayer.pause') || 'Pause' : t('miniPlayer.play') || 'Play'
                 }
               >
-                <Ionicons name={videoIsPlaying ? 'pause' : 'play'} size={28} color={colors.white} />
+                <Ionicons name={videoIsPlaying ? 'pause' : 'play'} size={24} color={colors.white} />
               </TouchableOpacity>
             </View>
           )}
@@ -1245,8 +1474,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
+  // Hidden while the system picture in picture shows the video; still laid
+  // out, so AVKit can bring the video back to the page.
+  hiddenForSystemPip: {
+    opacity: 0,
+  },
   floating: {
     position: 'absolute',
+    padding: 0,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: colors.black,
@@ -1256,34 +1491,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  videoContainerFloating: {
-    flex: 1,
-  },
   floatingControls: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: colors.scrim,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  floatingTopRow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   floatingButton: {
-    width: 44,
-    height: 44,
+    position: 'absolute',
+    top: FLOATING_BUTTON_INSET,
+    width: FLOATING_BUTTON_SIZE,
+    height: FLOATING_BUTTON_SIZE,
+    borderRadius: FLOATING_BUTTON_SIZE / 2,
+    backgroundColor: colors.scrimStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  floatingButtonLeft: {
+    left: FLOATING_BUTTON_INSET,
+  },
+  floatingButtonRight: {
+    right: FLOATING_BUTTON_INSET,
+  },
   floatingPlayButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.scrimStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1399,6 +1633,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
     justifyContent: 'center',
     alignItems: 'center',
+    // Set in every layout, so none keeps another's sizing (see the render).
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+  },
+  videoContainerImmersive: {
+    flexGrow: 1,
+    flexShrink: 1,
+    width: '100%',
   },
   video: {
     width: '100%',

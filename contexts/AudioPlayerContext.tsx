@@ -222,6 +222,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [idleTrack, setIdleTrack] = useState<IdleTrackInfo | null>(null);
   const [inlinePlayerVisible, setInlinePlayerVisible] = useState(false);
   const [videoPlaying, setVideoPlayingState] = useState(false);
+  // The lock screen belongs to whichever of audio and video started last: a
+  // video that played takes it until audio plays again, even once paused, so
+  // the lock screen's play button resumes the video, not the audio.
+  const [videoOwnsLockScreen, setVideoOwnsLockScreen] = useState(false);
 
   // ─── Audio engine ───
   const [audioSource, setAudioSource] = useState<string | null>(null);
@@ -342,6 +346,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // animation right away, even though the underlying engine is still
   // buffering.
   const isPlaying = !!status?.playing || (phase !== 'ready' && pendingPlay);
+  // Audio playing takes the lock screen back from the video (adjusted while
+  // rendering, so the lock-screen effect below sees it in the same commit).
+  if (isPlaying && videoOwnsLockScreen) setVideoOwnsLockScreen(false);
   // Mirror into the ref during render rather than from an effect: playTrack
   // can be called from an effect that runs earlier in the same commit (the
   // completion effect drives end-of-track auto-advance), and an effect-based
@@ -725,7 +732,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (Platform.OS === 'web') return;
     if (!player || typeof player.setActiveForLockScreen !== 'function') return;
 
-    if (track) {
+    if (track && !videoOwnsLockScreen) {
       const metadata: Record<string, string> = { title: track.title };
       if (track.speakerName) metadata.artist = track.speakerName;
       if (metaRetreatName) metadata.albumTitle = metaRetreatName;
@@ -759,11 +766,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           try { apply(metadata); } catch {}
         }
       }
-    } else {
+    } else if (lockScreenActiveRef.current || !videoOwnsLockScreen) {
+      // Releasing clears the shared Now Playing card: once the video owns it,
+      // only an audio player that still holds it may do that.
       try { player.setActiveForLockScreen(false); } catch {}
       lockScreenActiveRef.current = false;
     }
-  }, [track, player, metaRetreatName, artworkUri]);
+  }, [track, player, metaRetreatName, artworkUri, videoOwnsLockScreen]);
 
   // ─── Track change → load source + saved position ───
   useEffect(() => {
@@ -1280,7 +1289,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const setVideoPlaying = useCallback((playing: boolean) => {
     setVideoPlayingState(playing);
-    if (playing) pauseRef.current();
+    if (playing) {
+      setVideoOwnsLockScreen(true);
+      pauseRef.current();
+    }
   }, []);
 
   const seekTo = useCallback((positionMs: number) => {

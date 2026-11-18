@@ -6,7 +6,7 @@ import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
 import type { Track } from '@/types';
 
 jest.mock('expo-audio');
-const { __getCurrentPlayer, __setDuration } = jest.requireMock('expo-audio');
+const { __getCurrentPlayer, __setDuration, __setPlaying } = jest.requireMock('expo-audio');
 
 jest.mock('@/services/lockScreenArtwork', () => ({
   __esModule: true,
@@ -202,5 +202,63 @@ describe('AudioPlayerContext lock screen artwork', () => {
     const activations = player.setActiveForLockScreen.mock.calls.filter((c: unknown[]) => c[0] === true);
     expect(activations).toHaveLength(1);
     expect(lastMetadata()).toMatchObject({ title: 'Track 2' });
+  });
+});
+
+// Audio and video share the lock screen: the one that started last owns it.
+describe('AudioPlayerContext lock screen hand-off to a video', () => {
+  const originalOS = Platform.OS;
+  beforeEach(() => { (Platform as { OS: string }).OS = 'ios'; });
+  afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
+
+  const releases = () =>
+    __getCurrentPlayer()!.setActiveForLockScreen.mock.calls.filter((c: unknown[]) => c[0] === false);
+  const activations = () =>
+    __getCurrentPlayer()!.setActiveForLockScreen.mock.calls.filter((c: unknown[]) => c[0] === true);
+
+  it('should release the lock screen when a video starts playing', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const utils = await loadTrack();
+    expect(activations()).toHaveLength(1);
+    const before = releases().length;
+
+    act(() => utils.result.current.setVideoPlaying(true));
+
+    expect(releases()).toHaveLength(before + 1);
+  });
+
+  it('should keep the lock screen released when the video pauses', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const utils = await loadTrack();
+    act(() => utils.result.current.setVideoPlaying(true));
+
+    act(() => utils.result.current.setVideoPlaying(false));
+
+    expect(activations()).toHaveLength(1);
+  });
+
+  it('should not clear the video lock screen again once released', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const utils = await loadTrack();
+    act(() => utils.result.current.setVideoPlaying(true));
+    const afterHandOff = releases().length;
+
+    act(() => utils.result.current.clearTrack());
+    await act(async () => { await Promise.resolve(); });
+
+    expect(releases()).toHaveLength(afterHandOff);
+  });
+
+  it('should claim the lock screen back when audio plays again', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const utils = await loadTrack();
+    act(() => utils.result.current.setVideoPlaying(true));
+    act(() => utils.result.current.setVideoPlaying(false));
+
+    act(() => __setPlaying(true));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(activations()).toHaveLength(2);
+    expect(lastMetadata()).toMatchObject({ title: 'Track 1' });
   });
 });

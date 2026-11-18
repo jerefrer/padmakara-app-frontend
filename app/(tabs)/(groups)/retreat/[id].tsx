@@ -29,6 +29,7 @@ import { DocumentShareButton } from '@/components/DocumentShareButton';
 import { DocumentImageViewer } from '@/components/DocumentImageViewer';
 import { DESKTOP_ROW_RULE_COLOR } from '@/components/EventRow';
 import { claimTrackReveal, subscribeTrackReveal } from '@/utils/trackReveal';
+import { eventNowPlayingInfo } from '@/utils/videoNowPlaying';
 
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 320;
@@ -891,6 +892,7 @@ export default function RetreatDetailScreen() {
       eventTitle: getTranslatedName(retreat as any, language) || retreat.name,
       videos: retreat.videos,
       initialPositionSeconds: target.position,
+      ...eventNowPlayingInfo(retreat),
     });
     // Only a new link opens the video again; the title's language is read once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1033,6 +1035,7 @@ export default function RetreatDetailScreen() {
       eventId: String(retreat.id),
       eventTitle: getTranslatedName(retreat as any, language) || retreat.name,
       videos: retreat.videos,
+      ...eventNowPlayingInfo(retreat),
     });
   }, [retreat, language, openVideo]);
 

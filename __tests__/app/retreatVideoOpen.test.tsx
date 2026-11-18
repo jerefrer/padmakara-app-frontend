@@ -109,6 +109,8 @@ const retreat = {
     },
   ],
   videos: [video],
+  teachers: [{ name: 'Jigme Khyentse Rinpoche', abbreviation: 'JKR' }],
+  image: { avatarUrl: 'https://cdn.example/avatar.jpg', artworkUrl: 'https://api.example/events/7/artwork.jpg' },
 };
 
 beforeEach(() => {
@@ -129,6 +131,8 @@ describe('retreat screen opening a video', () => {
       eventId: '7',
       eventTitle: 'Guru Yoga',
       videos: [video],
+      teacherNames: 'Jigme Khyentse Rinpoche',
+      artworkUrl: 'https://api.example/events/7/artwork.jpg',
     });
   });
 });
