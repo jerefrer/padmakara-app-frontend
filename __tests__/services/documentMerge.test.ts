@@ -16,6 +16,19 @@ describe("buildEventDocuments", () => {
     expect(docs[2]).toMatchObject({ kind: "file", id: 5, viewer: "download" });
   });
 
+  it("should carry the transcript's status and excerpts flag for its tags", () => {
+    const docs = buildEventDocuments({
+      id: 9,
+      transcripts: [
+        { id: 1, language: "pt", originalFilename: "t.pdf", status: "provisional", isExcerpt: true },
+        { id: 2, language: "en", originalFilename: "u.pdf" },
+      ],
+      eventFiles: [],
+    } as any);
+    expect(docs[0]).toMatchObject({ transcriptStatus: "provisional", isExcerpt: true });
+    expect(docs[1]).toMatchObject({ transcriptStatus: "final", isExcerpt: false });
+  });
+
   it("returns only files when there is no transcript", () => {
     const docs = buildEventDocuments({
       id: 9, transcripts: [],

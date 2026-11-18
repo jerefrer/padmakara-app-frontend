@@ -422,6 +422,21 @@ describe("retreatService.getRetreatDetails (event detail)", () => {
     expect(result.data.transcripts[0].pageCount).toBe(12);
   });
 
+  it("should map each transcript's status and excerpts flag, final and full when absent", async () => {
+    (entityCacheService.getDetail as jest.Mock).mockResolvedValue({
+      ...rawBackendEvent,
+      transcripts: [
+        { id: 7, language: "pt", status: "provisional", isExcerpt: true },
+        { id: 8, language: "en" },
+      ],
+    });
+
+    const { data } = await retreatService.getRetreatDetails("42");
+
+    expect(data.transcripts[0]).toMatchObject({ status: "provisional", isExcerpt: true });
+    expect(data.transcripts[1]).toMatchObject({ status: "final", isExcerpt: false });
+  });
+
   it("exposes the event audience slug so the app knows whether transcripts are watermarked", async () => {
     (entityCacheService.getDetail as jest.Mock).mockResolvedValue({
       ...rawBackendEvent,

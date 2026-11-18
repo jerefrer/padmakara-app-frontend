@@ -8,6 +8,7 @@ import apiService from './apiService';
 import entityCacheService from './entityCacheService';
 import { hasExpiredPresignedUrl } from '@/utils/presignedUrlExpiry';
 import { safeFilename } from '@/utils/safeFilename';
+import { normalizeTranscriptStatus } from '@/utils/transcriptMeta';
 
 interface UserRetreatData {
   retreat_groups: RetreatGroup[];
@@ -313,6 +314,8 @@ export function buildEventDocuments(event: any): EventDocument[] {
       extension: 'pdf',
       viewer: 'pdf',
       featured: true,
+      transcriptStatus: normalizeTranscriptStatus(t.status),
+      isExcerpt: !!t.isExcerpt,
     });
   }
   const files = [...(event.eventFiles ?? [])].sort(
@@ -854,6 +857,8 @@ class RetreatService {
       id: tr.id,
       language: tr.language,
       pageCount: tr.pageCount || tr.page_count,
+      status: normalizeTranscriptStatus(tr.status),
+      isExcerpt: !!(tr.isExcerpt ?? tr.is_excerpt),
       updatedAt: tr.updatedAt || tr.updated_at || '',
       originalFilename: tr.originalFilename || tr.original_filename || '',
     })) || [];

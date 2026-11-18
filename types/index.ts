@@ -1,3 +1,4 @@
+import type { TranscriptStatus } from '@/utils/transcriptMeta';
 import type { HeroFrameOverrides } from '@/utils/heroFrames';
 export interface User {
   id: string;
@@ -179,6 +180,10 @@ export interface EventDocument {
   featured: boolean;
   /** Set for files the server watermarks per reader (PDFs only). */
   sensitive?: boolean;
+  /** Transcripts only: revision status, shown as a tag unless final. */
+  transcriptStatus?: TranscriptStatus;
+  /** Transcripts only: the file holds excerpts, not the full teaching. */
+  isExcerpt?: boolean;
 }
 
 export interface Session {

@@ -425,7 +425,13 @@
     "close": "Close",
     "image": "Image",
     "document": "Text",
-    "watermarkNotice": "Your personal copy is being generated and watermarked with your name and email."
+    "watermarkNotice": "Your personal copy is being generated and watermarked with your name and email.",
+    "transcriptStatus": {
+      "provisional": "Provisional",
+      "unrevised": "Unrevised",
+      "draft": "Draft"
+    },
+    "transcriptExcerpts": "Excerpts"
   },
   "player": {
     "nowPlaying": "Now Playing",

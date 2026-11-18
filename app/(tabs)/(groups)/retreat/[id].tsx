@@ -17,6 +17,8 @@ import { formatLongDate, formatDateRange } from '@/utils/dateFormat';
 import { formatSessionHeader } from '@/utils/sessionHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftBadge } from '@/components/DraftBadge';
+import { TranscriptTags } from '@/components/TranscriptTags';
+import type { TranscriptStatus } from '@/utils/transcriptMeta';
 import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
@@ -147,6 +149,8 @@ interface TranscriptInfo {
   id: number;
   language: string;
   pageCount?: number;
+  status?: TranscriptStatus;
+  isExcerpt?: boolean;
   updatedAt?: string;
   originalFilename?: string;
 }
@@ -1969,14 +1973,19 @@ export default function RetreatDetailScreen() {
                   />
                   <View style={styles.documentListInfo}>
                     <Text style={styles.documentListTitle} numberOfLines={1}>{doc.title}</Text>
-                    <Text style={styles.documentListSubtitle}>
-                      {isTranscript
-                        ? (t('documents.transcript') || 'Transcript')
-                          + (doc.language ? ` · ${getLanguageShortLabel(doc.language, t)}` : '')
-                        : doc.viewer === 'image'
-                          ? (t('documents.image') || 'Image')
-                          : (t('documents.document') || 'Text')}
-                    </Text>
+                    <View style={styles.documentListSubtitleRow}>
+                      <Text style={styles.documentListSubtitle}>
+                        {isTranscript
+                          ? (t('documents.transcript') || 'Transcript')
+                            + (doc.language ? ` · ${getLanguageShortLabel(doc.language, t)}` : '')
+                          : doc.viewer === 'image'
+                            ? (t('documents.image') || 'Image')
+                            : (t('documents.document') || 'Text')}
+                      </Text>
+                      {isTranscript && (
+                        <TranscriptTags status={doc.transcriptStatus} isExcerpt={doc.isExcerpt} />
+                      )}
+                    </View>
                   </View>
                   {documentBusyKey === doc.key ? (
                     doc.viewer === 'download' ? (
@@ -3178,6 +3187,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.gray[700],
     marginBottom: 2,
+  },
+  documentListSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   documentListSubtitle: {
     fontSize: 12,
