@@ -15,6 +15,7 @@ import {
 } from 'expo-audio';
 import { AudioPlayerProvider, useAudioPlayerContext } from './AudioPlayerContext';
 import type { Track } from '@/types';
+import downloadService from '@/services/downloadService';
 
 // Use the manual mock at __mocks__/expo-audio.ts. This is a no-op when jest's
 // automock for manual mocks is enabled, but makes the dependency explicit and
@@ -42,6 +43,7 @@ jest.mock('@/services/retreatService', () => ({
   __esModule: true,
   default: {
     getTrackStreamUrl: jest.fn(async () => ({ success: true, url: 'mock://stream' })),
+    isTrackAudioDenied: jest.fn(async () => false),
   },
 }));
 
@@ -351,12 +353,14 @@ describe('AudioPlayerContext — resume + position (matrix D)', () => {
     expect(JSON.parse(saved!).position).toBeGreaterThanOrEqual(7);
   });
 
-  it('D12 — playTrack with meta writes last_played_track', async () => {
+  it('D12 — a track that plays writes last_played_track with its meta', async () => {
     const t = makeTrack({ id: 'tMeta' });
     const meta = { retreatId: 'r2', retreatName: 'Spring', groupName: 'Lisbon' };
     const { result } = renderPlayer();
 
-    act(() => { result.current.playTrack(t, [t], 0, meta); });
+    act(() => { __setDuration(600); result.current.playTrack(t, [t], 0, meta); });
+    await act(async () => { await Promise.resolve(); });
+    act(() => { __setPlaying(true); });
     await act(async () => { await Promise.resolve(); });
 
     const raw = await AsyncStorage.getItem('last_played_track');
@@ -364,6 +368,16 @@ describe('AudioPlayerContext — resume + position (matrix D)', () => {
     const parsed = JSON.parse(raw!);
     expect(parsed.track.id).toBe('tMeta');
     expect(parsed.meta).toEqual(meta);
+  });
+
+  it('D12b — should not write last_played_track for a track only loaded, paused', async () => {
+    const t = makeTrack({ id: 'tOnlyOpened' });
+    const { result } = renderPlayer();
+
+    act(() => { result.current.playTrack(t, [t], 0, { retreatId: 'r2', retreatName: 'Spring', groupName: 'Lisbon' }); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(await AsyncStorage.getItem('last_played_track')).toBeNull();
   });
 
   it('D13 — duration reflects status.duration once track loads', async () => {
@@ -1663,5 +1677,120 @@ describe('AudioPlayerContext — a closed player stays closed after a restart', 
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 
     expect(result.current.idleTrack?.track.id).toBe('tPlayedAfter');
+  });
+});
+
+
+describe('AudioPlayerContext — the last track waits after a restart', () => {
+  const lastMeta = { retreatId: 'rLast', retreatName: 'Autumn', groupName: 'Lisbon' };
+  const saveLast = async (id: string, position: number) => {
+    await AsyncStorage.setItem('last_played_track', JSON.stringify({ track: makeTrack({ id, duration: 600 }), meta: lastMeta }));
+    await AsyncStorage.setItem(
+      `progress_${id}`,
+      JSON.stringify({ trackId: id, position, completed: false, lastPlayed: '2026-11-17T10:00:00Z', bookmarks: [] }),
+    );
+  };
+  const flush = async () => {
+    await act(async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); });
+  };
+
+  it('should restore the last track paused, without starting the lock-screen controls', async () => {
+    await saveLast('tLast', 90);
+
+    const { result } = renderPlayer();
+    await flush();
+
+    expect(result.current.idleTrack?.track.id).toBe('tLast');
+    expect(result.current.idleTrack?.position).toBe(90);
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.currentTrack).toBeNull();
+    expect(__getCurrentPlayer()?.setActiveForLockScreen).not.toHaveBeenCalledWith(true, expect.anything(), expect.anything());
+  });
+
+  it('should resume from the saved position when play is tapped', async () => {
+    await saveLast('tLast', 90);
+    const { result } = renderPlayer();
+    await flush();
+
+    act(() => { __setDuration(600); result.current.resumeLastPlayed(); });
+    await flush();
+
+    expect(result.current.currentTrack?.id).toBe('tLast');
+    expect(__getLastSeekTo()).toBe(90);
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('should keep the last track when an event page only loads one of its tracks', async () => {
+    await saveLast('tLast', 90);
+    const { result } = renderPlayer();
+    await flush();
+
+    const opened = makeTrack({ id: 'tOpenedPage', duration: 600 });
+    act(() => { __setDuration(600); result.current.playTrack(opened, [opened], 0); });
+    await flush();
+
+    expect(result.current.idleTrack?.track.id).toBe('tLast');
+  });
+
+  it('should drop the last track once something else plays', async () => {
+    await saveLast('tLast', 90);
+    const { result } = renderPlayer();
+    await flush();
+
+    const other = makeTrack({ id: 'tOther', duration: 600 });
+    act(() => { __setDuration(600); result.current.playTrack(other, [other], 0); });
+    await flush();
+    act(() => { __setPlaying(true); });
+    await flush();
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should play the last track when an event page had already loaded that same track', async () => {
+    await saveLast('tLast', 90);
+    const { result } = renderPlayer();
+    await flush();
+
+    const same = makeTrack({ id: 'tLast', duration: 600 });
+    act(() => { __setDuration(600); result.current.playTrack(same, [same], 0, lastMeta); });
+    await flush();
+    act(() => { result.current.resumeLastPlayed(); });
+    await flush();
+
+    expect(result.current.currentTrack?.id).toBe('tLast');
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('should remember the played duration with the last track when the listing gave none', async () => {
+    const t = makeTrack({ id: 'tNoDuration', duration: 0 });
+    const { result } = renderPlayer();
+    act(() => { __setDuration(1800); result.current.playTrack(t, [t], 0); });
+    await flush();
+    act(() => { __setPlaying(true); });
+    await flush();
+
+    const saved = JSON.parse((await AsyncStorage.getItem('last_played_track'))!);
+    expect(saved.track.duration).toBe(1800);
+  });
+
+  it('should hide the last track quietly when its audio can no longer be opened', async () => {
+    (retreatService.isTrackAudioDenied as jest.Mock).mockResolvedValueOnce(true);
+    await saveLast('tGone', 90);
+
+    const { result } = renderPlayer();
+    await flush();
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should keep a downloaded last track without asking the server', async () => {
+    (downloadService.getDownloadedTrackPath as jest.Mock).mockResolvedValueOnce('file:///tLast.mp3');
+    await saveLast('tLast', 90);
+
+    const { result } = renderPlayer();
+    await flush();
+
+    expect(retreatService.isTrackAudioDenied).not.toHaveBeenCalled();
+    expect(result.current.idleTrack?.track.id).toBe('tLast');
   });
 });

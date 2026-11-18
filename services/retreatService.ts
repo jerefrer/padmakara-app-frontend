@@ -1109,6 +1109,22 @@ class RetreatService {
   }
 
   /**
+   * Whether the server refuses this track's audio to the caller: the track is
+   * gone or hidden (404), access was lost (403), or it needs a sign-in the
+   * caller no longer has. A network failure is not a refusal: offline, the
+   * answer is false.
+   */
+  async isTrackAudioDenied(trackId: string): Promise<boolean> {
+    try {
+      const response = await apiService.get<{ url: string }>(API_ENDPOINTS.PRESIGNED_URL(trackId));
+      if (response.success) return false;
+      return response.authRequired === true || response.status === 403 || response.status === 404;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Get token-signed Bunny Stream playback URLs for a single event video.
    * Returns the HLS playlist URL (for native expo-video), the iframe embed URL
    * (web fallback), the thumbnail/poster URL, the duration, and the unix-epoch
