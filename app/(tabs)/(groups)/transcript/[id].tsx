@@ -20,6 +20,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { WatermarkNotice } from '@/components/WatermarkNotice';
 import { useAuth } from '@/contexts/AuthContext';
 import { willWatermarkTranscript } from '@/utils/watermark';
+import { pickTranscript } from '@/utils/transcriptMeta';
 
 export default function TranscriptViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(); // event ID
@@ -63,8 +64,15 @@ export default function TranscriptViewerScreen() {
       const event = response.data;
       setEventName(event.name_translations?.[language] || event.name || '');
 
-      const transcripts = event.transcripts || [];
-      const transcript = transcripts.find((tr: any) => tr.language === language) || transcripts[0];
+      const transcripts: {
+        id: number;
+        language?: string;
+        status?: string;
+        updatedAt?: string;
+        originalFilename?: string;
+      }[] = event.transcripts || [];
+      // In the UI language, the final text before a provisional or draft one
+      const transcript = pickTranscript(transcripts, language);
 
       if (!transcript) {
         setError(t('transcript.noTranscript') || 'No transcript available for this event');
