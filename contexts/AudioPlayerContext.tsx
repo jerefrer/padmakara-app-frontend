@@ -516,6 +516,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     wasAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated, player]);
 
+  // ─── A restored track the person can no longer open is hidden ───
+  // Checked whenever the waiting track or the sign-in changes. A downloaded
+  // track still plays offline, and an unreachable server is no refusal, so
+  // both keep the track.
+  const idleTrackId = idleTrack?.track.id ?? null;
+  useEffect(() => {
+    if (!idleTrackId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (await downloadService.getDownloadedTrackPath(idleTrackId)) return;
+        const denied = await retreatService.isTrackAudioDenied(idleTrackId);
+        if (denied && !cancelled) {
+          setIdleTrack((current) => (current?.track.id === idleTrackId ? null : current));
+        }
+      } catch {
+        // Best-effort: on any failure the track stays.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [idleTrackId, isAuthenticated]);
+
   // ─── Cross-device: bulk sync at session boundaries ────────────────
   // The bulk sync (pull every server row, merge by lastPlayed, push any
   // local-newer row) replaces the per-track pull that used to fire on

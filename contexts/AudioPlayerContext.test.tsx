@@ -15,6 +15,7 @@ import {
 } from 'expo-audio';
 import { AudioPlayerProvider, useAudioPlayerContext } from './AudioPlayerContext';
 import type { Track } from '@/types';
+import downloadService from '@/services/downloadService';
 
 // Use the manual mock at __mocks__/expo-audio.ts. This is a no-op when jest's
 // automock for manual mocks is enabled, but makes the dependency explicit and
@@ -42,6 +43,7 @@ jest.mock('@/services/retreatService', () => ({
   __esModule: true,
   default: {
     getTrackStreamUrl: jest.fn(async () => ({ success: true, url: 'mock://stream' })),
+    isTrackAudioDenied: jest.fn(async () => false),
   },
 }));
 
@@ -1663,5 +1665,40 @@ describe('AudioPlayerContext — a closed player stays closed after a restart', 
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 
     expect(result.current.idleTrack?.track.id).toBe('tPlayedAfter');
+  });
+});
+
+describe('AudioPlayerContext — the last track waits after a restart', () => {
+  const lastMeta = { retreatId: 'rLast', retreatName: 'Autumn', groupName: 'Lisbon' };
+  const saveLast = async (id: string, position: number) => {
+    await AsyncStorage.setItem('last_played_track', JSON.stringify({ track: makeTrack({ id, duration: 600 }), meta: lastMeta }));
+    await AsyncStorage.setItem(
+      `progress_${id}`,
+      JSON.stringify({ trackId: id, position, completed: false, lastPlayed: '2026-11-17T10:00:00Z', bookmarks: [] }),
+    );
+  };
+  const flush = async () => {
+    await act(async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); });
+  };
+
+  it('should hide the last track quietly when its audio can no longer be opened', async () => {
+    (retreatService.isTrackAudioDenied as jest.Mock).mockResolvedValueOnce(true);
+    await saveLast('tGone', 90);
+
+    const { result } = renderPlayer();
+    await flush();
+
+    expect(result.current.idleTrack).toBeNull();
+  });
+
+  it('should keep a downloaded last track without asking the server', async () => {
+    (downloadService.getDownloadedTrackPath as jest.Mock).mockResolvedValueOnce('file:///tLast.mp3');
+    await saveLast('tLast', 90);
+
+    const { result } = renderPlayer();
+    await flush();
+
+    expect(retreatService.isTrackAudioDenied).not.toHaveBeenCalled();
+    expect(result.current.idleTrack?.track.id).toBe('tLast');
   });
 });
