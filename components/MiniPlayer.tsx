@@ -4,7 +4,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PlayingIndicator } from '@/components/PlayingIndicator';
-import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
+import { useAudioPlayerContext, type IdleTrackInfo } from '@/contexts/AudioPlayerContext';
+import type { Track } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { BAR_TOP_SHADOW } from '@/constants/barShadow';
@@ -37,10 +38,9 @@ function makeSubtitle(groupName: string | null, retreatName: string | null): str
  * the highest bar of the stack carries one.
  */
 export function usePlayerBarAboveTabBar(): boolean {
-  const pathname = usePathname();
-  const { currentTrack, isPlaying, listeningStarted, retreatId, inlinePlayerVisible } = useAudioPlayerContext();
-  return inlinePlayerVisible
-    || isMiniPlayerShown(pathname, !!currentTrack && listeningStarted, isPlaying, retreatId, inlinePlayerVisible);
+  const { inlinePlayerVisible } = useAudioPlayerContext();
+  const miniPlayerContent = useMiniPlayerContent();
+  return inlinePlayerVisible || miniPlayerContent !== null;
 }
 
 /** Gap kept between the end of a list and the bars floating over it. */
@@ -56,27 +56,24 @@ export function useBottomBarsSpace(): number {
   return tabBarHeight + (playerShown ? BAR_HEIGHT : 0) + BOTTOM_BARS_GAP;
 }
 
-function isMiniPlayerShown(
-  pathname: string,
-  // A track the person has played since the player was last closed: one an
-  // event screen only loaded, paused, does not bring the bar up.
-  hasListenedTrack: boolean,
-  isPlaying: boolean,
-  retreatId: string | null,
-  inlinePlayerVisible: boolean,
-): boolean {
-  if (!hasListenedTrack) return false;
-  // On the owning event screen the inline player already covers playback. When
-  // that screen shows another tab (Videos, Documents) there is no player, so
-  // the mini-player steps in, but only while audio is playing: a paused
-  // track would just be a bar over the list with nothing to resume from.
-  return !(isOnOwningEvent(pathname, retreatId) && (inlinePlayerVisible || !isPlaying));
+/** What the mini-player shows: the track being listened to, or the last one waiting to resume. */
+interface MiniPlayerContent {
+  track: Track;
+  retreatId: string | null;
+  subtitle: string;
+  position: number;
+  duration: number;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
 }
 
-export function MiniPlayer() {
-  const { t, language } = useLanguage();
+/**
+ * The mini-player's content, or null when it stays hidden. The track being
+ * listened to comes first; otherwise the last track played, restored after the
+ * app restarts, waits paused until the person resumes or closes it.
+ */
+function useMiniPlayerContent(): MiniPlayerContent | null {
   const pathname = usePathname();
-  const tabBarHeight = useTabBarHeight();
   const {
     currentTrack,
     isPlaying,
@@ -87,14 +84,74 @@ export function MiniPlayer() {
     retreatName,
     groupName,
     togglePlayPause,
-    clearTrack,
+    idleTrack,
+    resumeLastPlayed,
     inlinePlayerVisible,
   } = useAudioPlayerContext();
 
-  if (!currentTrack) return null;
-  if (!isMiniPlayerShown(pathname, listeningStarted, isPlaying, retreatId, inlinePlayerVisible)) return null;
+  if (currentTrack && listeningStarted) {
+    if (!isListenedTrackShown(pathname, isPlaying, retreatId, inlinePlayerVisible)) return null;
+    return {
+      track: currentTrack,
+      retreatId,
+      subtitle: makeSubtitle(groupName, retreatName),
+      position,
+      duration,
+      isPlaying,
+      onTogglePlay: togglePlayPause,
+    };
+  }
+  if (idleTrack) return idleContent(pathname, idleTrack, inlinePlayerVisible, resumeLastPlayed);
+  return null;
+}
 
-  const subtitle = makeSubtitle(groupName, retreatName);
+function idleContent(
+  pathname: string,
+  idle: IdleTrackInfo,
+  inlinePlayerVisible: boolean,
+  resume: () => void,
+): MiniPlayerContent | null {
+  const retreatId = idle.meta?.retreatId ?? null;
+  // An event screen showing its own player has loaded a track of its own, and
+  // on its own event screen a paused track stays out of the way, as above.
+  if (inlinePlayerVisible || isOnOwningEvent(pathname, retreatId)) return null;
+  return {
+    track: idle.track,
+    retreatId,
+    subtitle: makeSubtitle(idle.meta?.groupName ?? null, idle.meta?.retreatName ?? null),
+    position: idle.position,
+    duration: idle.duration,
+    isPlaying: false,
+    onTogglePlay: resume,
+  };
+}
+
+/**
+ * Whether a track the person played since the player was last closed shows.
+ * One an event screen only loaded, paused, never brings the bar up.
+ */
+function isListenedTrackShown(
+  pathname: string,
+  isPlaying: boolean,
+  retreatId: string | null,
+  inlinePlayerVisible: boolean,
+): boolean {
+  // On the owning event screen the inline player already covers playback. When
+  // that screen shows another tab (Videos, Documents) there is no player, so
+  // the mini-player steps in, but only while audio is playing: a paused
+  // track would just be a bar over the list with nothing to resume from.
+  return !(isOnOwningEvent(pathname, retreatId) && (inlinePlayerVisible || !isPlaying));
+}
+
+export function MiniPlayer() {
+  const { t, language } = useLanguage();
+  const tabBarHeight = useTabBarHeight();
+  const { clearTrack } = useAudioPlayerContext();
+  const content = useMiniPlayerContent();
+
+  if (!content) return null;
+
+  const { track, retreatId, subtitle, position, duration, isPlaying, onTogglePlay } = content;
   // Share of the track played, for the red line along the top edge.
   const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : null;
   const playLabel = isPlaying ? t('miniPlayer.pause') : t('miniPlayer.play');
@@ -102,7 +159,7 @@ export function MiniPlayer() {
   // Opens the event scrolled to this track: the page itself opens at its top.
   const handleOpenSession = () => {
     if (!retreatId) return;
-    requestTrackReveal(currentTrack.id);
+    requestTrackReveal(track.id);
     router.push({
       pathname: '/(tabs)/(groups)/retreat/[id]',
       params: { id: retreatId },
@@ -136,7 +193,7 @@ export function MiniPlayer() {
 
         <View style={styles.textBlock}>
           <Text style={styles.title} numberOfLines={1}>
-            {getTrackTitle(currentTrack, language)}
+            {getTrackTitle(track, language)}
           </Text>
           {subtitle ? (
             <Text style={styles.subtitle} numberOfLines={1}>
@@ -148,7 +205,7 @@ export function MiniPlayer() {
 
       <Pressable
         style={styles.controlButton}
-        onPress={togglePlayPause}
+        onPress={onTogglePlay}
         accessibilityRole="button"
         accessibilityLabel={playLabel}
         hitSlop={8}
