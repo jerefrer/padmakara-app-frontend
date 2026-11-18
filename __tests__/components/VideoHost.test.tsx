@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { VideoHost } from '@/components/VideoHost';
@@ -13,6 +13,7 @@ const mockPlayer: Record<string, any> = {
   pause: jest.fn(),
   currentTime: 0,
   duration: 0,
+  showNowPlayingNotification: true,
 };
 // The props the video view last received.
 const mockVideoView: { props: Record<string, any> } = { props: {} };
@@ -61,6 +62,9 @@ jest.mock('@/contexts/AudioPlayerContext', () => ({
 }));
 jest.mock('@/components/MiniPlayer', () => ({ useBottomBarsSpace: () => 125 }));
 jest.mock('@/components/WebHlsVideo', () => ({ WebHlsVideo: () => null }));
+jest.mock('@/services/lockScreenArtwork', () => ({
+  getLockScreenArtworkUri: jest.fn(() => Promise.resolve('file:///bundle/lockscreen-artwork.png')),
+}));
 jest.mock('@/services/retreatService', () => ({
   __esModule: true,
   default: {
@@ -93,22 +97,43 @@ jest.mock('@/services/videoPreferencesService', () => ({
   },
 }));
 
-const video = { id: 24, title: 'video 1', durationSeconds: 6925 } as any;
+const video = {
+  id: 24,
+  titleEn: 'video 1',
+  durationSeconds: 6925,
+  posterUrl: 'https://vz.example/24/thumbnail.jpg',
+} as any;
+const EVENT_ARTWORK = 'https://api.example/events/7/artwork.jpg';
 
 /** Stands in for the event screen: opens the video when it mounts. */
-function EventScreen({ openKey = 0 }: { openKey?: number }) {
+function EventScreen({ openKey = 0, artworkUrl }: { openKey?: number; artworkUrl: string | null }) {
   const { openVideo } = useVideoSession();
   useEffect(() => {
     // A fresh copy, as a reloaded event payload would give.
-    openVideo({ video: { ...video }, eventId: '7', eventTitle: 'Guru Yoga', videos: [video] });
-  }, [openVideo, openKey]);
+    openVideo({
+      video: { ...video },
+      eventId: '7',
+      eventTitle: 'Guru Yoga',
+      videos: [video],
+      teacherNames: 'Jigme Khyentse Rinpoche',
+      artworkUrl,
+    });
+  }, [openVideo, openKey, artworkUrl]);
   return null;
 }
 
-function App({ onEventScreen, openKey }: { onEventScreen: boolean; openKey?: number }) {
+function App({
+  onEventScreen,
+  openKey,
+  artworkUrl = EVENT_ARTWORK,
+}: {
+  onEventScreen: boolean;
+  openKey?: number;
+  artworkUrl?: string | null;
+}) {
   return (
     <VideoSessionProvider>
-      {onEventScreen ? <EventScreen openKey={openKey} /> : null}
+      {onEventScreen ? <EventScreen openKey={openKey} artworkUrl={artworkUrl} /> : null}
       <VideoHost />
     </VideoSessionProvider>
   );
@@ -128,6 +153,7 @@ describe('VideoHost — the video keeps playing while the viewer moves around th
     mockAudioPlaying = false;
     mockPlayer.duration = 6925;
     mockPlayer.currentTime = 0;
+    mockPlayer.showNowPlayingNotification = true;
     mockVideoView.props = {};
   });
 
@@ -316,3 +342,67 @@ describe('VideoHost floating window layout', () => {
   });
 });
 
+describe('VideoHost Now Playing', () => {
+  const originalOS = Platform.OS;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAudioPlaying = false;
+    mockPlayer.showNowPlayingNotification = true;
+    (Platform as { OS: string }).OS = 'ios';
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    (Platform as { OS: string }).OS = originalOS;
+  });
+
+  const openAndPlay = async (app: React.ReactElement = <App onEventScreen />) => {
+    const view = render(app);
+    await waitFor(() => expect(mockPlayer.replace).toHaveBeenCalledTimes(1));
+    await setPlaying(true);
+    return view;
+  };
+
+  it('should load the video with its title, teachers and event artwork for the lock screen', async () => {
+    await openAndPlay();
+
+    expect(mockPlayer.replace).toHaveBeenCalledWith({
+      uri: 'https://api.example/hls/7.m3u8',
+      metadata: {
+        title: 'Guru Yoga · video 1',
+        artist: 'Jigme Khyentse Rinpoche',
+        artwork: EVENT_ARTWORK,
+      },
+    });
+  });
+
+  it('should fall back to the video poster when the event has no artwork', async () => {
+    await openAndPlay(<App onEventScreen artworkUrl={null} />);
+
+    expect(mockPlayer.replace.mock.calls[0][0].metadata.artwork).toBe('https://vz.example/24/thumbnail.jpg');
+  });
+
+  it('should release the lock screen when audio starts', async () => {
+    const view = await openAndPlay();
+
+    mockAudioPlaying = true;
+    view.rerender(<App onEventScreen />);
+
+    expect(mockPlayer.showNowPlayingNotification).toBe(false);
+  });
+
+  it('should claim the lock screen back when the video plays after audio', async () => {
+    jest.useFakeTimers();
+    const view = await openAndPlay();
+    act(() => jest.advanceTimersByTime(600));
+    mockAudioPlaying = true;
+    view.rerender(<App onEventScreen />);
+    expect(mockPlayer.showNowPlayingNotification).toBe(false);
+
+    mockAudioPlaying = false;
+    view.rerender(<App onEventScreen />);
+    await setPlaying(true);
+    act(() => jest.advanceTimersByTime(600));
+
+    expect(mockPlayer.showNowPlayingNotification).toBe(true);
+  });
+});

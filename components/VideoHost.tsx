@@ -45,7 +45,15 @@ function useFloatingFrame(): FloatingFrame {
  * the viewer closes the video.
  */
 export function VideoHost() {
-  const { session, minimized, selectVideo, minimize, expand, close, cellularAcceptedRef } = useVideoSession();
+  const {
+    session,
+    minimized,
+    selectVideo,
+    minimize,
+    expand,
+    close,
+    cellularAcceptedRef,
+  } = useVideoSession();
   const floatingFrame = useFloatingFrame();
   if (!session) return null;
   // No onComplete: the video stays open when it counts as watched (97%).
@@ -65,6 +73,8 @@ export function VideoHost() {
       onExpand={expand}
       onClose={close}
       floatingFrame={floatingFrame}
+      teacherNames={session.teacherNames}
+      artworkUrl={session.artworkUrl}
     />
   );
 }

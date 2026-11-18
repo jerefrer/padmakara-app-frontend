@@ -7,6 +7,8 @@ import videoBookmarkService, { type VideoBookmark } from '@/services/videoBookma
 import videoDownloadService, { type VideoDownloadStatus } from '@/services/videoDownloadService';
 import type { Bookmark, EventVideo } from '@/types';
 import { getVideoTitle } from '@/utils/videoTitle';
+import { videoNowPlayingMetadata } from '@/utils/videoNowPlaying';
+import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
 import { pickResumePosition } from '@/utils/videoDeepLink';
 import { migrateLocalVideoBookmarks } from '@/utils/videoBookmarkMigration';
 import { pickPreferredSubtitle, resolveSubtitleLanguage } from '@/utils/subtitlePreference';
@@ -42,6 +44,8 @@ const PHONE_MAX_SHORT_SIDE = 600;
 const PAGE_MAX_WIDTH = 960;
 const MAX_PLAYER_HEIGHT_RATIO = 0.7;
 const FULLSCREEN_AFTER_ROTATION_MS = 300;
+/** Lets the audio player release the lock screen before the video claims it again. */
+const NOW_PLAYING_CLAIM_DELAY_MS = 500;
 
 const colors = {
   burgundy: { 500: '#9b1b1b' },
@@ -98,6 +102,10 @@ interface VideoPlayerProps {
   onExpand?: () => void;
   /** Where the floating window sits, from the bottom-right corner of the screen. */
   floatingFrame?: FloatingFrame;
+  /** The event's teachers, shown as the artist on the lock screen. */
+  teacherNames?: string;
+  /** The event's square artwork for the lock screen. */
+  artworkUrl?: string | null;
 }
 
 export interface FloatingFrame {
@@ -194,6 +202,8 @@ export function VideoPlayer({
   onMinimize,
   onExpand,
   floatingFrame = DEFAULT_FLOATING_FRAME,
+  teacherNames,
+  artworkUrl,
 }: VideoPlayerProps) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useAuth();
@@ -298,6 +308,38 @@ export function VideoPlayer({
     return eventTitle ? `${eventTitle} · ${title}` : title;
   }, [video, eventTitle, totalVideos, language, t]);
 
+  // The lock screen and Control Center name the video like its page does,
+  // with the teachers as artist and the event's artwork (else the poster,
+  // else the bundled artwork the audio player falls back to).
+  const [fallbackArtwork, setFallbackArtwork] = useState<string | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    getLockScreenArtworkUri()
+      .then((uri) => {
+        if (!cancelled) setFallbackArtwork(uri);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const nowPlayingMetadata = useMemo(
+    () =>
+      videoNowPlayingMetadata({
+        title: headerTitle,
+        artist: teacherNames,
+        artworkCandidates: [artworkUrl, video?.posterUrl, fallbackArtwork],
+      }),
+    [headerTitle, teacherNames, artworkUrl, video?.posterUrl, fallbackArtwork],
+  );
+  // Read when the source loads: a title change alone must not reload the video.
+  // (This effect runs before the one that loads the source.)
+  const nowPlayingMetadataRef = useRef(nowPlayingMetadata);
+  useEffect(() => {
+    nowPlayingMetadataRef.current = nowPlayingMetadata;
+  }, [nowPlayingMetadata]);
+
   // Build the player. We pass `null` until we have a URL — expo-video accepts
   // a null source and waits for replace(). Increase forward buffer so brief
   // network outages (tunnels, weak coverage) don't stall playback.
@@ -318,13 +360,59 @@ export function VideoPlayer({
     };
   });
 
+  // Audio and video share the lock screen: the one that last started owns it.
+  // The audio player releases it when a video plays and claims it back when
+  // audio plays; the video does the same here. Re-registering is what makes
+  // expo-video write its title and controls again after the audio held them.
+  // Until the video has claimed it, the audio may hold it.
+  const nowPlayingReleasedRef = useRef(true);
+  const nowPlayingClaimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const claimNowPlaying = () => {
+    if (isWeb || !nowPlayingReleasedRef.current) return;
+    nowPlayingReleasedRef.current = false;
+    if (nowPlayingClaimTimerRef.current) clearTimeout(nowPlayingClaimTimerRef.current);
+    // After the audio player's release, which runs once React has rendered
+    // the video as playing: its release clears what was there.
+    nowPlayingClaimTimerRef.current = setTimeout(() => {
+      nowPlayingClaimTimerRef.current = null;
+      try {
+        player.showNowPlayingNotification = false;
+        player.showNowPlayingNotification = true;
+      } catch {
+        // The player may already be released.
+      }
+    }, NOW_PLAYING_CLAIM_DELAY_MS);
+  };
+  useEffect(() => {
+    if (isWeb || !audioPlaying) return;
+    if (nowPlayingClaimTimerRef.current) {
+      clearTimeout(nowPlayingClaimTimerRef.current);
+      nowPlayingClaimTimerRef.current = null;
+    }
+    nowPlayingReleasedRef.current = true;
+    try {
+      player.showNowPlayingNotification = false;
+    } catch {
+      // The player may already be released.
+    }
+  }, [audioPlaying, isWeb, player]);
+  useEffect(
+    () => () => {
+      if (nowPlayingClaimTimerRef.current) clearTimeout(nowPlayingClaimTimerRef.current);
+    },
+    [],
+  );
+
   // Video start/stop on native. (Web reports through WebHlsVideo.)
   // A playing video is loaded: this also hides the loader when reopening a
   // video the player already had, whose status stays readyToPlay and so never
   // sends the statusChange that would.
   useEventListener(player, 'playingChange', ({ isPlaying }) => {
     reportVideoPlaying(isPlaying);
-    if (isPlaying) setPlayerBuffering(false);
+    if (isPlaying) {
+      setPlayerBuffering(false);
+      claimNowPlaying();
+    }
     // A pause, including closing the floating (PiP) window, saves at once.
     else flushProgressRef.current();
   });
@@ -513,7 +601,7 @@ export function VideoPlayer({
     if (!hlsUrl || !player) return;
     try {
       setPlayerBuffering(true);
-      player.replace({ uri: hlsUrl });
+      player.replace({ uri: hlsUrl, metadata: nowPlayingMetadataRef.current });
       // expo-video applies seek after the source loads — currentTime is settable.
       if (resumePosition > 0) {
         player.currentTime = resumePosition;

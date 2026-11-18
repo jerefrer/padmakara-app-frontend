@@ -13,6 +13,10 @@ export interface VideoSession {
   videos?: EventVideo[];
   /** Start here instead of at the saved position (opened from a video bookmark). */
   initialPositionSeconds?: number;
+  /** The event's teachers, shown as the artist on the lock screen. */
+  teacherNames?: string;
+  /** Absolute artwork URL for the lock screen (the event's square artwork). */
+  artworkUrl?: string | null;
 }
 
 interface VideoSessionValue {
