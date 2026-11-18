@@ -9,9 +9,10 @@ import { useSignIn } from '@/components/auth/SignInProvider';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { colors } from '@/constants/colors';
+import { BRAND_PANEL_LOGO } from './brandPanelLogo';
 
 // The wheel and the PADMAKARA wordmark are André's artwork (logo-padmakara-branco-2026.eps,
-// rendered to brand-panel-logo.png @1x/2x/3x), sized so the wheel keeps the 99 px of the former
+// rendered to brand-panel-logo.png @1x/2x/3x on native and brand-panel-logo.svg on the web), sized so the wheel keeps the 99 px of the former
 // raster wheel; the wordmark then has the same cap height as the former live title.
 const BRAND_LOGO_WIDTH = 147;
 const BRAND_LOGO_HEIGHT = 127;
@@ -129,7 +130,7 @@ export function RightSidebar({ variant = 'wide' }: RightSidebarProps) {
         {!isNarrow && (
           <>
             <Image
-              source={require('@/assets/images/brand-panel-logo.png')}
+              source={BRAND_PANEL_LOGO}
               style={styles.logo}
               resizeMode="contain"
               accessibilityRole="image"
