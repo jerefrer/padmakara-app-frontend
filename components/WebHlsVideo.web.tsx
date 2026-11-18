@@ -39,7 +39,7 @@ function enableNativeTextTrack(video: HTMLVideoElement, subtitleLanguage: string
  */
 export const WebHlsVideo = forwardRef<WebPlayerHandle, WebHlsVideoProps>(
   function WebHlsVideo(props, ref) {
-    const { uri, onTimeUpdate } = props;
+    const { uri, onTimeUpdate, controls = true } = props;
     const videoRef = useRef<HTMLVideoElement | null>(null);
     // Latest props for the load effect, so a late resume value or language
     // change never re-triggers it (it is keyed on `uri` only).
@@ -163,7 +163,7 @@ export const WebHlsVideo = forwardRef<WebPlayerHandle, WebHlsVideoProps>(
     return (
       <video
         ref={videoRef}
-        controls
+        controls={controls}
         playsInline
         crossOrigin="anonymous"
         style={{ width: '100%', height: '100%', backgroundColor: '#000', objectFit: 'contain' }}
