@@ -19,6 +19,12 @@ export interface PDFViewerProps {
    * document opens below the bar and scrolls under it (iOS and Android).
    */
   contentInsetTop?: number;
+  /**
+   * The page to open on (1-based), e.g. where the reader left off. Read once,
+   * when the viewer mounts: later values are ignored, so the reader is never
+   * moved while reading. A page past the end opens the last page.
+   */
+  initialPage?: number | null;
 }
 
 export interface PDFViewerHandle {

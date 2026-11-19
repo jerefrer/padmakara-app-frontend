@@ -154,3 +154,33 @@ native floating window (iOS layout, Android SurfaceView inside a small overlay) 
 when the app goes to the background.
 
 ---
+## 2026-11-19 — PDF reader: resume on the last page, page bookmarks
+
+**Chosen:** User decision (Jérémy, from André and Ana Paula) for the features. The reader
+(publications and transcripts, web and native) reopens on the page last read and lets the reader
+bookmark pages from a header icon next to the table of contents; the bookmarks are listed at the
+top of the contents sheet (with the chapter each falls in) and in the Bookmarks tab ("Pages").
+Stored on the server per account (`/api/reader/:type/:id`) and on the device. The last page is
+kept per device, not per account (like the "Last opened" times), and the more recent of device and
+server wins. Bookmarks are kept per account ('anon' signed out); signed in, the device copy mirrors
+the server and queues changes made offline until the next sync. The viewer waits up to 1.5 s for
+the server before opening on the device's page; the page is saved 2 s after the last turn and at
+once on close or when the app goes to the background. Native: the page is passed once as
+react-native-pdf's `page` prop and never changes (the package already sends a constant `page: 1`
+on every update, and the iOS patch stops replaying it on layout changes), so taps and rotation do
+not jump. Web: the viewer now reports pdf.js's outline and exposes goToPage, so the web reader gets
+the same contents sheet.
+**Alternatives:** passing the current page back as the `page` prop (rejected on 2026-11-17: each
+update would snap to it); calling `setPage` after load (a visible jump from page 1); bookmarks per
+device only (they would not follow the person); merging signed-out bookmarks into the account at
+sign-in (on a shared device they would land in someone else's account).
+**Why:** "It is the usual behaviour in PDF readers" (André); Ana Paula wants quick access to the
+pages she uses most, on her phone and computer alike.
+**Trade-offs:** bookmarks made signed out stay on the device and are not moved into the account.
+In two-page mode the header bookmark applies to the page the viewer counts as current (the
+left one, or the page a link went to). The native resume is covered by tests with the native view
+mocked, not by a device run.
+**Revisit if:** testers want signed-out bookmarks carried into their account, or a bookmark per
+spread in two-page mode.
+
+---

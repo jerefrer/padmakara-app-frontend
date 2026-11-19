@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
+import { PageBookmarkButton } from '@/components/PageBookmarkButton';
+import { useReaderDocument } from '@/hooks/useReaderDocument';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
@@ -23,12 +25,19 @@ import { willWatermarkTranscript } from '@/utils/watermark';
 import { pickTranscript } from '@/utils/transcriptMeta';
 
 export default function TranscriptViewerScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>(); // event ID
+  // `id`: the event. `transcript`: open that transcript (a page bookmark) rather
+  // than the one picked for the UI language; `page`: open on that page.
+  const { id, transcript: transcriptParam, page: pageParam } = useLocalSearchParams<{
+    id: string;
+    transcript?: string;
+    page?: string;
+  }>();
   const { t, language } = useLanguage();
   const { isAuthenticated } = useAuth();
 
   const [transcriptUrl, setTranscriptUrl] = useState<string | null>(null);
   const [transcriptId, setTranscriptId] = useState<number | null>(null);
+  const [transcriptPageCount, setTranscriptPageCount] = useState<number | null>(null);
   const [eventName, setEventName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +49,14 @@ export default function TranscriptViewerScreen() {
   const [outlineVisible, setOutlineVisible] = useState(false);
   const [readerBarHeight, setReaderBarHeight] = useState(0);
   const viewerRef = useRef<PDFViewerHandle>(null);
+  // Where the transcript opens and its page bookmarks, for this person.
+  const reader = useReaderDocument(
+    transcriptId !== null ? { type: 'transcript', id: String(transcriptId) } : null,
+    { pageCount: transcriptPageCount },
+  );
+  const requestedPage = Number(pageParam);
+  const openOnPage = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : reader.initialPage;
+  const currentPage = pageInfo?.current ?? openOnPage ?? 1;
   // Reader mode: a tap on the page hides the header, tab bar and mini player;
   // the phone may turn sideways while the transcript is open.
   const { barsHidden, toggleBars } = useReaderBars(!!transcriptUrl);
@@ -47,7 +64,7 @@ export default function TranscriptViewerScreen() {
 
   useEffect(() => {
     loadTranscript();
-  }, [id, language]);
+  }, [id, language, transcriptParam]);
 
   const loadTranscript = async () => {
     try {
@@ -70,9 +87,13 @@ export default function TranscriptViewerScreen() {
         status?: string;
         updatedAt?: string;
         originalFilename?: string;
+        pageCount?: number | null;
       }[] = event.transcripts || [];
-      // In the UI language, the final text before a provisional or draft one
-      const transcript = pickTranscript(transcripts, language);
+      // The one a link asked for, else in the UI language, the final text
+      // before a provisional or draft one
+      const transcript =
+        transcripts.find((tr) => transcriptParam !== undefined && String(tr.id) === String(transcriptParam)) ??
+        pickTranscript(transcripts, language);
 
       if (!transcript) {
         setError(t('transcript.noTranscript') || 'No transcript available for this event');
@@ -81,6 +102,7 @@ export default function TranscriptViewerScreen() {
       }
 
       setTranscriptId(transcript.id);
+      setTranscriptPageCount(transcript.pageCount ?? null);
       setShowWatermarkNotice(
         willWatermarkTranscript({ isAuthenticated, audienceSlug: event.audienceSlug })
       );
@@ -106,9 +128,15 @@ export default function TranscriptViewerScreen() {
     }
   };
 
-  const handlePageChange = useCallback((page: number, total: number) => {
-    setPageInfo({ current: page, total });
-  }, []);
+  const { reportPage } = reader;
+  const handlePageChange = useCallback(
+    (page: number, total: number) => {
+      setPageInfo({ current: page, total });
+      reportPage(page);
+    },
+    [reportPage],
+  );
+  const pageBookmarked = reader.bookmarks.includes(currentPage);
 
   const handleDownloadPdf = useCallback(async () => {
     if (!transcriptId) return;
@@ -204,13 +232,26 @@ export default function TranscriptViewerScreen() {
               </Text>
             </View>
 
-            {outline.length > 0 && (
+            {reader.ready && (
+              <PageBookmarkButton
+                testID="transcript-page-bookmark-button"
+                bookmarked={pageBookmarked}
+                onToggle={() => reader.setBookmark(currentPage, !pageBookmarked)}
+                style={styles.headerButton}
+              />
+            )}
+
+            {(outline.length > 0 || reader.bookmarks.length > 0) && (
               <TouchableOpacity
                 testID="transcript-contents-button"
                 onPress={() => setOutlineVisible(true)}
                 style={styles.headerButton}
                 accessibilityRole="button"
-                accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
+                accessibilityLabel={
+                  outline.length > 0
+                    ? t('pdfViewer.openContents') || 'Table of contents'
+                    : t('pdfViewer.bookmarkedPages') || 'Bookmarked pages'
+                }
               >
                 <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
               </TouchableOpacity>
@@ -238,25 +279,34 @@ export default function TranscriptViewerScreen() {
             </TouchableOpacity>
           </View>
         </ReaderTopBar>
-        {/* PDF Viewer */}
-        <PDFViewer
-          ref={viewerRef}
-          source={transcriptUrl}
-          title={eventName ? `${eventName} — Transcript` : undefined}
-          onPageChange={handlePageChange}
-          onSingleTap={toggleBars}
-          onOutline={setOutline}
-          contentInsetTop={readerBarHeight}
-          showDownloadButton={false}
-        />
+        {/* PDF Viewer: mounted once the page to open on is known. */}
+        {reader.ready ? (
+          <PDFViewer
+            ref={viewerRef}
+            source={transcriptUrl}
+            title={eventName ? `${eventName} — Transcript` : undefined}
+            initialPage={openOnPage}
+            onPageChange={handlePageChange}
+            onSingleTap={toggleBars}
+            onOutline={setOutline}
+            contentInsetTop={readerBarHeight}
+            showDownloadButton={false}
+          />
+        ) : (
+          <View style={[styles.loadingContainer, { paddingTop: readerBarHeight }]}>
+            <ActivityIndicator size="large" color={colors.burgundy[500]} />
+          </View>
+        )}
       </View>
 
       <PdfOutlineSheet
         visible={outlineVisible}
         items={outline}
-        currentPage={pageInfo?.current ?? 1}
+        currentPage={currentPage}
         onSelect={(page) => viewerRef.current?.goToPage(page)}
         onClose={() => setOutlineVisible(false)}
+        bookmarks={reader.bookmarks}
+        onRemoveBookmark={(page) => reader.setBookmark(page, false)}
       />
     </SafeAreaView>
   );

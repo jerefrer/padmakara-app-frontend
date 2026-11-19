@@ -118,6 +118,13 @@ export const API_ENDPOINTS = {
   PUBLICATION_PDF: (id: string) => `/publications/${id}/pdf`,
   PUBLICATION_OPENED: (id: string) => `/publications/${id}/opened`,
 
+  // Reader state of a PDF (publication or transcript): last page and page bookmarks
+  READER_DOCUMENT: (type: string, id: string) => `/reader/${type}/${encodeURIComponent(id)}`,
+  READER_POSITION: (type: string, id: string) => `/reader/${type}/${encodeURIComponent(id)}/position`,
+  READER_BOOKMARK: (type: string, id: string, page: number) =>
+    `/reader/${type}/${encodeURIComponent(id)}/bookmarks/${page}`,
+  READER_BOOKMARKS: '/reader/bookmarks',
+
   // ZIP Download Endpoints
   PUBLIC_EVENT_DOWNLOAD_REQUEST: (eventId: string) => `/events/public/${eventId}/request-download`,
   EVENT_DOWNLOAD_REQUEST: (eventId: string) => `/events/${eventId}/request-download`,

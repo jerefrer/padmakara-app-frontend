@@ -22,7 +22,7 @@ const PAGE_BADGE_MS = 1500;
  * Accepts file:// paths and https URLs.
  */
 export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PDFViewer(
-  { source, onPageChange, onSingleTap, onOutline, contentInsetTop = 0 },
+  { source, onPageChange, onSingleTap, onOutline, contentInsetTop = 0, initialPage },
   ref
 ) {
   const { t } = useLanguage();
@@ -30,7 +30,11 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
   const [error, setError] = useState(false);
   const [pageBadge, setPageBadge] = useState<string | null>(null);
   const pdfRef = useRef<PdfRef>(null);
-  const currentPage = useRef(1);
+  // Fixed at mount: the native viewer applies `page` when the document loads.
+  // Kept constant afterwards, so a later layout (rotation, bars hiding) never
+  // replays it; see the iOS part of patches/react-native-pdf+7.0.5.patch.
+  const [openPage] = useState(() => (initialPage && initialPage > 1 ? Math.floor(initialPage) : 1));
+  const currentPage = useRef(openPage);
   const lastTap = useRef<{ at: number; page: number } | null>(null);
   const badgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,8 +97,11 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
           maxScale={4}
           // The native prop is an integer.
           contentInsetTop={Math.round(contentInsetTop)}
+          page={openPage}
           onLoadComplete={(pages, _path, _size, tableContents) => {
             setLoading(false);
+            // A shorter file than when the page was saved: its last page.
+            if (openPage > pages) pdfRef.current?.setPage(pages);
             onOutline?.(flattenPdfOutline(tableContents, pages));
           }}
           onPageChanged={handlePageChanged}
