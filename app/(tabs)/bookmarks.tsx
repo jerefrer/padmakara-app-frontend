@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import eventBookmarkService, { EventBookmark } from "@/services/eventBookmarkService";
 import trackBookmarkService, { TrackBookmark } from "@/services/trackBookmarkService";
 import videoBookmarkService, { VideoBookmark } from "@/services/videoBookmarkService";
+import { readerStateService, type PageBookmark } from "@/services/readerStateService";
 import type { EventVideo } from "@/types";
 import { formatVideoPosition } from "@/utils/formatVideoPosition";
 import { isWholeVideoBookmark } from "@/utils/wholeVideoBookmark";
@@ -191,6 +192,71 @@ function VideoRow({
   );
 }
 
+// ── Page row ────────────────────────────────────────────────────────────
+
+/** A bookmarked page of a publication or a transcript. */
+function PageRow({
+  bookmark,
+  onPress,
+  language,
+  t,
+  testID,
+}: {
+  bookmark: PageBookmark;
+  onPress?: () => void;
+  language: Language;
+  t: (key: string, params?: Record<string, unknown>) => string;
+  testID?: string;
+}) {
+  const doc = bookmark.document;
+  const page = String(bookmark.page);
+  const title =
+    doc.type === "publication"
+      ? doc.title
+      : (language === "pt" && doc.event?.titlePt) || doc.event?.titleEn || doc.event?.titlePt || "";
+  const subtitle =
+    doc.type === "publication"
+      ? t("bookmarks.publicationPage", { page }) || `Publication · page ${page}`
+      : t("bookmarks.transcriptPage", { page }) || `Transcript · page ${page}`;
+
+  return (
+    <TouchableOpacity
+      {...getRowPressDelayProps()}
+      onPress={onPress}
+      disabled={!onPress}
+      style={styles.row}
+      testID={testID}
+    >
+      <EventThumb uri={null} fallbackIcon={doc.type === "publication" ? "book-outline" : "document-text-outline"} />
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
+        <Text style={styles.rowMeta}>{subtitle}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/** Where a page bookmark opens: its document, on that page. */
+function openPageBookmark(bookmark: PageBookmark): (() => void) | undefined {
+  const doc = bookmark.document;
+  const page = String(bookmark.page);
+  if (doc.type === "publication") {
+    return () =>
+      router.push({
+        pathname: "/(tabs)/(groups)/publications",
+        params: { open: String(doc.id), page },
+      } as any);
+  }
+  // A transcript without an event has no reader screen to open it in.
+  if (!doc.event) return undefined;
+  const eventId = String(doc.event.id);
+  return () =>
+    router.push({
+      pathname: "/(tabs)/(groups)/transcript/[id]",
+      params: { id: eventId, transcript: String(doc.id), page },
+    } as any);
+}
+
 // ── Screen ──────────────────────────────────────────────────────────────
 
 export default function BookmarksScreen() {
@@ -199,6 +265,7 @@ export default function BookmarksScreen() {
   const [eventBookmarks, setEventBookmarks] = useState<EventBookmark[]>([]);
   const [trackBookmarks, setTrackBookmarks] = useState<TrackBookmark[]>([]);
   const [videoBookmarks, setVideoBookmarks] = useState<VideoBookmark[]>([]);
+  const [pageBookmarks, setPageBookmarks] = useState<PageBookmark[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -207,25 +274,33 @@ export default function BookmarksScreen() {
       setEventBookmarks([]);
       setTrackBookmarks([]);
       setVideoBookmarks([]);
+      setPageBookmarks([]);
       return;
     }
     setLoading(true);
     setError(null);
-    const [eventsRes, tracksRes, videosRes] = await Promise.all([
+    const [eventsRes, tracksRes, videosRes, pagesRes] = await Promise.all([
       eventBookmarkService.list(),
       trackBookmarkService.list(),
       videoBookmarkService.list(),
+      readerStateService.listAllBookmarks(),
     ]);
     if (eventsRes.success && eventsRes.data) setEventBookmarks(eventsRes.data);
     if (tracksRes.success && tracksRes.data) setTrackBookmarks(tracksRes.data);
     if (videosRes.success && videosRes.data) setVideoBookmarks(videosRes.data);
+    if (pagesRes.success && pagesRes.data) setPageBookmarks(pagesRes.data);
     if (
       (!eventsRes.success && !eventsRes.authRequired) ||
       (!tracksRes.success && !tracksRes.authRequired) ||
-      (!videosRes.success && !videosRes.authRequired)
+      (!videosRes.success && !videosRes.authRequired) ||
+      (!pagesRes.success && !pagesRes.authRequired)
     ) {
       setError(
-        eventsRes.error || tracksRes.error || videosRes.error || (t("common.error") || "Something went wrong"),
+        eventsRes.error ||
+          tracksRes.error ||
+          videosRes.error ||
+          pagesRes.error ||
+          (t("common.error") || "Something went wrong"),
       );
     }
     setLoading(false);
@@ -238,7 +313,10 @@ export default function BookmarksScreen() {
   );
 
   const hasAny =
-    eventBookmarks.length > 0 || trackBookmarks.length > 0 || videoBookmarks.length > 0;
+    eventBookmarks.length > 0 ||
+    trackBookmarks.length > 0 ||
+    videoBookmarks.length > 0 ||
+    pageBookmarks.length > 0;
 
   return (
     <View style={styles.container}>
@@ -361,6 +439,29 @@ export default function BookmarksScreen() {
                         },
                       } as any)
                     }
+                  />
+                ))
+              )}
+            </View>
+
+            {/* Pages section: bookmarked pages of publications and transcripts */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionHeader, styles.indented]}>
+                {t("bookmarks.pagesHeader") || "Pages"}
+              </Text>
+              {pageBookmarks.length === 0 ? (
+                <Text style={[styles.sectionEmpty, styles.indented]}>
+                  {t("bookmarks.noPageBookmarks") || "No bookmarked pages yet."}
+                </Text>
+              ) : (
+                pageBookmarks.map((bm) => (
+                  <PageRow
+                    key={`page-${bm.documentType}-${bm.documentId}-${bm.page}`}
+                    bookmark={bm}
+                    language={language}
+                    t={t}
+                    testID={`page-bookmark-${bm.documentType}-${bm.documentId}-${bm.page}`}
+                    onPress={openPageBookmark(bm)}
                   />
                 ))
               )}

@@ -173,8 +173,44 @@ describe('PDFViewer (iOS and Android)', () => {
     expect(onSingleTap).toHaveBeenCalledTimes(1);
     expect(mockPdfMounts).toBe(1);
     expect(pdfProps.source).toEqual({ uri: 'file:///x.pdf', cache: false });
-    // A page prop would send the native reader back to it on every update.
-    expect(pdfProps).not.toHaveProperty('page');
+    // The page prop stays the one the document opened on: a changing one
+    // would send the native reader back to it on every update.
+    expect(pdfProps.page).toBe(1);
+    expect(mockSetPage).not.toHaveBeenCalled();
+  });
+
+  it('should open the document on the page to resume', () => {
+    render(<PDFViewer source="file:///x.pdf" initialPage={12} />);
+
+    expect(pdfProps.page).toBe(12);
+  });
+
+  it('should keep the page it opened on when the initial page changes later', () => {
+    const { rerender } = render(<PDFViewer source="file:///x.pdf" initialPage={12} />);
+    act(() => pdfProps.onLoadComplete(40, '/path', { width: 1, height: 1 }));
+    act(() => pdfProps.onPageChanged(20, 40));
+
+    rerender(<PDFViewer source="file:///x.pdf" initialPage={30} contentInsetTop={80} />);
+
+    expect(pdfProps.page).toBe(12);
+    expect(mockSetPage).not.toHaveBeenCalled();
+    expect(mockPdfMounts).toBe(1);
+  });
+
+  it('should open on the last page when the page to resume is past the end', () => {
+    render(<PDFViewer source="file:///x.pdf" initialPage={50} />);
+
+    act(() => pdfProps.onLoadComplete(30, '/path', { width: 1, height: 1 }));
+
+    expect(mockSetPage).toHaveBeenCalledWith(30);
+  });
+
+  it('should open on the first page without a page to resume', () => {
+    render(<PDFViewer source="file:///x.pdf" initialPage={null} />);
+
+    act(() => pdfProps.onLoadComplete(30, '/path', { width: 1, height: 1 }));
+
+    expect(pdfProps.page).toBe(1);
     expect(mockSetPage).not.toHaveBeenCalled();
   });
 });

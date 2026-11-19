@@ -397,7 +397,12 @@
     "contents": "Contents",
     "openContents": "Table of contents",
     "closeContents": "Close the table of contents",
-    "pageNumber": "p. {{page}}"
+    "pageNumber": "p. {{page}}",
+    "page": "Page {{page}}",
+    "bookmarkPage": "Bookmark this page",
+    "removePageBookmark": "Remove the bookmark on this page",
+    "bookmarkedPages": "Bookmarked pages",
+    "removeBookmarkOnPage": "Remove the bookmark on page {{page}}"
   },
   "transcript": {
     "transcriptNotFound": "Transcript not found",
@@ -737,14 +742,18 @@
   "bookmarks": {
     "add": "Bookmark this event",
     "remove": "Remove bookmark",
-    "empty": "Tap the bookmark icon on an event or in the player to save it here.",
+    "empty": "Tap the bookmark icon on an event, in the player or on a page of a text to save it here.",
     "signInPrompt": "Sign in to save bookmarks.",
     "eventsHeader": "Events",
     "tracksHeader": "Tracks",
     "noEventBookmarks": "No bookmarked events yet.",
     "noTrackBookmarks": "No bookmarked tracks yet.",
     "videosHeader": "Videos",
-    "noVideoBookmarks": "No bookmarked videos yet."
+    "noVideoBookmarks": "No bookmarked videos yet.",
+    "pagesHeader": "Pages",
+    "noPageBookmarks": "No bookmarked pages yet.",
+    "publicationPage": "Publication · page {{page}}",
+    "transcriptPage": "Transcript · page {{page}}"
   },
   "membership": {
     "title": "Become a member",

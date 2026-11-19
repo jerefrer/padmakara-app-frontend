@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
@@ -73,5 +73,85 @@ describe('PdfOutlineSheet', () => {
 
     expect(getByTestId('outline-item-1').props.accessibilityState).toEqual({ selected: true });
     expect(getByTestId('outline-item-2').props.accessibilityState).toEqual({ selected: false });
+  });
+});
+
+describe('PdfOutlineSheet — bookmarked pages', () => {
+  it('should list the bookmarked pages above the contents, each with its chapter', () => {
+    const { getByText, getByTestId } = render(
+      <PdfOutlineSheet visible items={items} bookmarks={[9, 20]} currentPage={1} onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+
+    expect(getByText('Bookmarked pages')).toBeTruthy();
+    expect(getByText('Page 9')).toBeTruthy();
+    expect(getByText('Page 20')).toBeTruthy();
+    expect(getByTestId('page-bookmark-open-9').props.accessibilityLabel).toBe('Page 9, Morning');
+    expect(getByTestId('page-bookmark-open-20').props.accessibilityLabel).toBe('Page 20, Day two');
+  });
+
+  it('should go to a bookmarked page and close when it is tapped', () => {
+    const onSelect = jest.fn();
+    const onClose = jest.fn();
+    const { getByText } = render(
+      <PdfOutlineSheet visible items={items} bookmarks={[12]} currentPage={1} onSelect={onSelect} onClose={onClose} />
+    );
+
+    fireEvent.press(getByText('Page 12'));
+
+    expect(onSelect).toHaveBeenCalledWith(12);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('should remove a bookmark without leaving the sheet', () => {
+    const onRemove = jest.fn();
+    const onClose = jest.fn();
+    const { getByLabelText } = render(
+      <PdfOutlineSheet
+        visible
+        items={items}
+        bookmarks={[12]}
+        currentPage={1}
+        onSelect={jest.fn()}
+        onClose={onClose}
+        onRemoveBookmark={onRemove}
+      />
+    );
+
+    fireEvent.press(getByLabelText('Remove the bookmark on page 12'));
+
+    expect(onRemove).toHaveBeenCalledWith(12);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('should title the sheet with the bookmarks when the document has no contents', () => {
+    const { getAllByText, queryByText } = render(
+      <PdfOutlineSheet visible items={[]} bookmarks={[4]} currentPage={1} onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+
+    expect(getAllByText('Bookmarked pages')).toHaveLength(1);
+    expect(queryByText('Contents')).toBeNull();
+  });
+
+  it('should open at the top, bookmarks in view, rather than on the section the reader is in', () => {
+    const longOutline = Array.from({ length: 30 }, (_, i) => ({ title: `Part ${i + 1}`, page: i + 1, depth: 0 }));
+
+    const withBookmarks = render(
+      <PdfOutlineSheet visible items={longOutline} bookmarks={[4]} currentPage={25} onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+    expect(withBookmarks.UNSAFE_getByType(FlatList).props.initialScrollIndex).toBeUndefined();
+    withBookmarks.unmount();
+
+    const without = render(
+      <PdfOutlineSheet visible items={longOutline} currentPage={25} onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+    expect(without.UNSAFE_getByType(FlatList).props.initialScrollIndex).toBe(21);
+  });
+
+  it('should still mark the section the reader is in below the bookmarks', () => {
+    const { getByTestId } = render(
+      <PdfOutlineSheet visible items={items} bookmarks={[2, 30]} currentPage={9} onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+
+    expect(getByTestId('outline-item-1').props.accessibilityState).toEqual({ selected: true });
   });
 });

@@ -397,7 +397,12 @@
     "contents": "Índice",
     "openContents": "Índice",
     "closeContents": "Fechar o índice",
-    "pageNumber": "p. {{page}}"
+    "pageNumber": "p. {{page}}",
+    "page": "Página {{page}}",
+    "bookmarkPage": "Marcar esta página",
+    "removePageBookmark": "Remover o marcador desta página",
+    "bookmarkedPages": "Páginas marcadas",
+    "removeBookmarkOnPage": "Remover o marcador da página {{page}}"
   },
   "transcript": {
     "transcriptNotFound": "Transcrição não encontrada",
@@ -737,14 +742,18 @@
   "bookmarks": {
     "add": "Marcar este evento",
     "remove": "Remover marcador",
-    "empty": "Toca no ícone de marcador num evento ou no leitor para o guardar aqui.",
+    "empty": "Toca no ícone de marcador num evento, no leitor ou numa página de um texto para o guardar aqui.",
     "signInPrompt": "Inicia sessão para guardar marcadores.",
     "eventsHeader": "Eventos",
     "tracksHeader": "Faixas",
     "noEventBookmarks": "Ainda sem eventos marcados.",
     "noTrackBookmarks": "Ainda sem faixas marcadas.",
     "videosHeader": "Vídeos",
-    "noVideoBookmarks": "Ainda sem vídeos marcados."
+    "noVideoBookmarks": "Ainda sem vídeos marcados.",
+    "pagesHeader": "Páginas",
+    "noPageBookmarks": "Ainda sem páginas marcadas.",
+    "publicationPage": "Publicação · página {{page}}",
+    "transcriptPage": "Transcrição · página {{page}}"
   },
   "membership": {
     "title": "Torne-se membro",

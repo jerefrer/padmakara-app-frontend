@@ -1,7 +1,8 @@
 /**
  * Publication Service
  *
- * Handles fetching publications, PDF downloads with caching, and reading position persistence.
+ * Handles fetching publications and PDF downloads with caching. The page a
+ * reader was on is kept by services/readerStateService.
  * - Native: PDFs stored in documentDirectory/publications/, metadata in AsyncStorage
  * - Web: in-memory blob URLs (ephemeral, lost on page refresh)
  * - Cached PDFs are kept until the reader accepts a newer file (see utils/publicationUpdate)
@@ -19,7 +20,6 @@ import type { CachedPublicationFile } from '../utils/publicationUpdate';
 import type { DeviceOpenTimes } from '../utils/publicationOrder';
 
 const CACHE_METADATA_KEY = '@publication_cache:metadata';
-const POSITION_KEY_PREFIX = '@publication_position:';
 const OPENS_KEY = '@publication_opens';
 
 interface PublicationCacheEntry {
@@ -313,25 +313,6 @@ class PublicationService {
       console.error('Publication PDF download error:', err);
       throw err;
     }
-  }
-
-  /**
-   * Get saved reading position for a publication.
-   */
-  async getReadingPosition(publicationId: string): Promise<number | null> {
-    try {
-      const raw = await AsyncStorage.getItem(`${POSITION_KEY_PREFIX}${publicationId}`);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Save reading position for a publication.
-   */
-  async saveReadingPosition(publicationId: string, page: number): Promise<void> {
-    await AsyncStorage.setItem(`${POSITION_KEY_PREFIX}${publicationId}`, JSON.stringify(page));
   }
 
   /**

@@ -24,12 +24,14 @@ import { useSignIn } from '@/components/auth/SignInProvider';
 import { publicationService } from '@/services/publicationService';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
+import { PageBookmarkButton } from '@/components/PageBookmarkButton';
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { publicationUpdate, type CachedPublicationFile } from '@/utils/publicationUpdate';
 import { compareTitles } from '@/utils/titleSort';
 import { sortByLastOpened } from '@/utils/publicationOrder';
 import { usePublicationOpens } from '@/hooks/usePublicationOpens';
+import { useReaderDocument } from '@/hooks/useReaderDocument';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { useUnlockedOrientation } from '@/hooks/useUnlockedOrientation';
 import { colors } from '@/constants/colors';
@@ -58,7 +60,8 @@ export default function PublicationsScreen() {
   const { t } = useLanguage();
   const { isAuthenticated, hasActiveSubscription } = useAuth();
   const { openSignIn } = useSignIn();
-  const { open } = useLocalSearchParams<{ open?: string }>();
+  // `page`: open on that page (a page bookmark) instead of where the reader left off.
+  const { open, page: pageParam } = useLocalSearchParams<{ open?: string; page?: string }>();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useDesktopLayout();
 
@@ -84,6 +87,8 @@ export default function PublicationsScreen() {
     uri: string;
     publication: Publication;
     cachedFile: CachedPublicationFile;
+    /** The page a link (a page bookmark) asked for; wins over the resumed one. */
+    startPage?: number | null;
   } | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -96,6 +101,20 @@ export default function PublicationsScreen() {
   const [readerBarHeight, setReaderBarHeight] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const viewerRef = useRef<PDFViewerHandle>(null);
+  // Where the publication opens and its page bookmarks, for this person.
+  const reader = useReaderDocument(
+    viewingPdf ? { type: 'publication', id: viewingPdf.publication.id } : null,
+    { pageCount: viewingPdf?.publication.pageCount },
+  );
+  const openOnPage = viewingPdf?.startPage ?? reader.initialPage;
+  // The header's bookmark and the sheet follow the page on screen, which
+  // starts on the page the reader opens on.
+  const [openedOn, setOpenedOn] = useState<string | null>(null);
+  const openedKey = viewingPdf && reader.ready ? viewingPdf.publication.id : null;
+  if (openedKey !== openedOn) {
+    setOpenedOn(openedKey);
+    if (openedKey) setCurrentPage(openOnPage ?? 1);
+  }
   // Reader mode while a publication is open: a tap on the page hides the
   // header, banner, tab bar and mini player; the phone may turn sideways.
   const { barsHidden, toggleBars } = useReaderBars(!!viewingPdf);
@@ -237,7 +256,7 @@ export default function PublicationsScreen() {
 
   // Open a publication PDF
   const handleOpenPublication = useCallback(
-    async (publication: Publication) => {
+    async (publication: Publication, startPage: number | null = null) => {
       try {
         setDownloading(publication.id);
         setDownloadProgress(0);
@@ -262,17 +281,8 @@ export default function PublicationsScreen() {
         }
 
         setDownloading(null);
-        setViewingPdf({ uri: pdfUri, publication, cachedFile: cachedFile ?? currentFile(publication) });
+        setViewingPdf({ uri: pdfUri, publication, cachedFile: cachedFile ?? currentFile(publication), startPage });
         recordOpen(publication.id);
-
-        // Restore reading position
-        const savedPage = await publicationService.getReadingPosition(
-          publication.id
-        );
-        if (savedPage) {
-          // PDFViewer doesn't support initialPage yet, but position is saved
-          // for future enhancement
-        }
       } catch (err) {
         console.error('Failed to open publication:', err);
         setDownloading(null);
@@ -294,9 +304,10 @@ export default function PublicationsScreen() {
     router.setParams({ open: undefined } as any);
     if (target) {
       openedFromParam.current = true;
-      handleOpenPublication(target);
+      const page = Number(pageParam);
+      handleOpenPublication(target, Number.isSafeInteger(page) && page >= 1 ? page : null);
     }
-  }, [open, loading, publications, handleOpenPublication]);
+  }, [open, pageParam, loading, publications, handleOpenPublication]);
 
   const handleCloseViewer = useCallback(() => {
     setViewingPdf(null);
@@ -351,8 +362,8 @@ export default function PublicationsScreen() {
         (progress) => setDownloadProgress(progress)
       );
       setViewingPdf({
+        ...viewingPdf,
         uri: newUri,
-        publication,
         cachedFile: currentFile(publication),
       });
     } catch (err) {
@@ -447,6 +458,8 @@ export default function PublicationsScreen() {
   // If viewing a PDF, show full-screen viewer
   if (viewingPdf) {
     const update = publicationUpdate(viewingPdf.cachedFile, viewingPdf.publication);
+    const pageBookmarked = reader.bookmarks.includes(currentPage);
+    const hasList = outline.length > 0 || reader.bookmarks.length > 0;
     const showUpdateBanner =
       update.available && !versionBannerDismissed[viewingPdf.publication.id];
 
@@ -463,14 +476,26 @@ export default function PublicationsScreen() {
               <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
                 {getTitle(viewingPdf.publication)}
               </Text>
-              {outline.length > 0 && (
+              {reader.ready && (
+                <PageBookmarkButton
+                  testID="publication-page-bookmark-button"
+                  bookmarked={pageBookmarked}
+                  onToggle={() => reader.setBookmark(currentPage, !pageBookmarked)}
+                  style={styles.pdfShareButton}
+                />
+              )}
+              {hasList && (
                 <TouchableOpacity
                   testID="publication-contents-button"
                   onPress={() => setOutlineVisible(true)}
                   hitSlop={8}
                   style={styles.pdfShareButton}
                   accessibilityRole="button"
-                  accessibilityLabel={t('pdfViewer.openContents') || 'Table of contents'}
+                  accessibilityLabel={
+                    outline.length > 0
+                      ? t('pdfViewer.openContents') || 'Table of contents'
+                      : t('pdfViewer.bookmarkedPages') || 'Bookmarked pages'
+                  }
                 >
                   <Ionicons name="list-outline" size={24} color={colors.burgundy[500]} />
                 </TouchableOpacity>
@@ -553,29 +578,35 @@ export default function PublicationsScreen() {
               </View>
             )}
           </ReaderTopBar>
-          {/* PDF content */}
-          <PDFViewer
-            ref={viewerRef}
-            source={viewingPdf.uri}
-            title={getTitle(viewingPdf.publication)}
-            onPageChange={(page) => {
-              setCurrentPage(page);
-              publicationService.saveReadingPosition(
-                viewingPdf.publication.id,
-                page
-              );
-            }}
-            onSingleTap={toggleBars}
-            onOutline={setOutline}
-            contentInsetTop={readerBarHeight}
-            showDownloadButton={false}
-          />
+          {/* PDF content: mounted once the page to open on is known. */}
+          {reader.ready ? (
+            <PDFViewer
+              ref={viewerRef}
+              source={viewingPdf.uri}
+              title={getTitle(viewingPdf.publication)}
+              initialPage={openOnPage}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                reader.reportPage(page);
+              }}
+              onSingleTap={toggleBars}
+              onOutline={setOutline}
+              contentInsetTop={readerBarHeight}
+              showDownloadButton={false}
+            />
+          ) : (
+            <View style={[styles.loadingContainer, { paddingTop: readerBarHeight }]}>
+              <ActivityIndicator size="large" color={colors.burgundy[500]} />
+            </View>
+          )}
           <PdfOutlineSheet
             visible={outlineVisible}
             items={outline}
             currentPage={currentPage}
             onSelect={(page) => viewerRef.current?.goToPage(page)}
             onClose={() => setOutlineVisible(false)}
+            bookmarks={reader.bookmarks}
+            onRemoveBookmark={(page) => reader.setBookmark(page, false)}
           />
         </View>
       </>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ContinuousIcon } from './icons/ContinuousIcon';
@@ -14,6 +14,9 @@ import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { installReadableStreamAsyncIterator } from '@/utils/readableStreamAsyncIterator';
 import { downloadFileWeb } from '@/utils/downloadFileWeb';
+import { resolvePdfJsOutline, type PdfOutlineItem } from '@/utils/pdfOutline';
+import { resumeTarget } from '@/utils/readerState';
+import type { PDFViewerHandle } from './PDFViewer.types';
 import {
   READING_THEMES,
   READING_THEME_ATTRIBUTE,
@@ -78,6 +81,12 @@ interface PDFViewerProps {
   onPageChange?: (page: number, totalPages: number) => void;
   compact?: boolean;
   showDownloadButton?: boolean;
+  /** The document's table of contents, once loaded; empty when it has none. */
+  onOutline?: (items: PdfOutlineItem[]) => void;
+  /** The page to open on; read when the document loads, ignored afterwards. */
+  initialPage?: number | null;
+  /** Receives goToPage (the PDFViewer ref, passed through the lazy boundary). */
+  handleRef?: React.Ref<PDFViewerHandle>;
 }
 
 /** External links open in a new tab that cannot reach back into the app. */
@@ -164,7 +173,15 @@ function ToolbarButton({ label, onPress, active = false, disabled = false, child
  * makes the PDF's links work: external ones open in a new tab, internal ones
  * (a table of contents) go to their page in whichever mode is shown.
  */
-export default function PDFViewerWebImpl({ source, title, onPageChange, showDownloadButton = true }: PDFViewerProps) {
+export default function PDFViewerWebImpl({
+  source,
+  title,
+  onPageChange,
+  showDownloadButton = true,
+  onOutline,
+  initialPage,
+  handleRef,
+}: PDFViewerProps) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -241,9 +258,27 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
 
   const file = useMemo(() => ({ url: source }), [source]);
 
+  // A page to bring into view after the next layout (mode change, page jump).
+  const pendingPage = useRef<number | null>(null);
+
+  // Read when the document loads, never after: a new value must not move the reader.
+  const initialPageRef = useRef(initialPage);
+  const onOutlineRef = useRef(onOutline);
+  useLayoutEffect(() => {
+    onOutlineRef.current = onOutline;
+  }, [onOutline]);
+  const currentPageRef = useRef(currentPage);
+  useLayoutEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
   const onDocumentLoad = useCallback(async (pdf: any) => {
+    // Open on the page to resume (single and two-page modes show its spread).
+    const target = resumeTarget(initialPageRef.current, pdf.numPages);
     setNumPages(pdf.numPages);
-    setCurrentPage(1);
+    setCurrentPage(target);
+    pendingPage.current = target;
+    void resolvePdfJsOutline(pdf).then((items) => onOutlineRef.current?.(items));
     try {
       const pages = await Promise.all(
         Array.from({ length: pdf.numPages }, (_, i) => pdf.getPage(i + 1)),
@@ -254,6 +289,9 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
           return { width: vp.width, height: vp.height };
         }),
       );
+      // The column was laid out with a default page size until now: place the
+      // page again on the real sizes, unless the reader has moved meanwhile.
+      if (target > 1 && currentPageRef.current === target) pendingPage.current = target;
     } catch {
       // Keep the default page size
     }
@@ -308,8 +346,6 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   // Where the content should stay put when the scale changes: the pointer
   // for a pinch, the middle of the view otherwise.
   const zoomAnchor = useRef<{ x: number; y: number } | null>(null);
-  // A page to bring into view after the next layout (mode change, page jump).
-  const pendingPage = useRef<number | null>(null);
 
   const zoomTo = useCallback((next: Zoom, anchor?: { x: number; y: number }) => {
     zoomAnchor.current = anchor ?? null;
@@ -537,6 +573,9 @@ export default function PDFViewerWebImpl({ source, title, onPageChange, showDown
   const followInternalLink = useCallback(({ pageNumber }: { pageNumber: number }) => {
     goToPageRef.current(pageNumber);
   }, []);
+
+  // The screen's table of contents and bookmarks jump through the same path.
+  useImperativeHandle(handleRef, () => ({ goToPage: (page: number) => goToPageRef.current(page) }), []);
 
   // ── Input: keyboard ─────────────────────────────────────────────────
   const keyHandlers = useRef<Record<ViewerKeyAction, () => void> | null>(null);

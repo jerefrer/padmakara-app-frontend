@@ -34,3 +34,54 @@ export function flattenPdfOutline(tableContents: unknown, pageCount = Infinity):
   walk(tableContents, 0);
   return items;
 }
+
+/** The part of a pdf.js document (PDFDocumentProxy) the outline needs. */
+export interface PdfJsOutlineSource {
+  numPages: number;
+  getOutline(): Promise<unknown>;
+  getDestination(id: string): Promise<unknown>;
+  getPageIndex(ref: unknown): Promise<number>;
+}
+
+/**
+ * The web viewer's table of contents: pdf.js's outline, resolved to pages and
+ * flattened like flattenPdfOutline. pdf.js gives each entry a destination,
+ * named (a string to look up) or explicit (an array whose first item is a page
+ * reference, or a 0-based page index). Entries without a title or a page
+ * inside the document are dropped; their children are kept. Never throws: a
+ * broken outline is an empty one.
+ */
+export async function resolvePdfJsOutline(pdf: PdfJsOutlineSource): Promise<PdfOutlineItem[]> {
+  const pageOf = async (dest: unknown): Promise<number | null> => {
+    try {
+      const explicit = typeof dest === 'string' ? await pdf.getDestination(dest) : dest;
+      if (!Array.isArray(explicit) || explicit.length === 0) return null;
+      const target: unknown = explicit[0];
+      const index =
+        typeof target === 'number' ? target : target && typeof target === 'object' ? await pdf.getPageIndex(target) : NaN;
+      return Number.isSafeInteger(index) && index >= 0 && index < pdf.numPages ? index + 1 : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const walk = async (nodes: unknown, depth: number): Promise<PdfOutlineItem[]> => {
+    if (!Array.isArray(nodes)) return [];
+    const levels = await Promise.all(
+      nodes.map(async (node: unknown): Promise<PdfOutlineItem[]> => {
+        if (!node || typeof node !== 'object') return [];
+        const { title, dest, items } = node as { title?: unknown; dest?: unknown; items?: unknown };
+        const label = typeof title === 'string' ? title.trim() : '';
+        const [page, children] = await Promise.all([label ? pageOf(dest) : Promise.resolve(null), walk(items, depth + 1)]);
+        return label && page !== null ? [{ title: label, page, depth }, ...children] : children;
+      }),
+    );
+    return levels.flat();
+  };
+
+  try {
+    return await walk(await pdf.getOutline(), 0);
+  } catch {
+    return [];
+  }
+}
