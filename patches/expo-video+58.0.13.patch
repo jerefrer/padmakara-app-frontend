@@ -2,7 +2,19 @@ diff --git a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
 index c66e0fa..9ad546f 100644
 --- a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
 +++ b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
-@@ -221,7 +221,10 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
+@@ -142,6 +142,11 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
+   override func viewDidLoad() {
+     super.viewDidLoad()
+     self.delegate = self
++    // The video controls sit on a dark translucent material over the picture.
++    // Under a light app appearance AVKit draws their labels (elapsed and
++    // remaining time) in the light-mode dark grey, unreadable on that
++    // material. Pin the controller to dark so they render white.
++    self.overrideUserInterfaceStyle = .dark
+   }
+ 
+   #if !os(tvOS)
+@@ -221,7 +226,10 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
          self?.pendingPiPCompletionHandler = nil
        })
      } else {
