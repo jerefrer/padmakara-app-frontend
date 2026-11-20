@@ -13,7 +13,7 @@ import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { EventRow, EventThumb } from "@/components/EventRow";
-import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
+import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
 import { SectionRule } from "@/components/ui/SectionRule";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import React, { useCallback, useState } from "react";
@@ -541,6 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,

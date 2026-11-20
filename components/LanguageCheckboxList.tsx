@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/colors';
 import { sortLanguageCodes } from '@/utils/contentLanguage';
+import { SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
 
 /**
  * Names for language codes when the locale files have no entry. The `t()`
@@ -139,8 +140,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 11,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[100],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
     gap: 16,
   },
   itemChecked: {

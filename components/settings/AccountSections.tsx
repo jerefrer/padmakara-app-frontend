@@ -12,6 +12,7 @@ import { NameForm } from '@/components/auth/NameForm';
 import type { RetreatGroup } from '@/types';
 import { ContentLanguageRows } from './DeviceSections';
 import { GroupLabel, Rows, Segmented, SettingsRow } from './ui';
+import { SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
 
 /** Who the person is, and the way out of the account. */
 export function ProfileSection() {
@@ -169,6 +170,6 @@ export function RetreatsSection() {
 }
 
 const styles = StyleSheet.create({
-  edit: { paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: c.gray[200] },
+  edit: { paddingBottom: 18, borderBottomWidth: SUBDIVISION_THICKNESS, borderBottomColor: SUBDIVISION_COLOR },
   empty: { fontSize: 15, color: c.gray[600], lineHeight: 22 },
 });

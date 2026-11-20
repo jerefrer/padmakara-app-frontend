@@ -8,18 +8,15 @@ import { ForthcomingBadge } from "@/components/ForthcomingBadge";
 import { NowPlayingBadge } from "@/components/NowPlayingBadge";
 import { AVENIR_FAMILY } from "@/constants/avenirFont";
 import {
+  RULE_LEFT_INSET,
   RULE_RIGHT_INSET,
   SUBDIVISION_COLOR,
   SUBDIVISION_THICKNESS,
-  TEXT_GUTTER,
 } from "@/constants/layout";
 import type { Gathering } from "@/types";
 import { eventAvatarCacheKey, teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import { pickEventPhoto, pickThumbTeacher } from "@/utils/heroVariant";
 import { mainTeachers } from "@/utils/eventTeachers";
-
-/** Light black separator between desktop rows. */
-export const DESKTOP_ROW_RULE_COLOR = "rgba(0,0,0,0.12)";
 
 const colors = {
   burgundy: "#9b1b1b",
@@ -45,15 +42,13 @@ export function EventThumb({
   uri,
   cacheKey,
   fallbackIcon = "musical-notes-outline",
-  isDesktop,
 }: {
   uri: string | null;
   cacheKey?: string;
   fallbackIcon?: React.ComponentProps<typeof Ionicons>["name"];
-  isDesktop?: boolean;
 }) {
   return (
-    <View style={[styles.thumb, !isDesktop && styles.thumbIndented]}>
+    <View style={styles.thumb}>
       {uri ? (
         <Image
           source={{ uri, cacheKey }}
@@ -79,7 +74,7 @@ interface EventRowProps {
   onPress: () => void;
   /** Extra badge next to the title (e.g. the offline badge). */
   badge?: React.ReactNode;
-  /** Desktop columns have their own padding: no gutter, no right inset. */
+  /** Desktop columns have their own padding: the row fills it, no gutter. */
   isDesktop?: boolean;
   testID?: string;
   /** Title size override, for screens whose neighbouring rows use another size. */
@@ -88,8 +83,8 @@ interface EventRowProps {
 
 /**
  * One row per teaching/event: square thumbnail, black title, red teacher
- * names, gray meta line, then the video / audio / transcript icons. The thin
- * dark separator starts at the left edge and stops at the right inset (see
+ * names, gray meta line, then the video / audio / transcript icons. The light
+ * separator runs from the thumbnail's left edge to the right gutter (see
  * constants/layout.ts).
  */
 export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID, titleFontSize }: EventRowProps) {
@@ -120,60 +115,63 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
       style={[styles.row, isDesktop ? styles.rowDesktop : styles.rowToInset]}
       testID={testID}
     >
-      <EventThumb
-        uri={image}
-        cacheKey={thumbCacheKey}
-        isDesktop={isDesktop}
-      />
-      <View style={styles.info}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, titleFontSize !== undefined && { fontSize: titleFontSize }]} numberOfLines={2}>
-            {title}
-          </Text>
-          {event.status === "draft" && <DraftBadge />}
-          {event.status === "forthcoming" && <ForthcomingBadge />}
-          {badge}
-        </View>
-        <NowPlayingBadge eventId={event.id} />
-        {teacherNames ? (
-          <Text style={styles.teacher} numberOfLines={1}>
-            {teacherNames}
-          </Text>
-        ) : null}
-        {meta ? (
-          <Text style={styles.meta} numberOfLines={1}>
-            {meta}
-          </Text>
-        ) : null}
-        <View style={styles.icons}>
-          {hasVideo && <Ionicons name="videocam-outline" size={14} color={colors.gray[400]} />}
-          {hasAudio && <Ionicons name="musical-notes-outline" size={14} color={colors.gray[400]} />}
-          {hasTranscripts && <Ionicons name="book-outline" size={14} color={colors.gray[400]} />}
+      <View style={styles.main}>
+        <EventThumb uri={image} cacheKey={thumbCacheKey} />
+        <View style={styles.info}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, titleFontSize !== undefined && { fontSize: titleFontSize }]} numberOfLines={2}>
+              {title}
+            </Text>
+            {badge}
+          </View>
+          <NowPlayingBadge eventId={event.id} />
+          {teacherNames ? (
+            <Text style={styles.teacher} numberOfLines={1}>
+              {teacherNames}
+            </Text>
+          ) : null}
+          {meta ? (
+            <Text style={styles.meta} numberOfLines={1}>
+              {meta}
+            </Text>
+          ) : null}
+          <View style={styles.icons}>
+            {hasVideo && <Ionicons name="videocam-outline" size={14} color={colors.gray[400]} />}
+            {hasAudio && <Ionicons name="musical-notes-outline" size={14} color={colors.gray[400]} />}
+            {hasTranscripts && <Ionicons name="book-outline" size={14} color={colors.gray[400]} />}
+          </View>
         </View>
       </View>
+      {/* The status badge sits under the picture: next to the title it overlapped it. */}
+      {(event.status === "draft" || event.status === "forthcoming") && (
+        <View style={styles.statusBadge}>
+          {event.status === "draft" ? <DraftBadge /> : <ForthcomingBadge />}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: "row",
     paddingVertical: 12,
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,
   },
-  // The separator starts at the left edge and stops at the right inset.
+  // Phone: the separator spans the text column, gutter to gutter.
   rowToInset: {
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
-  // Desktop: the lighter separator bleeds left to the column edge and stops
-  // 4x the former gap (one gutter) before the right edge. The container pads
-  // by TEXT_GUTTER, hence the negative left margin and the 3 extra gutters.
-  rowDesktop: {
-    marginLeft: -TEXT_GUTTER,
-    paddingLeft: TEXT_GUTTER,
-    marginRight: TEXT_GUTTER * 3,
-    borderBottomColor: DESKTOP_ROW_RULE_COLOR,
+  // Desktop: the column already pads the row, so the separator spans it as is.
+  rowDesktop: {},
+  // Picture and text side by side; the status badge, when there is one, hangs under the picture.
+  main: {
+    flexDirection: "row",
+  },
+  statusBadge: {
+    alignSelf: "flex-start",
+    marginTop: 8,
   },
   thumb: {
     width: 80,
@@ -182,11 +180,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#f0f0f0",
     marginRight: 14,
-  },
-  // List thumbnails keep the text margin: small squares against the screen
-  // edge make the list look lopsided.
-  thumbIndented: {
-    marginLeft: TEXT_GUTTER,
   },
   thumbImage: {
     width: "100%",

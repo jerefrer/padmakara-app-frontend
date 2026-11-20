@@ -1,21 +1,33 @@
 /**
  * Shared geometry for content screens on mobile.
  *
- * Text and list thumbnails are indented by TEXT_GUTTER. Horizontal lines
- * (section rules and row separators) start at the left screen edge and stop
- * RULE_RIGHT_INSET before the right edge, a bit earlier than the text gutter.
+ * Text and list thumbnails are indented by TEXT_GUTTER. Lines (section rules
+ * and row separators) run from the left screen edge to RULE_RIGHT_INSET before
+ * the right edge: the same gutter as the text, so a row never stops short of
+ * its own padding.
  *
- * Line hierarchy: ONE red rule at the top of a list or section (right under
- * the page header, see components/ui/SectionRule.tsx), and thin dark
- * hairlines between rows (the subdivisions).
+ * Only two kinds of horizontal line exist app-wide:
+ * - RULE_COLOR, light red: directly under a section header or page title;
+ * - SUBDIVISION_COLOR, light black: every separator between rows.
+ * Never write a line colour inline: use one of these two.
  */
 import { Platform, StyleSheet } from "react-native";
+
+/** Side of a list picture: the Personal Library's round group pictures and the square thumbnails. */
+export const LIST_AVATAR_SIZE = 80;
 
 /** Left/right indent of text and list thumbnails on mobile. */
 export const TEXT_GUTTER = 24;
 
-/** Lines run from the left edge and stop this far before the right edge. */
-export const RULE_RIGHT_INSET = TEXT_GUTTER + 12;
+/** Lines start at the text's left edge (the content edge), not at the screen edge. */
+export const RULE_LEFT_INSET = TEXT_GUTTER;
+
+/**
+ * Lines stop this far before the right edge: the text gutter, mirroring the left padding.
+ * (It used to be TEXT_GUTTER + 12, which left phone lines ending ~35pt short of the edge while
+ * the header image ran full width.)
+ */
+export const RULE_RIGHT_INSET = TEXT_GUTTER;
 
 /**
  * Thickness of the red section rules. On the web a full 1px is two device pixels on a
@@ -24,17 +36,24 @@ export const RULE_RIGHT_INSET = TEXT_GUTTER + 12;
  */
 export const RULE_THICKNESS = Platform.OS === "web" ? 0.5 : 1;
 
-/** Colour of the red rule at the top of a list or section (burgundy). */
-export const RULE_COLOR = "#9b1b1b";
+/** Light red: the line under a section header or page title (burgundy at about half strength). */
+export const RULE_COLOR = "rgba(155,27,27,0.5)";
 
-/** Colour of the thin lines between rows: near-black, kept light by the hairline weight. */
-export const SUBDIVISION_COLOR = "#2c2c2c";
+/** Light black: the line between rows (black at 15%), the same on every screen. */
+export const SUBDIVISION_COLOR = "rgba(0,0,0,0.15)";
 
 /**
  * Weight of the thin lines between rows. On the web hairlineWidth is a full 1px, which
  * reads as a heavy black bar; half a pixel draws a true hairline on high-density screens.
  */
 export const SUBDIVISION_THICKNESS = Platform.OS === "web" ? 0.5 : StyleSheet.hairlineWidth;
+
+/**
+ * Widest the central column of the desktop shell grows (André: about 300 px sidebar, 700 px
+ * content, 200 px red panel). Beyond it the extra width is light grey on both sides, so a header
+ * picture never stretches more than it does at this width.
+ */
+export const DESKTOP_CONTENT_MAX = 700;
 
 /**
  * Desktop pictures are square, text beside them (André): the home highlight and the event

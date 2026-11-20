@@ -24,12 +24,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { LIST_AVATAR_SIZE, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 // Same width as the square teaching thumbnails (EventThumb), so both lists align.
-const AVATAR_SIZE = 80;
+const AVATAR_SIZE = LIST_AVATAR_SIZE;
 // Teaching titles use the retreat-group name size on this screen.
 const GROUP_NAME_FONT_SIZE = 17;
 
@@ -106,7 +106,7 @@ function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
   const groupImage = groupThumbnailSource(group, getGroupImage(groupName));
 
   return (
-    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.groupRow, !isDesktop && styles.groupRowIndented]} testID={`group-card-${group.id}`}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.groupRow} testID={`group-card-${group.id}`}>
       {/* Round avatar */}
       <View style={styles.avatarContainer}>
         {groupImage ? (
@@ -351,8 +351,8 @@ export default function RetreatsListScreen() {
               <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
                 {t("retreats.retreatsSection") || "Your Retreats"}
               </Text>
-              {!isDesktop && <SectionRule />}
-              <View style={[isDesktop && styles.groupsListDesktop, !isDesktop && styles.ruleToInset]}>
+              <SectionRule contained={isDesktop} />
+              <View style={!isDesktop && styles.ruleToInset}>
                 {groups.map((group) => (
                   <GroupRow
                     key={group.id}
@@ -379,8 +379,8 @@ export default function RetreatsListScreen() {
               section.items.length > 0 && (
                 <View key={section.key} style={styles.teachingsSection}>
                   <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>{section.title}</Text>
-                  {!isDesktop && <SectionRule />}
-                  <View style={isDesktop && styles.groupsListDesktop}>
+                  <SectionRule contained={isDesktop} />
+                  <View>
                     {section.items.map((teaching) => (
                       <EventRow
                         key={teaching.id}
@@ -433,8 +433,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  // Mobile content runs edge to edge: text is indented per element so that
-  // separators can start at the left screen edge.
+  // Mobile text is indented per element; the lines run gutter to gutter.
   scrollContent: {
     paddingBottom: 120,
   },
@@ -445,12 +444,10 @@ const styles = StyleSheet.create({
   indented: {
     paddingHorizontal: TEXT_GUTTER,
   },
-  // Lines start at the left edge and stop at the right inset.
+  // Lines run from the text's left edge to the right gutter.
   ruleToInset: {
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
-  },
-  groupRowIndented: {
-    paddingLeft: TEXT_GUTTER,
   },
   centerContent: {
     flex: 1,
@@ -486,10 +483,6 @@ const styles = StyleSheet.create({
   },
 
   // Groups list
-  groupsListDesktop: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.gray[200],
-  },
   groupRow: {
     flexDirection: "row",
     alignItems: "center",

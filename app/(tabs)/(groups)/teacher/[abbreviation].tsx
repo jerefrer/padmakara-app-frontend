@@ -25,7 +25,7 @@ import { pickFrameOverride } from '@/utils/heroFrames';
 import { useEventBookmarks } from '@/hooks/useEventBookmarks';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -233,7 +233,7 @@ export default function TeacherDetailScreen() {
           </Text>
         </View>
 
-        {/* Red rule opens the list; thin dark lines separate the rows. */}
+        {/* Light red rule opens the list; light black lines separate the rows. */}
         <SectionRule />
 
         {/* Event list */}
@@ -394,10 +394,10 @@ const styles = StyleSheet.create({
   eventList: {
     paddingTop: 0,
   },
-  // Text is indented; the separator starts at the left edge and stops at the right inset.
+  // The separator runs from the text's left edge to the right gutter.
   eventCard: {
     paddingVertical: 16,
-    paddingLeft: TEXT_GUTTER,
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,

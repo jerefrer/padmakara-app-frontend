@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
-import { RULE_COLOR, RULE_RIGHT_INSET, RULE_THICKNESS, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, RULE_THICKNESS, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
@@ -348,10 +348,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.white,
   },
-  // The red rule under the search bar: starts at the left edge and stops at
-  // the right inset.
+  // The light red rule under the search bar: the text's left edge to the right gutter.
   searchBarRule: {
     height: RULE_THICKNESS,
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: RULE_COLOR,
   },
@@ -384,8 +384,6 @@ const styles = StyleSheet.create({
   resultsList: {
     flex: 1,
   },
-  // Mobile results run edge to edge: text is indented per element so that
-  // separators can start at the left screen edge.
   resultsContent: {
     paddingVertical: 12,
   },
@@ -444,7 +442,7 @@ const styles = StyleSheet.create({
     borderBottomColor: SUBDIVISION_COLOR,
   },
   resultCardToInset: {
-    paddingLeft: TEXT_GUTTER,
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
   resultEventTitle: {

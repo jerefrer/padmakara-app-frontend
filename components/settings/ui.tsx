@@ -5,6 +5,7 @@ import { useFocusRing } from '@/components/membership/focusRing';
 import { pageStyles } from '@/components/membership/pageStyles';
 import { membershipColors as c } from '@/components/membership/theme';
 import { ListRowPressable } from '@/components/ui/ListRowPressable';
+import { SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
   // The membership label look, without its own margins: the wrapper above sets the spacing.
   groupLabelText: { ...(pageStyles.sectionLabel as object), marginTop: 0, marginBottom: 0 },
   groupHint: { fontSize: 13, color: c.gray[500], marginTop: 2 },
-  rows: { borderTopWidth: 1, borderTopColor: c.gray[200] },
+  rows: { borderTopWidth: SUBDIVISION_THICKNESS, borderTopColor: SUBDIVISION_COLOR },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -172,8 +173,8 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingVertical: 12,
     gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   left: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   text: { flex: 1, marginLeft: 12 },

@@ -15,7 +15,7 @@ import { mainTeacherNames, mainTeachers } from '@/utils/eventTeachers';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { ListRowPressable, getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -52,7 +52,7 @@ interface TeacherGroup {
 function TeacherRow({ teacher, onPress, t, isDesktop }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined; isDesktop?: boolean }) {
   return (
     <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.teacherRow, !isDesktop && styles.rowToInset]}>
-      <View style={[styles.teacherAvatarLarge, !isDesktop && styles.thumbIndented]}>
+      <View style={styles.teacherAvatarLarge}>
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
             source={{ uri: (teacher.avatarUrl || teacher.photoUrl)!, cacheKey: teacherAvatarCacheKey(teacher) }}
@@ -478,8 +478,8 @@ export default function EventsScreen() {
             )}
           </View>
 
-          {/* Red rule under the header; rows below get thin dark lines. */}
-          {!isDesktop && <SectionRule />}
+          {/* Light red rule under the header; rows below get light black lines. */}
+          <SectionRule contained={isDesktop} />
 
           {/* View mode tabs — only show when not filtering by a specific teacher */}
           {!teacherFilter && (
@@ -512,20 +512,16 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  // Mobile content runs edge to edge: text is indented per element so that
-  // row separators can start at the left screen edge.
   scrollContentDesktop: {
     paddingHorizontal: TEXT_GUTTER,
   },
   indented: {
     paddingHorizontal: TEXT_GUTTER,
   },
-  // A separator that starts at the left edge and stops at the right inset.
+  // A separator that runs from the text's left edge to the right gutter.
   rowToInset: {
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
-  },
-  thumbIndented: {
-    marginLeft: TEXT_GUTTER,
   },
   header: {
     flexDirection: 'row',
@@ -685,15 +681,15 @@ const styles = StyleSheet.create({
 
   // Desktop list styles
   desktopListContainer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
+    borderTopWidth: SUBDIVISION_THICKNESS,
+    borderTopColor: SUBDIVISION_COLOR,
   },
   desktopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   desktopRowHovered: {
     backgroundColor: '#fafafa',

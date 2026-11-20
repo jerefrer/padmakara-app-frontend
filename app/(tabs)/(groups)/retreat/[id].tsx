@@ -27,7 +27,6 @@ import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
 import { DocumentShareButton } from '@/components/DocumentShareButton';
 import { DocumentImageViewer } from '@/components/DocumentImageViewer';
-import { DESKTOP_ROW_RULE_COLOR } from '@/components/EventRow';
 import { claimTrackReveal, subscribeTrackReveal } from '@/utils/trackReveal';
 import { eventNowPlayingInfo } from '@/utils/videoNowPlaying';
 
@@ -95,13 +94,13 @@ import { EventTopics } from '@/components/EventTopics';
 import { guestLine, mainTeacherNames } from '@/utils/eventTeachers';
 import {
   DESKTOP_SQUARE_MAX,
-  RULE_RIGHT_INSET,
+  RULE_COLOR,
   SUBDIVISION_COLOR,
   SUBDIVISION_THICKNESS,
   TEXT_GUTTER,
 } from '@/constants/layout';
 
-/** styles.scrollContent's padding, which desktop lines bleed through to the column edge. */
+/** Padding of the desktop scroll column: lines and text stay inside it. */
 const DESKTOP_SCROLL_PADDING = 16;
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
@@ -130,6 +129,9 @@ const colors = {
   },
   white: '#ffffff',
 };
+
+/** Inset shadow along a row's top edge, under the separator line above it. */
+const PRESSED_ROW_SHADOW = 'inset 0px 3px 3px -2px rgba(0, 0, 0, 0.18)';
 
 const LANG_COLORS: Record<string, { bg: string; text: string }> = {
   en: { bg: 'transparent', text: '#6b7fad' },
@@ -1779,8 +1781,7 @@ export default function RetreatDetailScreen() {
           <View
             style={[
               styles.eventTitleSection,
-              !isDesktop && styles.lineBleed,
-              (isDesktop || compactSidebar) && !heroSource && styles.eventTitleSectionBesideBack,
+                            (isDesktop || compactSidebar) && !heroSource && styles.eventTitleSectionBesideBack,
               // Phone without a hero: the title starts below the floating back / bookmark /
               // download buttons instead of under them and the status bar.
               !isDesktop && !compactSidebar && !heroSource && { paddingTop: insets.top + FLOATING_BUTTONS_CLEARANCE },
@@ -1832,7 +1833,6 @@ export default function RetreatDetailScreen() {
             audio, documents). Sits between the title and the content. */}
         {!isForthcoming && showContentTabs && (
           <TabSwitcher<EventContentTab>
-            style={!isDesktop && styles.lineBleed}
             activeKey={effectiveTab}
             onChange={setActiveContentTab}
             tabs={[
@@ -1890,7 +1890,7 @@ export default function RetreatDetailScreen() {
                   but the dedicated Video tab now provides that
                   affordance, so the header is text-only. */}
               {showSessionHeader && (
-                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, isDesktop ? styles.sessionHeaderDesktop : styles.sessionHeaderBleed]}>
+                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, styles.sessionHeaderIndent]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track, retreat?.startDate, language, t)}
                   </Text>
@@ -1909,7 +1909,8 @@ export default function RetreatDetailScreen() {
                 }}
                 style={[
                   styles.trackItem,
-                  isDesktop ? styles.trackItemDesktop : styles.trackItemBleed,
+                  styles.trackItemIndent,
+                  isDesktop && styles.trackItemDesktop,
                   isActive && styles.currentTrackItem,
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
                   nextIsContinuation && styles.trackItemSiblingAbove,
@@ -1976,7 +1977,7 @@ export default function RetreatDetailScreen() {
               return (
                 <TouchableOpacity {...getRowPressDelayProps()}
                   key={doc.key}
-                  style={[styles.documentListItem, !isDesktop && styles.lineBleed]}
+                  style={styles.documentListItem}
                   onPress={() => handleDocumentPress(doc)}
                   disabled={!!documentBusyKey}
                   accessibilityRole="button"
@@ -2038,7 +2039,7 @@ export default function RetreatDetailScreen() {
 
         {!isForthcoming && effectiveTab === 'documents' && relatedPublications.length > 0 && (
           <View
-            style={[styles.relatedPublicationsSection, !isDesktop && styles.lineBleed]}
+            style={styles.relatedPublicationsSection}
             testID="event-related-publications"
           >
             <Text style={styles.relatedPublicationsTitle}>
@@ -2697,46 +2698,27 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: DESKTOP_SCROLL_PADDING,
   },
-  // Mobile text follows the shared gutter. Lines (rules, session headers,
-  // track and document rows) bleed to the left screen edge and stop at the
-  // right inset; see the *Bleed styles below.
+  // Mobile text follows the shared gutter; the lines (rules, session headers, track and
+  // document rows) run inside it, gutter to gutter.
   scrollContentMobile: {
     paddingHorizontal: TEXT_GUTTER,
   },
   heroContainerMobile: {
     marginHorizontal: -TEXT_GUTTER,
   },
-  lineBleed: {
-    marginLeft: -TEXT_GUTTER,
-    marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
-    paddingLeft: TEXT_GUTTER,
+  // Every line of the list runs the width of the padded column (phone gutters, desktop padding):
+  // it starts where the text starts and stops at the right padding. The numbers sit a few pixels
+  // inside the line so the row's red bar (3 px) has room.
+  sessionHeaderIndent: {
+    paddingLeft: 7,
   },
-  sessionHeaderBleed: {
-    marginLeft: -TEXT_GUTTER,
-    marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
-    paddingLeft: TEXT_GUTTER + 7,
+  trackItemIndent: {
+    paddingLeft: 4,
   },
-  trackItemBleed: {
-    marginLeft: -TEXT_GUTTER,
-    marginRight: RULE_RIGHT_INSET - TEXT_GUTTER,
-    paddingLeft: TEXT_GUTTER + 4,
-  },
-  // Desktop: the home list's black lines (EventRow rowDesktop). They start flush with the
-  // column's left edge and stop four gutters before its right edge; scrollContent pads by 16.
-  sessionHeaderDesktop: {
-    marginLeft: -DESKTOP_SCROLL_PADDING,
-    marginRight: TEXT_GUTTER * 4 - DESKTOP_SCROLL_PADDING,
-    paddingLeft: DESKTOP_SCROLL_PADDING + 7,
-    borderBottomColor: DESKTOP_ROW_RULE_COLOR,
-  },
-  // No red bar on the playing row: its shade already marks it (André). The bar's 3 px go to the
-  // padding so the numbers stay where they were.
+  // Desktop: no red bar on the playing row; its 3 px go to the padding so the numbers stay put.
   trackItemDesktop: {
-    marginLeft: -DESKTOP_SCROLL_PADDING,
-    marginRight: TEXT_GUTTER * 4 - DESKTOP_SCROLL_PADDING,
-    paddingLeft: DESKTOP_SCROLL_PADDING + 4 + 3,
+    paddingLeft: 4 + 3,
     borderLeftWidth: 0,
-    borderBottomColor: DESKTOP_ROW_RULE_COLOR,
   },
   // Desktop event header: square photo, text beside it (the home highlight's layout).
   desktopHeader: {
@@ -2744,8 +2726,8 @@ const styles = StyleSheet.create({
     gap: 24,
     paddingBottom: 16,
     marginBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.burgundy[500],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: RULE_COLOR,
   },
   desktopHeroSquare: {
     width: '45%',
@@ -2935,8 +2917,8 @@ const styles = StyleSheet.create({
   eventTitleSection: {
     paddingTop: 12,
     paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.burgundy[500],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: RULE_COLOR,
     marginBottom: 8,
   },
   // Desktop or tablet without a hero image: the round back button floats at the top-left, so the
@@ -3007,8 +2989,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
   },
+  // The playing row has no tint: a soft shadow under the line above it makes it look pressed
+  // down. The red bar on the left stays.
   currentTrackItem: {
-    backgroundColor: colors.burgundy[50],
+    boxShadow: PRESSED_ROW_SHADOW,
     borderLeftColor: colors.burgundy[500],
   },
   trackItemSiblingAbove: {
@@ -3187,8 +3171,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
     gap: 12,
   },
   documentListInfo: {
@@ -3273,8 +3257,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.gray[200],
+    borderTopWidth: SUBDIVISION_THICKNESS,
+    borderTopColor: SUBDIVISION_COLOR,
   },
   relatedPublicationsTitle: {
     fontFamily: 'EBGaramond_600SemiBold',
