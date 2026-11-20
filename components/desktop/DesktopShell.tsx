@@ -6,6 +6,7 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
 import { DESKTOP_CONTENT_MAX } from '@/constants/layout';
+import { useReaderFullWindow } from '@/utils/readerImmersive';
 
 /** Width of the soft shadows cast onto the main area and the right panel. */
 export const EDGE_SHADOW_WIDTH = 12;
@@ -63,6 +64,10 @@ export function DesktopShell({
   useKeyboardShortcuts();
 
   const insets = useSafeAreaInsets();
+  // A document reader open: it takes the whole window, so the sidebar, the
+  // right panel and the player bar step aside (kept mounted, only hidden, so
+  // the navigator and the player never remount).
+  const readerOpen = useReaderFullWindow();
 
   if (Platform.OS !== 'web') {
     return (
@@ -74,9 +79,9 @@ export function DesktopShell({
         sidebarWidth={sidebarWidth}
         playerBarHeight={playerBarHeight}
         insets={insets}
-        showSidebar={showSidebar}
-        showRightRail={showRightRail}
-        showPlayerBar={!isMobile}
+        showSidebar={showSidebar && !readerOpen}
+        showRightRail={showRightRail && !readerOpen}
+        showPlayerBar={!isMobile && !readerOpen}
         capContent={capContent}
       >
         {children}
@@ -84,9 +89,12 @@ export function DesktopShell({
     );
   }
 
-  const gridColumns = rightSidebar
-    ? `${sidebarWidth}px 1fr ${rightSidebarWidth}px`
-    : `${sidebarWidth}px 1fr`;
+  const gridColumns = readerOpen
+    ? '1fr'
+    : rightSidebar
+      ? `${sidebarWidth}px 1fr ${rightSidebarWidth}px`
+      : `${sidebarWidth}px 1fr`;
+  const showPlayerRow = !!playerBar && !readerOpen;
 
   return (
     <View
@@ -95,7 +103,7 @@ export function DesktopShell({
         Platform.OS === 'web' && ({
           display: 'grid' as any,
           gridTemplateColumns: gridColumns,
-          gridTemplateRows: playerBar ? `1fr ${playerBarHeight}px` : '1fr',
+          gridTemplateRows: showPlayerRow ? `1fr ${playerBarHeight}px` : '1fr',
           height: '100vh',
           overflow: 'hidden',
         } as any),
@@ -105,6 +113,7 @@ export function DesktopShell({
         style={[
           styles.sidebarContainer,
           { width: sidebarWidth },
+          readerOpen && styles.hidden,
           Platform.OS === 'web' && ({
             gridColumn: '1',
             gridRow: '1',
@@ -119,13 +128,13 @@ export function DesktopShell({
         style={[
           styles.mainContent,
           Platform.OS === 'web' && ({
-            gridColumn: '2',
+            gridColumn: readerOpen ? '1' : '2',
             gridRow: '1',
             overflow: 'auto' as any,
           } as any),
         ]}
       >
-        <MainColumn capped={capContent}>{children}</MainColumn>
+        <MainColumn capped={capContent && !readerOpen}>{children}</MainColumn>
       </View>
 
       {rightSidebar && (
@@ -133,6 +142,7 @@ export function DesktopShell({
           style={[
             styles.rightSidebarContainer,
             { width: rightSidebarWidth },
+            readerOpen && styles.hidden,
             Platform.OS === 'web' && ({
               gridColumn: '3',
               gridRow: '1',
@@ -147,11 +157,13 @@ export function DesktopShell({
       )}
 
       {/* Sidebar onto main area, main area onto the red panel. */}
-      <EdgeShadow
-        testID="shadow-main-left"
-        style={{ left: sidebarWidth, bottom: playerBar ? playerBarHeight : 0 }}
-      />
-      {rightSidebar && (
+      {!readerOpen && (
+        <EdgeShadow
+          testID="shadow-main-left"
+          style={{ left: sidebarWidth, bottom: playerBar ? playerBarHeight : 0 }}
+        />
+      )}
+      {rightSidebar && !readerOpen && (
         <EdgeShadow
           testID="shadow-right-panel-left"
           style={{
@@ -165,6 +177,7 @@ export function DesktopShell({
         <View
           style={[
             styles.playerBar,
+            readerOpen && styles.hidden,
             { height: playerBarHeight },
             Platform.OS === 'web' && ({
               gridColumn: '1 / -1',
