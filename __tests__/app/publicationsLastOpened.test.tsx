@@ -97,7 +97,7 @@ describe('publications "Last opened" tab', () => {
 
     const tab = await screen.findByTestId('publications-tab-lastOpened');
 
-    expect(screen.getByText('last opened')).toBeTruthy();
+    expect(screen.getByText('recent')).toBeTruthy();
     expect(tab.props.accessibilityState).toEqual({ selected: true });
   });
 

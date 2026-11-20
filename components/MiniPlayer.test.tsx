@@ -52,11 +52,11 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('@/components/PlayingIndicator', () => ({ PlayingIndicator: () => null }));
 jest.mock('@/utils/i18n', () => ({ getTrackTitle: (t: { title: string }) => t.title }));
 
-const makeTrack = (id: string, title: string): Track => ({
+const makeTrack = (id: string, title: string, order = 0): Track => ({
   id,
   title,
   duration: 600,
-  order: 0,
+  order,
   session_id: 's1',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
@@ -116,6 +116,18 @@ describe('MiniPlayer after the app restarts', () => {
     expect(screen.getByTestId('miniplayer-progress').props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ width: '25%' })]),
     );
+  });
+
+  it('should show the track number before the title when the track has one', async () => {
+    await AsyncStorage.setItem(
+      'last_played_track',
+      JSON.stringify({ track: makeTrack('tNum', 'Teaching', 2), meta: lastMeta }),
+    );
+
+    const screen = renderApp();
+    await flush();
+
+    expect(screen.getByText('2 · Teaching')).toBeTruthy();
   });
 
   it('should resume from where the person stopped when play is tapped', async () => {

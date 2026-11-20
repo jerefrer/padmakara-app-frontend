@@ -1,4 +1,5 @@
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
+import type { ReadingTheme } from '@/utils/pdfReadingTheme';
 
 export interface PDFViewerProps {
   source: string;
@@ -25,6 +26,11 @@ export interface PDFViewerProps {
    * moved while reading. A page past the end opens the last page.
    */
   initialPage?: number | null;
+  /**
+   * Reading theme of the page (iOS and Android; default normal). The web viewer
+   * has its own toolbar control and keeps its own setting.
+   */
+  readingTheme?: ReadingTheme;
 }
 
 export interface PDFViewerHandle {

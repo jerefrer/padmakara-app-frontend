@@ -8,6 +8,8 @@ import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import { PageBookmarkButton } from '@/components/PageBookmarkButton';
+import { ReadingThemeButton } from '@/components/ReadingThemeButton';
+import { useReadingTheme } from '@/hooks/useReadingTheme';
 import { useReaderDocument } from '@/hooks/useReaderDocument';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { useReaderBars } from '@/hooks/useReaderBars';
@@ -49,6 +51,7 @@ export default function TranscriptViewerScreen() {
   const [outlineVisible, setOutlineVisible] = useState(false);
   const [readerBarHeight, setReaderBarHeight] = useState(0);
   const viewerRef = useRef<PDFViewerHandle>(null);
+  const [readingTheme, setReadingTheme] = useReadingTheme();
   // Where the transcript opens and its page bookmarks, for this person.
   const reader = useReaderDocument(
     transcriptId !== null ? { type: 'transcript', id: String(transcriptId) } : null,
@@ -232,6 +235,13 @@ export default function TranscriptViewerScreen() {
               </Text>
             </View>
 
+            <ReadingThemeButton
+              testID="transcript-reading-theme-button"
+              theme={readingTheme}
+              onChange={setReadingTheme}
+              style={styles.headerButton}
+            />
+
             {reader.ready && (
               <PageBookmarkButton
                 testID="transcript-page-bookmark-button"
@@ -290,6 +300,7 @@ export default function TranscriptViewerScreen() {
             onSingleTap={toggleBars}
             onOutline={setOutline}
             contentInsetTop={readerBarHeight}
+            readingTheme={readingTheme}
             showDownloadButton={false}
           />
         ) : (

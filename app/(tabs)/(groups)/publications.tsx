@@ -25,6 +25,8 @@ import { publicationService } from '@/services/publicationService';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import { PageBookmarkButton } from '@/components/PageBookmarkButton';
+import { ReadingThemeButton } from '@/components/ReadingThemeButton';
+import { useReadingTheme } from '@/hooks/useReadingTheme';
 import { ReaderTopBar } from '@/components/ReaderTopBar';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
 import { publicationUpdate, type CachedPublicationFile } from '@/utils/publicationUpdate';
@@ -101,6 +103,7 @@ export default function PublicationsScreen() {
   const [readerBarHeight, setReaderBarHeight] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const viewerRef = useRef<PDFViewerHandle>(null);
+  const [readingTheme, setReadingTheme] = useReadingTheme();
   // Where the publication opens and its page bookmarks, for this person.
   const reader = useReaderDocument(
     viewingPdf ? { type: 'publication', id: viewingPdf.publication.id } : null,
@@ -476,6 +479,12 @@ export default function PublicationsScreen() {
               <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
                 {getTitle(viewingPdf.publication)}
               </Text>
+              <ReadingThemeButton
+                testID="publication-reading-theme-button"
+                theme={readingTheme}
+                onChange={setReadingTheme}
+                style={styles.pdfShareButton}
+              />
               {reader.ready && (
                 <PageBookmarkButton
                   testID="publication-page-bookmark-button"
@@ -592,6 +601,7 @@ export default function PublicationsScreen() {
               onSingleTap={toggleBars}
               onOutline={setOutline}
               contentInsetTop={readerBarHeight}
+              readingTheme={readingTheme}
               showDownloadButton={false}
             />
           ) : (

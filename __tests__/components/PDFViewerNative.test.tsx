@@ -27,6 +27,9 @@ jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
   return { Ionicons: (props: any) => <Text>{props.name}</Text> };
 });
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
+}));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
 }));
@@ -212,5 +215,32 @@ describe('PDFViewer (iOS and Android)', () => {
 
     expect(pdfProps.page).toBe(1);
     expect(mockSetPage).not.toHaveBeenCalled();
+  });
+
+  it('should add no theme layer when the reading theme is normal', () => {
+    const screen = render(<PDFViewer source="file:///data/doc.pdf" />);
+
+    expect(screen.queryByTestId('pdf-theme-layer-multiply')).toBeNull();
+    expect(screen.queryByTestId('pdf-theme-layer-difference')).toBeNull();
+  });
+
+  it('should multiply the page by the paper colour when the theme is sepia', () => {
+    const screen = render(<PDFViewer source="file:///data/doc.pdf" readingTheme="sepia" />);
+
+    expect(screen.getByTestId('pdf-theme-layer-multiply').props.pointerEvents).toBe('none');
+  });
+
+  it('should invert the page when the theme is night', () => {
+    const screen = render(<PDFViewer source="file:///data/doc.pdf" readingTheme="night" />);
+
+    expect(screen.getByTestId('pdf-theme-layer-difference')).toBeTruthy();
+  });
+
+  it('should place the page counter below the reader bar', () => {
+    const screen = render(<PDFViewer source="file:///data/doc.pdf" contentInsetTop={90} />);
+    act(() => pdfProps.onPageChanged(5, 442));
+
+    const badge = screen.getByText('5 / 442').parent!.parent!;
+    expect(JSON.stringify(badge.props.style)).toContain('"top":98');
   });
 });

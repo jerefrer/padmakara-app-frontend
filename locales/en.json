@@ -562,9 +562,9 @@
     "shareError": "Could not share this publication",
     "title": "Publications",
     "tabs": {
-      "lastOpened": "last opened",
-      "author": "by author",
-      "title": "by title"
+      "lastOpened": "recent",
+      "author": "author",
+      "title": "title"
     },
     "filters": {
       "all": "All",
