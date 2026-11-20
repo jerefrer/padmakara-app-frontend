@@ -13,7 +13,7 @@ const mockPlayer: Record<string, any> = {
   pause: jest.fn(),
   currentTime: 0,
   duration: 0,
-  showNowPlayingNotification: true,
+  showNowPlayingNotification: false,
 };
 // The props the video view last received.
 const mockVideoView: { props: Record<string, any> } = { props: {} };
@@ -153,7 +153,7 @@ describe('VideoHost — the video keeps playing while the viewer moves around th
     mockAudioPlaying = false;
     mockPlayer.duration = 6925;
     mockPlayer.currentTime = 0;
-    mockPlayer.showNowPlayingNotification = true;
+    mockPlayer.showNowPlayingNotification = false;
     mockVideoView.props = {};
   });
 
@@ -343,11 +343,37 @@ describe('VideoHost floating window layout', () => {
 });
 
 describe('VideoHost Now Playing', () => {
+  // Setting showNowPlayingNotification (to false too) makes expo-video clear the shared
+  // Now Playing card and switch the audio session to mixing, which hid the audio
+  // player's lock screen card on iPhone. A video that never played must leave it alone.
+  it('should never touch the lock screen registration of a video that has not played, while audio plays', async () => {
+    mockAudioPlaying = true;
+    mockPlayer.showNowPlayingNotification = false;
+    const writes: boolean[] = [];
+    Object.defineProperty(mockPlayer, 'showNowPlayingNotification', {
+      configurable: true,
+      get: () => writes[writes.length - 1] ?? false,
+      set: (v: boolean) => { writes.push(v); },
+    });
+    try {
+      const view = render(<App onEventScreen />);
+      await waitFor(() => expect(mockPlayer.replace).toHaveBeenCalledTimes(1));
+      mockAudioPlaying = false;
+      view.rerender(<App onEventScreen />);
+      mockAudioPlaying = true;
+      view.rerender(<App onEventScreen />);
+      expect(writes).toEqual([]);
+    } finally {
+      delete (mockPlayer as Record<string, unknown>).showNowPlayingNotification;
+      mockPlayer.showNowPlayingNotification = false;
+    }
+  });
+
   const originalOS = Platform.OS;
   beforeEach(() => {
     jest.clearAllMocks();
     mockAudioPlaying = false;
-    mockPlayer.showNowPlayingNotification = true;
+    mockPlayer.showNowPlayingNotification = false;
     (Platform as { OS: string }).OS = 'ios';
   });
   afterEach(() => {
@@ -382,7 +408,10 @@ describe('VideoHost Now Playing', () => {
   });
 
   it('should release the lock screen when audio starts', async () => {
+    jest.useFakeTimers();
     const view = await openAndPlay();
+    act(() => jest.advanceTimersByTime(600));
+    expect(mockPlayer.showNowPlayingNotification).toBe(true);
 
     mockAudioPlaying = true;
     view.rerender(<App onEventScreen />);

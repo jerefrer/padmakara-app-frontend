@@ -14,7 +14,7 @@ const mockPlayer: Record<string, any> = {
   currentTime: 0,
   duration: 0,
   playing: false,
-  showNowPlayingNotification: true,
+  showNowPlayingNotification: false,
 };
 const mockView = {
   startPictureInPicture: jest.fn(() => Promise.resolve()),
@@ -160,7 +160,7 @@ beforeEach(() => {
   mockPlayer.duration = 6925;
   mockPlayer.currentTime = 0;
   mockPlayer.playing = false;
-  mockPlayer.showNowPlayingNotification = true;
+  mockPlayer.showNowPlayingNotification = false;
   mockView.startPictureInPicture.mockImplementation(() => Promise.resolve());
   setOS('ios');
 });
