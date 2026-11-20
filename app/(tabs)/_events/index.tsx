@@ -15,7 +15,7 @@ import { mainTeacherNames, mainTeachers } from '@/utils/eventTeachers';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { LIST_AVATAR_SIZE, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { ListRowPressable, getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -566,10 +566,12 @@ const styles = StyleSheet.create({
   teacherAvatarLarge: {
     marginRight: 16,
   },
+  // The same round picture as the Personal Library's retreat groups (André): a round picture
+  // stands for a person or a class, and every one of them has the same size.
   teacherAvatarLargeImg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: LIST_AVATAR_SIZE,
+    height: LIST_AVATAR_SIZE,
+    borderRadius: LIST_AVATAR_SIZE / 2,
   },
   teacherAvatarFallback: {
     backgroundColor: colors.gray[200],
@@ -577,7 +579,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   teacherAvatarFallbackText: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '600',
     color: colors.gray[600],
   },
