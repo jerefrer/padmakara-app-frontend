@@ -2,9 +2,8 @@
  * Shared geometry for content screens on mobile.
  *
  * Text and list thumbnails are indented by TEXT_GUTTER. Lines (section rules
- * and row separators) run from the left screen edge to RULE_RIGHT_INSET before
- * the right edge: the same gutter as the text, so a row never stops short of
- * its own padding.
+ * and row separators) start at the left screen edge (André: left-justified)
+ * and stop RULE_RIGHT_INSET before the right edge, the same gutter as the text.
  *
  * Only two kinds of horizontal line exist app-wide:
  * - RULE_COLOR, light red: directly under a section header or page title;
@@ -18,9 +17,6 @@ export const LIST_AVATAR_SIZE = 80;
 
 /** Left/right indent of text and list thumbnails on mobile. */
 export const TEXT_GUTTER = 24;
-
-/** Lines start at the text's left edge (the content edge), not at the screen edge. */
-export const RULE_LEFT_INSET = TEXT_GUTTER;
 
 /**
  * Lines stop this far before the right edge: the text gutter, mirroring the left padding.

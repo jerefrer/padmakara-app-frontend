@@ -12,7 +12,7 @@ import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, hairlineThickness, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, hairlineThickness, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   // A separator that runs from the text's left edge to the right gutter.
   rowToInset: {
-    marginLeft: RULE_LEFT_INSET,
+    paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
   },
   header: {

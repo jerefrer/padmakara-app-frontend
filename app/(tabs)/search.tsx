@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
-import { desktopRowBleed, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, ruleThickness, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopRowBleed, RULE_COLOR, RULE_RIGHT_INSET, ruleThickness, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
@@ -351,9 +351,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.white,
   },
-  // The light red rule under the search bar: the text's left edge to the right gutter.
+  // The light red rule under the search bar: the left screen edge to the right gutter.
   searchBarRule: {
-    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: RULE_COLOR,
   },
@@ -444,7 +443,7 @@ const styles = StyleSheet.create({
     borderBottomColor: SUBDIVISION_COLOR,
   },
   resultCardToInset: {
-    marginLeft: RULE_LEFT_INSET,
+    paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
   },
   resultEventTitle: {

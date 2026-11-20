@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
@@ -446,7 +446,6 @@ const styles = StyleSheet.create({
   },
   // Lines run from the text's left edge to the right gutter.
   ruleToInset: {
-    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
   centerContent: {
@@ -487,6 +486,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
+    paddingLeft: TEXT_GUTTER,
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,
   },

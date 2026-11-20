@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, ruleThickness } from "@/constants/layout";
+import { RULE_COLOR, RULE_RIGHT_INSET, ruleThickness } from "@/constants/layout";
 
 /**
  * The light red rule directly under a page title or section header. On a phone it
@@ -25,7 +25,6 @@ const styles = StyleSheet.create({
     backgroundColor: RULE_COLOR,
   },
   gutters: {
-    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
 });

@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { EventRow, EventThumb } from "@/components/EventRow";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
-import { desktopLineBleed, desktopRowBleed, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
+import { desktopLineBleed, desktopRowBleed, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
 import { SectionRule } from "@/components/ui/SectionRule";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import React, { useCallback, useState } from "react";
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-    marginLeft: RULE_LEFT_INSET,
+    paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,

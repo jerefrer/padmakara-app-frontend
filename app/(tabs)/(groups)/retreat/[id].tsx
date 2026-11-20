@@ -1782,7 +1782,8 @@ export default function RetreatDetailScreen() {
           <View
             style={[
               styles.eventTitleSection,
-                            (isDesktop || compactSidebar) && !heroSource && styles.eventTitleSectionBesideBack,
+              !isDesktop && styles.lineBleed,
+              (isDesktop || compactSidebar) && !heroSource && styles.eventTitleSectionBesideBack,
               // Phone without a hero: the title starts below the floating back / bookmark /
               // download buttons instead of under them and the status bar.
               !isDesktop && !compactSidebar && !heroSource && { paddingTop: insets.top + FLOATING_BUTTONS_CLEARANCE },
@@ -1837,7 +1838,7 @@ export default function RetreatDetailScreen() {
             audio, documents). Sits between the title and the content. */}
         {!isForthcoming && showContentTabs && (
           <TabSwitcher<EventContentTab>
-            style={isDesktop ? desktopRowBleed(DESKTOP_SCROLL_PADDING) : undefined}
+            style={isDesktop ? desktopRowBleed(DESKTOP_SCROLL_PADDING) : styles.lineBleed}
             activeKey={effectiveTab}
             onChange={setActiveContentTab}
             tabs={[
@@ -1895,7 +1896,7 @@ export default function RetreatDetailScreen() {
                   but the dedicated Video tab now provides that
                   affordance, so the header is text-only. */}
               {showSessionHeader && (
-                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, styles.sessionHeaderIndent, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 7, DESKTOP_SCROLL_PADDING + 7)]}>
+                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, styles.sessionHeaderIndent, !isDesktop && styles.sessionHeaderBleed, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 7, DESKTOP_SCROLL_PADDING + 7)]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track, retreat?.startDate, language, t)}
                   </Text>
@@ -1915,14 +1916,19 @@ export default function RetreatDetailScreen() {
                 style={[
                   styles.trackItem,
                   styles.trackItemIndent,
+                  !isDesktop && styles.trackItemBleed,
                   isDesktop && styles.trackItemDesktop,
                   isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 7, DESKTOP_SCROLL_PADDING + 8),
                   isActive && styles.currentTrackItem,
+                  isActive && !isDesktop && styles.currentTrackItemPhone,
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
                   nextIsContinuation && styles.trackItemSiblingAbove,
                 ]}
                 testID={`track-row-${track.id}`}
               >
+                {/* Phone: the row's line now reaches the screen edge, but the red bar stays at the
+                    text gutter (the playing row's look is on hold, André's studies are pending). */}
+                {isActive && !isDesktop && <View pointerEvents="none" style={styles.playingBarInset} testID="playing-row-bar" />}
                 <View style={styles.trackNumberContainer}>
                   {!isContinuation && (
                     <Text style={[
@@ -1983,7 +1989,7 @@ export default function RetreatDetailScreen() {
               return (
                 <TouchableOpacity {...getRowPressDelayProps()}
                   key={doc.key}
-                  style={[styles.documentListItem, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING)]}
+                  style={[styles.documentListItem, !isDesktop && styles.lineBleed, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING)]}
                   onPress={() => handleDocumentPress(doc)}
                   disabled={!!documentBusyKey}
                   accessibilityRole="button"
@@ -2045,7 +2051,7 @@ export default function RetreatDetailScreen() {
 
         {!isForthcoming && effectiveTab === 'documents' && relatedPublications.length > 0 && (
           <View
-            style={[styles.relatedPublicationsSection, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 16, DESKTOP_SCROLL_PADDING + 16)]}
+            style={[styles.relatedPublicationsSection, !isDesktop && styles.lineBleed, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 16, DESKTOP_SCROLL_PADDING + 16)]}
             testID="event-related-publications"
           >
             <Text style={styles.relatedPublicationsTitle}>
@@ -2712,6 +2718,20 @@ const styles = StyleSheet.create({
   heroContainerMobile: {
     marginHorizontal: -TEXT_GUTTER,
   },
+  // Phone lines are left-justified (André): they reach back to the screen's left edge while the
+  // text keeps its gutter, and stop at the right gutter.
+  lineBleed: {
+    marginLeft: -TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER,
+  },
+  sessionHeaderBleed: {
+    marginLeft: -TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER + 7,
+  },
+  trackItemBleed: {
+    marginLeft: -TEXT_GUTTER,
+    paddingLeft: TEXT_GUTTER + 4,
+  },
   // Every line of the list runs the width of the padded column (phone gutters, desktop padding):
   // it starts where the text starts and stops at the right padding. The numbers sit a few pixels
   // inside the line so the row's red bar (3 px) has room.
@@ -2996,10 +3016,24 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent',
   },
   // The playing row has no tint: a soft shadow under the line above it makes it look pressed
-  // down. The red bar on the left stays.
+  // down. The red bar is the row's left border.
   currentTrackItem: {
     boxShadow: PRESSED_ROW_SHADOW,
     borderLeftColor: colors.burgundy[500],
+  },
+  currentTrackItemPhone: {
+    borderLeftColor: 'transparent',
+  },
+  // Phone: the row starts at the screen edge, so its border bar would too; draw the bar at the
+  // gutter instead, where it sat before the lines were left-justified.
+  playingBarInset: {
+    position: 'absolute',
+    // Relative to the padding box, which starts after the row's 3 px (transparent) left border.
+    left: TEXT_GUTTER - 3,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    backgroundColor: colors.burgundy[500],
   },
   trackItemSiblingAbove: {
     borderBottomColor: colors.gray[100],

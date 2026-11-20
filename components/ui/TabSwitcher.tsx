@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { RULE_LEFT_INSET, RULE_COLOR, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS } from "@/constants/layout";
+import { RULE_COLOR, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
 
 const colors = {
   burgundy500: "#9b1b1b",
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   bleed: {
-    marginLeft: RULE_LEFT_INSET,
+    paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
   },
   tabs: {

@@ -189,15 +189,18 @@ describe('retreat screen track list', () => {
     expect(style.borderLeftWidth).toBe(0);
   });
 
-  it('should keep the red bar on the playing row on a phone', async () => {
+  it('should keep the playing row on a phone with its shadow and a red bar at the text gutter, no gradient', async () => {
     mockLayout = { isDesktop: false, isMobile: true };
     const screen = render(<RetreatDetailScreen />);
     await screen.findByText('Idle prayer');
     const style = StyleSheet.flatten(screen.getByTestId('track-row-11').props.style);
-    expect(style.borderLeftWidth).toBe(3);
-    expect(style.borderLeftColor).toBe('#9b1b1b');
+    expect(style.marginLeft).toBe(-24);
+    expect(style.borderLeftColor).toBe('transparent');
     expect(style.backgroundColor).toBe('transparent');
     expect(style.boxShadow).toContain('inset');
+    const bar = StyleSheet.flatten(screen.getByTestId('playing-row-bar').props.style);
+    expect(bar.left).toBe(21);
+    expect(bar.backgroundColor).toBe('#9b1b1b');
   });
 
   it('should show the Tibetan tag in neutral grey without a highlight colour', async () => {
