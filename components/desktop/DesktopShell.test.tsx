@@ -4,7 +4,7 @@ import { act, render } from '@testing-library/react-native';
 import { setReaderFullWindow } from '@/utils/readerImmersive';
 
 import { DesktopShell, EDGE_SHADOW_WIDTH } from './DesktopShell';
-import { DESKTOP_CONTENT_MAX } from '@/constants/layout';
+import { DESKTOP_APP_MAX_WIDTH } from '@/constants/layout';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -40,24 +40,25 @@ describe('DesktopShell', () => {
     expect(EDGE_SHADOW_WIDTH).toBe(12);
   });
 
-  it('should cap the central column at the content maximum, centred', () => {
+  it('should frame the whole app as one centred block of at most the app maximum', () => {
     const { getByTestId } = render(
       <DesktopShell sidebar={<Text>s</Text>} rightSidebar={<Text>r</Text>}>
         <Text>c</Text>
       </DesktopShell>,
     );
-    const style = StyleSheet.flatten(getByTestId('main-column').props.style);
-    expect(style.maxWidth).toBe(DESKTOP_CONTENT_MAX);
+    const style = StyleSheet.flatten(getByTestId('app-block').props.style);
+    expect(style.maxWidth).toBe(DESKTOP_APP_MAX_WIDTH);
+    expect(style.width).toBe('100%');
     expect(style.alignSelf).toBe('center');
   });
 
-  it('should let the column fill the area when capping is turned off', () => {
+  it('should let the app fill the window when capping is turned off', () => {
     const { getByTestId } = render(
       <DesktopShell sidebar={<Text>s</Text>} rightSidebar={<Text>r</Text>} capContent={false}>
         <Text>c</Text>
       </DesktopShell>,
     );
-    expect(StyleSheet.flatten(getByTestId('main-column').props.style).maxWidth).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId('app-block').props.style).maxWidth).toBeUndefined();
   });
 });
 
@@ -87,7 +88,7 @@ describe('DesktopShell with a document reader open', () => {
     expect(getByText('c')).toBeTruthy();
   });
 
-  it('should let the page fill the area even when the column is capped', () => {
+  it('should let the app fill the window while a reader is open, even when capped', () => {
     Platform.OS = 'web';
     const { getByTestId } = render(
       <DesktopShell sidebar={<Text>s</Text>} rightSidebar={<Text>r</Text>}>
@@ -95,7 +96,7 @@ describe('DesktopShell with a document reader open', () => {
       </DesktopShell>,
     );
     act(() => setReaderFullWindow(true));
-    expect(StyleSheet.flatten(getByTestId('main-column').props.style).maxWidth).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId('app-block').props.style).maxWidth).toBeUndefined();
   });
 
   it('should hide the rails and the player bar on an iPad', () => {

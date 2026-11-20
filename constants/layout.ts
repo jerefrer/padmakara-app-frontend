@@ -49,11 +49,13 @@ export const SUBDIVISION_COLOR = "rgba(0,0,0,0.15)";
 export const SUBDIVISION_THICKNESS = Platform.OS === "web" ? 0.5 : StyleSheet.hairlineWidth;
 
 /**
- * Widest the central column of the desktop shell grows (André: about 300 px sidebar, 700 px
- * content, 200 px red panel). Beyond it the extra width is light grey on both sides, so a header
- * picture never stretches more than it does at this width.
+ * Widest the whole desktop app grows (André: about 300 px sidebar, 700 px content, 200 px red
+ * panel, "the largest that we go ever"): the 280 px sidebar, a 700 px central column and the
+ * 220 px right panel, 1200 px. The sidebar, content, panel and player bar form one contiguous
+ * block, centred; beyond this width the extra space is light grey outside it, on both sides,
+ * never between its parts. It also keeps header pictures from stretching past their size here.
  */
-export const DESKTOP_CONTENT_MAX = 700;
+export const DESKTOP_APP_MAX_WIDTH = 1200;
 
 /**
  * Desktop pictures are square, text beside them (André): the home highlight and the event
