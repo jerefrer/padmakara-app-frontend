@@ -20,6 +20,11 @@ jest.mock('@/components/settings/PasskeySettings', () => ({ PasskeySettings: () 
 jest.mock('@/components/StorageSection', () => ({ StorageSection: () => null }));
 jest.mock('@/services/videoPreferencesService', () => ({ __esModule: true, default: {} }));
 
+jest.mock('expo-application', () => ({
+  nativeApplicationVersion: '1.0.0',
+  nativeBuildVersion: '36',
+}));
+
 const originalOS = Platform.OS;
 beforeEach(() => {
   (Platform as any).OS = 'web';
@@ -36,6 +41,12 @@ function tapVersion(times: number) {
 }
 
 describe('AboutSection', () => {
+  it('should show the version with the build number', () => {
+    const { getByTestId } = render(<AboutSection />);
+
+    expect(getByTestId('settings-version')).toHaveTextContent(/Version1\.0\.0 \(36\)/);
+  });
+
   it('should send a Sentry test report and confirm it after seven taps on the version', () => {
     tapVersion(7);
 

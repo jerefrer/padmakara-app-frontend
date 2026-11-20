@@ -5,7 +5,8 @@
     "autolinking": {
       "android": {
         "buildFromSource": [
-          "expo-audio"
+          "expo-audio",
+          "expo-video"
         ]
       },
       "ios": {
@@ -44,6 +45,7 @@
     "@simplewebauthn/browser": "^14.0.0",
     "clsx": "^2.1.1",
     "expo": "~58.0.21",
+    "expo-application": "~58.1.2",
     "expo-asset": "~58.0.19",
     "expo-audio": "~58.0.10",
     "expo-blur": "~58.0.5",

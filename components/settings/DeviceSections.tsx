@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
 import { useSecretTaps } from '@/hooks/useSecretTaps';
+import { appVersionLabel } from '@/utils/appVersion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudioPlayerContext } from '@/contexts/AudioPlayerContext';
 import { useAppLock } from '@/contexts/AppLockContext';
@@ -273,7 +274,7 @@ export function AboutSection() {
         />
       ) : null}
       <ListRowPressable testID="settings-version" accessible={false} focusable={false} onPress={onVersionTap}>
-        <SettingsRow icon="information-circle-outline" title={t('profile.version') || 'Version'} value="1.0.0 (Beta)" />
+        <SettingsRow icon="information-circle-outline" title={t('profile.version') || 'Version'} value={appVersionLabel()} />
       </ListRowPressable>
     </Rows>
   );
