@@ -1,0 +1,76 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index fb2d0b5..1ced9dd 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -23,6 +23,8 @@ import java.lang.ref.WeakReference
+ 
+ private const val PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
+ private const val AUDIO_SAMPLE_UPDATE = "audioSampleUpdate"
++private const val LOCK_SCREEN_NEXT_TRACK = "lockScreenNextTrack"
++private const val LOCK_SCREEN_PREVIOUS_TRACK = "lockScreenPreviousTrack"
+ private const val SEEK_JUMP_INTERVAL_MS: Long = 10_000
+ 
+ @UnstableApi
+@@ -72,6 +74,23 @@ class AudioPlayer(
+   override val isLive: Boolean
+     get() = ref.isCurrentMediaItemLive
+ 
++  // A single player has no queue: the app owns the track order. The notification's next and
++  // previous buttons are shown when the options ask for them, and a press is reported to
++  // JavaScript as an event.
++  override val supportsNextTrack: Boolean
++    get() = lockScreenOptions?.showNextTrack == true
++
++  override val supportsPreviousTrack: Boolean
++    get() = lockScreenOptions?.showPreviousTrack == true
++
++  override fun nextTrack() {
++    emit(LOCK_SCREEN_NEXT_TRACK)
++  }
++
++  override fun previousTrack() {
++    emit(LOCK_SCREEN_PREVIOUS_TRACK)
++  }
++
+   val currentOffsetFromLive: Double?
+     get() {
+       val offset = ref.currentLiveOffset
+diff --git a/node_modules/expo-audio/ios/AudioPlayer.swift b/node_modules/expo-audio/ios/AudioPlayer.swift
+index 0f68a52..f05ede2 100644
+--- a/node_modules/expo-audio/ios/AudioPlayer.swift
++++ b/node_modules/expo-audio/ios/AudioPlayer.swift
+@@ -4,6 +4,8 @@ import Combine
+ private enum AudioConstants {
+   static let playbackStatus = "playbackStatusUpdate"
+   static let audioSample = "audioSampleUpdate"
++  static let lockScreenNextTrack = "lockScreenNextTrack"
++  static let lockScreenPreviousTrack = "lockScreenPreviousTrack"
+ }
+ 
+ public class AudioPlayer: SharedRef<AVPlayer>, Playable, LockScreenPlayable {
+@@ -171,6 +173,25 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable, LockScreenPlayable {
+     ]
+   }
+ 
++  // A single player has no queue: the app owns the track order. The lock screen's next and
++  // previous buttons are shown when the options ask for them, and a press is reported to
++  // JavaScript as an event.
++  var supportsNextTrack: Bool {
++    lockScreenOptions?.showNextTrack ?? false
++  }
++
++  var supportsPreviousTrack: Bool {
++    lockScreenOptions?.showPreviousTrack ?? false
++  }
++
++  func nextTrack() {
++    emit(event: AudioConstants.lockScreenNextTrack, payload: [String: Any]())
++  }
++
++  func previousTrack() {
++    emit(event: AudioConstants.lockScreenPreviousTrack, payload: [String: Any]())
++  }
++
+   func setActiveForLockScreen(_ active: Bool = true, metadata: Metadata? = nil, options: LockScreenOptions?) {
+     self.metadata = metadata
+     self.isActiveForLockScreen = active
