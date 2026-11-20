@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, RULE_THICKNESS } from "@/constants/layout";
+import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, ruleThickness } from "@/constants/layout";
 
 /**
  * The light red rule directly under a page title or section header. On a phone it
@@ -17,12 +17,11 @@ export function SectionRule({
   style?: StyleProp<ViewStyle>;
   contained?: boolean;
 }) {
-  return <View style={[styles.rule, !contained && styles.gutters, style]} testID="section-rule" />;
+  return <View style={[styles.rule, { height: ruleThickness() }, !contained && styles.gutters, style]} testID="section-rule" />;
 }
 
 const styles = StyleSheet.create({
   rule: {
-    height: RULE_THICKNESS,
     backgroundColor: RULE_COLOR,
   },
   gutters: {

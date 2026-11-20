@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
-import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, RULE_THICKNESS, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, ruleThickness, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
@@ -241,7 +241,7 @@ export default function SearchScreen() {
             )}
           </View>
         </View>
-        {!isDesktop && <View style={styles.searchBarRule} />}
+        {!isDesktop && <View style={[styles.searchBarRule, { height: ruleThickness() }]} />}
 
         {/* Results */}
         <ScrollView
@@ -350,7 +350,6 @@ const styles = StyleSheet.create({
   },
   // The light red rule under the search bar: the text's left edge to the right gutter.
   searchBarRule: {
-    height: RULE_THICKNESS,
     marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: RULE_COLOR,

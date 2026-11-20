@@ -30,11 +30,30 @@ export const RULE_LEFT_INSET = TEXT_GUTTER;
 export const RULE_RIGHT_INSET = TEXT_GUTTER;
 
 /**
- * Thickness of the red section rules. On the web a full 1px is two device pixels on a
- * high-density screen and reads heavier than the sidebar dividers (SUBDIVISION_THICKNESS),
- * so the web draws the same half-pixel hairline.
+ * One device pixel in CSS pixels on the web (1 / devicePixelRatio), read when it is drawn so a
+ * zoom or a move to another screen is followed.
  */
-export const RULE_THICKNESS = Platform.OS === "web" ? 0.5 : 1;
+function webDevicePixel(): number {
+  const ratio = typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1;
+  return 1 / ratio;
+}
+
+/**
+ * Height of a line drawn as a filled box (the red rules, the Hairline). On the web it is exactly
+ * one DEVICE pixel: a box of half a CSS pixel (the old 0.5) is snapped to the pixel grid by the
+ * browser, and Safari and Firefox collapse it to nothing whenever its top edge falls on the wrong
+ * side of a pixel, which happens at some widths because text above it has fractional heights (the
+ * "Recently added" rule that sometimes disappeared). A box of exactly one device pixel never
+ * collapses. Native draws StyleSheet.hairlineWidth.
+ */
+export function hairlineThickness(): number {
+  return Platform.OS === "web" ? webDevicePixel() : StyleSheet.hairlineWidth;
+}
+
+/** Height of a full-strength red section rule: one device pixel on the web, 1pt on a phone. */
+export function ruleThickness(): number {
+  return Platform.OS === "web" ? webDevicePixel() : 1;
+}
 
 /** Light red: the line under a section header or page title (burgundy at about half strength). */
 export const RULE_COLOR = "rgba(155,27,27,0.5)";
