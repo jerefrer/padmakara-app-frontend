@@ -282,8 +282,8 @@ export default function RetreatDetailScreen() {
   const heroFocalCover = useFocalCover({
     focalX: heroOwner?.heroFocalX ?? 50,
     focalY: heroOwner?.heroFocalY ?? 50,
-    // The phone/tablet hero collapses, so its focal point is computed for the full height; the
-    // desktop square never collapses and is measured.
+    // The phone/tablet hero has a fixed height (it only fades on scroll), so its focal point is
+    // computed for that height; the desktop square is measured.
     frameHeight: isDesktop ? undefined : HERO_HEIGHT,
     override: pickFrameOverride(heroOwner?.heroFrameOverrides, eventPageFrameKey(isDesktop)),
   });
