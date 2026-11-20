@@ -60,3 +60,43 @@ index f60b131..8f7bd43 100644
      let audioSession = AVAudioSession.sharedInstance()
      let policy = AudioSessionPolicy.evaluate(
        category: audioSession.category,
+diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt b/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
+--- a/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
++++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
+@@ -46,15 +46,19 @@
+   private val commandSeekForward = SessionCommand(SEEK_FORWARD_COMMAND, Bundle.EMPTY)
+   private val commandSeekBackward = SessionCommand(SEEK_BACKWARD_COMMAND, Bundle.EMPTY)
+   private val seekForwardButton = CommandButton.Builder()
+-    .setDisplayName("rewind")
++    .setDisplayName("forward")
+     .setSessionCommand(commandSeekForward)
+     .setIconResId(R.drawable.seek_forwards_10s)
++    // Explicit slots: without them the system places the custom buttons around the
++    // previous / play-pause buttons in an arbitrary order (forward first, rewind last).
++    .setSlots(CommandButton.SLOT_FORWARD)
+     .build()
+ 
+   private val seekBackwardButton = CommandButton.Builder()
+-    .setDisplayName("forward")
++    .setDisplayName("rewind")
+     .setSessionCommand(commandSeekBackward)
+     .setIconResId(R.drawable.seek_backwards_10s)
++    .setSlots(CommandButton.SLOT_BACK)
+     .build()
+ 
+   fun setShowNotification(showNotification: Boolean, player: ExoPlayer) {
+diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt b/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt
+--- a/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt
++++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt
+@@ -23,6 +23,11 @@
+           MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+             .add(Player.COMMAND_SEEK_FORWARD)
+             .add(Player.COMMAND_SEEK_BACK)
++            // A video is a single item: no previous / next buttons in the notification.
++            .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
++            .remove(Player.COMMAND_SEEK_TO_NEXT)
++            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+             .build()
+         )
+         .setAvailableSessionCommands(
