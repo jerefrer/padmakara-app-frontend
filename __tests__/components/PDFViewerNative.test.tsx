@@ -27,6 +27,9 @@ jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
   return { Ionicons: (props: any) => <Text>{props.name}</Text> };
 });
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
+}));
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: () => undefined, language: 'en' }),
 }));
@@ -212,5 +215,13 @@ describe('PDFViewer (iOS and Android)', () => {
 
     expect(pdfProps.page).toBe(1);
     expect(mockSetPage).not.toHaveBeenCalled();
+  });
+
+  it('should place the page counter below the reader bar', () => {
+    const screen = render(<PDFViewer source="file:///data/doc.pdf" contentInsetTop={90} />);
+    act(() => pdfProps.onPageChanged(5, 442));
+
+    const badge = screen.getByText('5 / 442').parent!.parent!;
+    expect(JSON.stringify(badge.props.style)).toContain('"top":98');
   });
 });

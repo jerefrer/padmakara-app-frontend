@@ -2,6 +2,7 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef,
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Pdf, { type PdfRef } from 'react-native-pdf';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { flattenPdfOutline } from '@/utils/pdfOutline';
@@ -26,6 +27,7 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
   ref
 ) {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [pageBadge, setPageBadge] = useState<string | null>(null);
@@ -113,7 +115,12 @@ export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PD
         />
       )}
       {pageBadge && !error && (
-        <View style={styles.pageBadge} pointerEvents="none">
+        // Below the reader bar (or the status bar when none is laid over the
+        // page): at the very top it sat half off the screen, over the text.
+        <View
+          style={[styles.pageBadge, { top: Math.max(contentInsetTop, insets.top) + 8 }]}
+          pointerEvents="none"
+        >
           <Text style={styles.pageBadgeText}>{pageBadge}</Text>
         </View>
       )}
@@ -156,8 +163,7 @@ const styles = StyleSheet.create({
   },
   pageBadge: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    left: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
