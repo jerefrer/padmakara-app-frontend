@@ -136,6 +136,30 @@ export function pageWidthPx(page: PageSize, scale: number): number {
 }
 
 /**
+ * Most pixels one page canvas may have. Safari (iPad and iPhone) refuses larger
+ * ones, and one such canvas is already 64 MB; a page past it is drawn a little
+ * under the screen's resolution instead of not at all.
+ */
+export const MAX_CANVAS_PIXELS = 4096 * 4096;
+
+/**
+ * Canvas pixels per CSS pixel to draw a page of `cssWidth` x `cssHeight` at:
+ * the screen's own pixel ratio (so text and Tibetan script are as sharp as in
+ * Preview), lowered only when the canvas would pass `maxPixels`.
+ */
+export function renderPixelRatio(
+  deviceRatio: number,
+  cssWidth: number,
+  cssHeight: number,
+  maxPixels = MAX_CANVAS_PIXELS,
+): number {
+  const ratio = Number.isFinite(deviceRatio) && deviceRatio > 0 ? deviceRatio : 1;
+  const area = Math.max(1, cssWidth * cssHeight);
+  const affordable = Math.sqrt(maxPixels / area);
+  return Math.max(1, Math.min(ratio, affordable));
+}
+
+/**
  * Top offset of every row in a continuous column, plus the total height,
  * for rows of the given heights separated by `gap`.
  */

@@ -725,6 +725,7 @@ export default function PDFViewerWebImpl({
           <PdfThemedPage
             pageNumber={pageNumber}
             width={box.width}
+            height={box.height}
             keepPictureColours={readingTheme !== 'normal'}
             onDrawn={onPageDrawn}
             // A blank sheet in the theme's paper colour, no spinner.

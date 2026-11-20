@@ -8,6 +8,7 @@ import {
   keepRecentRows,
   parseFitPreset,
   parseViewMode,
+  renderPixelRatio,
   pinchScale,
   resolveScale,
   rowAtMiddle,
@@ -261,5 +262,28 @@ describe('spreadReady', () => {
 
   it('should wait for a page drawn at a previous zoom', () => {
     expect(spreadReady([2], new Map([[2, 400]]), widthOf)).toBe(false);
+  });
+});
+
+describe('renderPixelRatio', () => {
+  it('should draw at the screen pixel ratio when the canvas is affordable', () => {
+    expect(renderPixelRatio(2, 800, 1100)).toBe(2);
+    expect(renderPixelRatio(3, 800, 1100)).toBe(3);
+  });
+
+  it('should lower the ratio only as far as the pixel budget needs', () => {
+    const ratio = renderPixelRatio(3, 2000, 2800, 16_000_000);
+    expect(ratio).toBeLessThan(3);
+    expect(ratio).toBeGreaterThan(1);
+    expect(2000 * ratio * 2800 * ratio).toBeLessThanOrEqual(16_000_001);
+  });
+
+  it('should never go below one canvas pixel per CSS pixel', () => {
+    expect(renderPixelRatio(2, 9000, 9000)).toBe(1);
+  });
+
+  it('should fall back to 1 for a missing or invalid ratio', () => {
+    expect(renderPixelRatio(0, 800, 1100)).toBe(1);
+    expect(renderPixelRatio(NaN, 800, 1100)).toBe(1);
   });
 });

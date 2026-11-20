@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Page, pdfjs } from 'react-pdf';
 import { PAGE_TONE_ATTRIBUTE } from '@/utils/pdfReadingTheme';
+import { useDevicePixelRatio } from '@/hooks/useDevicePixelRatio';
+import { renderPixelRatio } from '@/utils/pdfViewerLayout';
 import {
   contentBounds,
   extractImageRects,
@@ -103,6 +105,8 @@ function isPaper(source: HTMLCanvasElement): boolean {
 interface PdfThemedPageProps {
   pageNumber: number;
   width: number;
+  /** Height of the page box in CSS pixels; with the width it sizes the canvas budget. */
+  height: number;
   loading: React.ReactNode;
   /**
    * The page is recoloured by a reading theme (a CSS filter on its canvas):
@@ -124,7 +128,9 @@ interface PdfThemedPageProps {
  * their own colours, and leaves pages designed in colour (covers) untouched. The copies sit above the canvas and below nothing that
  * takes input (pointer-events: none), so selection and links still work.
  */
-export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours, onDrawn }: PdfThemedPageProps) {
+export function PdfThemedPage({ pageNumber, width, height, loading, keepPictureColours, onDrawn }: PdfThemedPageProps) {
+  // Drawn for the screen it is on now, not the one the page opened on.
+  const deviceRatio = useDevicePixelRatio();
   const [page, setPage] = useState<PageProxy | null>(null);
   const [renders, setRenders] = useState(0);
   // Null until the page's image rectangles are known.
@@ -230,6 +236,7 @@ export function PdfThemedPage({ pageNumber, width, loading, keepPictureColours, 
       <Page
         pageNumber={pageNumber}
         width={width}
+        devicePixelRatio={renderPixelRatio(deviceRatio, width, height)}
         renderAnnotationLayer={true}
         renderTextLayer={true}
         // Never suspend: the nearest boundary is the whole viewer (see Document).
