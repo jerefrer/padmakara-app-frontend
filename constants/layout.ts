@@ -11,7 +11,7 @@
  * - SUBDIVISION_COLOR, light black: every separator between rows.
  * Never write a line colour inline: use one of these two.
  */
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, type ViewStyle } from "react-native";
 
 /** Side of a list picture: the Personal Library's round group pictures and the square thumbnails. */
 export const LIST_AVATAR_SIZE = 80;
@@ -30,11 +30,30 @@ export const RULE_LEFT_INSET = TEXT_GUTTER;
 export const RULE_RIGHT_INSET = TEXT_GUTTER;
 
 /**
- * Thickness of the red section rules. On the web a full 1px is two device pixels on a
- * high-density screen and reads heavier than the sidebar dividers (SUBDIVISION_THICKNESS),
- * so the web draws the same half-pixel hairline.
+ * One device pixel in CSS pixels on the web (1 / devicePixelRatio), read when it is drawn so a
+ * zoom or a move to another screen is followed.
  */
-export const RULE_THICKNESS = Platform.OS === "web" ? 0.5 : 1;
+function webDevicePixel(): number {
+  const ratio = typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1;
+  return 1 / ratio;
+}
+
+/**
+ * Height of a line drawn as a filled box (the red rules, the Hairline). On the web it is exactly
+ * one DEVICE pixel: a box of half a CSS pixel (the old 0.5) is snapped to the pixel grid by the
+ * browser, and Safari and Firefox collapse it to nothing whenever its top edge falls on the wrong
+ * side of a pixel, which happens at some widths because text above it has fractional heights (the
+ * "Recently added" rule that sometimes disappeared). A box of exactly one device pixel never
+ * collapses. Native draws StyleSheet.hairlineWidth.
+ */
+export function hairlineThickness(): number {
+  return Platform.OS === "web" ? webDevicePixel() : StyleSheet.hairlineWidth;
+}
+
+/** Height of a full-strength red section rule: one device pixel on the web, 1pt on a phone. */
+export function ruleThickness(): number {
+  return Platform.OS === "web" ? webDevicePixel() : 1;
+}
 
 /** Light red: the line under a section header or page title (burgundy at about half strength). */
 export const RULE_COLOR = "rgba(155,27,27,0.5)";
@@ -63,3 +82,40 @@ export const DESKTOP_APP_MAX_WIDTH = 1200;
  * content below them out of sight.
  */
 export const DESKTOP_SQUARE_MAX = 480;
+
+/**
+ * Desktop lines (André): every line of the central column starts at the column's left edge, like
+ * the sidebar's lines start at the sidebar's left edge, and stops DESKTOP_LINE_RIGHT_GAP before the
+ * right edge, the same empty space as to the right of the sidebar's lines (the sidebar rows have
+ * marginRight: DESKTOP_LINE_RIGHT_GAP). The text and the pictures keep their inset.
+ */
+export const DESKTOP_LINE_RIGHT_GAP = 20;
+
+/**
+ * A standalone line (rule, separator) inside a desktop column padded by `containerPad` on both
+ * sides: it reaches back to the column's left edge and stops DESKTOP_LINE_RIGHT_GAP short of its
+ * right edge.
+ */
+export function desktopLineBleed(containerPad: number): ViewStyle {
+  return { marginLeft: 0 - containerPad, marginRight: DESKTOP_LINE_RIGHT_GAP - containerPad };
+}
+
+/**
+ * A row that carries its own bottom border, in a column padded by `containerPad`: the border
+ * (the row's edges) is stretched like desktopLineBleed, the padding hands the space back so the
+ * content stays where it was. `insetLeft` / `insetRight` are the distances from the column's edges
+ * to the content (default: the container padding). The right padding cannot go below zero, so
+ * where the inset is smaller than DESKTOP_LINE_RIGHT_GAP the content ends that much earlier.
+ */
+export function desktopRowBleed(
+  containerPad: number,
+  insetLeft: number = containerPad,
+  insetRight: number = containerPad,
+): ViewStyle {
+  return {
+    marginLeft: 0 - containerPad,
+    paddingLeft: insetLeft,
+    marginRight: DESKTOP_LINE_RIGHT_GAP - containerPad,
+    paddingRight: Math.max(0, insetRight - DESKTOP_LINE_RIGHT_GAP),
+  };
+}

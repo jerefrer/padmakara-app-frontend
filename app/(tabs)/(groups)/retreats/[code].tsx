@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -8,10 +8,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { DraftBadge } from '@/components/DraftBadge';
-import { ForthcomingBadge } from '@/components/ForthcomingBadge';
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,16 +22,16 @@ import retreatService from '@/services/retreatService';
 import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
-import { mainTeachers } from '@/utils/eventTeachers';
 import { formatDateRangePretty } from '@/utils/retreatDates';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
 import { useBottomBarsSpace } from '@/components/MiniPlayer';
 import { SectionRule } from '@/components/ui/SectionRule';
-import { LIST_AVATAR_SIZE, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
-import { ListRowPressable } from '@/components/ui/ListRowPressable';
+import { desktopLineBleed, TEXT_GUTTER } from '@/constants/layout';
 
+/** Horizontal padding of the desktop column (desktopScrollContent); the lines reach back over it. */
+const DESKTOP_COLUMN_PAD = 40;
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 230;
 
@@ -89,9 +86,11 @@ interface RetreatCardProps {
   t: (key: string, params?: Record<string, unknown>) => string;
   language: string;
   groupNameForStrip: string | null;
+  isDesktop?: boolean;
 }
 
-function RetreatCard({ retreat, onPress, isDownloaded, language, groupNameForStrip }: RetreatCardProps) {
+/** One event of the group: an event row, whose picture is square (a round one stands for a person or a class). */
+function RetreatCard({ retreat, onPress, isDownloaded, language, groupNameForStrip, isDesktop }: RetreatCardProps) {
   const totalTracks = retreat.sessions?.reduce((sum: number, session) => sum + (session.tracks?.length || 0), 0) || 0;
   const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
   const displayName = cleanEventName(rawName, groupNameForStrip);
@@ -105,68 +104,9 @@ function RetreatCard({ retreat, onPress, isDownloaded, language, groupNameForStr
       meta={meta}
       onPress={onPress}
       badge={isDownloaded ? <OfflineBadge /> : undefined}
+      isDesktop={isDesktop}
+      desktopPad={DESKTOP_COLUMN_PAD}
     />
-  );
-}
-
-// ── Desktop row ──────────────────────────────────────────────────────────────
-
-function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupNameForStrip }: RetreatCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const rawName = getTranslatedName(retreat, language as 'en' | 'pt');
-  const displayName = cleanEventName(rawName, groupNameForStrip);
-  // Compact row: main teachers only, never the guests (see utils/eventTeachers).
-  const teachers = mainTeachers(retreat.teachers);
-  const leadTeacher = teachers[0];
-  const leadAvatar = leadTeacher?.avatarUrl || leadTeacher?.photoUrl || null;
-
-  const webHoverProps = Platform.OS === 'web' ? {
-    onMouseEnter: () => setIsHovered(true),
-    onMouseLeave: () => setIsHovered(false),
-  } : {};
-
-  return (
-    <ListRowPressable
-      onPress={onPress}
-      style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
-      {...webHoverProps}
-    >
-      {/* Round picture of the lead teacher, as large as the Personal Library's group pictures. The
-          other teachers are named in the line under the title. */}
-      <View style={styles.desktopAvatarGroup}>
-        {leadAvatar ? (
-          <Image
-            source={{ uri: leadAvatar, cacheKey: leadTeacher?.avatarUpdatedAt ? `teacher-avatar-${leadTeacher.abbreviation}-${leadTeacher.avatarUpdatedAt}` : undefined }}
-            style={styles.desktopAvatarImg}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
-            {leadTeacher?.name ? (
-              <Text style={styles.desktopAvatarFallbackText}>
-                {leadTeacher.name.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
-              </Text>
-            ) : (
-              <Ionicons name="people-outline" size={28} color={colors.gray[400]} />
-            )}
-          </View>
-        )}
-      </View>
-      <View style={styles.desktopRowMain}>
-        <Text style={styles.desktopRowName} numberOfLines={1}>
-          {displayName}
-        </Text>
-        <Text style={styles.desktopRowDate} numberOfLines={1}>
-          {formatDateRangePretty(retreat.startDate, retreat.endDate, language)}
-          {teachers.length > 0 && ` · ${teachers.map((t) => t.name).filter(Boolean).join(', ')}`}
-        </Text>
-      </View>
-      <View style={styles.desktopRowBadges}>
-        {retreat.status === 'draft' && <DraftBadge />}
-        {retreat.status === 'forthcoming' && <ForthcomingBadge />}
-        {isDownloaded && <OfflineBadge />}
-      </View>
-    </ListRowPressable>
   );
 }
 
@@ -415,31 +355,20 @@ export default function GroupDetailScreen() {
 
           {/* Light red rule opens the list; light black lines separate the rows. No year headers:
               each row's date carries its year, so the rows are evenly spaced. */}
-          <SectionRule contained={isDesktop} />
+          <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(DESKTOP_COLUMN_PAD) : undefined} />
 
-          {sortedRetreats.map(retreat =>
-            isDesktop ? (
-              <DesktopRetreatRow
-                key={retreat.id}
-                retreat={retreat}
-                onPress={() => handleRetreatPress(retreat.id)}
-                isDownloaded={downloadedRetreatIds.has(retreat.id)}
-                t={t}
-                language={language}
-                groupNameForStrip={groupNameForStrip}
-              />
-            ) : (
-              <RetreatCard
-                key={retreat.id}
-                retreat={retreat}
-                onPress={() => handleRetreatPress(retreat.id)}
-                isDownloaded={downloadedRetreatIds.has(retreat.id)}
-                t={t}
-                language={language}
-                groupNameForStrip={groupNameForStrip}
-              />
-            ),
-          )}
+          {sortedRetreats.map(retreat => (
+            <RetreatCard
+              key={retreat.id}
+              retreat={retreat}
+              onPress={() => handleRetreatPress(retreat.id)}
+              isDownloaded={downloadedRetreatIds.has(retreat.id)}
+              t={t}
+              language={language}
+              groupNameForStrip={groupNameForStrip}
+              isDesktop={isDesktop}
+            />
+          ))}
         </Animated.ScrollView>
 
         {/* Floating back button — only when hero is shown, sits over the image */}
@@ -465,7 +394,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: TEXT_GUTTER,
   },
   desktopScrollContent: {
-    paddingHorizontal: 40,
+    paddingHorizontal: DESKTOP_COLUMN_PAD,
   },
   standaloneBackRow: {
     flexDirection: 'row',
@@ -489,7 +418,7 @@ const styles = StyleSheet.create({
   },
   desktopHeroContainer: {
     // Break out of the desktop ScrollView's 40px padding.
-    marginHorizontal: -40,
+    marginHorizontal: -DESKTOP_COLUMN_PAD,
   },
   floatingBackButton: {
     position: 'absolute',
@@ -558,12 +487,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  retreatAvatarFallback: {
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
   // Desktop styles
   desktopPageHeader: {
     paddingTop: 36,
@@ -576,47 +499,5 @@ const styles = StyleSheet.create({
     fontVariant: ['small-caps'] as any,
     letterSpacing: 0.5,
     marginBottom: 6,
-  },
-  desktopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: SUBDIVISION_THICKNESS,
-    borderBottomColor: SUBDIVISION_COLOR,
-  },
-  desktopRowHovered: {
-    backgroundColor: '#fafafa',
-  },
-  // The lead teacher's round picture, the size of the Personal Library's group pictures.
-  desktopAvatarGroup: {
-    marginRight: 14,
-  },
-  desktopAvatarImg: {
-    width: LIST_AVATAR_SIZE,
-    height: LIST_AVATAR_SIZE,
-    borderRadius: LIST_AVATAR_SIZE / 2,
-  },
-  desktopAvatarFallbackText: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.gray[600],
-  },
-  desktopRowMain: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  desktopRowName: {
-    fontSize: 16,
-    fontFamily: 'EBGaramond_500Medium',
-    color: colors.gray[800],
-  },
-  desktopRowDate: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginTop: 2,
-  },
-  desktopRowBadges: {
-    minWidth: 60,
-    alignItems: 'center',
   },
 });

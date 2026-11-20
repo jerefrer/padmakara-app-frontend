@@ -30,7 +30,7 @@ import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
-import { DESKTOP_SQUARE_MAX, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_SQUARE_MAX, desktopLineBleed, hairlineThickness, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 import { useRetryWhileFailed } from '@/hooks/useRetryWhileFailed';
@@ -81,7 +81,7 @@ function CategoryRow({ title, subtitle, onPress }: CategoryRowProps) {
         </Text>
         <Text style={styles.categorySubtitle}>{subtitle}</Text>
       </View>
-      <View style={styles.categoryRule} />
+      <View style={[styles.categoryRule, { height: hairlineThickness() }]} />
     </TouchableOpacity>
   );
 }
@@ -519,7 +519,7 @@ export default function HomeScreen() {
               <Text style={[styles.highlightLabel, !isDesktop && styles.indented]}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
-              <View style={[styles.recentDivider, !isDesktop && styles.ruleToGutter]} />
+              <View style={[styles.recentDivider, { height: hairlineThickness() }, isDesktop ? desktopLineBleed(TEXT_GUTTER) : styles.ruleToGutter]} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}
@@ -635,7 +635,6 @@ const styles = StyleSheet.create({
   },
   // Lighter than the section rules (André): the hairline weight of the row subdivisions, in light red.
   categoryRule: {
-    height: SUBDIVISION_THICKNESS,
     marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: RULE_COLOR,
@@ -785,7 +784,6 @@ const styles = StyleSheet.create({
   },
   // Same weight as the category rules: every red line on the home is one hairline (André).
   recentDivider: {
-    height: SUBDIVISION_THICKNESS,
     backgroundColor: RULE_COLOR,
     marginBottom: 4,
   },

@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesktopLayout } from "@/hooks/useDesktopLayout";
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { LIST_AVATAR_SIZE, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
@@ -106,7 +106,7 @@ function GroupRow({ group, onPress, language, t, isDesktop }: GroupRowProps) {
   const groupImage = groupThumbnailSource(group, getGroupImage(groupName));
 
   return (
-    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.groupRow} testID={`group-card-${group.id}`}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.groupRow, isDesktop && desktopRowBleed(TEXT_GUTTER)]} testID={`group-card-${group.id}`}>
       {/* Round avatar */}
       <View style={styles.avatarContainer}>
         {groupImage ? (
@@ -351,7 +351,7 @@ export default function RetreatsListScreen() {
               <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>
                 {t("retreats.retreatsSection") || "Your Retreats"}
               </Text>
-              <SectionRule contained={isDesktop} />
+              <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(TEXT_GUTTER) : undefined} />
               <View style={!isDesktop && styles.ruleToInset}>
                 {groups.map((group) => (
                   <GroupRow
@@ -379,7 +379,7 @@ export default function RetreatsListScreen() {
               section.items.length > 0 && (
                 <View key={section.key} style={styles.teachingsSection}>
                   <Text style={[styles.sectionTitle, !isDesktop && styles.indented]}>{section.title}</Text>
-                  <SectionRule contained={isDesktop} />
+                  <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(TEXT_GUTTER) : undefined} />
                   <View>
                     {section.items.map((teaching) => (
                       <EventRow

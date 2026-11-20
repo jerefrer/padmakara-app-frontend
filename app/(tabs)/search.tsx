@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import type { SearchResultEvent } from '@/types';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
-import { RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, RULE_THICKNESS, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopRowBleed, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, ruleThickness, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
@@ -31,6 +31,9 @@ const colors = {
   },
   white: '#ffffff',
 };
+
+/** Horizontal padding of the desktop results column; the separators reach back over it. */
+const DESKTOP_RESULTS_PAD = 40;
 
 const FIELD_LABEL_MAP: Record<string, string> = {
   sessionThemes: 'search.fieldSessionThemes',
@@ -87,7 +90,7 @@ function ResultEventCard({
 
   return (
     <TouchableOpacity {...getRowPressDelayProps()}
-      style={[styles.resultCard, !isDesktop && styles.resultCardToInset]}
+      style={[styles.resultCard, isDesktop ? desktopRowBleed(DESKTOP_RESULTS_PAD) : styles.resultCardToInset]}
       onPress={() => onSessionPress(result.event.id)}
       activeOpacity={0.7}
       testID={testID}
@@ -241,7 +244,7 @@ export default function SearchScreen() {
             )}
           </View>
         </View>
-        {!isDesktop && <View style={styles.searchBarRule} />}
+        {!isDesktop && <View style={[styles.searchBarRule, { height: ruleThickness() }]} />}
 
         {/* Results */}
         <ScrollView
@@ -350,7 +353,6 @@ const styles = StyleSheet.create({
   },
   // The light red rule under the search bar: the text's left edge to the right gutter.
   searchBarRule: {
-    height: RULE_THICKNESS,
     marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: RULE_COLOR,
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: TEXT_GUTTER,
   },
   resultsContentDesktop: {
-    paddingHorizontal: 40,
+    paddingHorizontal: DESKTOP_RESULTS_PAD,
     maxWidth: 800,
   },
   resultsCount: {

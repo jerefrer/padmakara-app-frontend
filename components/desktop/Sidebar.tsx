@@ -14,7 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/constants/colors';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
-import { RULE_COLOR } from '@/constants/layout';
+import { DESKTOP_LINE_RIGHT_GAP, RULE_COLOR } from '@/constants/layout';
 import { Hairline } from '@/components/ui/Hairline';
 
 export function Sidebar() {
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   categoryRow: {
     paddingVertical: 16,
     paddingLeft: 20,
-    marginRight: 20,
+    marginRight: DESKTOP_LINE_RIGHT_GAP,
   },
   // The selected item only greys out: its title shows as the page header.
   categoryRowActive: {},

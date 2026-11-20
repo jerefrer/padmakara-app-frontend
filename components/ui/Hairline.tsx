@@ -1,5 +1,6 @@
 import React from "react";
-import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { hairlineThickness } from "@/constants/layout";
 
 /**
  * The thinnest line the screen can draw, laid along the bottom edge of its parent (which must
@@ -11,17 +12,11 @@ import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "reac
  * smeared over two rows and looked thicker and paler than its neighbours.) Native draws
  * StyleSheet.hairlineWidth.
  */
-function lineHeight(): number {
-  if (Platform.OS !== "web") return StyleSheet.hairlineWidth;
-  const ratio = typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1;
-  return 1 / ratio;
-}
-
 export function Hairline({ color, style, testID }: { color: string; style?: StyleProp<ViewStyle>; testID?: string }) {
   return (
     <View
       pointerEvents="none"
-      style={[styles.line, { backgroundColor: color, height: lineHeight() }, style]}
+      style={[styles.line, { backgroundColor: color, height: hairlineThickness() }, style]}
       testID={testID}
     />
   );

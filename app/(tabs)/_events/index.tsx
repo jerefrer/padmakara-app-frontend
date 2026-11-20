@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Pressable, RefreshControl } from 'react-native';
-import { DraftBadge } from '@/components/DraftBadge';
-import { ForthcomingBadge } from '@/components/ForthcomingBadge';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { NowPlayingBadge } from '@/components/NowPlayingBadge';
 import { Stack, router, useGlobalSearchParams, useSegments } from 'expo-router';
 import { Image } from 'expo-image';
@@ -11,14 +9,13 @@ import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import retreatService from '@/services/retreatService';
 import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
-import { mainTeacherNames, mainTeachers } from '@/utils/eventTeachers';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, hairlineThickness, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
-import { ListRowPressable, getRowPressDelayProps } from '@/components/ui/ListRowPressable';
+import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 
 const colors = {
   burgundy: {
@@ -51,7 +48,7 @@ interface TeacherGroup {
 
 function TeacherRow({ teacher, onPress, t, isDesktop }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined; isDesktop?: boolean }) {
   return (
-    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.teacherRow, !isDesktop && styles.rowToInset]}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.teacherRow, isDesktop ? desktopRowBleed(TEXT_GUTTER) : styles.rowToInset]}>
       <View style={styles.teacherAvatarLarge}>
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
@@ -83,7 +80,7 @@ function TeacherRow({ teacher, onPress, t, isDesktop }: { teacher: TeacherGroup;
 
 // ── Event card (for "by date" view) ─────────────────────────────────────────
 
-function EventCard({ event, onPress, language, t, testID }: { event: any; onPress: () => void; language: string; t: (key: string) => string | undefined; testID?: string }) {
+function EventCard({ event, onPress, language, t, testID, isDesktop }: { event: any; onPress: () => void; language: string; t: (key: string) => string | undefined; testID?: string; isDesktop?: boolean }) {
   const title = (language === 'pt' && event.name_translations?.pt)
     ? event.name_translations.pt
     : event.name || event.name_translations?.en || '';
@@ -105,101 +102,7 @@ function EventCard({ event, onPress, language, t, testID }: { event: any; onPres
     + (sessionCount > 0 ? ` · ${sessionCount} ${sessionLabel}` : '');
 
   return (
-    <EventRow event={event} title={title} meta={meta} onPress={onPress} testID={testID} />
-  );
-}
-
-// ── Desktop event row ────────────────────────────────────────────────────────
-
-function getOrdinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-function formatDateRangePretty(startDateStr: string, endDateStr: string, locale: string): string {
-  try {
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-    const isPt = locale === 'pt';
-    const localeStr = isPt ? 'pt-PT' : 'en-US';
-    const startMonth = startDate.toLocaleDateString(localeStr, { month: 'long' });
-    const endMonth = endDate.toLocaleDateString(localeStr, { month: 'long' });
-    const startDay = startDate.getDate();
-    const endDay = endDate.getDate();
-
-    if (isPt) {
-      if (startDay === endDay && startMonth === endMonth) return `${startDay} de ${startMonth}`;
-      if (startMonth === endMonth) return `${startDay}–${endDay} de ${startMonth}`;
-      return `${startDay} de ${startMonth} – ${endDay} de ${endMonth}`;
-    }
-
-    if (startDay === endDay && startMonth === endMonth) return `${startMonth} ${getOrdinal(startDay)}`;
-    if (startMonth === endMonth) return `${startMonth} ${getOrdinal(startDay)}–${getOrdinal(endDay)}`;
-    return `${startMonth} ${getOrdinal(startDay)} – ${endMonth} ${getOrdinal(endDay)}`;
-  } catch {
-    return `${startDateStr}`;
-  }
-}
-
-function TeacherAvatars({ teachers }: { teachers?: any[] }) {
-  if (!teachers || teachers.length === 0) return null;
-  const shown = teachers.slice(0, 3);
-  return (
-    <View style={styles.desktopTeacherAvatars}>
-      {shown.map((teacher: any, i: number) => (
-        <View key={teacher.abbreviation || i} style={[styles.desktopAvatarWrapper, i > 0 && { marginLeft: -8 }]}>
-          {(teacher.avatarUrl || teacher.photoUrl) ? (
-            <Image source={{ uri: (teacher.avatarUrl || teacher.photoUrl)! }} style={styles.desktopAvatar} contentFit="cover" />
-          ) : (
-            <View style={[styles.desktopAvatar, styles.teacherAvatarFallback]}>
-              <Text style={styles.desktopAvatarFallbackText}>
-                {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function DesktopEventRow({ event, onPress, language, testID }: { event: any; onPress: () => void; language: string; testID?: string }) {
-  const title = (language === 'pt' && event.name_translations?.pt)
-    ? event.name_translations.pt
-    : event.name || event.name_translations?.en || '';
-  const [isHovered, setIsHovered] = useState(false);
-
-  const webHoverProps = Platform.OS === 'web' ? {
-    onMouseEnter: () => setIsHovered(true),
-    onMouseLeave: () => setIsHovered(false),
-  } : {};
-
-  return (
-    <ListRowPressable
-      onPress={onPress}
-      style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
-      {...webHoverProps}
-      testID={testID}
-    >
-      {/* Compact row: main teachers only, never the guests (see utils/eventTeachers). */}
-      <TeacherAvatars teachers={mainTeachers(event.teachers)} />
-      <View style={styles.desktopRowMain}>
-        <Text style={styles.desktopRowName} numberOfLines={1}>{title}</Text>
-        <Text style={styles.desktopRowSubDate} numberOfLines={1}>
-          {event.startDate && event.endDate
-            ? formatDateRangePretty(event.startDate, event.endDate, language)
-            : event.startDate || '—'}
-          {event.teachers?.length > 0 && ` · ${mainTeacherNames(event.teachers)}`}
-        </Text>
-      </View>
-      {(event.status === 'draft' || event.status === 'forthcoming') && (
-        <View style={styles.desktopRowBadges}>
-          {event.status === 'draft' && <DraftBadge />}
-          {event.status === 'forthcoming' && <ForthcomingBadge />}
-        </View>
-      )}
-    </ListRowPressable>
+    <EventRow event={event} title={title} meta={meta} onPress={onPress} testID={testID} isDesktop={isDesktop} />
   );
 }
 
@@ -384,14 +287,17 @@ export default function EventsScreen() {
           <View style={[styles.yearHeader, yearIndex === 0 ? styles.yearHeaderFirst : styles.yearHeaderSubsequent]}>
             <Text style={styles.yearHeaderText}>{year}</Text>
           </View>
-          <View style={styles.desktopListContainer}>
+          <View>
+            <View style={[styles.desktopListTopRule, { height: hairlineThickness() }, desktopLineBleed(TEXT_GUTTER)]} />
             {eventsByYear[year].map((event: any) => (
-              <DesktopEventRow
+              <EventCard
                 key={event.id}
                 event={event}
                 onPress={() => handleEventPress(event.id)}
                 language={language}
+                t={t}
                 testID={`event-card-${event.id}`}
+                isDesktop
               />
             ))}
           </View>
@@ -479,12 +385,13 @@ export default function EventsScreen() {
           </View>
 
           {/* Light red rule under the header; rows below get light black lines. */}
-          <SectionRule contained={isDesktop} />
+          <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(TEXT_GUTTER) : undefined} />
 
           {/* View mode tabs — only show when not filtering by a specific teacher */}
           {!teacherFilter && (
             <TabSwitcher<ViewMode>
               bleed={!isDesktop}
+              style={isDesktop ? desktopRowBleed(TEXT_GUTTER) : undefined}
               activeKey={viewMode}
               onChange={setViewMode}
               tabs={[
@@ -566,10 +473,12 @@ const styles = StyleSheet.create({
   teacherAvatarLarge: {
     marginRight: 16,
   },
+  // The same round picture as the Personal Library's retreat groups (André): a round picture
+  // stands for a person or a class, and every one of them has the same size.
   teacherAvatarLargeImg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: LIST_AVATAR_SIZE,
+    height: LIST_AVATAR_SIZE,
+    borderRadius: LIST_AVATAR_SIZE / 2,
   },
   teacherAvatarFallback: {
     backgroundColor: colors.gray[200],
@@ -577,7 +486,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   teacherAvatarFallbackText: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '600',
     color: colors.gray[600],
   },
@@ -680,56 +589,8 @@ const styles = StyleSheet.create({
   },
 
   // Desktop list styles
-  desktopListContainer: {
-    borderTopWidth: SUBDIVISION_THICKNESS,
-    borderTopColor: SUBDIVISION_COLOR,
-  },
-  desktopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: SUBDIVISION_THICKNESS,
-    borderBottomColor: SUBDIVISION_COLOR,
-  },
-  desktopRowHovered: {
-    backgroundColor: '#fafafa',
-  },
-  desktopRowMain: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  desktopRowName: {
-    fontSize: 16,
-    fontFamily: 'EBGaramond_500Medium',
-    color: colors.gray[800],
-  },
-  desktopRowSubDate: {
-    fontSize: 13,
-    color: colors.gray[500],
-    marginTop: 2,
-  },
-  desktopTeacherAvatars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  desktopAvatarWrapper: {
-    borderWidth: 2,
-    borderColor: colors.white,
-    borderRadius: 20,
-  },
-  desktopAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  desktopAvatarFallbackText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.gray[600],
-  },
-  desktopRowBadges: {
-    minWidth: 60,
-    alignItems: 'center',
+  // The line above the first row of a year (light black, like the rows' separators).
+  desktopListTopRule: {
+    backgroundColor: SUBDIVISION_COLOR,
   },
 });

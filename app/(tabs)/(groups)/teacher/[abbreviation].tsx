@@ -25,7 +25,7 @@ import { pickFrameOverride } from '@/utils/heroFrames';
 import { useEventBookmarks } from '@/hooks/useEventBookmarks';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
-import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -232,7 +232,7 @@ export default function TeacherDetailScreen() {
         </View>
 
         {/* Light red rule opens the list; light black lines separate the rows. */}
-        <SectionRule />
+        <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(0) : undefined} />
 
         {/* Event list */}
         <View style={styles.eventList}>
@@ -269,7 +269,7 @@ export default function TeacherDetailScreen() {
             return (
               <TouchableOpacity {...getRowPressDelayProps()}
                 key={event.id}
-                style={styles.eventCard}
+                style={[styles.eventCard, isDesktop && desktopRowBleed(0, TEXT_GUTTER, TEXT_GUTTER)]}
                 onPress={() => router.push({ pathname: '/(tabs)/(groups)/retreat/[id]', params: { id: String(event.id), from: 'events' } } as any)}
               >
                 <View style={styles.eventTitleRow}>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from "@/constants/layout";
+import { RULE_LEFT_INSET, RULE_COLOR, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS } from "@/constants/layout";
 
 const colors = {
   burgundy500: "#9b1b1b",
@@ -31,7 +31,7 @@ interface TabSwitcherProps<K extends string> {
 /**
  * The one tab style of the app, taken from the event page's VIDEOS / AUDIO /
  * DOCUMENTS tabs: uppercase 13px semi-bold label, red 2px underline on the
- * active tab, light black line under the whole row.
+ * active tab, light red line under the whole row (it sits under a header, so it is a RULE_COLOR line).
  */
 export function TabSwitcher<K extends string>({
   tabs,
@@ -42,7 +42,7 @@ export function TabSwitcher<K extends string>({
   trailing,
 }: TabSwitcherProps<K>) {
   return (
-    <View style={[styles.bar, bleed && styles.bleed, style]}>
+    <View style={[styles.bar, bleed && styles.bleed, style]} testID="tab-switcher">
       <View style={styles.tabs}>
         {tabs.map((tab) => {
           const active = tab.key === activeKey;
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: SUBDIVISION_THICKNESS,
-    borderBottomColor: SUBDIVISION_COLOR,
+    borderBottomColor: RULE_COLOR,
     marginTop: 4,
     marginBottom: 12,
   },

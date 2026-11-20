@@ -94,6 +94,7 @@ import { EventTopics } from '@/components/EventTopics';
 import { guestLine, mainTeacherNames } from '@/utils/eventTeachers';
 import {
   DESKTOP_SQUARE_MAX,
+  desktopRowBleed,
   RULE_COLOR,
   SUBDIVISION_COLOR,
   SUBDIVISION_THICKNESS,
@@ -1717,7 +1718,7 @@ export default function RetreatDetailScreen() {
             always cropped the teacher's head; a square photo shows it whole, with the title,
             teachers, dates and places, the content circles and the bookmark / menu beside it. */}
         {heroSource && isDesktop && (
-          <View style={styles.desktopHeader} testID="event-desktop-header">
+          <View style={[styles.desktopHeader, desktopRowBleed(DESKTOP_SCROLL_PADDING)]} testID="event-desktop-header">
             <View style={styles.desktopHeroSquare} testID="event-desktop-hero">
               <ExpoImage
                 source={{ uri: heroSource, cacheKey: heroCacheKey }}
@@ -1785,6 +1786,9 @@ export default function RetreatDetailScreen() {
               // Phone without a hero: the title starts below the floating back / bookmark /
               // download buttons instead of under them and the status bar.
               !isDesktop && !compactSidebar && !heroSource && { paddingTop: insets.top + FLOATING_BUTTONS_CLEARANCE },
+              // Desktop: the line reaches back to the column's edge; the title keeps its inset (and the
+              // room for the floating back button).
+              isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 52),
             ]}
             onLayout={(e) => {
               largeTitleBottom.value = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
@@ -1833,6 +1837,7 @@ export default function RetreatDetailScreen() {
             audio, documents). Sits between the title and the content. */}
         {!isForthcoming && showContentTabs && (
           <TabSwitcher<EventContentTab>
+            style={isDesktop ? desktopRowBleed(DESKTOP_SCROLL_PADDING) : undefined}
             activeKey={effectiveTab}
             onChange={setActiveContentTab}
             tabs={[
@@ -1890,7 +1895,7 @@ export default function RetreatDetailScreen() {
                   but the dedicated Video tab now provides that
                   affordance, so the header is text-only. */}
               {showSessionHeader && (
-                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, styles.sessionHeaderIndent]}>
+                <View style={[styles.sessionHeader, !wasFirstSession && styles.sessionHeaderSubsequent, styles.sessionHeaderIndent, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 7, DESKTOP_SCROLL_PADDING + 7)]}>
                   <Text style={styles.sessionHeaderText}>
                     {formatSessionHeader(track, retreat?.startDate, language, t)}
                   </Text>
@@ -1911,6 +1916,7 @@ export default function RetreatDetailScreen() {
                   styles.trackItem,
                   styles.trackItemIndent,
                   isDesktop && styles.trackItemDesktop,
+                  isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 7, DESKTOP_SCROLL_PADDING + 8),
                   isActive && styles.currentTrackItem,
                   isDesktop && isSelected && !isActive && styles.selectedTrackItem,
                   nextIsContinuation && styles.trackItemSiblingAbove,
@@ -1977,7 +1983,7 @@ export default function RetreatDetailScreen() {
               return (
                 <TouchableOpacity {...getRowPressDelayProps()}
                   key={doc.key}
-                  style={styles.documentListItem}
+                  style={[styles.documentListItem, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING)]}
                   onPress={() => handleDocumentPress(doc)}
                   disabled={!!documentBusyKey}
                   accessibilityRole="button"
@@ -2039,7 +2045,7 @@ export default function RetreatDetailScreen() {
 
         {!isForthcoming && effectiveTab === 'documents' && relatedPublications.length > 0 && (
           <View
-            style={styles.relatedPublicationsSection}
+            style={[styles.relatedPublicationsSection, isDesktop && desktopRowBleed(DESKTOP_SCROLL_PADDING, DESKTOP_SCROLL_PADDING + 16, DESKTOP_SCROLL_PADDING + 16)]}
             testID="event-related-publications"
           >
             <Text style={styles.relatedPublicationsTitle}>
