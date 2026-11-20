@@ -13,7 +13,8 @@ import { getTrackTitle, Language } from "@/utils/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { EventRow, EventThumb } from "@/components/EventRow";
-import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
+import { useDesktopLayout } from "@/hooks/useDesktopLayout";
+import { desktopLineBleed, desktopRowBleed, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
 import { SectionRule } from "@/components/ui/SectionRule";
 import { teacherFeedImageCacheKey } from "@/utils/cacheKeys";
 import React, { useCallback, useState } from "react";
@@ -65,6 +66,7 @@ function BookmarkedEventRow({
   language: string;
   testID?: string;
 }) {
+  const { isDesktop } = useDesktopLayout();
   const event = bookmark.event;
   const title =
     (language === "pt" && event.name_translations?.pt) ||
@@ -78,6 +80,9 @@ function BookmarkedEventRow({
       title={title}
       meta={formatDate(event.startDate, language)}
       onPress={onPress}
+      isDesktop={isDesktop}
+      desktopPad={0}
+      desktopInset={TEXT_GUTTER}
       testID={testID}
     />
   );
@@ -96,6 +101,7 @@ function TrackRow({
   language: Language;
   testID?: string;
 }) {
+  const { isDesktop } = useDesktopLayout();
   const track = bookmark.track;
   const event = track.event;
   const eventTitle = (language === "pt" && event.titlePt) || event.titleEn || "";
@@ -109,7 +115,7 @@ function TrackRow({
   const subtitle = [eventTitle, sessionTitle].filter(Boolean).join(" — ");
 
   return (
-    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.row} testID={testID}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.row, isDesktop && styles.rowDesktop]} testID={testID}>
       <EventThumb
         uri={teacherPhoto}
         cacheKey={teacherFeedImageCacheKey(teacher)}
@@ -144,6 +150,7 @@ function VideoRow({
   t: (key: string, params?: Record<string, unknown>) => string;
   testID?: string;
 }) {
+  const { isDesktop } = useDesktopLayout();
   const video = bookmark.video;
   const event = video.event;
   const eventTitle = (language === "pt" && event.titlePt) || event.titleEn || "";
@@ -174,7 +181,7 @@ function VideoRow({
     .join(" — ");
 
   return (
-    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={styles.row} testID={testID}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.row, isDesktop && styles.rowDesktop]} testID={testID}>
       <EventThumb
         uri={teacherPhoto}
         cacheKey={teacherFeedImageCacheKey(teacher)}
@@ -208,6 +215,7 @@ function PageRow({
   t: (key: string, params?: Record<string, unknown>) => string;
   testID?: string;
 }) {
+  const { isDesktop } = useDesktopLayout();
   const doc = bookmark.document;
   const page = String(bookmark.page);
   const title =
@@ -224,7 +232,7 @@ function PageRow({
       {...getRowPressDelayProps()}
       onPress={onPress}
       disabled={!onPress}
-      style={styles.row}
+      style={[styles.row, isDesktop && styles.rowDesktop]}
       testID={testID}
     >
       <EventThumb uri={null} fallbackIcon={doc.type === "publication" ? "book-outline" : "document-text-outline"} />
@@ -262,6 +270,7 @@ function openPageBookmark(bookmark: PageBookmark): (() => void) | undefined {
 export default function BookmarksScreen() {
   const { isAuthenticated } = useAuth();
   const { t, language } = useLanguage();
+  const { isDesktop } = useDesktopLayout();
   const [eventBookmarks, setEventBookmarks] = useState<EventBookmark[]>([]);
   const [trackBookmarks, setTrackBookmarks] = useState<TrackBookmark[]>([]);
   const [videoBookmarks, setVideoBookmarks] = useState<VideoBookmark[]>([]);
@@ -322,7 +331,7 @@ export default function BookmarksScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <Text style={[styles.title, styles.indented]}>{t("navigation.bookmarks") || "Bookmarks"}</Text>
-        <SectionRule style={styles.rule} />
+        <SectionRule contained={isDesktop} style={[styles.rule, isDesktop && desktopLineBleed(0)]} />
 
         {loading && !hasAny ? (
           <View style={styles.center}>
@@ -546,6 +555,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,
   },
+  // Desktop: the separator runs the column's width (the text keeps its gutter).
+  rowDesktop: desktopRowBleed(0, TEXT_GUTTER, TEXT_GUTTER),
   rowInfo: {
     flex: 1,
   },

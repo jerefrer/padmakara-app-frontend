@@ -1,5 +1,11 @@
 import { Platform } from "react-native";
-import { hairlineThickness, ruleThickness } from "@/constants/layout";
+import {
+  DESKTOP_LINE_RIGHT_GAP,
+  desktopLineBleed,
+  desktopRowBleed,
+  hairlineThickness,
+  ruleThickness,
+} from "@/constants/layout";
 
 describe("line thickness", () => {
   const originalOS = Platform.OS;
@@ -26,5 +32,25 @@ describe("line thickness", () => {
     (Platform as any).OS = "ios";
     expect(ruleThickness()).toBe(1);
     expect(hairlineThickness()).toBeLessThan(1);
+  });
+});
+
+describe("desktop line geometry", () => {
+  it("should reach back to the column edge and stop at the sidebar's right gap when a line is bled", () => {
+    expect(desktopLineBleed(24)).toEqual({ marginLeft: -24, marginRight: DESKTOP_LINE_RIGHT_GAP - 24 });
+    expect(desktopLineBleed(0)).toEqual({ marginLeft: 0, marginRight: DESKTOP_LINE_RIGHT_GAP });
+  });
+
+  it("should keep the content where it was when a row is bled", () => {
+    expect(desktopRowBleed(24)).toEqual({
+      marginLeft: -24,
+      paddingLeft: 24,
+      marginRight: -4,
+      paddingRight: 4,
+    });
+  });
+
+  it("should never ask for a negative padding when the column is padded less than the gap", () => {
+    expect(desktopRowBleed(16).paddingRight).toBe(0);
   });
 });

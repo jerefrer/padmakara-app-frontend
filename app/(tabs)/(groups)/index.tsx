@@ -30,7 +30,7 @@ import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
-import { DESKTOP_SQUARE_MAX, hairlineThickness, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_SQUARE_MAX, desktopLineBleed, hairlineThickness, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 import { useRetryWhileFailed } from '@/hooks/useRetryWhileFailed';
@@ -519,7 +519,7 @@ export default function HomeScreen() {
               <Text style={[styles.highlightLabel, !isDesktop && styles.indented]}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
-              <View style={[styles.recentDivider, { height: hairlineThickness() }, !isDesktop && styles.ruleToGutter]} />
+              <View style={[styles.recentDivider, { height: hairlineThickness() }, isDesktop ? desktopLineBleed(TEXT_GUTTER) : styles.ruleToGutter]} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}

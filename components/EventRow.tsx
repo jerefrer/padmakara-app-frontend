@@ -8,10 +8,12 @@ import { ForthcomingBadge } from "@/components/ForthcomingBadge";
 import { NowPlayingBadge } from "@/components/NowPlayingBadge";
 import { AVENIR_FAMILY } from "@/constants/avenirFont";
 import {
+  desktopRowBleed,
   RULE_LEFT_INSET,
   RULE_RIGHT_INSET,
   SUBDIVISION_COLOR,
   SUBDIVISION_THICKNESS,
+  TEXT_GUTTER,
 } from "@/constants/layout";
 import type { Gathering } from "@/types";
 import { eventAvatarCacheKey, teacherFeedImageCacheKey } from "@/utils/cacheKeys";
@@ -76,6 +78,10 @@ interface EventRowProps {
   badge?: React.ReactNode;
   /** Desktop columns have their own padding: the row fills it, no gutter. */
   isDesktop?: boolean;
+  /** Desktop: the column's horizontal padding. The separator reaches back to the column's edge (see desktopRowBleed). */
+  desktopPad?: number;
+  /** Desktop: how far the content stands from the column's edge when that is not the column's padding (a column without padding, text inset by its rows). */
+  desktopInset?: number;
   testID?: string;
   /** Title size override, for screens whose neighbouring rows use another size. */
   titleFontSize?: number;
@@ -87,7 +93,7 @@ interface EventRowProps {
  * separator runs from the thumbnail's left edge to the right gutter (see
  * constants/layout.ts).
  */
-export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID, titleFontSize }: EventRowProps) {
+export function EventRow({ event, title, meta, onPress, badge, isDesktop, desktopPad = TEXT_GUTTER, desktopInset, testID, titleFontSize }: EventRowProps) {
   // Compact row: the main teachers only, never the guests (see utils/eventTeachers).
   const teacherNames =
     mainTeachers(event.teachers).map((t: any) => t.name || t.nameEn || "").filter(Boolean).join(", ") || "";
@@ -112,7 +118,7 @@ export function EventRow({ event, title, meta, onPress, badge, isDesktop, testID
   return (
     <TouchableOpacity {...getRowPressDelayProps()}
       onPress={onPress}
-      style={[styles.row, isDesktop ? styles.rowDesktop : styles.rowToInset]}
+      style={[styles.row, isDesktop ? desktopRowBleed(desktopPad, desktopInset ?? desktopPad) : styles.rowToInset]}
       testID={testID}
     >
       <View style={styles.main}>
@@ -163,8 +169,6 @@ const styles = StyleSheet.create({
     marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
-  // Desktop: the column already pads the row, so the separator spans it as is.
-  rowDesktop: {},
   // Picture and text side by side; the status badge, when there is one, hangs under the picture.
   main: {
     flexDirection: "row",

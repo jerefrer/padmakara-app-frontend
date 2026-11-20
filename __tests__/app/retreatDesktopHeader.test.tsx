@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import { SUBDIVISION_COLOR } from '@/constants/layout';
+import { DESKTOP_LINE_RIGHT_GAP, SUBDIVISION_COLOR } from '@/constants/layout';
 import RetreatDetailScreen from '@/app/(tabs)/(groups)/retreat/[id]';
 import retreatService from '@/services/retreatService';
 
@@ -170,12 +170,13 @@ describe('retreat screen teachers and guests', () => {
 });
 
 describe('retreat screen track list', () => {
-  it('should draw the track lines in the light black, inside the padded column', async () => {
+  it('should draw the track lines in the light black, from the column edge to the sidebar gap', async () => {
     const screen = render(<RetreatDetailScreen />);
     await screen.findByText('Idle prayer');
     const style = StyleSheet.flatten(screen.getByTestId('track-row-12').props.style);
-    expect(style.marginLeft).toBeUndefined();
-    expect(style.marginRight).toBeUndefined();
+    // The column is padded by 16: the line reaches back over it and stops DESKTOP_LINE_RIGHT_GAP short.
+    expect(style.marginLeft).toBe(-16);
+    expect(style.marginRight).toBe(DESKTOP_LINE_RIGHT_GAP - 16);
     expect(style.borderBottomColor).toBe(SUBDIVISION_COLOR);
   });
 

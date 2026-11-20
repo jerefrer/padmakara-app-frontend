@@ -12,7 +12,7 @@ import { teacherAvatarCacheKey } from '@/utils/cacheKeys';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
-import { LIST_AVATAR_SIZE, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, LIST_AVATAR_SIZE, hairlineThickness, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -48,7 +48,7 @@ interface TeacherGroup {
 
 function TeacherRow({ teacher, onPress, t, isDesktop }: { teacher: TeacherGroup; onPress: () => void; t: (key: string) => string | undefined; isDesktop?: boolean }) {
   return (
-    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.teacherRow, !isDesktop && styles.rowToInset]}>
+    <TouchableOpacity {...getRowPressDelayProps()} onPress={onPress} style={[styles.teacherRow, isDesktop ? desktopRowBleed(TEXT_GUTTER) : styles.rowToInset]}>
       <View style={styles.teacherAvatarLarge}>
         {(teacher.avatarUrl || teacher.photoUrl) ? (
           <Image
@@ -287,7 +287,8 @@ export default function EventsScreen() {
           <View style={[styles.yearHeader, yearIndex === 0 ? styles.yearHeaderFirst : styles.yearHeaderSubsequent]}>
             <Text style={styles.yearHeaderText}>{year}</Text>
           </View>
-          <View style={styles.desktopListContainer}>
+          <View>
+            <View style={[styles.desktopListTopRule, { height: hairlineThickness() }, desktopLineBleed(TEXT_GUTTER)]} />
             {eventsByYear[year].map((event: any) => (
               <EventCard
                 key={event.id}
@@ -384,12 +385,13 @@ export default function EventsScreen() {
           </View>
 
           {/* Light red rule under the header; rows below get light black lines. */}
-          <SectionRule contained={isDesktop} />
+          <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(TEXT_GUTTER) : undefined} />
 
           {/* View mode tabs — only show when not filtering by a specific teacher */}
           {!teacherFilter && (
             <TabSwitcher<ViewMode>
               bleed={!isDesktop}
+              style={isDesktop ? desktopRowBleed(TEXT_GUTTER) : undefined}
               activeKey={viewMode}
               onChange={setViewMode}
               tabs={[
@@ -587,8 +589,8 @@ const styles = StyleSheet.create({
   },
 
   // Desktop list styles
-  desktopListContainer: {
-    borderTopWidth: SUBDIVISION_THICKNESS,
-    borderTopColor: SUBDIVISION_COLOR,
+  // The line above the first row of a year (light black, like the rows' separators).
+  desktopListTopRule: {
+    backgroundColor: SUBDIVISION_COLOR,
   },
 });

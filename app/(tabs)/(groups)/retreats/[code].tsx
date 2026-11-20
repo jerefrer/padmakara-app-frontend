@@ -28,8 +28,10 @@ import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
 import { useBottomBarsSpace } from '@/components/MiniPlayer';
 import { SectionRule } from '@/components/ui/SectionRule';
-import { TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, TEXT_GUTTER } from '@/constants/layout';
 
+/** Horizontal padding of the desktop column (desktopScrollContent); the lines reach back over it. */
+const DESKTOP_COLUMN_PAD = 40;
 const HERO_HEIGHT = 380;
 const HERO_COLLAPSE_END = 230;
 
@@ -103,6 +105,7 @@ function RetreatCard({ retreat, onPress, isDownloaded, language, groupNameForStr
       onPress={onPress}
       badge={isDownloaded ? <OfflineBadge /> : undefined}
       isDesktop={isDesktop}
+      desktopPad={DESKTOP_COLUMN_PAD}
     />
   );
 }
@@ -352,7 +355,7 @@ export default function GroupDetailScreen() {
 
           {/* Light red rule opens the list; light black lines separate the rows. No year headers:
               each row's date carries its year, so the rows are evenly spaced. */}
-          <SectionRule contained={isDesktop} />
+          <SectionRule contained={isDesktop} style={isDesktop ? desktopLineBleed(DESKTOP_COLUMN_PAD) : undefined} />
 
           {sortedRetreats.map(retreat => (
             <RetreatCard
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: TEXT_GUTTER,
   },
   desktopScrollContent: {
-    paddingHorizontal: 40,
+    paddingHorizontal: DESKTOP_COLUMN_PAD,
   },
   standaloneBackRow: {
     flexDirection: 'row',
@@ -415,7 +418,7 @@ const styles = StyleSheet.create({
   },
   desktopHeroContainer: {
     // Break out of the desktop ScrollView's 40px padding.
-    marginHorizontal: -40,
+    marginHorizontal: -DESKTOP_COLUMN_PAD,
   },
   floatingBackButton: {
     position: 'absolute',

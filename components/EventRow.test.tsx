@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { EventRow } from './EventRow';
-import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_LINE_RIGHT_GAP, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, TEXT_GUTTER } from '@/constants/layout';
 
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
@@ -32,5 +32,15 @@ describe('EventRow', () => {
     expect(style.marginLeft).toBe(TEXT_GUTTER);
     expect(style.marginRight).toBe(TEXT_GUTTER);
     expect(RULE_LEFT_INSET).toBe(RULE_RIGHT_INSET);
+  });
+
+  it('should stretch its separator to the column edge on desktop while keeping the text inset', () => {
+    const { getByTestId } = render(
+      <EventRow event={{ ...event, status: 'published' }} title="T" meta="" onPress={() => {}} isDesktop testID="row" />,
+    );
+    const style = StyleSheet.flatten(getByTestId('row').props.style);
+    expect(style.marginLeft).toBe(-TEXT_GUTTER);
+    expect(style.paddingLeft).toBe(TEXT_GUTTER);
+    expect(style.marginRight).toBe(DESKTOP_LINE_RIGHT_GAP - TEXT_GUTTER);
   });
 });

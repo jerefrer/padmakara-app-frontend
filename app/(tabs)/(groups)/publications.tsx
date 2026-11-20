@@ -42,7 +42,7 @@ import type { Publication } from '@/types';
 import { BackButton } from '@/components/ui/BackButton';
 import { sanitizePdfFilename } from '@/components/DocumentShareButton';
 import { downloadFileWeb } from '@/utils/downloadFileWeb';
-import { RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopRowBleed, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -50,6 +50,9 @@ import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
 type SortMode = 'title' | 'author' | 'lastOpened';
 
 /** The cache entry a publication's current file gets once downloaded. */
+/** Horizontal padding of the desktop list; the tab row's text lines up with it. */
+const DESKTOP_LIST_PAD = 24;
+
 function currentFile(publication: Publication): CachedPublicationFile {
   return {
     version: publication.version,
@@ -406,7 +409,7 @@ export default function PublicationsScreen() {
 
       return (
         <TouchableOpacity {...getRowPressDelayProps()}
-          style={[styles.publicationItem, !isDesktop && styles.rowToInset]}
+          style={[styles.publicationItem, isDesktop ? desktopRowBleed(DESKTOP_LIST_PAD) : styles.rowToInset]}
           onPress={() => handleOpenPublication(item)}
           disabled={isDownloading}
           activeOpacity={0.7}
@@ -678,7 +681,7 @@ export default function PublicationsScreen() {
         {/* Sort tabs + language dropdown */}
         <TabSwitcher<SortMode>
           bleed={!isDesktop}
-          style={[styles.sortBar, isDesktop && styles.sortBarDesktop]}
+          style={[styles.sortBar, isDesktop && desktopRowBleed(0, DESKTOP_LIST_PAD, DESKTOP_LIST_PAD)]}
           activeKey={sortMode}
           onChange={setSortMode}
           tabs={(['lastOpened', 'author', 'title'] as SortMode[]).map((mode) => ({
@@ -798,7 +801,7 @@ export default function PublicationsScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderPublicationItem}
             renderSectionHeader={({ section: { title } }) => (
-              <View style={[styles.sectionHeader, !isDesktop && styles.rowToInset]}>
+              <View style={[styles.sectionHeader, isDesktop ? desktopRowBleed(DESKTOP_LIST_PAD) : styles.rowToInset]}>
                 <Text style={styles.sectionHeaderText}>{title}</Text>
               </View>
             )}
@@ -866,9 +869,6 @@ const styles = StyleSheet.create({
   sortBar: {
     position: 'relative',
     zIndex: 100,
-  },
-  sortBarDesktop: {
-    marginHorizontal: 24,
   },
   // The tab line stops at the right inset; the dropdown trigger lines up with
   // the text gutter again.
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   listContentDesktop: {
-    paddingHorizontal: 24,
+    paddingHorizontal: DESKTOP_LIST_PAD,
     paddingBottom: 100,
   },
   rowToInset: {
