@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import apiService from '@/services/apiService';
 import { API_ENDPOINTS } from '@/services/apiConfig';
 import { BackButton } from '@/components/ui/BackButton';
+import { SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
 
 const CONFIRMATION_PHRASE = 'permanently delete';
 const CONFIRMATION_PHRASE_PT = 'eliminar permanentemente';
@@ -202,8 +203,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     backgroundColor: colors.cream[200],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   headerBack: {
     marginLeft: 0,

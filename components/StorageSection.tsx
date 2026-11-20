@@ -41,6 +41,7 @@ import { BarSegment, getBarSegments } from '@/utils/storageUsage';
 import { ConfirmationModal, ConfirmationButton } from '@/components/ConfirmationModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ListRowPressable } from '@/components/ui/ListRowPressable';
+import { SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from '@/constants/layout';
 
 const colors = {
   cream: {
@@ -808,8 +809,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderRadius: 0,
     overflow: 'visible',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   loadingContainer: {
     backgroundColor: 'transparent',
@@ -818,8 +819,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderRadius: 0,
     overflow: 'visible',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   loadingText: {
     fontSize: 14,
@@ -862,8 +863,8 @@ const styles = StyleSheet.create({
     columnGap: 16,
     rowGap: 8,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   legendItem: {
     flexDirection: 'row',
@@ -884,8 +885,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -935,10 +936,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: colors.gray[100],
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderTopWidth: SUBDIVISION_THICKNESS,
+    borderTopColor: SUBDIVISION_COLOR,
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   downloadsSectionTitle: {
     fontSize: 11,
@@ -951,8 +952,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   retreatInfo: {
     flex: 1,
@@ -992,8 +993,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.gray[800],
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   optionsList: {
     maxHeight: 300,
@@ -1004,8 +1005,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   optionItemSelected: {
     backgroundColor: colors.burgundy[50],
@@ -1021,8 +1022,8 @@ const styles = StyleSheet.create({
   modalCancelButton: {
     padding: 16,
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
+    borderTopWidth: SUBDIVISION_THICKNESS,
+    borderTopColor: SUBDIVISION_COLOR,
   },
   modalCancelText: {
     fontSize: 16,

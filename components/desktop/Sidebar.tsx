@@ -69,14 +69,14 @@ export function Sidebar() {
       icon: 'book-outline' as const,
       shortTitle: t('home.publications') || 'Publications',
     },
-    // Right under Publications (André); the full sidebar says whose bookmarks they are.
+    // Search has a subtitle like the entries above it, so it belongs in the main list (André).
     {
-      key: 'bookmarks',
-      title: t('navigation.myBookmarks') || 'My Bookmarks',
-      subtitle: null,
-      route: '/(tabs)/bookmarks',
-      icon: 'bookmark-outline' as const,
-      shortTitle: t('navigation.bookmarks') || 'Bookmarks',
+      key: 'search',
+      title: t('navigation.search') || 'Search',
+      subtitle: t('search.sidebarSubtitle') || 'Find by topic, teacher, or word',
+      route: '/(tabs)/search',
+      icon: 'search-outline' as const,
+      shortTitle: t('navigation.search') || 'Search',
     },
   ];
 
@@ -139,16 +139,16 @@ export function Sidebar() {
     }
   }, [isAuthenticated, isActive]);
 
-  // Bottom entry: search, kept apart while it is an experiment (André). On the full sidebar
+  // Bottom entry: the bookmarks, kept apart from the main list (André). On the full sidebar
   // the account is reached from the right panel (the user's name, or Login when signed out).
   const bottomItems = [
     {
-      key: 'search',
-      title: t('navigation.search') || 'Search',
-      subtitle: t('search.sidebarSubtitle') || 'Find by topic, teacher, or word',
-      route: '/(tabs)/search',
-      icon: 'search-outline' as const,
-      shortTitle: t('navigation.search') || 'Search',
+      key: 'bookmarks',
+      title: t('navigation.myBookmarks') || 'My Bookmarks',
+      subtitle: null,
+      route: '/(tabs)/bookmarks',
+      icon: 'bookmark-outline' as const,
+      shortTitle: t('navigation.bookmarks') || 'Bookmarks',
     },
   ];
 
@@ -250,7 +250,7 @@ export function Sidebar() {
         </View>
       </ScrollView>
 
-      {/* Search — styled as the categories for visual consistency */}
+      {/* Bookmarks — styled as the categories for visual consistency */}
       <View style={styles.bottomSection}>
         {bottomItems.map((item, index) => {
           const active = isActive(item.key);

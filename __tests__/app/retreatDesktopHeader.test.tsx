@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import { DESKTOP_ROW_RULE_COLOR } from '@/components/EventRow';
+import { SUBDIVISION_COLOR } from '@/constants/layout';
 import RetreatDetailScreen from '@/app/(tabs)/(groups)/retreat/[id]';
 import retreatService from '@/services/retreatService';
 
@@ -170,22 +170,22 @@ describe('retreat screen teachers and guests', () => {
 });
 
 describe('retreat screen track list', () => {
-  it('should draw the home list lines on desktop: flush left, a gap on the right', async () => {
+  it('should draw the track lines in the light black, inside the padded column', async () => {
     const screen = render(<RetreatDetailScreen />);
     await screen.findByText('Idle prayer');
     const style = StyleSheet.flatten(screen.getByTestId('track-row-12').props.style);
-    expect(style.marginLeft).toBe(-16);
-    expect(style.marginRight).toBe(80);
-    expect(style.borderBottomColor).toBe(DESKTOP_ROW_RULE_COLOR);
+    expect(style.marginLeft).toBeUndefined();
+    expect(style.marginRight).toBeUndefined();
+    expect(style.borderBottomColor).toBe(SUBDIVISION_COLOR);
   });
 
-  it('should mark the playing row on desktop by its shade alone, without the red bar', async () => {
+  it('should mark the playing row on desktop by a pressed-down shadow, with no tint and no red bar', async () => {
     const screen = render(<RetreatDetailScreen />);
     await screen.findByText('Idle prayer');
     const style = StyleSheet.flatten(screen.getByTestId('track-row-11').props.style);
-    expect(style.backgroundColor).toBe('#f8f1f1');
+    expect(style.backgroundColor).toBe('transparent');
+    expect(style.boxShadow).toContain('inset');
     expect(style.borderLeftWidth).toBe(0);
-    expect(style.marginLeft).toBe(-16);
   });
 
   it('should keep the red bar on the playing row on a phone', async () => {
@@ -195,6 +195,8 @@ describe('retreat screen track list', () => {
     const style = StyleSheet.flatten(screen.getByTestId('track-row-11').props.style);
     expect(style.borderLeftWidth).toBe(3);
     expect(style.borderLeftColor).toBe('#9b1b1b');
+    expect(style.backgroundColor).toBe('transparent');
+    expect(style.boxShadow).toContain('inset');
   });
 
   it('should show the Tibetan tag in neutral grey without a highlight colour', async () => {

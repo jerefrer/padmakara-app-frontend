@@ -1,10 +1,9 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from "@/constants/layout";
+import { RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS } from "@/constants/layout";
 
 const colors = {
   burgundy500: "#9b1b1b",
-  gray200: "#e5e7eb",
   gray500: "#6b7280",
 };
 
@@ -19,9 +18,9 @@ interface TabSwitcherProps<K extends string> {
   activeKey: K;
   onChange: (key: K) => void;
   /**
-   * Full-width mobile screens: the thin line starts at the left edge and stops
-   * at RULE_RIGHT_INSET, the first tab sits at the text gutter. Leave off when
-   * the parent already provides the bleed (event page) or on desktop.
+   * Full-width mobile screens: the line runs from the text gutter to
+   * RULE_RIGHT_INSET. Leave off when the parent already pads the content
+   * (event page, desktop).
    */
   bleed?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -32,7 +31,7 @@ interface TabSwitcherProps<K extends string> {
 /**
  * The one tab style of the app, taken from the event page's VIDEOS / AUDIO /
  * DOCUMENTS tabs: uppercase 13px semi-bold label, red 2px underline on the
- * active tab, thin gray line under the whole row.
+ * active tab, light black line under the whole row.
  */
 export function TabSwitcher<K extends string>({
   tabs,
@@ -72,12 +71,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: SUBDIVISION_THICKNESS,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: SUBDIVISION_COLOR,
     marginTop: 4,
     marginBottom: 12,
   },
   bleed: {
-    paddingLeft: TEXT_GUTTER,
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
   tabs: {

@@ -30,7 +30,7 @@ import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
-import { DESKTOP_SQUARE_MAX, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_SQUARE_MAX, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 import { useRetryWhileFailed } from '@/hooks/useRetryWhileFailed';
@@ -519,7 +519,7 @@ export default function HomeScreen() {
               <Text style={[styles.highlightLabel, !isDesktop && styles.indented]}>
                 {t("home.recentlyAdded") || "Recently added"}
               </Text>
-              <View style={[styles.recentDivider, isDesktop ? styles.recentDividerDesktop : styles.ruleToGutter]} />
+              <View style={[styles.recentDivider, !isDesktop && styles.ruleToGutter]} />
               {recentEvents.map((event) => (
                 <RecentEventCard
                   key={event.id}
@@ -605,8 +605,9 @@ const styles = StyleSheet.create({
     fontVariant: ["small-caps"],
     letterSpacing: 0.5,
   },
-  // A red rule that starts at the left edge and stops at the right inset.
+  // A red rule that runs from the text's left edge to the right gutter.
   ruleToGutter: {
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
   membershipInvite: {
@@ -632,11 +633,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: TEXT_GUTTER,
     paddingBottom: 10,
   },
-  // Lighter than the section rules (André): the hairline weight of the row subdivisions, in red.
+  // Lighter than the section rules (André): the hairline weight of the row subdivisions, in light red.
   categoryRule: {
     height: SUBDIVISION_THICKNESS,
+    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
-    backgroundColor: colors.burgundy[500],
+    backgroundColor: RULE_COLOR,
   },
   categoryTitle: {
     fontSize: 30,
@@ -784,13 +786,8 @@ const styles = StyleSheet.create({
   // Same weight as the category rules: every red line on the home is one hairline (André).
   recentDivider: {
     height: SUBDIVISION_THICKNESS,
-    backgroundColor: colors.burgundy[500],
+    backgroundColor: RULE_COLOR,
     marginBottom: 4,
-  },
-  // Desktop: the rule starts at the column's left edge, flush with the black separators of the
-  // rows below it (EventRow rowDesktop), while the label keeps the text gutter (André).
-  recentDividerDesktop: {
-    marginLeft: -TEXT_GUTTER,
   },
 
   // Sign in section — subtle, at the bottom
