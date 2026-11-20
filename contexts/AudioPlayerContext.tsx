@@ -10,6 +10,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
+import {
+  DEFAULT_LOCK_SCREEN_BUTTONS,
+  getLockScreenButtons,
+  subscribeToLockScreenButtons,
+  type LockScreenButtons,
+} from '@/services/lockScreenButtonsPreference';
 
 /**
  * Audio player phases — a deliberate three-state lifecycle:
@@ -259,6 +265,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // only get their metadata updated: re-activating them also restarts the
   // Android media service (same background restriction as above).
   const lockScreenActiveRef = useRef(false);
+  const lockScreenOptionsKeyRef = useRef('');
 
   // ─── Refs (don't trigger renders) ───
   // The id of the track we're currently working on. Captured by async
@@ -721,6 +728,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   // ─── Lock screen / Now Playing controls (iOS + Android) ───
   const [artworkUri, setArtworkUri] = useState<string | null>(null);
+  // The iOS setting for the buttons beside play/pause (changing it re-activates the lock screen).
+  const [lockScreenButtons, setLockScreenButtonsState] = useState<LockScreenButtons>(DEFAULT_LOCK_SCREEN_BUTTONS);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    void getLockScreenButtons().then((saved) => { if (!cancelled) setLockScreenButtonsState(saved); });
+    const unsubscribe = subscribeToLockScreenButtons(setLockScreenButtonsState);
+    return () => { cancelled = true; unsubscribe(); };
+  }, []);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let cancelled = false;
@@ -736,24 +752,41 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const metadata: Record<string, string> = { title: track.title };
       if (track.speakerName) metadata.artist = track.speakerName;
       if (metaRetreatName) metadata.albumTitle = metaRetreatName;
+      // iOS has room for two buttons beside play/pause: the listener chooses
+      // between the 15 s skips (default) and previous / next track. Android's
+      // notification shows all four. Like the in-app buttons, previous / next
+      // follow the event's track order and are left out at the ends of the
+      // list (and while no track list is registered). The native player
+      // reports a press as an event (see the listener below).
+      const withSkips = Platform.OS === 'android' || lockScreenButtons === 'seconds';
+      const withTracks = Platform.OS === 'android' || lockScreenButtons === 'tracks';
       const options = {
-        showSeekForward: true,
-        showSeekBackward: true,
+        showSeekForward: withSkips,
+        showSeekBackward: withSkips,
         // expo-audio's native skip buttons default to 10 s; match the in-app buttons.
         seekForwardIntervalSeconds: SKIP_INTERVAL_S,
         seekBackwardIntervalSeconds: SKIP_INTERVAL_S,
+        showNextTrack: withTracks && hasNextTrack,
+        showPreviousTrack: withTracks && hasPreviousTrack,
       };
+      const optionsKey = `${options.showPreviousTrack}/${options.showNextTrack}/${withSkips}`;
       // The speaker's square photo when the API sent one, else the bundled logo. Only
       // real URLs: in an Android release build the bundled logo resolves to a drawable
       // name ("assets_images_icon"), and the native player rejects the whole call over it.
       const artwork = track.speakerArtworkUrl ?? artworkUri;
       if (artwork && /^(https?|file):\/\//i.test(artwork)) metadata.artworkUrl = artwork;
       const apply = (meta: Record<string, string>) => {
-        if (lockScreenActiveRef.current && typeof player.updateLockScreenMetadata === 'function') {
+        if (
+          lockScreenActiveRef.current &&
+          lockScreenOptionsKeyRef.current === optionsKey &&
+          typeof player.updateLockScreenMetadata === 'function'
+        ) {
           player.updateLockScreenMetadata(meta);
         } else {
+          // Buttons only change through a new activation.
           player.setActiveForLockScreen(true, meta, options);
           lockScreenActiveRef.current = true;
+          lockScreenOptionsKeyRef.current = optionsKey;
         }
       };
       try {
@@ -772,7 +805,23 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       try { player.setActiveForLockScreen(false); } catch {}
       lockScreenActiveRef.current = false;
     }
-  }, [track, player, metaRetreatName, artworkUri, videoOwnsLockScreen]);
+  }, [track, player, metaRetreatName, artworkUri, videoOwnsLockScreen, hasNextTrack, hasPreviousTrack, lockScreenButtons]);
+
+  // The lock screen's previous / next buttons run the in-app ones.
+  useEffect(() => {
+    if (Platform.OS === 'web' || !player || typeof player.addListener !== 'function') return;
+    // These two events come from the patched expo-audio (patches/expo-audio+*.patch).
+    const listen = player.addListener as unknown as (
+      event: string,
+      listener: () => void,
+    ) => { remove?: () => void } | undefined;
+    const next = listen.call(player, 'lockScreenNextTrack', () => onNextTrackRef.current?.());
+    const previous = listen.call(player, 'lockScreenPreviousTrack', () => onPreviousTrackRef.current?.());
+    return () => {
+      next?.remove?.();
+      previous?.remove?.();
+    };
+  }, [player]);
 
   // ─── Track change → load source + saved position ───
   useEffect(() => {

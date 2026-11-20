@@ -953,7 +953,10 @@
     "on": "Ativados",
     "off": "Desativados",
     "turnOn": "Ativar",
-    "settingsHint": "Permite as notificações nas definições do telemóvel."
+    "settingsHint": "Permite as notificações nas definições do telemóvel.",
+    "buttons": "Botões do ecrã de bloqueio",
+    "buttonsSeconds": "Recuar / avançar 15 segundos",
+    "buttonsTracks": "Faixa anterior / seguinte"
   },
   "appLock": {
     "titleFaceId": "Bloquear com Face ID",

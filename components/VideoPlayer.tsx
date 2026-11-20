@@ -383,11 +383,12 @@ export function VideoPlayer({
     // matches what users expect from a teaching recording. Requires the
     // expo-video plugin's supportsBackgroundPlayback flag in app.json.
     p.staysActiveInBackground = true;
-    // Show the Now Playing card on the iOS lock screen / Android media
-    // notification with play/pause + scrub controls. Off by default in
-    // expo-video; without it the audio keeps playing in background but
-    // there's no system-level way to control it.
-    p.showNowPlayingNotification = true;
+    // The Now Playing card (iOS lock screen / Android media notification
+    // with play/pause + scrub controls) is registered only once the video
+    // plays (claimNowPlaying below), never at creation. A registered player
+    // rewrites the shared card whenever its item loads, and releasing it
+    // clears the card: a video that is merely open must not touch the audio
+    // player's card.
     p.bufferOptions = {
       preferredForwardBufferDuration: FORWARD_BUFFER_SECONDS,
     };
@@ -399,6 +400,8 @@ export function VideoPlayer({
   // expo-video write its title and controls again after the audio held them.
   // Until the video has claimed it, the audio may hold it.
   const nowPlayingReleasedRef = useRef(true);
+  // Whether the player is registered with the system Now Playing card.
+  const nowPlayingRegisteredRef = useRef(false);
   const nowPlayingClaimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const claimNowPlaying = () => {
     if (isWeb || !nowPlayingReleasedRef.current) return;
@@ -411,6 +414,7 @@ export function VideoPlayer({
       try {
         player.showNowPlayingNotification = false;
         player.showNowPlayingNotification = true;
+        nowPlayingRegisteredRef.current = true;
       } catch {
         // The player may already be released.
       }
@@ -423,6 +427,10 @@ export function VideoPlayer({
       nowPlayingClaimTimerRef.current = null;
     }
     nowPlayingReleasedRef.current = true;
+    // Unregistering clears the shared card and, in expo-video, switches the
+    // audio session to mixing: only do it for a player that registered.
+    if (!nowPlayingRegisteredRef.current) return;
+    nowPlayingRegisteredRef.current = false;
     try {
       player.showNowPlayingNotification = false;
     } catch {

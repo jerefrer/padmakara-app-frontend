@@ -16,6 +16,7 @@ import { StorageSection } from '@/components/StorageSection';
 import { tr } from '@/components/membership/tr';
 import { PasskeySettings } from './PasskeySettings';
 import { LockScreenControlsRow } from './LockScreenControlsRow';
+import { LockScreenButtonsRow } from './LockScreenButtonsRow';
 import { Rows, SettingsRow, SwitchRow } from './ui';
 import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
@@ -209,6 +210,7 @@ export function SignInSection() {
       <PasskeySettings />
       <Rows>
         <LockScreenControlsRow />
+        <LockScreenButtonsRow />
         {isNative ? (
           <SwitchRow
             testID="settings-app-lock"

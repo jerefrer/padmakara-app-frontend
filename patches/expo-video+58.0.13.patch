@@ -1,5 +1,22 @@
+diff --git a/node_modules/expo-video/ios/NowPlayingManager.swift b/node_modules/expo-video/ios/NowPlayingManager.swift
+index a8f92a5..bf25f5f 100644
+--- a/node_modules/expo-video/ios/NowPlayingManager.swift
++++ b/node_modules/expo-video/ios/NowPlayingManager.swift
+@@ -42,6 +42,12 @@ class NowPlayingManager: VideoPlayerObserverDelegate {
+   }
+ 
+   func unregisterPlayer(_ player: VideoPlayer) {
++    // A player that never registered (or was already unregistered) owns nothing on the lock
++    // screen. Without this guard, releasing or hiding an idle video wiped the Now Playing
++    // card another module (expo-audio) had set.
++    guard players.allObjects.contains(where: { $0 === player }) else {
++      return
++    }
+     players.remove(player)
+     player.observer?.unregisterDelegate(delegate: self)
+ 
 diff --git a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
-index c66e0fa..9ad546f 100644
+index c66e0fa..30d006e 100644
 --- a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
 +++ b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
 @@ -142,6 +142,11 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
@@ -26,3 +43,20 @@ index c66e0fa..9ad546f 100644
      }
    }
  
+diff --git a/node_modules/expo-video/ios/VideoManager.swift b/node_modules/expo-video/ios/VideoManager.swift
+index f60b131..8f7bd43 100644
+--- a/node_modules/expo-video/ios/VideoManager.swift
++++ b/node_modules/expo-video/ios/VideoManager.swift
+@@ -106,6 +106,12 @@ class VideoManager {
+   }
+ 
+   private func setAudioSession() {
++    // Only a playing video has a say in the shared audio session. An idle one (opened and paused,
++    // or released from the lock screen) used to switch it to "mix with others", which made iOS
++    // drop the app's Now Playing card even while another module (expo-audio) was playing.
++    guard videoPlayers.allObjects.contains(where: { $0.isPlaying }) else {
++      return
++    }
+     let audioSession = AVAudioSession.sharedInstance()
+     let policy = AudioSessionPolicy.evaluate(
+       category: audioSession.category,
