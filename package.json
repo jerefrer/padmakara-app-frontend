@@ -1,6 +1,21 @@
 {
   "name": "padmakara-app-claude-code",
   "main": "expo-router/entry",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-audio"
+        ]
+      },
+      "ios": {
+        "buildFromSource": [
+          "expo-audio",
+          "expo-video"
+        ]
+      }
+    }
+  },
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
