@@ -16,22 +16,63 @@ index a8f92a5..bf25f5f 100644
      player.observer?.unregisterDelegate(delegate: self)
  
 diff --git a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
-index c66e0fa..30d006e 100644
+index c66e0fa..8937fa5 100644
 --- a/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
 +++ b/node_modules/expo-video/ios/OrientationAVPlayerViewController.swift
-@@ -142,6 +142,11 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
+@@ -75,6 +75,7 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
+   }
+ 
+   deinit {
++    labelColorTimer?.invalidate()
+     // Always resolve a pending PiP completion handler to avoid leaving AVKit in a broken state.
+     pendingPiPCompletionHandler?(false)
+     pendingPiPCompletionHandler = nil
+@@ -142,6 +143,44 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
    override func viewDidLoad() {
      super.viewDidLoad()
      self.delegate = self
 +    // The video controls sit on a dark translucent material over the picture.
-+    // Under a light app appearance AVKit draws their labels (elapsed and
-+    // remaining time) in the light-mode dark grey, unreadable on that
-+    // material. Pin the controller to dark so they render white.
++    // Pin the controller to dark so they are drawn for it under the app's light
++    // appearance. (This alone leaves the time labels grey: see below.)
 +    self.overrideUserInterfaceStyle = .dark
++  }
++
++  // AVKit draws the elapsed and remaining time in `tertiaryLabel`, a colour at 30% opacity in
++  // dark and light appearance alike, so they stay grey on the controls' dark glass (about
++  // 2.5:1). AVKit builds the controls lazily and sets that colour then, outside any layout or
++  // appearance callback of this controller (an appearance proxy is overridden too), and
++  // afterwards only changes their text. So while the controller is on screen, labels found in
++  // that colour are drawn white, like the control glyphs; a label keeps the colour once set.
++  private var labelColorTimer: Timer?
++
++  override func viewDidAppear(_ animated: Bool) {
++    super.viewDidAppear(animated)
++    labelColorTimer?.invalidate()
++    labelColorTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
++      guard let root = self?.viewIfLoaded else {
++        return
++      }
++      Self.whitenTertiaryLabels(in: root)
++    }
++  }
++
++  override func viewDidDisappear(_ animated: Bool) {
++    super.viewDidDisappear(animated)
++    labelColorTimer?.invalidate()
++    labelColorTimer = nil
++  }
++
++  private static func whitenTertiaryLabels(in root: UIView) {
++    for subview in root.subviews {
++      if let label = subview as? UILabel, label.textColor == .tertiaryLabel {
++        label.textColor = .white
++      }
++      whitenTertiaryLabels(in: subview)
++    }
    }
  
    #if !os(tvOS)
-@@ -221,7 +226,10 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
+@@ -221,7 +260,10 @@ internal class OrientationAVPlayerViewController: AVPlayerViewController, AVPlay
          self?.pendingPiPCompletionHandler = nil
        })
      } else {
