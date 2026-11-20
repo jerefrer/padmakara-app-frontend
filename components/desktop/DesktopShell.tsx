@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
-import { DESKTOP_CONTENT_MAX } from '@/constants/layout';
+import { DESKTOP_APP_MAX_WIDTH } from '@/constants/layout';
 import { useReaderFullWindow } from '@/utils/readerImmersive';
 
 /** Width of the soft shadows cast onto the main area and the right panel. */
@@ -26,18 +26,6 @@ function EdgeShadow({ testID, style }: { testID: string; style: object }) {
   );
 }
 
-/**
- * The central column: at most DESKTOP_CONTENT_MAX wide and centred, white on a light grey
- * ground. `capped` false (document readers) lets it fill the whole area.
- */
-function MainColumn({ capped, children }: { capped: boolean; children: ReactNode }) {
-  return (
-    <View testID="main-column" style={[styles.mainColumn, capped && styles.mainColumnCapped]}>
-      {children}
-    </View>
-  );
-}
-
 interface DesktopShellProps {
   sidebar: ReactNode;
   rightSidebar?: ReactNode;
@@ -46,7 +34,11 @@ interface DesktopShellProps {
   rightSidebarWidth?: number;
   children: ReactNode;
   playerBar?: ReactNode;
-  /** Cap the central column at DESKTOP_CONTENT_MAX (default). Document readers turn it off. */
+  /**
+   * Frame the app (sidebar, content, right panel, player bar) as one block of at most
+   * DESKTOP_APP_MAX_WIDTH, centred, with light grey on both sides (default). Screens that
+   * need the whole window (document readers) turn it off. Web only: an iPad always fills the screen.
+   */
   capContent?: boolean;
 }
 
@@ -82,7 +74,6 @@ export function DesktopShell({
         showSidebar={showSidebar && !readerOpen}
         showRightRail={showRightRail && !readerOpen}
         showPlayerBar={!isMobile && !readerOpen}
-        capContent={capContent}
       >
         {children}
       </NativeShell>
@@ -97,9 +88,12 @@ export function DesktopShell({
   const showPlayerRow = !!playerBar && !readerOpen;
 
   return (
+    <View style={styles.appGround}>
     <View
+      testID="app-block"
       style={[
         styles.shell,
+        capContent && !readerOpen && styles.appBlockCapped,
         Platform.OS === 'web' && ({
           display: 'grid' as any,
           gridTemplateColumns: gridColumns,
@@ -134,7 +128,7 @@ export function DesktopShell({
           } as any),
         ]}
       >
-        <MainColumn capped={capContent && !readerOpen}>{children}</MainColumn>
+        {children}
       </View>
 
       {rightSidebar && (
@@ -189,6 +183,7 @@ export function DesktopShell({
         </View>
       )}
     </View>
+    </View>
   );
 }
 
@@ -219,7 +214,6 @@ function NativeShell({
   rightSidebarWidth = 220,
   children,
   playerBar,
-  capContent = true,
   sidebarWidth,
   playerBarHeight,
   insets,
@@ -244,8 +238,8 @@ function NativeShell({
         >
           {showSidebar ? sidebar : null}
         </View>
-        <View style={[styles.nativeMain, showSidebar && styles.nativeMainFilled]}>
-          <MainColumn capped={capContent && showSidebar}>{children}</MainColumn>
+        <View style={styles.nativeMain}>
+          {children}
         </View>
         <View
           style={[
@@ -299,18 +293,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  nativeMainFilled: {
+  // The grey ground the framed app block stands on (web only).
+  appGround: {
+    flex: 1,
     backgroundColor: colors.cream[200],
   },
-  mainColumn: {
-    flex: 1,
-    minHeight: 0,
-    minWidth: 0,
-    backgroundColor: colors.cream[100],
-  },
-  mainColumnCapped: {
+  appBlockCapped: {
     width: '100%',
-    maxWidth: DESKTOP_CONTENT_MAX,
+    maxWidth: DESKTOP_APP_MAX_WIDTH,
     alignSelf: 'center',
   },
   shell: {
@@ -329,8 +319,7 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    // Light grey around the capped column (see MainColumn).
-    backgroundColor: colors.cream[200],
+    backgroundColor: colors.cream[100],
   },
   rightSidebarContainer: {
     backgroundColor: colors.burgundy[500],
