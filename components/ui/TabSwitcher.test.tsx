@@ -1,5 +1,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { RULE_COLOR } from '@/constants/layout';
 import { TabSwitcher } from './TabSwitcher';
 
 const tabs = [
@@ -19,5 +21,11 @@ describe('TabSwitcher', () => {
     const { getByTestId } = render(<TabSwitcher tabs={tabs} activeKey="a" onChange={onChange} />);
     fireEvent.press(getByTestId('tab-b'));
     expect(onChange).toHaveBeenCalledWith('b');
+  });
+
+  it('should draw the line under the row in the light red rule colour when rendered', () => {
+    const { getByTestId } = render(<TabSwitcher tabs={tabs} activeKey="a" onChange={() => {}} />);
+    const style = StyleSheet.flatten(getByTestId('tab-switcher').props.style);
+    expect(style.borderBottomColor).toBe(RULE_COLOR);
   });
 });
