@@ -101,8 +101,11 @@ export function ContentLanguageRows() {
   );
 }
 
-/** Whether videos may use mobile data. Native only: the web has no notion of it. */
-export function VideoSection() {
+/**
+ * Playback on this device, native only: whether videos may use mobile data, and what the lock
+ * screen offers while listening (Android: the notification permission; iOS: which two buttons).
+ */
+export function PlaybackSection() {
   const { t } = useLanguage();
   const [warnOnCellular, setWarnOnCellular] = useState(true);
   const [allowOnCellular, setAllowOnCellular] = useState(true);
@@ -118,31 +121,35 @@ export function VideoSection() {
   }, []);
 
   return (
-    <Rows>
-      <SwitchRow
-        icon="cellular-outline"
-        title={t('profile.allowVideoOnCellular') || 'Allow video on mobile data'}
-        subtitle={t('profile.allowVideoOnCellularSubtitle') || 'Turn off to only play videos on Wi-Fi.'}
-        value={allowOnCellular}
-        onValueChange={(v) => {
-          setAllowOnCellular(v);
-          videoPreferencesService.setAllowOnCellular(v);
-        }}
-      />
-      <SwitchRow
-        icon="warning-outline"
-        title={t('profile.warnOnCellular') || 'Warn before playing on mobile data'}
-        subtitle={
-          t('profile.warnOnCellularSubtitle') || 'Show a confirmation the first time you tap a video off Wi-Fi each session.'
-        }
-        value={warnOnCellular}
-        disabled={!allowOnCellular}
-        onValueChange={(v) => {
-          setWarnOnCellular(v);
-          videoPreferencesService.setWarnOnCellular(v);
-        }}
-      />
-    </Rows>
+    <>
+      <Rows>
+        <SwitchRow
+          icon="cellular-outline"
+          title={t('profile.allowVideoOnCellular') || 'Allow video on mobile data'}
+          subtitle={t('profile.allowVideoOnCellularSubtitle') || 'Turn off to only play videos on Wi-Fi.'}
+          value={allowOnCellular}
+          onValueChange={(v) => {
+            setAllowOnCellular(v);
+            videoPreferencesService.setAllowOnCellular(v);
+          }}
+        />
+        <SwitchRow
+          icon="warning-outline"
+          title={t('profile.warnOnCellular') || 'Warn before playing on mobile data'}
+          subtitle={
+            t('profile.warnOnCellularSubtitle') || 'Show a confirmation the first time you tap a video off Wi-Fi each session.'
+          }
+          value={warnOnCellular}
+          disabled={!allowOnCellular}
+          onValueChange={(v) => {
+            setWarnOnCellular(v);
+            videoPreferencesService.setWarnOnCellular(v);
+          }}
+        />
+        <LockScreenControlsRow />
+      </Rows>
+      <LockScreenButtonsRow />
+    </>
   );
 }
 
@@ -211,8 +218,6 @@ export function SignInSection() {
     <>
       <PasskeySettings />
       <Rows>
-        <LockScreenControlsRow />
-        <LockScreenButtonsRow />
         {isNative ? (
           <SwitchRow
             testID="settings-app-lock"
