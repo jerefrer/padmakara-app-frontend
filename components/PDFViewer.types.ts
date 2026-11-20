@@ -44,4 +44,6 @@ export interface PDFViewerProps {
 export interface PDFViewerHandle {
   /** Scrolls to a 1-based page. */
   goToPage: (page: number) => void;
+  /** Web: opens or closes the viewing-options popover (a screen's top-bar button calls it). */
+  toggleViewOptions?: () => void;
 }

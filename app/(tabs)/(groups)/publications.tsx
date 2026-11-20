@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSignIn } from '@/components/auth/SignInProvider';
 import { publicationService } from '@/services/publicationService';
 import { PDFViewer, type PDFViewerHandle } from '@/components/PDFViewer';
+import { ViewOptionsButton } from '@/components/ViewOptionsButton';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import { PageBookmarkButton } from '@/components/PageBookmarkButton';
 import { ReadingThemeButton } from '@/components/ReadingThemeButton';
@@ -482,6 +483,11 @@ export default function PublicationsScreen() {
               <Text style={styles.pdfHeaderTitle} numberOfLines={1}>
                 {getTitle(viewingPdf.publication)}
               </Text>
+              <ViewOptionsButton
+                testID="publication-view-options-button"
+                onPress={() => viewerRef.current?.toggleViewOptions?.()}
+                style={styles.pdfShareButton}
+              />
               <ReadingThemeButton
                 testID="publication-reading-theme-button"
                 theme={readingTheme}

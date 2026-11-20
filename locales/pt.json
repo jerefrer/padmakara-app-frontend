@@ -403,7 +403,20 @@
     "bookmarkPage": "Marcar esta página",
     "removePageBookmark": "Remover o marcador desta página",
     "bookmarkedPages": "Páginas marcadas",
-    "removeBookmarkOnPage": "Remover o marcador da página {{page}}"
+    "removeBookmarkOnPage": "Remover o marcador da página {{page}}",
+    "viewOptions": "Opções de visualização",
+    "pageLayout": "Disposição das páginas",
+    "fit": "Ajuste",
+    "zoom": "Ampliação",
+    "goToPage": "Ir para a página",
+    "continuousShort": "Contínuo",
+    "singlePageShort": "Uma página",
+    "twoPagesShort": "Duas páginas",
+    "themeShort": {
+      "normal": "Normal",
+      "sepia": "Sépia",
+      "night": "Noite"
+    }
   },
   "transcript": {
     "transcriptNotFound": "Transcrição não encontrada",

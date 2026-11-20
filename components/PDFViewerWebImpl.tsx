@@ -1,11 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ContinuousIcon } from './icons/ContinuousIcon';
-import { SinglePageIcon } from './icons/SinglePageIcon';
-import { SpreadIcon } from './icons/SpreadIcon';
-import { FitWidthIcon } from './icons/FitWidthIcon';
-import { FitHeightIcon } from './icons/FitHeightIcon';
+import { PdfViewOptionsPanel } from './PdfViewOptionsPanel';
 import { Document, pdfjs } from 'react-pdf';
 import { PdfThemedPage } from './PdfThemedPage';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -20,7 +16,6 @@ import { resolvePdfJsOutline, type PdfOutlineItem } from '@/utils/pdfOutline';
 import { resumeTarget } from '@/utils/readerState';
 import type { PDFViewerHandle } from './PDFViewer.types';
 import {
-  READING_THEMES,
   READING_THEME_ATTRIBUTE,
   parseReadingTheme,
   readingThemeCss,
@@ -113,6 +108,8 @@ const FIT_KEY = '@pdfViewer:fit';
 const THEME_KEY = '@pdfViewer:theme';
 /** Filters for the page canvases of every theme, keyed by the scroller's attribute. */
 const READING_THEME_CSS = readingThemeCss();
+/** How long the floating page number stays after the page changed or the reader scrolled. */
+const PILL_VISIBLE_MS = 1500;
 const PAGE_GAP = 16;
 const SIDE_PADDING = 24;
 /** Rows rendered above and below the visible ones in the continuous column. */
@@ -266,9 +263,30 @@ export default function PDFViewerWebImpl({
     }
   }, [fullWindow]);
 
-  // Overlay layout: the toolbar's own height, so the pages open below it.
-  const [toolbarHeight, setToolbarHeight] = useState(0);
-  const topInset = fullWindow ? contentInsetTop + toolbarHeight : 0;
+  // A reader that takes the whole window has no toolbar of its own: its
+  // screen's bar carries the viewing-options button and the pages open below
+  // that bar. An embedded viewer keeps one slim toolbar with the same button.
+  const topInset = fullWindow ? contentInsetTop : 0;
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const toggleOptions = useCallback(() => setOptionsOpen((open) => !open), []);
+  const closeOptions = useCallback(() => setOptionsOpen(false), []);
+  // Hiding the reader's bars takes the button away: close what it opened.
+  useEffect(() => {
+    if (fullWindow && barsHidden) setOptionsOpen(false);
+  }, [fullWindow, barsHidden]);
+
+  // The floating page number: shown when the page changes or the reader
+  // scrolls, for a moment, then faded out.
+  const [pillVisible, setPillVisible] = useState(false);
+  const pillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashPill = useCallback(() => {
+    setPillVisible(true);
+    if (pillTimer.current) clearTimeout(pillTimer.current);
+    pillTimer.current = setTimeout(() => setPillVisible(false), PILL_VISIBLE_MS);
+  }, []);
+  useEffect(() => () => {
+    if (pillTimer.current) clearTimeout(pillTimer.current);
+  }, []);
 
   // A click on the page toggles the reader's bars. The press position tells a
   // tap from a drag that panned the page; links and selections are left alone.
@@ -512,6 +530,18 @@ export default function PDFViewerWebImpl({
     if (total) onPageChange?.(currentPage, total);
   }, [currentPage, total, onPageChange]);
 
+  // The page number shows when the page changes, on a tap that brings the
+  // bars back, and while the reader scrolls.
+  useEffect(() => {
+    if (total) flashPill();
+  }, [currentPage, total, barsHidden, flashPill]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', flashPill, { passive: true });
+    return () => el.removeEventListener('scroll', flashPill);
+  }, [flashPill]);
+
   // ── Input: pinch and wheel ──────────────────────────────────────────
   // Native listeners: React's wheel handler is passive and cannot stop the
   // browser from zooming the whole page.
@@ -629,7 +659,11 @@ export default function PDFViewerWebImpl({
   }, []);
 
   // The screen's table of contents and bookmarks jump through the same path.
-  useImperativeHandle(handleRef, () => ({ goToPage: (page: number) => goToPageRef.current(page) }), []);
+  useImperativeHandle(
+    handleRef,
+    () => ({ goToPage: (page: number) => goToPageRef.current(page), toggleViewOptions: toggleOptions }),
+    [toggleOptions],
+  );
 
   // ── Input: keyboard ─────────────────────────────────────────────────
   const keyHandlers = useRef<Record<ViewerKeyAction, () => void> | null>(null);
@@ -753,12 +787,6 @@ export default function PDFViewerWebImpl({
   }, [spreads, spreadIndex, total]);
 
   const iconColor = (active: boolean) => (active ? colors.burgundy[500] : colors.gray[600]);
-  const customIcon = (Icon: React.ComponentType<{ size?: number; color?: string }>, active: boolean) => (
-    <Icon size={18} color={iconColor(active)} />
-  );
-  const ionIcon = (name: React.ComponentProps<typeof Ionicons>['name'], active = false) => (
-    <Ionicons name={name} size={16} color={iconColor(active)} />
-  );
 
   const zoomPercent = `${Math.round(scale * 100)}%`;
   const atFirst = spreadIndex <= 0;
@@ -766,133 +794,17 @@ export default function PDFViewerWebImpl({
 
   return (
     // @ts-ignore - DOM ref on View for fullscreen target
-    <View style={styles.container} ref={containerRef}>
-      {/* Custom toolbar */}
-      <View
-        testID="pdf-web-toolbar"
-        style={[
-          styles.toolbar,
-          fullWindow && styles.toolbarOverlay,
-          fullWindow && { top: contentInsetTop },
-          fullWindow && barsHidden && styles.toolbarHidden,
-        ]}
-        pointerEvents={fullWindow && barsHidden ? 'none' : 'auto'}
-        onLayout={fullWindow ? (e) => setToolbarHeight(e.nativeEvent.layout.height) : undefined}
-      >
-        <View style={styles.toolbarGroup}>
-          <ToolbarButton
-            label={t('pdfViewer.continuous') || 'Continuous scroll'}
-            onPress={() => changeMode('continuous')}
-            active={mode === 'continuous'}
-          >
-            {customIcon(ContinuousIcon, mode === 'continuous')}
-          </ToolbarButton>
-          <ToolbarButton
-            label={t('pdfViewer.singlePage') || 'Single page'}
-            onPress={() => changeMode('single')}
-            active={mode === 'single'}
-          >
-            {customIcon(SinglePageIcon, mode === 'single')}
-          </ToolbarButton>
-          <ToolbarButton
-            label={t('pdfViewer.twoPages') || 'Two pages'}
-            onPress={() => changeMode('two')}
-            active={mode === 'two'}
-          >
-            {customIcon(SpreadIcon, mode === 'two')}
+    <View style={[styles.container, { backgroundColor: surfaces.ground }]} ref={containerRef}>
+      {/* Embedded viewers have no screen bar to hold the options button: a slim toolbar does. */}
+      {!fullWindow ? (
+        <View testID="pdf-web-toolbar" style={styles.toolbar}>
+          <Text style={styles.pageCounter}>{pageLabel}</Text>
+          <View style={styles.toolbarSpacer} />
+          <ToolbarButton label={t('pdfViewer.viewOptions') || 'View options'} onPress={toggleOptions} active={optionsOpen}>
+            <Ionicons name="options-outline" size={18} color={iconColor(optionsOpen)} />
           </ToolbarButton>
         </View>
-        <View style={styles.toolbarDivider} />
-        <View style={styles.toolbarGroup}>
-          <ToolbarButton
-            label={t('pdfViewer.fitWidth') || 'Fit width'}
-            onPress={() => applyFit('fit-width')}
-            active={zoom.kind === 'fit-width'}
-          >
-            {customIcon(FitWidthIcon, zoom.kind === 'fit-width')}
-          </ToolbarButton>
-          <ToolbarButton
-            label={t('pdfViewer.fitPage') || 'Fit page'}
-            onPress={() => applyFit('fit-page')}
-            active={zoom.kind === 'fit-page'}
-          >
-            {customIcon(FitHeightIcon, zoom.kind === 'fit-page')}
-          </ToolbarButton>
-        </View>
-        <View style={styles.toolbarDivider} />
-        <View style={styles.toolbarGroup}>
-          <ToolbarButton label={t('pdfViewer.zoomOut') || 'Zoom out'} onPress={() => zoomBy(-1)} disabled={scale <= MIN_SCALE}>
-            {ionIcon('remove')}
-          </ToolbarButton>
-          <Text
-            style={styles.zoomLevel}
-            accessibilityLabel={t('pdfViewer.zoomLevel', { percent: zoomPercent }) || `Zoom ${zoomPercent}`}
-          >
-            {zoomPercent}
-          </Text>
-          <ToolbarButton label={t('pdfViewer.zoomIn') || 'Zoom in'} onPress={() => zoomBy(1)} disabled={scale >= MAX_SCALE}>
-            {ionIcon('add')}
-          </ToolbarButton>
-        </View>
-
-        <View style={styles.toolbarDivider} />
-        <View style={styles.toolbarGroup} accessibilityLabel={t('pdfViewer.readingTheme') || 'Reading theme'}>
-          {READING_THEMES.map((theme) => (
-            <ToolbarButton
-              key={theme}
-              label={t(`pdfViewer.theme.${theme}`) || THEME_FALLBACK_LABELS[theme]}
-              onPress={() => setReadingTheme(theme)}
-              active={readingTheme === theme}
-            >
-              <View
-                style={[
-                  styles.themeSwatch,
-                  { backgroundColor: themeSurfaces(theme).paper },
-                  readingTheme === theme && styles.themeSwatchActive,
-                ]}
-              />
-            </ToolbarButton>
-          ))}
-        </View>
-
-        <View style={styles.toolbarSpacer} />
-
-        {total ? (
-          <View style={styles.toolbarGroup}>
-            <ToolbarButton
-              label={t('pdfViewer.previousPage') || 'Previous page'}
-              onPress={() => turn(-1)}
-              disabled={atFirst}
-            >
-              {ionIcon('chevron-back')}
-            </ToolbarButton>
-            <Text style={styles.pageCounter}>{pageLabel}</Text>
-            <ToolbarButton label={t('pdfViewer.nextPage') || 'Next page'} onPress={() => turn(1)} disabled={atLast}>
-              {ionIcon('chevron-forward')}
-            </ToolbarButton>
-          </View>
-        ) : null}
-
-        <View style={styles.toolbarGroup}>
-          {showDownloadButton ? (
-            <ToolbarButton label={t('transcript.downloadPdf') || 'Download PDF'} onPress={handleDownload}>
-              {ionIcon('download-outline')}
-            </ToolbarButton>
-          ) : null}
-          {fullscreenSupported ? (
-            <ToolbarButton
-              label={
-                isFullscreen
-                  ? t('pdfViewer.exitFullscreen') || 'Exit fullscreen'
-                  : t('pdfViewer.enterFullscreen') || 'Enter fullscreen'
-              }
-              onPress={toggleFullscreen}
-            >
-              {ionIcon(isFullscreen ? 'contract-outline' : 'expand-outline')}
-            </ToolbarButton>
-          ) : null}
-        </View>
-      </View>
+      ) : null}
 
       {/* Pages area */}
       <style>{READING_THEME_CSS}</style>
@@ -956,9 +868,64 @@ export default function PDFViewerWebImpl({
           </Document>
         )}
       </div>
+
+      {/* The page number, floating: it shows while the reader turns or scrolls. */}
+      {total ? (
+        <div
+          data-testid="pdf-page-pill"
+          role="status"
+          aria-hidden={!pillVisible}
+          style={{ ...pillStyle, opacity: pillVisible ? 1 : 0 }}
+        >
+          {pageLabel}
+        </div>
+      ) : null}
+
+      {optionsOpen ? (
+        <PdfViewOptionsPanel
+          top={fullWindow ? contentInsetTop : 40}
+          onClose={closeOptions}
+          mode={mode}
+          onMode={changeMode}
+          zoom={zoom}
+          onFit={applyFit}
+          zoomPercent={zoomPercent}
+          onZoomOut={() => zoomBy(-1)}
+          onZoomIn={() => zoomBy(1)}
+          canZoomOut={scale > MIN_SCALE}
+          canZoomIn={scale < MAX_SCALE}
+          theme={readingTheme}
+          onTheme={setReadingTheme}
+          page={currentPage}
+          total={total}
+          onGoTo={goToPage}
+          onPrevious={() => turn(-1)}
+          onNext={() => turn(1)}
+          atFirst={atFirst}
+          atLast={atLast}
+          onDownload={showDownloadButton ? handleDownload : undefined}
+          fullscreen={fullscreenSupported ? { active: isFullscreen, onToggle: toggleFullscreen } : null}
+        />
+      ) : null}
     </View>
   );
 }
+
+const pillStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: 24,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 8,
+  padding: '6px 14px',
+  borderRadius: 999,
+  backgroundColor: 'rgba(40, 38, 36, 0.82)',
+  color: '#ffffff',
+  fontSize: 13,
+  fontVariantNumeric: 'tabular-nums',
+  pointerEvents: 'none',
+  transition: 'opacity 250ms',
+};
 
 const scrollerStyle: React.CSSProperties = {
   flex: 1,
@@ -1007,12 +974,6 @@ const pageWrapperStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const THEME_FALLBACK_LABELS: Record<ReadingTheme, string> = {
-  normal: 'Normal',
-  sepia: 'Sepia',
-  night: 'Night (negative)',
-};
-
 const tooltipStyle: React.CSSProperties = {
   display: 'inline-flex',
 };
@@ -1024,7 +985,6 @@ const styles = StyleSheet.create({
   },
   toolbar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     minHeight: 40,
     paddingHorizontal: 12,
@@ -1033,33 +993,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
     gap: 8,
-  },
-  toolbarOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 9,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.14)',
-    // @ts-ignore - web only
-    transition: 'opacity 200ms',
-  },
-  toolbarHidden: {
-    opacity: 0,
-    // @ts-ignore - web only: out of the tab order once the fade is over
-    visibility: 'hidden',
-    // @ts-ignore - web only
-    transition: 'opacity 200ms, visibility 0s linear 200ms',
-  },
-  toolbarGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  toolbarDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 20,
-    backgroundColor: colors.gray[200],
-    marginHorizontal: 4,
   },
   toolbarSpacer: {
     flex: 1,
@@ -1080,23 +1013,6 @@ const styles = StyleSheet.create({
     opacity: 0.35,
     // @ts-ignore - web only
     cursor: 'default',
-  },
-  themeSwatch: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: colors.gray[400],
-  },
-  themeSwatchActive: {
-    borderColor: colors.burgundy[500],
-  },
-  zoomLevel: {
-    minWidth: 44,
-    textAlign: 'center',
-    fontSize: 12,
-    color: colors.gray[600],
-    fontVariant: ['tabular-nums'],
   },
   pageCounter: {
     minWidth: 56,

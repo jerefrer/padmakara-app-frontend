@@ -106,23 +106,34 @@ describe('PDFViewerWebImpl tap to hide the bars', () => {
     expect(onSingleTap).not.toHaveBeenCalled();
   });
 
-  it('should fade the toolbar out with the reader bars', async () => {
-    const screen = await renderLoaded(10, { fullWindow: true, barsHidden: true, onSingleTap: jest.fn() });
-    const toolbar = screen.getByTestId('pdf-web-toolbar', { includeHiddenElements: true });
-    expect(toolbar.props.pointerEvents).toBe('none');
-    const style = Object.assign({}, ...[toolbar.props.style].flat(Infinity).filter(Boolean));
-    expect(style.opacity).toBe(0);
+  it('should leave the toolbar to the reader screen when it takes the whole window', async () => {
+    const screen = await renderLoaded(10, { fullWindow: true, onSingleTap: jest.fn() });
+    expect(screen.queryByTestId('pdf-web-toolbar')).toBeNull();
+  });
+
+  it('should close the viewing options when the reader bars hide', async () => {
+    const ref = React.createRef<any>();
+    const screen = await renderLoaded(10, { fullWindow: true, handleRef: ref });
+    act(() => ref.current.toggleViewOptions());
+    expect(screen.getByTestId('pdf-options-panel')).toBeTruthy();
+    screen.rerender(<PDFViewerWebImpl source="blob:test" fullWindow barsHidden handleRef={ref} />);
+    expect(screen.queryByTestId('pdf-options-panel')).toBeNull();
   });
 
   it('should hide the fullscreen button where the browser cannot do fullscreen', async () => {
-    const screen = await renderLoaded(10, { fullWindow: true });
+    const ref = React.createRef<any>();
+    const screen = await renderLoaded(10, { fullWindow: true, handleRef: ref });
+    act(() => ref.current.toggleViewOptions());
+    expect(screen.getByTestId('pdf-options-panel')).toBeTruthy();
     expect(screen.queryByLabelText('Enter fullscreen')).toBeNull();
   });
 
   it('should offer fullscreen where the browser can', async () => {
     (globalThis as any).document.documentElement = { requestFullscreen: jest.fn() };
     (globalThis as any).document.fullscreenEnabled = true;
-    const screen = await renderLoaded(10, { fullWindow: true });
+    const ref = React.createRef<any>();
+    const screen = await renderLoaded(10, { fullWindow: true, handleRef: ref });
+    act(() => ref.current.toggleViewOptions());
     expect(screen.getByLabelText('Enter fullscreen')).toBeTruthy();
   });
 });

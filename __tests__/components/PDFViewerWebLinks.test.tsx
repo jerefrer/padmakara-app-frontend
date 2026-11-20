@@ -93,6 +93,7 @@ describe('PDFViewerWebImpl links', () => {
 
   it('should show the spread holding the target page when an internal link is followed in two-page mode', async () => {
     const { getByText, getByLabelText } = await renderLoaded(10);
+    fireEvent.press(getByLabelText('View options'));
     fireEvent.press(getByLabelText('Two pages'));
 
     act(() => documentProps.first.onItemClick({ pageIndex: 6, pageNumber: 7 }));
@@ -102,6 +103,7 @@ describe('PDFViewerWebImpl links', () => {
 
   it('should draw the target page and its neighbours, keeping the page on screen until it is drawn, in single-page mode', async () => {
     const { getByText, getByLabelText } = await renderLoaded(10);
+    fireEvent.press(getByLabelText('View options'));
     fireEvent.press(getByLabelText('Single page'));
     pageProps.length = 0;
 

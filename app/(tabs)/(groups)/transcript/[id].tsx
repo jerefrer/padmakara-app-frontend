@@ -9,6 +9,7 @@ import { ReaderTopBar } from '@/components/ReaderTopBar';
 import { PdfOutlineSheet } from '@/components/PdfOutlineSheet';
 import { PageBookmarkButton } from '@/components/PageBookmarkButton';
 import { ReadingThemeButton } from '@/components/ReadingThemeButton';
+import { ViewOptionsButton } from '@/components/ViewOptionsButton';
 import { useReadingTheme } from '@/hooks/useReadingTheme';
 import { useReaderDocument } from '@/hooks/useReaderDocument';
 import type { PdfOutlineItem } from '@/utils/pdfOutline';
@@ -235,6 +236,11 @@ export default function TranscriptViewerScreen() {
               </Text>
             </View>
 
+            <ViewOptionsButton
+              testID="transcript-view-options-button"
+              onPress={() => viewerRef.current?.toggleViewOptions?.()}
+              style={styles.headerButton}
+            />
             <ReadingThemeButton
               testID="transcript-reading-theme-button"
               theme={readingTheme}
