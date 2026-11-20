@@ -4,7 +4,7 @@ import { SKIP_INTERVAL_S, useAudioPlayerContext } from '@/contexts/AudioPlayerCo
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BAR_TOP_SHADOW } from '@/constants/barShadow';
 import { useTabBarOverlap } from '@/hooks/useTabBarHeight';
-import { getTrackTitle } from '@/utils/i18n';
+import { getNumberedTrackTitle } from '@/utils/trackLabel';
 import { requestTrackReveal } from '@/utils/trackReveal';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -335,7 +335,7 @@ export function AudioPlayer({
         testID="audio-track-title"
       >
         <Text style={styles.trackTitle} numberOfLines={1}>
-          {getTrackTitle(currentTrack, language)}
+          {getNumberedTrackTitle(currentTrack, language)}
         </Text>
       </TouchableOpacity>
 

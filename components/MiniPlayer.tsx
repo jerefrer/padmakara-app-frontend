@@ -9,7 +9,7 @@ import type { Track } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { BAR_TOP_SHADOW } from '@/constants/barShadow';
-import { getTrackTitle } from '@/utils/i18n';
+import { getNumberedTrackTitle } from '@/utils/trackLabel';
 import { requestTrackReveal } from '@/utils/trackReveal';
 
 const BAR_HEIGHT = 60;
@@ -193,7 +193,7 @@ export function MiniPlayer() {
 
         <View style={styles.textBlock}>
           <Text style={styles.title} numberOfLines={1}>
-            {getTrackTitle(track, language)}
+            {getNumberedTrackTitle(track, language)}
           </Text>
           {subtitle ? (
             <Text style={styles.subtitle} numberOfLines={1}>
