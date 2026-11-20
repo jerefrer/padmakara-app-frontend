@@ -40,7 +40,8 @@ export function themeSurfaces(theme: ReadingTheme): { ground: string; paper: str
     case 'night':
       return { ground: colors.reader.nightGround, paper: colors.reader.nightPaper };
     default:
-      return { ground: colors.white, paper: colors.white };
+      // The light grey of the desktop app's margins: the white pages stand out on it.
+      return { ground: colors.cream[200], paper: colors.white };
   }
 }
 

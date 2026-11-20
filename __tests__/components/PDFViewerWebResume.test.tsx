@@ -73,6 +73,7 @@ describe('PDFViewerWebImpl — opening where the reader left off', () => {
 
   it('should open on the spread holding the page to resume in two-page mode', async () => {
     const { getByText, getByLabelText } = render(<PDFViewerWebImpl source="blob:test" initialPage={13} />);
+    fireEvent.press(getByLabelText('View options'));
     fireEvent.press(getByLabelText('Two pages'));
 
     await load(fakePdf(40));
@@ -82,6 +83,7 @@ describe('PDFViewerWebImpl — opening where the reader left off', () => {
 
   it('should open on the page to resume in single-page mode', async () => {
     const { getByText, getByLabelText } = render(<PDFViewerWebImpl source="blob:test" initialPage={12} />);
+    fireEvent.press(getByLabelText('View options'));
     fireEvent.press(getByLabelText('Single page'));
 
     await load(fakePdf(40));

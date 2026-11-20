@@ -47,16 +47,17 @@ function scroller(screen: ReturnType<typeof render>) {
 }
 
 describe('PDFViewerWebImpl reading theme', () => {
-  it('should start in the normal theme on a white ground', () => {
+  it('should start in the normal theme on a light grey ground and white pages', () => {
     const screen = render(<PDFViewerWebImpl source="blob:test" />);
 
     expect(scroller(screen).props['data-reading-theme']).toBe('normal');
-    expect(scroller(screen).props.style.backgroundColor).toBe(colors.white);
+    expect(scroller(screen).props.style.backgroundColor).toBe(colors.cream[200]);
   });
 
   it('should switch to night with a dark ground and remember the choice', () => {
     const screen = render(<PDFViewerWebImpl source="blob:test" />);
 
+    fireEvent.press(screen.getByLabelText('View options'));
     fireEvent.press(screen.getByLabelText('Night (negative)'));
 
     expect(scroller(screen).props['data-reading-theme']).toBe('night');

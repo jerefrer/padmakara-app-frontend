@@ -45,7 +45,8 @@ describe('readingThemeCss', () => {
 
 describe('themeSurfaces', () => {
   it('should use the theme tokens for the ground around the pages', () => {
-    expect(themeSurfaces('normal').ground).toBe(colors.white);
+    expect(themeSurfaces('normal').ground).toBe(colors.cream[200]);
+    expect(themeSurfaces('normal').paper).toBe(colors.white);
     expect(themeSurfaces('sepia').ground).toBe(colors.reader.sepiaGround);
     expect(themeSurfaces('night').ground).toBe(colors.reader.nightGround);
   });
