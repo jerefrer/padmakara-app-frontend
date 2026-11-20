@@ -18,6 +18,16 @@ const KEYS = {
  * per-session memory held in the VideoPlayer screen.
  */
 class VideoPreferencesService {
+  private warnListeners = new Set<(value: boolean) => void>();
+
+  /** Subscribe to changes of warnOnCellular (e.g. turned off from the video prompt). Returns an unsubscribe function. */
+  subscribeWarnOnCellular(listener: (value: boolean) => void): () => void {
+    this.warnListeners.add(listener);
+    return () => {
+      this.warnListeners.delete(listener);
+    };
+  }
+
   async getWarnOnCellular(): Promise<boolean> {
     const v = await AsyncStorage.getItem(KEYS.warnOnCellular);
     if (v === null) return true; // default on
@@ -26,6 +36,7 @@ class VideoPreferencesService {
 
   async setWarnOnCellular(value: boolean): Promise<void> {
     await AsyncStorage.setItem(KEYS.warnOnCellular, String(value));
+    this.warnListeners.forEach((listener) => listener(value));
   }
 
   async getAllowOnCellular(): Promise<boolean> {

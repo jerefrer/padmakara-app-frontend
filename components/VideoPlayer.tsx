@@ -545,24 +545,30 @@ export function VideoPlayer({
         const alreadyAccepted = cellularAcceptedRef?.current === true;
         if (warnOnCellular && !alreadyAccepted) {
           setCellularGate('pending');
-          const accepted = await new Promise<boolean>((resolve) => {
+          const choice = await new Promise<'cancel' | 'continue' | 'dontShowAgain'>((resolve) => {
             Alert.alert(
               t('video.cellularWarningTitle') || 'Mobile data',
               t('video.cellularWarningMessage') ||
                 'You are not connected to Wi-Fi. Long videos can use a substantial amount of data. Continue?',
               [
-                { text: t('common.cancel') || 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-                { text: t('video.cellularWarningContinue') || 'Continue', onPress: () => resolve(true) },
+                { text: t('common.cancel') || 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+                {
+                  text: t('video.cellularWarningDontShowAgain') || "Don't show again",
+                  onPress: () => resolve('dontShowAgain'),
+                },
+                { text: t('video.cellularWarningContinue') || 'Continue', onPress: () => resolve('continue') },
               ],
               { cancelable: false },
             );
           });
           if (cancelled) return;
-          if (!accepted) {
+          if (choice === 'cancel') {
             setCellularGate('blocked');
             onCloseRef.current();
             return;
           }
+          // Turns the Settings switch off too; it can be turned back on there.
+          if (choice === 'dontShowAgain') await videoPreferencesService.setWarnOnCellular(false);
           if (cellularAcceptedRef) cellularAcceptedRef.current = true;
         }
         setCellularGate('allowed');

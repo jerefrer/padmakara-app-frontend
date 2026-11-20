@@ -114,6 +114,7 @@ export function VideoSection() {
         setAllowOnCellular(allow);
       },
     );
+    return videoPreferencesService.subscribeWarnOnCellular(setWarnOnCellular);
   }, []);
 
   return (

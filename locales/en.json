@@ -48,6 +48,7 @@
     "cellularWarningTitle": "Mobile data",
     "cellularWarningMessage": "You are not on Wi-Fi. Long videos can use a substantial amount of data. Continue?",
     "cellularWarningContinue": "Continue",
+    "cellularWarningDontShowAgain": "Don't show again",
     "cellularBlockedMessage": "Video playback over mobile data is disabled in Settings.",
     "saveOffline": "Save for offline",
     "removeOffline": "Remove offline copy",
