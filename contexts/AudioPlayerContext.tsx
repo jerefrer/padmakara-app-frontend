@@ -10,6 +10,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Platform, AppState, type AppStateStatus } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
+import {
+  DEFAULT_LOCK_SCREEN_BUTTONS,
+  getLockScreenButtons,
+  subscribeToLockScreenButtons,
+  type LockScreenButtons,
+} from '@/services/lockScreenButtonsPreference';
 
 /**
  * Audio player phases — a deliberate three-state lifecycle:
@@ -722,6 +728,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   // ─── Lock screen / Now Playing controls (iOS + Android) ───
   const [artworkUri, setArtworkUri] = useState<string | null>(null);
+  // The iOS setting for the buttons beside play/pause (changing it re-activates the lock screen).
+  const [lockScreenButtons, setLockScreenButtonsState] = useState<LockScreenButtons>(DEFAULT_LOCK_SCREEN_BUTTONS);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    void getLockScreenButtons().then((saved) => { if (!cancelled) setLockScreenButtonsState(saved); });
+    const unsubscribe = subscribeToLockScreenButtons(setLockScreenButtonsState);
+    return () => { cancelled = true; unsubscribe(); };
+  }, []);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let cancelled = false;
@@ -737,17 +752,24 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const metadata: Record<string, string> = { title: track.title };
       if (track.speakerName) metadata.artist = track.speakerName;
       if (metaRetreatName) metadata.albumTitle = metaRetreatName;
-      // Previous / next track buttons, not the 15 s skips: like the in-app
-      // buttons they follow the event's track order and are left out at the
-      // ends of the list (and while no track list is registered). The native
-      // player reports a press as an event (see the listener below).
+      // iOS has room for two buttons beside play/pause: the listener chooses
+      // between the 15 s skips (default) and previous / next track. Android's
+      // notification shows all four. Like the in-app buttons, previous / next
+      // follow the event's track order and are left out at the ends of the
+      // list (and while no track list is registered). The native player
+      // reports a press as an event (see the listener below).
+      const withSkips = Platform.OS === 'android' || lockScreenButtons === 'seconds';
+      const withTracks = Platform.OS === 'android' || lockScreenButtons === 'tracks';
       const options = {
-        showSeekForward: false,
-        showSeekBackward: false,
-        showNextTrack: hasNextTrack,
-        showPreviousTrack: hasPreviousTrack,
+        showSeekForward: withSkips,
+        showSeekBackward: withSkips,
+        // expo-audio's native skip buttons default to 10 s; match the in-app buttons.
+        seekForwardIntervalSeconds: SKIP_INTERVAL_S,
+        seekBackwardIntervalSeconds: SKIP_INTERVAL_S,
+        showNextTrack: withTracks && hasNextTrack,
+        showPreviousTrack: withTracks && hasPreviousTrack,
       };
-      const optionsKey = `${hasPreviousTrack}/${hasNextTrack}`;
+      const optionsKey = `${options.showPreviousTrack}/${options.showNextTrack}/${withSkips}`;
       // The speaker's square photo when the API sent one, else the bundled logo. Only
       // real URLs: in an Android release build the bundled logo resolves to a drawable
       // name ("assets_images_icon"), and the native player rejects the whole call over it.
@@ -783,7 +805,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       try { player.setActiveForLockScreen(false); } catch {}
       lockScreenActiveRef.current = false;
     }
-  }, [track, player, metaRetreatName, artworkUri, videoOwnsLockScreen, hasNextTrack, hasPreviousTrack]);
+  }, [track, player, metaRetreatName, artworkUri, videoOwnsLockScreen, hasNextTrack, hasPreviousTrack, lockScreenButtons]);
 
   // The lock screen's previous / next buttons run the in-app ones.
   useEffect(() => {

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { act, renderHook } from '@testing-library/react-native';
 import { AudioPlayerProvider, useAudioPlayerContext } from './AudioPlayerContext';
 import { getLockScreenArtworkUri } from '@/services/lockScreenArtwork';
+import { setLockScreenButtons } from '@/services/lockScreenButtonsPreference';
 import type { Track } from '@/types';
 
 jest.mock('expo-audio');
@@ -86,10 +87,11 @@ function lastMetadata(): Record<string, string> | undefined {
   return sent.sort((a, b) => a.order - b.order).pop()?.meta;
 }
 
-describe('AudioPlayerContext lock screen previous / next buttons', () => {
+describe('AudioPlayerContext lock screen buttons', () => {
   const originalOS = Platform.OS;
-  beforeEach(() => { (Platform as { OS: string }).OS = 'ios'; });
-  afterEach(() => { (Platform as { OS: string }).OS = originalOS; });
+  const setOS = (os: string) => { (Platform as { OS: string }).OS = os; };
+  beforeEach(() => setOS('ios'));
+  afterEach(() => setOS(originalOS));
 
   const lastOptions = () => {
     const calls = __getCurrentPlayer()!.setActiveForLockScreen.mock.calls.filter((c: unknown[]) => c[0] === true);
@@ -99,37 +101,74 @@ describe('AudioPlayerContext lock screen previous / next buttons', () => {
     act(() => {
       __getCurrentPlayer()!.listeners.get(event)?.forEach((l: () => void) => l());
     });
+  const withNeighbours = (utils: Awaited<ReturnType<typeof loadTrack>>) =>
+    act(() => {
+      utils.result.current.setOnNextTrack(() => undefined);
+      utils.result.current.setOnPreviousTrack(() => undefined);
+    });
+  const chooseOnIos = async (value: 'seconds' | 'tracks') => {
+    await act(async () => { await setLockScreenButtons(value); });
+  };
 
-  it('should show no seek buttons and no track buttons while no track list is registered', async () => {
+  it('should ask the native player for 15 second skip buttons on iOS by default', async () => {
     mockArtwork.mockResolvedValue(null);
-    await loadTrack();
+    const utils = await loadTrack();
+    withNeighbours(utils);
     expect(lastOptions()).toMatchObject({
-      showSeekForward: false,
-      showSeekBackward: false,
+      showSeekForward: true,
+      showSeekBackward: true,
+      seekForwardIntervalSeconds: 15,
+      seekBackwardIntervalSeconds: 15,
       showNextTrack: false,
       showPreviousTrack: false,
     });
   });
 
-  it('should show both track buttons when the track has a neighbour on each side', async () => {
+  it('should show previous / next track instead of the skips on iOS when the listener chose tracks', async () => {
     mockArtwork.mockResolvedValue(null);
+    await chooseOnIos('tracks');
     const utils = await loadTrack();
-    act(() => {
-      utils.result.current.setOnNextTrack(() => undefined);
-      utils.result.current.setOnPreviousTrack(() => undefined);
+    withNeighbours(utils);
+    expect(lastOptions()).toMatchObject({
+      showSeekForward: false,
+      showSeekBackward: false,
+      showNextTrack: true,
+      showPreviousTrack: true,
     });
-    expect(lastOptions()).toMatchObject({ showNextTrack: true, showPreviousTrack: true });
   });
 
-  it('should drop the next button on the last track', async () => {
+  it('should switch the lock screen already up when the choice changes', async () => {
     mockArtwork.mockResolvedValue(null);
     const utils = await loadTrack();
-    act(() => {
-      utils.result.current.setOnNextTrack(() => undefined);
-      utils.result.current.setOnPreviousTrack(() => undefined);
-    });
+    withNeighbours(utils);
+    expect(lastOptions()).toMatchObject({ showSeekForward: true, showNextTrack: false });
+
+    await chooseOnIos('tracks');
+
+    expect(lastOptions()).toMatchObject({ showSeekForward: false, showNextTrack: true, showPreviousTrack: true });
+  });
+
+  it('should drop the next button on the last track in tracks mode', async () => {
+    mockArtwork.mockResolvedValue(null);
+    await chooseOnIos('tracks');
+    const utils = await loadTrack();
+    withNeighbours(utils);
     act(() => utils.result.current.setOnNextTrack(undefined));
     expect(lastOptions()).toMatchObject({ showNextTrack: false, showPreviousTrack: true });
+  });
+
+  it('should show all five buttons on Android whatever the iOS choice is', async () => {
+    setOS('android');
+    mockArtwork.mockResolvedValue(null);
+    await chooseOnIos('seconds');
+    const utils = await loadTrack();
+    withNeighbours(utils);
+    expect(lastOptions()).toMatchObject({
+      showSeekForward: true,
+      showSeekBackward: true,
+      showNextTrack: true,
+      showPreviousTrack: true,
+    });
   });
 
   it('should run the in-app next and previous actions when the lock screen buttons are pressed', async () => {

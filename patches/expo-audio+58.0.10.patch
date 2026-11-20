@@ -35,6 +35,150 @@ index fb2d0b5..1ced9dd 100644
    val currentOffsetFromLive: Double?
      get() {
        val offset = ref.currentLiveOffset
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 53c36f7..fa962bc 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -196,7 +196,15 @@ class AudioControlsService : MediaSessionService() {
+       val compactViewIndices = mutableListOf<Int>()
+       var currentIndex = 0
+ 
+-      if (currentOptions?.showPreviousTrack == true && currentPlayable?.supportsPreviousTrack == true) {
++      // Order: previous track, seek back, play / pause, seek forward, next track. Each shows
++      // when the options ask for it, so an app can show all five. The compact view keeps
++      // previous track, play / pause and next track (seek buttons only when there are none).
++      val showPrevious = currentOptions?.showPreviousTrack == true && currentPlayable?.supportsPreviousTrack == true
++      val showNext = currentOptions?.showNextTrack == true && currentPlayable?.supportsNextTrack == true
++      val showSeekBack = currentOptions?.showSeekBackward == true
++      val showSeekForward = currentOptions?.showSeekForward == true
++
++      if (showPrevious) {
+         builder.addAction(
+           NotificationCompat.Action(
+             androidx.media3.session.R.drawable.media3_icon_previous,
+@@ -206,7 +214,8 @@ class AudioControlsService : MediaSessionService() {
+         )
+         compactViewIndices.add(currentIndex)
+         currentIndex++
+-      } else if (currentOptions?.showSeekBackward == true) {
++      }
++      if (showSeekBack) {
+         builder.addAction(
+           NotificationCompat.Action(
+             androidx.media3.session.R.drawable.media3_icon_skip_back,
+@@ -214,7 +223,9 @@ class AudioControlsService : MediaSessionService() {
+             buildActionPendingIntent(ACTION_SEEK_BACKWARD)
+           )
+         )
+-        compactViewIndices.add(currentIndex)
++        if (!showPrevious) {
++          compactViewIndices.add(currentIndex)
++        }
+         currentIndex++
+       }
+ 
+@@ -242,21 +253,25 @@ class AudioControlsService : MediaSessionService() {
+       compactViewIndices.add(currentIndex)
+       currentIndex++
+ 
+-      if (currentOptions?.showNextTrack == true && currentPlayable?.supportsNextTrack == true) {
++      if (showSeekForward) {
+         builder.addAction(
+           NotificationCompat.Action(
+-            androidx.media3.session.R.drawable.media3_icon_next,
+-            "Next Track",
+-            buildActionPendingIntent(ACTION_NEXT_TRACK)
++            androidx.media3.session.R.drawable.media3_icon_skip_forward,
++            "Seek Forward",
++            buildActionPendingIntent(ACTION_SEEK_FORWARD)
+           )
+         )
+-        compactViewIndices.add(currentIndex)
+-      } else if (currentOptions?.showSeekForward == true) {
++        if (!showNext) {
++          compactViewIndices.add(currentIndex)
++        }
++        currentIndex++
++      }
++      if (showNext) {
+         builder.addAction(
+           NotificationCompat.Action(
+-            androidx.media3.session.R.drawable.media3_icon_skip_forward,
+-            "Seek Forward",
+-            buildActionPendingIntent(ACTION_SEEK_FORWARD)
++            androidx.media3.session.R.drawable.media3_icon_next,
++            "Next Track",
++            buildActionPendingIntent(ACTION_NEXT_TRACK)
+           )
+         )
+         compactViewIndices.add(currentIndex)
+@@ -291,7 +306,13 @@ class AudioControlsService : MediaSessionService() {
+ 
+     val playable = currentPlayable
+ 
+-    if (currentOptions?.showPreviousTrack == true && playable?.supportsPreviousTrack == true) {
++    // Previous / next track take the two side slots (the compact view); the seek buttons
++    // then go to the overflow slot, shown when the controls are expanded. Without track
++    // buttons the seek buttons take the side slots, as before.
++    val showPrevious = currentOptions?.showPreviousTrack == true && playable?.supportsPreviousTrack == true
++    val showNext = currentOptions?.showNextTrack == true && playable?.supportsNextTrack == true
++
++    if (showPrevious) {
+       mediaButtons.add(
+         CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+           .setDisplayName("Previous Track")
+@@ -300,14 +321,15 @@ class AudioControlsService : MediaSessionService() {
+           .setSlots(CommandButton.SLOT_BACK)
+           .build()
+       )
+-    } else if (currentOptions?.showSeekBackward == true) {
++    }
++    if (currentOptions?.showSeekBackward == true) {
+       val backwardSeconds = seekIntervalMs(currentOptions?.seekBackwardIntervalSeconds) / 1000.0
+       mediaButtons.add(
+         CommandButton.Builder(skipBackIcon(backwardSeconds))
+           .setDisplayName("Seek Backward")
+           .setEnabled(true)
+           .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_BACK)
++          .setSlots(if (showPrevious) CommandButton.SLOT_OVERFLOW else CommandButton.SLOT_BACK)
+           .build()
+       )
+     }
+@@ -333,22 +355,23 @@ class AudioControlsService : MediaSessionService() {
+         .build()
+     )
+ 
+-    if (currentOptions?.showNextTrack == true && playable?.supportsNextTrack == true) {
+-      mediaButtons.add(
+-        CommandButton.Builder(CommandButton.ICON_NEXT)
+-          .setDisplayName("Next Track")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_FORWARD)
+-          .build()
+-      )
+-    } else if (currentOptions?.showSeekForward == true) {
++    if (currentOptions?.showSeekForward == true) {
+       val forwardSeconds = seekIntervalMs(currentOptions?.seekForwardIntervalSeconds) / 1000.0
+       mediaButtons.add(
+         CommandButton.Builder(skipForwardIcon(forwardSeconds))
+           .setDisplayName("Seek Forward")
+           .setEnabled(true)
+           .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
++          .setSlots(if (showNext) CommandButton.SLOT_OVERFLOW else CommandButton.SLOT_FORWARD)
++          .build()
++      )
++    }
++    if (showNext) {
++      mediaButtons.add(
++        CommandButton.Builder(CommandButton.ICON_NEXT)
++          .setDisplayName("Next Track")
++          .setEnabled(true)
++          .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
+           .setSlots(CommandButton.SLOT_FORWARD)
+           .build()
+       )
 diff --git a/node_modules/expo-audio/ios/AudioPlayer.swift b/node_modules/expo-audio/ios/AudioPlayer.swift
 index 0f68a52..f05ede2 100644
 --- a/node_modules/expo-audio/ios/AudioPlayer.swift

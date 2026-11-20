@@ -953,7 +953,10 @@
     "on": "On",
     "off": "Off",
     "turnOn": "Turn on",
-    "settingsHint": "Allow notifications in your phone's settings."
+    "settingsHint": "Allow notifications in your phone's settings.",
+    "buttons": "Lock screen buttons",
+    "buttonsSeconds": "15 seconds back / forward",
+    "buttonsTracks": "Previous / next track"
   },
   "appLock": {
     "titleFaceId": "Lock with Face ID",
