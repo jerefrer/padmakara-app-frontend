@@ -353,9 +353,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // animation right away, even though the underlying engine is still
   // buffering.
   const isPlaying = !!status?.playing || (phase !== 'ready' && pendingPlay);
-  // Audio playing takes the lock screen back from the video (adjusted while
+  // Audio starting takes the lock screen back from the video (adjusted while
   // rendering, so the lock-screen effect below sees it in the same commit).
-  if (isPlaying && videoOwnsLockScreen) setVideoOwnsLockScreen(false);
+  // Only a start counts, not "is playing": when a video starts, the audio
+  // status still reports playing until the native pause comes back, and
+  // reading that as audio taking over kept the card with the audio while the
+  // video played (an empty card on iOS once the audio let go of it later).
+  const [wasPlaying, setWasPlaying] = useState(isPlaying);
+  if (isPlaying !== wasPlaying) {
+    setWasPlaying(isPlaying);
+    if (isPlaying && videoOwnsLockScreen) setVideoOwnsLockScreen(false);
+  }
   // Mirror into the ref during render rather than from an effect: playTrack
   // can be called from an effect that runs earlier in the same commit (the
   // completion effect drives end-of-track auto-advance), and an effect-based

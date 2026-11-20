@@ -344,4 +344,22 @@ describe('AudioPlayerContext lock screen hand-off to a video', () => {
     expect(activations()).toHaveLength(2);
     expect(lastMetadata()).toMatchObject({ title: 'Track 1' });
   });
+
+  // The native pause reports "not playing" a moment later: the video must still take
+  // the lock screen while the audio status says it is playing.
+  it('should release the lock screen when a video starts while the audio still reports playing', async () => {
+    mockArtwork.mockResolvedValue(null);
+    const utils = await loadTrack();
+    act(() => __setPlaying(true));
+    await act(async () => { await Promise.resolve(); });
+    __getCurrentPlayer()!.pause = () => undefined;
+    const before = releases().length;
+
+    act(() => utils.result.current.setVideoPlaying(true));
+    act(() => __setPlaying(false));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(releases()).toHaveLength(before + 1);
+  });
+
 });
