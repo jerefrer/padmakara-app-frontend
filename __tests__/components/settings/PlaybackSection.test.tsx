@@ -25,6 +25,7 @@ jest.mock('@/services/videoPreferencesService', () => ({
   default: {
     getWarnOnCellular: jest.fn(() => Promise.resolve(true)),
     getAllowOnCellular: jest.fn(() => Promise.resolve(true)),
+    subscribeWarnOnCellular: jest.fn(() => () => {}),
   },
 }));
 
