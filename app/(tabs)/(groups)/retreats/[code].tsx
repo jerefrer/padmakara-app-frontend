@@ -26,12 +26,13 @@ import downloadService from '@/services/downloadService';
 import { RetreatGroup, Gathering } from '@/types';
 import { getTranslatedName } from '@/utils/i18n';
 import { mainTeachers } from '@/utils/eventTeachers';
+import { formatDateRangePretty } from '@/utils/retreatDates';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/ui/BackButton';
 import { EventRow } from '@/components/EventRow';
 import { useBottomBarsSpace } from '@/components/MiniPlayer';
 import { SectionRule } from '@/components/ui/SectionRule';
-import { TEXT_GUTTER } from '@/constants/layout';
+import { LIST_AVATAR_SIZE, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { ListRowPressable } from '@/components/ui/ListRowPressable';
 
 const HERO_HEIGHT = 380;
@@ -79,57 +80,6 @@ function cleanEventName(name: string, groupName: string | null): string {
   return name;
 }
 
-function getOrdinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-/** Format a date range nicely: "April 18th" (single day), "November 1st–5th" (same month), etc. */
-function formatDateRangePretty(startDateStr: string, endDateStr: string, locale: string): string {
-  try {
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-    const isPt = locale === 'pt';
-    const localeStr = isPt ? 'pt-PT' : 'en-US';
-    const startMonth = startDate.toLocaleDateString(localeStr, { month: 'long' });
-    const endMonth = endDate.toLocaleDateString(localeStr, { month: 'long' });
-    const startDay = startDate.getDate();
-    const endDay = endDate.getDate();
-
-    if (isPt) {
-      // Portuguese: "18 de abril", "1–5 de novembro"
-      if (startDay === endDay && startMonth === endMonth) {
-        return `${startDay} de ${startMonth}`;
-      }
-      if (startMonth === endMonth) {
-        return `${startDay}–${endDay} de ${startMonth}`;
-      }
-      return `${startDay} de ${startMonth} – ${endDay} de ${endMonth}`;
-    }
-
-    // English: "April 18th", "November 1st–5th"
-    if (startDay === endDay && startMonth === endMonth) {
-      return `${startMonth} ${getOrdinal(startDay)}`;
-    }
-    if (startMonth === endMonth) {
-      return `${startMonth} ${getOrdinal(startDay)}–${getOrdinal(endDay)}`;
-    }
-    return `${startMonth} ${getOrdinal(startDay)} – ${endMonth} ${getOrdinal(endDay)}`;
-  } catch {
-    return `${startDateStr}`;
-  }
-}
-
-/** Split a list into chunks of n items. */
-function chunkInto<T>(items: T[], n: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += n) {
-    out.push(items.slice(i, i + n));
-  }
-  return out;
-}
-
 // ── Mobile card ──────────────────────────────────────────────────────────────
 
 interface RetreatCardProps {
@@ -167,6 +117,8 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
   const displayName = cleanEventName(rawName, groupNameForStrip);
   // Compact row: main teachers only, never the guests (see utils/eventTeachers).
   const teachers = mainTeachers(retreat.teachers);
+  const leadTeacher = teachers[0];
+  const leadAvatar = leadTeacher?.avatarUrl || leadTeacher?.photoUrl || null;
 
   const webHoverProps = Platform.OS === 'web' ? {
     onMouseEnter: () => setIsHovered(true),
@@ -179,57 +131,24 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
       style={[styles.desktopRow, isHovered && styles.desktopRowHovered]}
       {...webHoverProps}
     >
-      {/* Teacher avatars — fixed-width column reserving space for 3 per row.
-          Within a row avatars overlap (stacked look); when there are more
-          than 3 teachers, additional rows of up-to-3 wrap below. The fixed
-          column width keeps every event title aligned across rows regardless
-          of how many teachers each event has. */}
+      {/* Round picture of the lead teacher, as large as the Personal Library's group pictures. The
+          other teachers are named in the line under the title. */}
       <View style={styles.desktopAvatarGroup}>
-        {teachers.length > 0 ? (
-          (() => {
-            const rows = chunkInto(teachers, 3);
-            return rows.map((row, rowIdx) => (
-              <View
-                key={rowIdx}
-                style={[
-                  styles.desktopAvatarRow,
-                  rowIdx > 0 && { marginTop: -8 },
-                  // First row stays on top; subsequent rows tuck under it,
-                  // so the principal teachers (always row 0) remain the most
-                  // visible.
-                  { zIndex: rows.length - rowIdx },
-                ]}
-              >
-                {row.map((teacher, i, arr) => (
-                <View
-                  key={teacher.abbreviation || i}
-                  style={[
-                    styles.desktopAvatarWrapper,
-                    i > 0 && { marginLeft: -8 },
-                    { zIndex: arr.length - i },
-                  ]}
-                >
-                  {(teacher.avatarUrl || teacher.photoUrl) ? (
-                    <Image
-                      source={{ uri: (teacher.avatarUrl || teacher.photoUrl)!, cacheKey: teacher.avatarUpdatedAt ? `teacher-avatar-${teacher.abbreviation}-${teacher.avatarUpdatedAt}` : undefined }}
-                      style={styles.desktopAvatarImg}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
-                      <Text style={styles.desktopAvatarFallbackText}>
-                        {(teacher.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-            ));
-          })()
+        {leadAvatar ? (
+          <Image
+            source={{ uri: leadAvatar, cacheKey: leadTeacher?.avatarUpdatedAt ? `teacher-avatar-${leadTeacher.abbreviation}-${leadTeacher.avatarUpdatedAt}` : undefined }}
+            style={styles.desktopAvatarImg}
+            contentFit="cover"
+          />
         ) : (
           <View style={[styles.desktopAvatarImg, styles.retreatAvatarFallback]}>
-            <Ionicons name="people-outline" size={18} color={colors.gray[400]} />
+            {leadTeacher?.name ? (
+              <Text style={styles.desktopAvatarFallbackText}>
+                {leadTeacher.name.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
+              </Text>
+            ) : (
+              <Ionicons name="people-outline" size={28} color={colors.gray[400]} />
+            )}
           </View>
         )}
       </View>
@@ -247,7 +166,6 @@ function DesktopRetreatRow({ retreat, onPress, isDownloaded, language, groupName
         {retreat.status === 'forthcoming' && <ForthcomingBadge />}
         {isDownloaded && <OfflineBadge />}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.gray[400]} />
     </ListRowPressable>
   );
 }
@@ -429,14 +347,6 @@ export default function GroupDetailScreen() {
     (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   );
 
-  const retreatsByYear = sortedRetreats.reduce((acc, retreat) => {
-    const year = retreat.year || new Date(retreat.startDate).getFullYear();
-    if (!acc[year]) acc[year] = [];
-    acc[year].push(retreat);
-    return acc;
-  }, {} as Record<number, Gathering[]>);
-
-  const years = Object.keys(retreatsByYear).map(Number).sort((a, b) => b - a);
   const groupName = getTranslatedName(groupData, language);
   const hasHero = !!groupHeroSrc;
 
@@ -505,45 +415,33 @@ export default function GroupDetailScreen() {
             </View>
           </View>
 
-          {/* Red rule opens the list; thin dark lines separate the rows. */}
-          {!isDesktop && <SectionRule />}
+          {/* Light red rule opens the list; light black lines separate the rows. No year headers:
+              each row's date carries its year, so the rows are evenly spaced. */}
+          <SectionRule contained={isDesktop} />
 
-          {/* Retreats grouped by year */}
-          {years.map(year => (
-            <View key={year}>
-              <View style={[styles.yearHeader, isDesktop ? styles.desktopYearHeader : styles.indented]}>
-                <Text style={[styles.yearHeaderText, isDesktop && styles.desktopYearHeaderText]}>{year}</Text>
-              </View>
-
-              {isDesktop ? (
-                <View style={styles.desktopListContainer}>
-                  {retreatsByYear[year].map(retreat => (
-                    <DesktopRetreatRow
-                      key={retreat.id}
-                      retreat={retreat}
-                      onPress={() => handleRetreatPress(retreat.id)}
-                      isDownloaded={downloadedRetreatIds.has(retreat.id)}
-                      t={t}
-                      language={language}
-                      groupNameForStrip={groupNameForStrip}
-                    />
-                  ))}
-                </View>
-              ) : (
-                retreatsByYear[year].map(retreat => (
-                  <RetreatCard
-                    key={retreat.id}
-                    retreat={retreat}
-                    onPress={() => handleRetreatPress(retreat.id)}
-                    isDownloaded={downloadedRetreatIds.has(retreat.id)}
-                    t={t}
-                    language={language}
-                    groupNameForStrip={groupNameForStrip}
-                  />
-                ))
-              )}
-            </View>
-          ))}
+          {sortedRetreats.map(retreat =>
+            isDesktop ? (
+              <DesktopRetreatRow
+                key={retreat.id}
+                retreat={retreat}
+                onPress={() => handleRetreatPress(retreat.id)}
+                isDownloaded={downloadedRetreatIds.has(retreat.id)}
+                t={t}
+                language={language}
+                groupNameForStrip={groupNameForStrip}
+              />
+            ) : (
+              <RetreatCard
+                key={retreat.id}
+                retreat={retreat}
+                onPress={() => handleRetreatPress(retreat.id)}
+                isDownloaded={downloadedRetreatIds.has(retreat.id)}
+                t={t}
+                language={language}
+                groupNameForStrip={groupNameForStrip}
+              />
+            ),
+          )}
         </Animated.ScrollView>
 
         {/* Floating back button — only when hero is shown, sits over the image */}
@@ -610,28 +508,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray[500],
     fontWeight: '500',
-  },
-  yearHeader: {
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  desktopYearHeader: {
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  yearHeaderText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.gray[500],
-    textTransform: 'uppercase',
-    letterSpacing: 1.0,
-  },
-  desktopYearHeaderText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.gray[500],
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   emptyState: {
     flex: 1,
@@ -702,52 +578,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
-  desktopListContainer: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    overflow: 'visible',
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-    marginBottom: 8,
-  },
   desktopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    paddingVertical: 14,
+    borderBottomWidth: SUBDIVISION_THICKNESS,
+    borderBottomColor: SUBDIVISION_COLOR,
   },
   desktopRowHovered: {
     backgroundColor: '#fafafa',
   },
+  // The lead teacher's round picture, the size of the Personal Library's group pictures.
   desktopAvatarGroup: {
-    // Fixed width sized to fit 3 stacked avatars (44px each with white
-    // border, overlapping by 8px → 44 + 36 + 36 = 116). Always reserves
-    // this space so titles align across rows regardless of teacher count.
-    // Vertical row stacking is handled by negative marginTop on rows after
-    // the first, so no `gap` here.
-    width: 116,
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    marginRight: 20,
-  },
-  desktopAvatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  desktopAvatarWrapper: {
-    borderWidth: 2,
-    borderColor: colors.white,
-    borderRadius: 22,
+    marginRight: 14,
   },
   desktopAvatarImg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: LIST_AVATAR_SIZE,
+    height: LIST_AVATAR_SIZE,
+    borderRadius: LIST_AVATAR_SIZE / 2,
   },
   desktopAvatarFallbackText: {
-    fontSize: 10,
+    fontSize: 22,
     fontWeight: '600',
     color: colors.gray[600],
   },
