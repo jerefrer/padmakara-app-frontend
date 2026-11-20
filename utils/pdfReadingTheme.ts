@@ -72,3 +72,33 @@ export function readingThemeCss(): string {
     .filter(Boolean)
     .join('\n');
 }
+
+/** A full-page layer laid over the native PDF view; its blend mode recolours what is below. */
+export interface NativeThemeLayer {
+  color: string;
+  blendMode: 'multiply' | 'difference' | 'screen';
+}
+
+/**
+ * Layers that recolour the native PDF view (iOS and Android), bottom to top.
+ * The native renderers draw the pages themselves, so there is no CSS filter as
+ * on the web; blend-mode layers over the view do the same job.
+ * - sepia: multiply by the paper colour; white turns to the sepia paper, ink stays dark.
+ * - night: a negative (difference with white), toned down a little (multiply)
+ *   and lifted to the night paper colour (screen). Unlike the web filter this
+ *   cannot turn the hue back, so Padmakara red shows as cyan-ish.
+ */
+export function nativeThemeLayers(theme: ReadingTheme): NativeThemeLayer[] {
+  switch (theme) {
+    case 'sepia':
+      return [{ color: colors.reader.sepiaPaper, blendMode: 'multiply' }];
+    case 'night':
+      return [
+        { color: '#ffffff', blendMode: 'difference' },
+        { color: '#e6e6e6', blendMode: 'multiply' },
+        { color: colors.reader.nightPaper, blendMode: 'screen' },
+      ];
+    default:
+      return [];
+  }
+}
