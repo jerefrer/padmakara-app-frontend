@@ -120,7 +120,7 @@ export default function PublicationsScreen() {
   }
   // Reader mode while a publication is open: a tap on the page hides the
   // header, banner, tab bar and mini player; the phone may turn sideways.
-  const { barsHidden, toggleBars } = useReaderBars(!!viewingPdf);
+  const { barsHidden, toggleBars } = useReaderBars(!!viewingPdf, { fullWindow: true });
   useUnlockedOrientation(!!viewingPdf);
 
   // Load publications — cache-first; spinner only on cold load (nothing yet displayed).
@@ -599,6 +599,8 @@ export default function PublicationsScreen() {
                 reader.reportPage(page);
               }}
               onSingleTap={toggleBars}
+              fullWindow
+              barsHidden={barsHidden}
               onOutline={setOutline}
               contentInsetTop={readerBarHeight}
               readingTheme={readingTheme}

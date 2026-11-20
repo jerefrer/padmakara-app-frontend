@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,9 +22,9 @@ interface ReaderTopBarProps {
  * native PDF view in an animation crashed PDFKit on iOS 27 (its page
  * analysis threw while the visible pages changed under it), and the page no
  * longer jumps when the bar comes and goes. Pass the height it reports to the
- * document's contentInsetTop so the document opens below the bar. The web has
- * no reader mode, so there the bar stays in the layout above the document.
- * Render it before the document.
+ * document's contentInsetTop so the document opens below the bar. The web
+ * reader works the same way: the bar is laid over the page and the viewer
+ * leaves room for it. Render it before the document.
  */
 export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, onHeightChange }: ReaderTopBarProps) {
   const insets = useSafeAreaInsets();
@@ -42,6 +42,18 @@ export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, o
     reported.current = true;
     onHeightChange?.(measured.current);
   }, [hidden, onHeightChange]);
+
+  // On the web a faded bar is still in the tab order: take it out of the
+  // layout's reach once the fade is over, and back at once when it shows.
+  const [gone, setGone] = useState(hidden);
+  useEffect(() => {
+    if (!hidden) {
+      setGone(false);
+      return;
+    }
+    const timer = setTimeout(() => setGone(true), FADE_MS);
+    return () => clearTimeout(timer);
+  }, [hidden]);
 
   const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -62,7 +74,7 @@ export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, o
       pointerEvents={hidden ? 'none' : 'box-none'}
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
-      style={[styles.bar, clearStatusBar && { paddingTop: insets.top }, style, fade]}
+      style={[styles.bar, clearStatusBar && { paddingTop: insets.top }, style, fade, Platform.OS === 'web' && gone && styles.gone]}
       onLayout={onHeightChange ? (e) => handleLayout(e.nativeEvent.layout.height) : undefined}
     >
       {children}
@@ -71,17 +83,18 @@ export function ReaderTopBar({ hidden, children, clearStatusBar = true, style, o
 }
 
 const styles = StyleSheet.create({
-  bar:
-    Platform.OS === 'web'
-      ? {}
-      : {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 10,
-          // A soft shadow under the bar lifts it off the white page. boxShadow
-          // rather than elevation: same blur on iOS and Android (see barShadow).
-          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.14)',
-        },
+  bar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    // A soft shadow under the bar lifts it off the white page. boxShadow
+    // rather than elevation: same blur on iOS and Android (see barShadow).
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.14)',
+  },
+  gone: {
+    // @ts-ignore - web only
+    visibility: 'hidden',
+  },
 });
