@@ -59,7 +59,7 @@ describe('Sidebar (desktop)', () => {
 
   it('should draw a hairline under every item except the last one at the bottom', () => {
     const { getAllByTestId } = render(<Sidebar />);
-    // What's New, Teachings & Talks, Personal Library, Publications, My Bookmarks; not Search.
+    // What's New, Teachings & Talks, Personal Library, Publications, Search; not My Bookmarks.
     expect(getAllByTestId('sidebar-hairline')).toHaveLength(5);
   });
 
@@ -69,7 +69,7 @@ describe('Sidebar (desktop)', () => {
     expect(getByLabelText('My Bookmarks')).toBeTruthy();
   });
 
-  it('should list My Bookmarks right below Publications and keep Search last', () => {
+  it('should list Search right below Publications and keep My Bookmarks last', () => {
     const { getAllByRole } = render(<Sidebar />);
     const labels = getAllByRole('link').map((el) => el.props.accessibilityLabel);
     expect(labels).toEqual([
@@ -77,8 +77,8 @@ describe('Sidebar (desktop)', () => {
       'Teachings & Talks',
       'Personal Library',
       'Publications',
-      'My Bookmarks',
       'Search',
+      'My Bookmarks',
     ]);
   });
 });
