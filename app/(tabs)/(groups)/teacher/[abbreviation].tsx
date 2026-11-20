@@ -138,13 +138,11 @@ export default function TeacherDetailScreen() {
     },
   });
 
+  // Keep the hero at a constant height and only fade its opacity. Animating `height` made
+  // every frame relay out the scroll tree (sub-pixel gray strip on the right edge, hero
+  // resizing visibly) and, with the content also scrolling, moved everything below at ~2x
+  // finger speed (see the event page, commit d59e366e).
   const heroStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      scrollY.value,
-      [0, HERO_COLLAPSE_END],
-      [HERO_HEIGHT, 0],
-      Extrapolation.CLAMP,
-    ),
     opacity: interpolate(
       scrollY.value,
       [0, HERO_COLLAPSE_END * 0.4, HERO_COLLAPSE_END],
@@ -367,6 +365,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
+    height: HERO_HEIGHT,
     overflow: 'hidden',
     backgroundColor: colors.gray200,
   },

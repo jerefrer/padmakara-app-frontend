@@ -8,8 +8,8 @@ interface Options {
   focalX: number;
   focalY: number;
   /**
-   * Use this height instead of the measured one. For collapsing heroes whose
-   * container shrinks on scroll: the focal point stays computed for the full frame.
+   * Use this height instead of the measured one. For heroes with a fixed height that fade on
+   * scroll: the focal point is computed for that frame before the first layout pass.
    */
   frameHeight?: number;
   /**
