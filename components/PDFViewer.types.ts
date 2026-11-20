@@ -11,7 +11,7 @@ export interface PDFViewerProps {
    * Screens with their own download button in the header turn it off.
    */
   showDownloadButton?: boolean;
-  /** A tap on the page that did not follow a link (iOS and Android). */
+  /** A tap on the page that did not follow a link or select text. */
   onSingleTap?: () => void;
   /** The document's table of contents, once loaded; empty when it has none (iOS and Android). */
   onOutline?: (items: PdfOutlineItem[]) => void;
@@ -31,6 +31,14 @@ export interface PDFViewerProps {
    * has its own toolbar control and keeps its own setting.
    */
   readingTheme?: ReadingTheme;
+  /**
+   * Web: the viewer fills the whole window (a publication or transcript
+   * reader). Its toolbar is laid over the page below the screen's bar,
+   * `contentInsetTop` high, and fullscreen takes the whole page.
+   */
+  fullWindow?: boolean;
+  /** Web, full window: the screen's bars are hidden, so the toolbar fades out too. */
+  barsHidden?: boolean;
 }
 
 export interface PDFViewerHandle {

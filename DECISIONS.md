@@ -184,3 +184,12 @@ mocked, not by a device run.
 spread in two-page mode.
 
 ---
+
+## 2026-11-20 — Document readers take the whole window on the web and the iPad
+**Chosen:** A reader (publication, transcript) tells the desktop shell it is open (`setReaderFullWindow`, from `useReaderBars(active, { fullWindow: true })`); the shell hides, without unmounting, the sidebar, right panel, edge shadows and player bar. On the web the reader's top bar is laid over the page like on the phone, the viewer's toolbar sits right under it (both fade together), and a click on the page that is not a link, a selection or a drag toggles them. Fullscreen takes the whole page (`documentElement`) and its button is hidden where the Fullscreen API is missing.
+**Alternatives:** A `position: fixed` overlay above the shell (rejected: the sidebar and its tab stops stay in the page, and iPad needs a different fix); reflowing the page when the bars hide (rejected: the text jumps, fit-page rescales).
+**Why:** André asked for the phone's reader on desktop and iPad (2026-11-20). The viewer keeps a fixed room for the bars when they are hidden, as the phone does, so the page never moves on a tap.
+**Trade-offs:** The player bar is not reachable while a document is open. When the bars are hidden the room above the first page stays blank until scrolled away. The web has no page-number badge while the bars are hidden.
+**Revisit if:** André wants the audio controls kept in view while reading, or the two top rows merged into one banner.
+
+---

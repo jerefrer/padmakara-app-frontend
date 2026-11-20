@@ -13,10 +13,11 @@ export type { PDFViewerHandle, PDFViewerProps } from './PDFViewer.types';
 // evaluates in the browser. A chunk missing after a deploy reloads the page once.
 const LazyImpl = lazyWithReload(() => import('./PDFViewerWebImpl'));
 
-// The web viewer has its own toolbar (layouts, fit, fullscreen) and no tap
-// to hide the bars; the outline, goToPage and the initial page are wired.
+// The web viewer has its own toolbar (layouts, fit, theme, fullscreen). A click
+// on the page calls onSingleTap, so a reader screen can hide its bars as on a
+// phone; the outline, goToPage and the initial page are wired.
 export const PDFViewer = forwardRef<PDFViewerHandle, PDFViewerProps>(function PDFViewer(
-  { onSingleTap: _onSingleTap, ...props },
+  props,
   ref
 ) {
   const { t } = useLanguage();

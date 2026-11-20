@@ -62,7 +62,7 @@ export default function TranscriptViewerScreen() {
   const currentPage = pageInfo?.current ?? openOnPage ?? 1;
   // Reader mode: a tap on the page hides the header, tab bar and mini player;
   // the phone may turn sideways while the transcript is open.
-  const { barsHidden, toggleBars } = useReaderBars(!!transcriptUrl);
+  const { barsHidden, toggleBars } = useReaderBars(!!transcriptUrl, { fullWindow: true });
   useUnlockedOrientation(true);
 
   useEffect(() => {
@@ -298,6 +298,8 @@ export default function TranscriptViewerScreen() {
             initialPage={openOnPage}
             onPageChange={handlePageChange}
             onSingleTap={toggleBars}
+            fullWindow
+            barsHidden={barsHidden}
             onOutline={setOutline}
             contentInsetTop={readerBarHeight}
             readingTheme={readingTheme}

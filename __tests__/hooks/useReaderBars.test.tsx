@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useWindowDimensions } from 'react-native';
 
 import { useReaderBars } from '@/hooks/useReaderBars';
-import { useReaderImmersive } from '@/utils/readerImmersive';
+import { useReaderFullWindow, useReaderImmersive } from '@/utils/readerImmersive';
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   __esModule: true,
@@ -104,5 +104,26 @@ describe('useReaderBars', () => {
     rerender({});
 
     expect(result.current.immersive).toBe(true);
+  });
+});
+
+describe('useReaderBars full window', () => {
+  it('should tell the shell a full-window reader is open only while it is', () => {
+    const { result, rerender } = renderHook(
+      ({ active }: { active: boolean }) => ({
+        bars: useReaderBars(active, { fullWindow: true }),
+        fullWindow: useReaderFullWindow(),
+      }),
+      { initialProps: { active: true } },
+    );
+    expect(result.current.fullWindow).toBe(true);
+
+    rerender({ active: false });
+    expect(result.current.fullWindow).toBe(false);
+  });
+
+  it('should leave the shell alone for a reader that is not full window', () => {
+    const { result } = renderHook(() => ({ bars: useReaderBars(true), fullWindow: useReaderFullWindow() }));
+    expect(result.current.fullWindow).toBe(false);
   });
 });

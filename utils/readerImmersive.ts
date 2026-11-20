@@ -21,3 +21,27 @@ function subscribe(listener: () => void): () => void {
 export function useReaderImmersive(): boolean {
   return useSyncExternalStore(subscribe, () => immersive, () => false);
 }
+
+/**
+ * Whether a document reader that takes the whole window is open (publications
+ * and transcripts). The desktop shell reads it to drop its sidebar, right
+ * panel and player bar while the document is on screen, on the web and on an
+ * iPad. Unlike `immersive` it does not depend on the reader's bars.
+ */
+let fullWindow = false;
+const fullWindowListeners = new Set<() => void>();
+
+export function setReaderFullWindow(value: boolean): void {
+  if (fullWindow === value) return;
+  fullWindow = value;
+  fullWindowListeners.forEach((listener) => listener());
+}
+
+function subscribeFullWindow(listener: () => void): () => void {
+  fullWindowListeners.add(listener);
+  return () => fullWindowListeners.delete(listener);
+}
+
+export function useReaderFullWindow(): boolean {
+  return useSyncExternalStore(subscribeFullWindow, () => fullWindow, () => false);
+}

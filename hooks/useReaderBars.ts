@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 
-import { setReaderImmersive } from '@/utils/readerImmersive';
+import { setReaderFullWindow, setReaderImmersive } from '@/utils/readerImmersive';
 
 /** Below this short side a sideways window is a phone, where the bars eat the page. */
 const PHONE_SHORT_SIDE = 600;
@@ -14,7 +14,11 @@ const PHONE_SHORT_SIDE = 600;
  * Closing the document or leaving the screen brings everything back. The
  * bars fade over the page (see ReaderTopBar) rather than resizing it.
  */
-export function useReaderBars(active: boolean): {
+export function useReaderBars(
+  active: boolean,
+  /** The reader takes the whole window: the desktop shell drops its sidebars while it is open. */
+  options: { fullWindow?: boolean } = {},
+): {
   barsHidden: boolean;
   toggleBars: () => void;
   /** A phone held sideways, where the bars hide on their own. */
@@ -44,6 +48,13 @@ export function useReaderBars(active: boolean): {
     setReaderImmersive(barsHidden);
     return () => setReaderImmersive(false);
   }, [active, barsHidden]);
+
+  const fullWindow = !!options.fullWindow;
+  useEffect(() => {
+    if (!active || !fullWindow) return;
+    setReaderFullWindow(true);
+    return () => setReaderFullWindow(false);
+  }, [active, fullWindow]);
 
   const toggleBars = useCallback(() => {
     if (!active) return;

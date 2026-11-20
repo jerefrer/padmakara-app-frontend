@@ -14,6 +14,8 @@ import { colors } from '@/constants/colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { installReadableStreamAsyncIterator } from '@/utils/readableStreamAsyncIterator';
 import { downloadFileWeb } from '@/utils/downloadFileWeb';
+import { canFullscreen, enterFullscreen, isFullscreen as documentIsFullscreen, leaveFullscreen } from '@/utils/fullscreen';
+import { isPageTap } from '@/utils/readerTap';
 import { resolvePdfJsOutline, type PdfOutlineItem } from '@/utils/pdfOutline';
 import { resumeTarget } from '@/utils/readerState';
 import type { PDFViewerHandle } from './PDFViewer.types';
@@ -87,6 +89,18 @@ interface PDFViewerProps {
   initialPage?: number | null;
   /** Receives goToPage (the PDFViewer ref, passed through the lazy boundary). */
   handleRef?: React.Ref<PDFViewerHandle>;
+  /** A click on the page that did not follow a link or select text. */
+  onSingleTap?: () => void;
+  /**
+   * The viewer sits in a reader that takes the whole window: the toolbar is
+   * laid over the page (below the screen's own bar, `contentInsetTop` high)
+   * instead of taking room above it, and fullscreen takes the whole page.
+   */
+  fullWindow?: boolean;
+  /** Room above the toolbar for the screen's own bar (full window only). */
+  contentInsetTop?: number;
+  /** The reader's bars are hidden: the toolbar fades out with them (full window only). */
+  barsHidden?: boolean;
 }
 
 /** External links open in a new tab that cannot reach back into the app. */
@@ -181,6 +195,10 @@ export default function PDFViewerWebImpl({
   onOutline,
   initialPage,
   handleRef,
+  onSingleTap,
+  fullWindow = false,
+  contentInsetTop = 0,
+  barsHidden = false,
 }: PDFViewerProps) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -220,23 +238,59 @@ export default function PDFViewerWebImpl({
 
   // Fullscreen listener
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    const handler = () => setIsFullscreen(documentIsFullscreen());
     document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
+    document.addEventListener('webkitfullscreenchange', handler);
+    return () => {
+      document.removeEventListener('fullscreenchange', handler);
+      document.removeEventListener('webkitfullscreenchange', handler);
+    };
   }, []);
 
+  // Not every browser can: Safari on an iPhone has no Fullscreen API, and the
+  // button would do nothing. Decided on the client, after the first render.
+  const [fullscreenSupported, setFullscreenSupported] = useState(false);
+  useEffect(() => setFullscreenSupported(canFullscreen()), []);
+
+  // A reader that takes the whole window goes fullscreen as a whole, bars
+  // included; a viewer embedded in a page fullscreens on its own.
   const toggleFullscreen = useCallback(async () => {
-    if (!containerRef.current) return;
     try {
-      if (!document.fullscreenElement) {
-        await containerRef.current.requestFullscreen();
+      if (!documentIsFullscreen()) {
+        await enterFullscreen(fullWindow ? null : (containerRef.current as unknown as Element | null));
       } else {
-        await document.exitFullscreen();
+        await leaveFullscreen();
       }
     } catch (err) {
       console.error('Fullscreen error:', err);
     }
+  }, [fullWindow]);
+
+  // Overlay layout: the toolbar's own height, so the pages open below it.
+  const [toolbarHeight, setToolbarHeight] = useState(0);
+  const topInset = fullWindow ? contentInsetTop + toolbarHeight : 0;
+
+  // A click on the page toggles the reader's bars. The press position tells a
+  // tap from a drag that panned the page; links and selections are left alone.
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const onPagePointerDown = useCallback((e: React.PointerEvent) => {
+    pressStart.current = { x: e.clientX, y: e.clientY };
   }, []);
+  const onPageClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onSingleTap) return;
+      const tap = isPageTap({
+        target: e.target as Element | null,
+        down: pressStart.current,
+        up: { x: e.clientX, y: e.clientY },
+        selectedText: window.getSelection()?.toString() ?? '',
+        modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey,
+      });
+      pressStart.current = null;
+      if (tap) onSingleTap();
+    },
+    [onSingleTap],
+  );
 
   const downloadName = useMemo(() => {
     if (title) return title.endsWith('.pdf') ? title : `${title}.pdf`;
@@ -319,9 +373,9 @@ export default function PDFViewerWebImpl({
   const viewport = useMemo(
     () => ({
       width: Math.max(0, scrollerSize.width - SIDE_PADDING * 2),
-      height: Math.max(0, scrollerSize.height - PAGE_GAP * 2),
+      height: Math.max(0, scrollerSize.height - PAGE_GAP * 2 - topInset),
     }),
-    [scrollerSize],
+    [scrollerSize, topInset],
   );
 
   const scale = resolveScale(zoom, referenceSpread, viewport, PAGE_GAP);
@@ -713,7 +767,17 @@ export default function PDFViewerWebImpl({
     // @ts-ignore - DOM ref on View for fullscreen target
     <View style={styles.container} ref={containerRef}>
       {/* Custom toolbar */}
-      <View style={styles.toolbar}>
+      <View
+        testID="pdf-web-toolbar"
+        style={[
+          styles.toolbar,
+          fullWindow && styles.toolbarOverlay,
+          fullWindow && { top: contentInsetTop },
+          fullWindow && barsHidden && styles.toolbarHidden,
+        ]}
+        pointerEvents={fullWindow && barsHidden ? 'none' : 'auto'}
+        onLayout={fullWindow ? (e) => setToolbarHeight(e.nativeEvent.layout.height) : undefined}
+      >
         <View style={styles.toolbarGroup}>
           <ToolbarButton
             label={t('pdfViewer.continuous') || 'Continuous scroll'}
@@ -814,16 +878,18 @@ export default function PDFViewerWebImpl({
               {ionIcon('download-outline')}
             </ToolbarButton>
           ) : null}
-          <ToolbarButton
-            label={
-              isFullscreen
-                ? t('pdfViewer.exitFullscreen') || 'Exit fullscreen'
-                : t('pdfViewer.enterFullscreen') || 'Enter fullscreen'
-            }
-            onPress={toggleFullscreen}
-          >
-            {ionIcon(isFullscreen ? 'contract-outline' : 'expand-outline')}
-          </ToolbarButton>
+          {fullscreenSupported ? (
+            <ToolbarButton
+              label={
+                isFullscreen
+                  ? t('pdfViewer.exitFullscreen') || 'Exit fullscreen'
+                  : t('pdfViewer.enterFullscreen') || 'Enter fullscreen'
+              }
+              onPress={toggleFullscreen}
+            >
+              {ionIcon(isFullscreen ? 'contract-outline' : 'expand-outline')}
+            </ToolbarButton>
+          ) : null}
         </View>
       </View>
 
@@ -832,7 +898,13 @@ export default function PDFViewerWebImpl({
       {/* @ts-ignore - DOM ref */}
       <div
         ref={scrollRef}
-        style={{ ...scrollerStyle, backgroundColor: surfaces.ground }}
+        style={{
+          ...scrollerStyle,
+          backgroundColor: surfaces.ground,
+          paddingTop: PAGE_GAP + topInset,
+        }}
+        onPointerDown={onPagePointerDown}
+        onClick={onPageClick}
         {...{ [READING_THEME_ATTRIBUTE]: readingTheme }}
       >
         {error ? (
@@ -960,6 +1032,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.gray[200],
     gap: 8,
+  },
+  toolbarOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 9,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.14)',
+    // @ts-ignore - web only
+    transition: 'opacity 200ms',
+  },
+  toolbarHidden: {
+    opacity: 0,
+    // @ts-ignore - web only: out of the tab order once the fade is over
+    visibility: 'hidden',
+    // @ts-ignore - web only
+    transition: 'opacity 200ms, visibility 0s linear 200ms',
   },
   toolbarGroup: {
     flexDirection: 'row',
