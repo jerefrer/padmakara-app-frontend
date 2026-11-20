@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { EventRow } from './EventRow';
-import { DESKTOP_LINE_RIGHT_GAP, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_LINE_RIGHT_GAP, RULE_RIGHT_INSET, SUBDIVISION_COLOR, TEXT_GUTTER } from '@/constants/layout';
 
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
@@ -23,15 +23,15 @@ describe('EventRow', () => {
     expect(ancestors.some((a) => a === title.parent)).toBe(false);
   });
 
-  it('should draw its separator in the light black from gutter to gutter on a phone', () => {
+  it('should draw its separator in the light black from from the left screen edge to the right gutter on a phone', () => {
     const { getByTestId } = render(
       <EventRow event={{ ...event, status: 'published' }} title="T" meta="" onPress={() => {}} testID="row" />,
     );
     const style = StyleSheet.flatten(getByTestId('row').props.style);
     expect(style.borderBottomColor).toBe(SUBDIVISION_COLOR);
-    expect(style.marginLeft).toBe(TEXT_GUTTER);
-    expect(style.marginRight).toBe(TEXT_GUTTER);
-    expect(RULE_LEFT_INSET).toBe(RULE_RIGHT_INSET);
+    expect(style.marginLeft ?? 0).toBe(0);
+    expect(style.paddingLeft).toBe(TEXT_GUTTER);
+    expect(style.marginRight).toBe(RULE_RIGHT_INSET);
   });
 
   it('should stretch its separator to the column edge on desktop while keeping the text inset', () => {

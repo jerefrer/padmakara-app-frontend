@@ -25,7 +25,7 @@ import { pickFrameOverride } from '@/utils/heroFrames';
 import { useEventBookmarks } from '@/hooks/useEventBookmarks';
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { BackButton } from '@/components/ui/BackButton';
-import { desktopLineBleed, desktopRowBleed, RULE_LEFT_INSET, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
+import { desktopLineBleed, desktopRowBleed, RULE_RIGHT_INSET, SUBDIVISION_COLOR, SUBDIVISION_THICKNESS, TEXT_GUTTER } from '@/constants/layout';
 import { SectionRule } from '@/components/ui/SectionRule';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { getRowPressDelayProps } from '@/components/ui/ListRowPressable';
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   // The separator runs from the text's left edge to the right gutter.
   eventCard: {
     paddingVertical: 16,
-    marginLeft: RULE_LEFT_INSET,
+    paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
     borderBottomWidth: SUBDIVISION_THICKNESS,
     borderBottomColor: SUBDIVISION_COLOR,

@@ -9,7 +9,6 @@ import { NowPlayingBadge } from "@/components/NowPlayingBadge";
 import { AVENIR_FAMILY } from "@/constants/avenirFont";
 import {
   desktopRowBleed,
-  RULE_LEFT_INSET,
   RULE_RIGHT_INSET,
   SUBDIVISION_COLOR,
   SUBDIVISION_THICKNESS,
@@ -166,7 +165,7 @@ const styles = StyleSheet.create({
   },
   // Phone: the separator spans the text column, gutter to gutter.
   rowToInset: {
-    marginLeft: RULE_LEFT_INSET,
+    paddingLeft: TEXT_GUTTER,
     marginRight: RULE_RIGHT_INSET,
   },
   // Picture and text side by side; the status badge, when there is one, hangs under the picture.

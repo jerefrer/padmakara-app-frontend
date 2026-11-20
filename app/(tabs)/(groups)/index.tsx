@@ -30,7 +30,7 @@ import { useFocalCover } from "@/hooks/useFocalCover";
 import { homeFrameKey, pickFrameOverride } from "@/utils/heroFrames";
 import { AVENIR_FAMILY } from '@/constants/avenirFont';
 import { EventRow, eventHasAudio } from '@/components/EventRow';
-import { DESKTOP_SQUARE_MAX, desktopLineBleed, hairlineThickness, RULE_COLOR, RULE_LEFT_INSET, RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
+import { DESKTOP_SQUARE_MAX, desktopLineBleed, hairlineThickness, RULE_COLOR, RULE_RIGHT_INSET, TEXT_GUTTER } from '@/constants/layout';
 import { firstScreenDrawn } from '@/utils/splashHandoff';
 import { useHomePasskeyInvite } from '@/hooks/useHomePasskeyInvite';
 import { useRetryWhileFailed } from '@/hooks/useRetryWhileFailed';
@@ -607,7 +607,6 @@ const styles = StyleSheet.create({
   },
   // A red rule that runs from the text's left edge to the right gutter.
   ruleToGutter: {
-    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
   },
   membershipInvite: {
@@ -635,7 +634,6 @@ const styles = StyleSheet.create({
   },
   // Lighter than the section rules (André): the hairline weight of the row subdivisions, in light red.
   categoryRule: {
-    marginLeft: RULE_LEFT_INSET,
     marginRight: RULE_RIGHT_INSET,
     backgroundColor: RULE_COLOR,
   },
