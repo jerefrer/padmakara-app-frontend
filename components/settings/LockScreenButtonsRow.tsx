@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { membershipColors as c } from '@/components/membership/theme';
+import { pageStyles } from '@/components/membership/pageStyles';
 import {
   DEFAULT_LOCK_SCREEN_BUTTONS,
   getLockScreenButtons,
@@ -10,11 +11,13 @@ import {
   subscribeToLockScreenButtons,
   type LockScreenButtons,
 } from '@/services/lockScreenButtonsPreference';
-import { SettingsRow } from './ui';
+import { Rows, SettingsRow } from './ui';
 
 /**
  * iOS only: the lock screen has room for two buttons beside play and pause, so the listener
  * picks between 15 seconds back / forward and previous / next track. (Android shows all four.)
+ * Drawn like the passkeys block: a caption, one line of explanation, then the choices with a
+ * check on the current one.
  */
 export function LockScreenButtonsRow() {
   const { t } = useLanguage();
@@ -41,21 +44,30 @@ export function LockScreenButtonsRow() {
   ];
 
   return (
-    <>
-      <SettingsRow
-        testID="settings-lock-screen-buttons"
-        icon="play-skip-forward-outline"
-        title={t('lockScreen.buttons') || 'Lock screen buttons'}
-      />
-      {options.map((option) => (
-        <SettingsRow
-          key={option.value}
-          testID={`lock-screen-buttons-${option.value}`}
-          title={option.label}
-          onPress={() => void setLockScreenButtons(option.value)}
-          right={value === option.value ? <Ionicons name="checkmark" size={20} color={c.burgundy[500]} /> : <></>}
-        />
-      ))}
-    </>
+    <View testID="settings-lock-screen-buttons" style={styles.block}>
+      <Text style={styles.heading} accessibilityRole="header">
+        {t('lockScreen.buttons') || 'Lock screen buttons'}
+      </Text>
+      <Text style={styles.explanation}>
+        {t('lockScreen.buttonsExplanation') || 'Shown on the lock screen while listening.'}
+      </Text>
+      <Rows>
+        {options.map((option) => (
+          <SettingsRow
+            key={option.value}
+            testID={`lock-screen-buttons-${option.value}`}
+            title={option.label}
+            onPress={() => void setLockScreenButtons(option.value)}
+            right={value === option.value ? <Ionicons name="checkmark" size={20} color={c.burgundy[500]} /> : <></>}
+          />
+        ))}
+      </Rows>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  block: { marginTop: 32 },
+  heading: { ...(pageStyles.sectionLabel as object), marginTop: 0, marginBottom: 4 },
+  explanation: { fontSize: 17, lineHeight: 24, color: c.gray[600], marginBottom: 12 },
+});

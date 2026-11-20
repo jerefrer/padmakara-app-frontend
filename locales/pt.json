@@ -891,7 +891,7 @@
     "profile": "Perfil",
     "language": "Idioma",
     "retreats": "Os teus retiros",
-    "video": "Reprodução de vídeo",
+    "video": "Reprodução",
     "contentLanguages": "Gravações e vídeos",
     "storage": "Offline e armazenamento",
     "signIn": "Sessão e segurança",
@@ -954,7 +954,8 @@
     "off": "Desativados",
     "turnOn": "Ativar",
     "settingsHint": "Permite as notificações nas definições do telemóvel.",
-    "buttons": "Botões do ecrã de bloqueio",
+    "buttons": "Botões do ecrã bloqueado",
+    "buttonsExplanation": "Mostrados no ecrã bloqueado enquanto ouves.",
     "buttonsSeconds": "Recuar / avançar 15 segundos",
     "buttonsTracks": "Faixa anterior / seguinte"
   },

@@ -891,7 +891,7 @@
     "profile": "Profile",
     "language": "Language",
     "retreats": "Your retreats",
-    "video": "Video playback",
+    "video": "Playback",
     "contentLanguages": "Recordings and videos",
     "storage": "Offline & storage",
     "signIn": "Sign-in & security",
@@ -955,6 +955,7 @@
     "turnOn": "Turn on",
     "settingsHint": "Allow notifications in your phone's settings.",
     "buttons": "Lock screen buttons",
+    "buttonsExplanation": "Shown on the lock screen while listening.",
     "buttonsSeconds": "15 seconds back / forward",
     "buttonsTracks": "Previous / next track"
   },
