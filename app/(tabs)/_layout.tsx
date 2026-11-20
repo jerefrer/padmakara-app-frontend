@@ -143,6 +143,7 @@ export default function TabLayout() {
           rightSidebar={<RightSidebar variant={rightVariant} />}
           rightSidebarWidth={rightWidth}
           playerBar={<DesktopPlayerBar />}
+          capContent={!isOnFocusedContent}
         >
           <View style={{ flex: 1 }}>
             {tabsElement}
@@ -169,6 +170,7 @@ export default function TabLayout() {
         rightSidebar={<RightSidebar variant={rightVariant} />}
         rightSidebarWidth={rightWidth}
         playerBar={<DesktopPlayerBar />}
+        capContent={!isOnFocusedContent}
       >
         {tabsElement}
       </DesktopShell>

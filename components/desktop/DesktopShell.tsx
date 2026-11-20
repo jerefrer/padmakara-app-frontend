@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDesktopLayout } from '@/hooks/useDesktopLayout';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { colors } from '@/constants/colors';
+import { DESKTOP_CONTENT_MAX } from '@/constants/layout';
 
 /** Width of the soft shadows cast onto the main area and the right panel. */
 export const EDGE_SHADOW_WIDTH = 12;
@@ -24,6 +25,18 @@ function EdgeShadow({ testID, style }: { testID: string; style: object }) {
   );
 }
 
+/**
+ * The central column: at most DESKTOP_CONTENT_MAX wide and centred, white on a light grey
+ * ground. `capped` false (document readers) lets it fill the whole area.
+ */
+function MainColumn({ capped, children }: { capped: boolean; children: ReactNode }) {
+  return (
+    <View testID="main-column" style={[styles.mainColumn, capped && styles.mainColumnCapped]}>
+      {children}
+    </View>
+  );
+}
+
 interface DesktopShellProps {
   sidebar: ReactNode;
   rightSidebar?: ReactNode;
@@ -32,6 +45,8 @@ interface DesktopShellProps {
   rightSidebarWidth?: number;
   children: ReactNode;
   playerBar?: ReactNode;
+  /** Cap the central column at DESKTOP_CONTENT_MAX (default). Document readers turn it off. */
+  capContent?: boolean;
 }
 
 export function DesktopShell({
@@ -40,6 +55,7 @@ export function DesktopShell({
   rightSidebarWidth = 220,
   children,
   playerBar,
+  capContent = true,
 }: DesktopShellProps) {
   const { sidebarWidth, playerBarHeight, showSidebar, showRightRail, isMobile } = useDesktopLayout();
 
@@ -61,6 +77,7 @@ export function DesktopShell({
         showSidebar={showSidebar}
         showRightRail={showRightRail}
         showPlayerBar={!isMobile}
+        capContent={capContent}
       >
         {children}
       </NativeShell>
@@ -108,7 +125,7 @@ export function DesktopShell({
           } as any),
         ]}
       >
-        {children}
+        <MainColumn capped={capContent}>{children}</MainColumn>
       </View>
 
       {rightSidebar && (
@@ -189,6 +206,7 @@ function NativeShell({
   rightSidebarWidth = 220,
   children,
   playerBar,
+  capContent = true,
   sidebarWidth,
   playerBarHeight,
   insets,
@@ -213,7 +231,9 @@ function NativeShell({
         >
           {showSidebar ? sidebar : null}
         </View>
-        <View style={[styles.nativeMain, showSidebar && styles.nativeMainFilled]}>{children}</View>
+        <View style={[styles.nativeMain, showSidebar && styles.nativeMainFilled]}>
+          <MainColumn capped={capContent && showSidebar}>{children}</MainColumn>
+        </View>
         <View
           style={[
             styles.rightSidebarContainer,
@@ -267,7 +287,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   nativeMainFilled: {
+    backgroundColor: colors.cream[200],
+  },
+  mainColumn: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
     backgroundColor: colors.cream[100],
+  },
+  mainColumnCapped: {
+    width: '100%',
+    maxWidth: DESKTOP_CONTENT_MAX,
+    alignSelf: 'center',
   },
   shell: {
     flex: 1,
@@ -285,7 +316,8 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    backgroundColor: colors.cream[100],
+    // Light grey around the capped column (see MainColumn).
+    backgroundColor: colors.cream[200],
   },
   rightSidebarContainer: {
     backgroundColor: colors.burgundy[500],
